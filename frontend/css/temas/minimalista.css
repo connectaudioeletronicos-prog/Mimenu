@@ -1,8 +1,66 @@
-/* Tema Minimalista */
 :root {
-  --cor-primaria: #000000;
-  --cor-secundaria: #333333;
-  --cor-fundo: #ffffff;
-  --cor-texto: #000000;
-  --cor-borda: #eeeeee;
+  --raio-borda: 0px;
+  --raio-borda-pequeno: 0px;
+  --sombra-card: none;
+  --sombra-elevada: 0 4px 20px rgba(0,0,0,0.10);
+}
+
+.topo__banner {
+  border-radius: 0;
+}
+
+.topo__logo {
+  border-radius: 0;
+  border-width: 1px;
+  box-shadow: none;
+}
+
+.secao-titulo,
+.produtos-grupo__titulo {
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  color: var(--cor-texto-claro);
+  border-top: none;
+}
+
+.categoria-card__icone {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--cor-borda);
+}
+
+.categoria-card.ativa .categoria-card__icone {
+  border-color: var(--cor-principal);
+  border-width: 1px;
+}
+
+.produto-card {
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.produto-card__foto {
+  border-radius: 0;
+}
+
+.promocao-card {
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid var(--cor-borda);
+}
+
+.botao-primario {
+  border-radius: 0;
+  letter-spacing: 0.5px;
+}
+
+.modal__caixa {
+  border-radius: 0;
+}
+
+.botao-carrinho {
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid var(--cor-borda);
 }

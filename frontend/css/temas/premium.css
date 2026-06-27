@@ -1,8 +1,97 @@
-/* Tema Premium */
 :root {
-  --cor-primaria: #d4af37;
-  --cor-secundaria: #aa8c2c;
-  --cor-fundo: #1a1a1a;
-  --cor-texto: #ffffff;
-  --cor-borda: #444444;
+  --cor-fundo: #161513;
+  --cor-fundo-alternativo: #1f1d1a;
+  --cor-texto: #f1ecdf;
+  --cor-texto-claro: #b8b2a3;
+  --cor-borda: #34312b;
+  --raio-borda: 6px;
+  --raio-borda-pequeno: 4px;
+  --sombra-card: 0 4px 16px rgba(0,0,0,0.4);
+  --sombra-elevada: 0 16px 45px rgba(0,0,0,0.55);
+}
+
+body {
+  background: var(--cor-fundo);
+}
+
+.topo__banner {
+  border-radius: 0;
+  position: relative;
+}
+
+.topo__logo {
+  border-color: var(--cor-fundo);
+  box-shadow: 0 0 0 1px var(--cor-principal);
+}
+
+.topo__nome {
+  color: var(--cor-principal);
+  font-family: 'Playfair Display', Georgia, serif;
+  letter-spacing: 0.5px;
+}
+
+.secao-titulo,
+.produtos-grupo__titulo {
+  color: var(--cor-principal);
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.produtos-grupo__titulo {
+  border-top-color: var(--cor-borda);
+}
+
+.categoria-card__nome {
+  color: var(--cor-texto);
+}
+
+.categoria-card__icone {
+  background: var(--cor-fundo-alternativo);
+  border: 1px solid var(--cor-borda);
+}
+
+.categoria-card.ativa .categoria-card__icone {
+  border-color: var(--cor-principal);
+}
+
+.produto-card {
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.produto-card__nome {
+  color: var(--cor-texto);
+}
+
+.produto-card__foto {
+  background: var(--cor-fundo-alternativo);
+}
+
+.promocao-card {
+  background: var(--cor-fundo-alternativo);
+  border: 1px solid var(--cor-borda);
+}
+
+.modal__caixa {
+  background: var(--cor-fundo);
+}
+
+.modal__quantidade button {
+  background: var(--cor-fundo-alternativo);
+  border-color: var(--cor-borda);
+  color: var(--cor-texto);
+}
+
+.form-checkout input,
+.form-checkout textarea {
+  background: var(--cor-fundo-alternativo);
+  border-color: var(--cor-borda);
+  color: var(--cor-texto);
+}
+
+.botao-primario {
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.rodape {
+  background: #0e0d0c;
 }

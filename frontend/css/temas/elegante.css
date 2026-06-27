@@ -1,8 +1,44 @@
-/* Tema Elegante */
 :root {
-  --cor-primaria: #2c3e50;
-  --cor-secundaria: #34495e;
-  --cor-fundo: #ecf0f1;
-  --cor-texto: #2c3e50;
-  --cor-borda: #bdc3c7;
+  --raio-borda: 4px;
+  --raio-borda-pequeno: 3px;
+  --sombra-card: 0 1px 3px rgba(0,0,0,0.08);
+  --sombra-elevada: 0 14px 40px rgba(0,0,0,0.22);
+}
+
+.topo__banner {
+  border-radius: 0;
+}
+
+.topo__nome {
+  font-family: 'Playfair Display', Georgia, serif;
+  letter-spacing: 0.3px;
+}
+
+.secao-titulo,
+.produtos-grupo__titulo {
+  font-family: 'Playfair Display', Georgia, serif;
+  letter-spacing: 0.5px;
+}
+
+.categoria-card__icone {
+  border-radius: 4px;
+}
+
+.produto-card {
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.produto-card__nome {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.promocao-card {
+  border-radius: 4px;
+}
+
+.botao-primario {
+  border-radius: 2px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 0.85rem;
 }

@@ -1,8 +1,22 @@
-/* Tema Clássico */
 :root {
-  --cor-primaria: #333333;
-  --cor-secundaria: #666666;
-  --cor-fundo: #ffffff;
-  --cor-texto: #000000;
-  --cor-borda: #cccccc;
+  --raio-borda: 16px;
+  --raio-borda-pequeno: 10px;
+  --sombra-card: 0 3px 12px rgba(0,0,0,0.10);
+  --sombra-elevada: 0 10px 35px rgba(0,0,0,0.18);
+}
+
+.topo__banner {
+  border-radius: 0 0 24px 24px;
+}
+
+.categoria-card__icone {
+  border-radius: 50%;
+}
+
+.produto-card {
+  border-radius: 0;
+}
+
+.promocao-card {
+  border-radius: 18px;
 }

@@ -1,8 +1,44 @@
-/* Tema Moderno */
 :root {
-  --cor-primaria: #00bcd4;
-  --cor-secundaria: #0097a7;
-  --cor-fundo: #f5f5f5;
-  --cor-texto: #212121;
-  --cor-borda: #e0e0e0;
+  --raio-borda: 20px;
+  --raio-borda-pequeno: 14px;
+  --sombra-card: 0 4px 14px rgba(0,0,0,0.12);
+  --sombra-elevada: 0 12px 32px rgba(0,0,0,0.20);
+}
+
+.topo__banner {
+  border-radius: 0 0 32px 32px;
+}
+
+.topo__logo {
+  border-radius: 18px;
+  transform: rotate(-2deg);
+}
+
+.categoria-card__icone {
+  border-radius: 16px;
+}
+
+.produto-card {
+  border-radius: 16px;
+  margin: 0 20px 12px;
+  width: calc(100% - 40px);
+  border-bottom: none;
+  background: var(--cor-fundo-alternativo);
+}
+
+.produto-card__foto {
+  border-radius: 12px;
+}
+
+.promocao-card {
+  border-radius: 20px;
+}
+
+.botao-primario {
+  border-radius: 50px;
+  font-weight: 800;
+}
+
+.botao-carrinho {
+  border-radius: 18px;
 }
