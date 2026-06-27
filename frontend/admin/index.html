@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Administrativo - Cardapio Digital</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+  <div id="tela-login" class="tela-login">
+    <form id="form-login" class="login-card">
+      <h1 class="login-card__titulo">Painel do Estabelecimento</h1>
+      <p class="login-card__subtitulo">Entre para gerenciar seu cardapio</p>
+
+      <label>E-mail
+        <input type="email" id="login-email" required autocomplete="username">
+      </label>
+      <label>Senha
+        <input type="password" id="login-senha" required autocomplete="current-password">
+      </label>
+
+      <div id="login-erro" class="login-card__erro oculto"></div>
+
+      <button type="submit" class="botao-primario">Entrar</button>
+    </form>
+  </div>
+
+  <div id="painel" class="painel oculto">
+
+    <nav class="painel__menu">
+      <div class="painel__menu-topo">
+        <strong id="menu-nome-estabelecimento">Meu Estabelecimento</strong>
+        <span id="menu-link-publico" class="painel__menu-link"></span>
+      </div>
+      <button class="painel__menu-item ativo" data-aba="aparencia">🎨 Aparencia</button>
+      <button class="painel__menu-item" data-aba="informacoes">📋 Informacoes</button>
+      <button class="painel__menu-item" data-aba="categorias">📂 Categorias</button>
+      <button class="painel__menu-item" data-aba="produtos">🍽️ Produtos</button>
+      <button class="painel__menu-item" data-aba="promocoes">🏷️ Promocoes</button>
+      <button class="painel__menu-item" data-aba="pedidos">🧾 Pedidos</button>
+      <button class="painel__menu-item" data-aba="pagamento">💳 Pagamento</button>
+      <button id="botao-sair" class="painel__menu-item painel__menu-item--sair">Sair</button>
+    </nav>
+
+    <main class="painel__conteudo">
+
+      <section id="aba-aparencia" class="aba">
+        <h2 class="aba__titulo">Aparencia</h2>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Logotipo</label>
+          <div class="upload-area">
+            <img id="preview-logo" class="upload-area__preview" alt="">
+            <input type="file" id="input-logo" accept="image/*">
+          </div>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Banner principal</label>
+          <div class="upload-area upload-area--banner">
+            <img id="preview-banner" class="upload-area__preview upload-area__preview--banner" alt="">
+            <input type="file" id="input-banner" accept="image/*">
+          </div>
+        </div>
+
+        <div class="campo-linha">
+          <div class="campo-grupo">
+            <label class="campo-label">Cor principal</label>
+            <input type="color" id="campo-cor-principal" class="campo-cor">
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Cor secundaria</label>
+            <input type="color" id="campo-cor-secundaria" class="campo-cor">
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Cor dos botoes</label>
+            <input type="color" id="campo-cor-botoes" class="campo-cor">
+          </div>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Fonte</label>
+          <select id="campo-fonte" class="campo-select">
+            <option value="Poppins">Poppins</option>
+            <option value="Playfair Display">Playfair Display</option>
+            <option value="Roboto">Roboto</option>
+            <option value="Montserrat">Montserrat</option>
+            <option value="Lato">Lato</option>
+          </select>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Tema visual</label>
+          <div id="seletor-temas" class="seletor-temas">
+            <button type="button" class="tema-opcao" data-tema="classico">Classico</button>
+            <button type="button" class="tema-opcao" data-tema="elegante">Elegante</button>
+            <button type="button" class="tema-opcao" data-tema="moderno">Moderno</button>
+            <button type="button" class="tema-opcao" data-tema="minimalista">Minimalista</button>
+            <button type="button" class="tema-opcao" data-tema="premium">Premium</button>
+          </div>
+        </div>
+
+        <button id="botao-salvar-aparencia" class="botao-primario">Salvar aparencia</button>
+      </section>
+
+      <section id="aba-informacoes" class="aba oculto">
+        <h2 class="aba__titulo">Informacoes do estabelecimento</h2>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Nome do estabelecimento</label>
+          <input type="text" id="campo-nome" class="campo-texto" maxlength="150">
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Texto de apresentacao</label>
+          <textarea id="campo-apresentacao" class="campo-textarea" maxlength="500"></textarea>
+        </div>
+
+        <div class="campo-linha">
+          <div class="campo-grupo">
+            <label class="campo-label">WhatsApp</label>
+            <input type="text" id="campo-whatsapp" class="campo-texto" placeholder="5511999999999">
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Telefone</label>
+            <input type="text" id="campo-telefone" class="campo-texto" placeholder="(11) 3333-4444">
+          </div>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Endereco</label>
+          <input type="text" id="campo-endereco" class="campo-texto" maxlength="255">
+        </div>
+
+        <div class="campo-linha">
+          <div class="campo-grupo">
+            <label class="campo-label">Instagram (@usuario)</label>
+            <input type="text" id="campo-instagram" class="campo-texto">
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Facebook (link)</label>
+            <input type="text" id="campo-facebook" class="campo-texto">
+          </div>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Horario de funcionamento</label>
+          <div id="horarios-semana" class="horarios-semana"></div>
+        </div>
+
+        <button id="botao-salvar-informacoes" class="botao-primario">Salvar informacoes</button>
+      </section>
+
+      <section id="aba-categorias" class="aba oculto">
+        <div class="aba__cabecalho">
+          <h2 class="aba__titulo">Categorias</h2>
+          <button id="botao-nova-categoria" class="botao-secundario">+ Nova categoria</button>
+        </div>
+        <div id="lista-categorias-admin" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-produtos" class="aba oculto">
+        <div class="aba__cabecalho">
+          <h2 class="aba__titulo">Produtos</h2>
+          <button id="botao-novo-produto" class="botao-secundario">+ Novo produto</button>
+        </div>
+        <div id="lista-produtos-admin" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-promocoes" class="aba oculto">
+        <div class="aba__cabecalho">
+          <h2 class="aba__titulo">Promocoes</h2>
+          <button id="botao-nova-promocao" class="botao-secundario">+ Nova promocao</button>
+        </div>
+        <div id="lista-promocoes-admin" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-pedidos" class="aba oculto">
+        <h2 class="aba__titulo">Pedidos recebidos</h2>
+        <div class="filtro-pedidos">
+          <button class="filtro-pedidos__botao ativo" data-status="">Todos</button>
+          <button class="filtro-pedidos__botao" data-status="novo">Novos</button>
+          <button class="filtro-pedidos__botao" data-status="preparando">Preparando</button>
+          <button class="filtro-pedidos__botao" data-status="saiu_entrega">Saiu p/ entrega</button>
+          <button class="filtro-pedidos__botao" data-status="entregue">Entregues</button>
+        </div>
+        <div id="lista-pedidos-admin" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-pagamento" class="aba oculto">
+        <h2 class="aba__titulo">Configuracao de pagamento</h2>
+        <p class="aba__descricao">
+          Conecte sua propria conta do Mercado Pago para receber os pagamentos diretamente.
+          Caso deixe em branco, o sistema usara a conta padrao da plataforma (modo de testes).
+        </p>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Access Token (Mercado Pago)</label>
+          <input type="password" id="campo-mp-token" class="campo-texto" placeholder="APP_USR-...">
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Public Key (Mercado Pago)</label>
+          <input type="text" id="campo-mp-public" class="campo-texto" placeholder="APP_USR-...">
+        </div>
+
+        <p class="aba__ajuda">
+          Voce encontra essas chaves no painel do Mercado Pago, em
+          <strong>Seu negocio - Configuracoes - Credenciais</strong>.
+        </p>
+
+        <button id="botao-salvar-pagamento" class="botao-primario">Salvar credenciais</button>
+      </section>
+
+    </main>
+  </div>
+
+  <div id="modal-categoria" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-categoria">Nova categoria</h3>
+      <form id="form-categoria">
+        <input type="hidden" id="categoria-id">
+        <label>Nome da categoria
+          <input type="text" id="categoria-nome" required maxlength="100">
+        </label>
+        <label>Icone (opcional)
+          <input type="file" id="categoria-icone" accept="image/*">
+        </label>
+        <button type="submit" class="botao-primario">Salvar categoria</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-produto-admin" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-produto">Novo produto</h3>
+      <form id="form-produto">
+        <input type="hidden" id="produto-id">
+        <label>Categoria
+          <select id="produto-categoria"></select>
+        </label>
+        <label>Nome do produto
+          <input type="text" id="produto-nome" required maxlength="150">
+        </label>
+        <label>Codigo (opcional)
+          <input type="text" id="produto-codigo" maxlength="50">
+        </label>
+        <label>Descricao
+          <textarea id="produto-descricao" maxlength="500"></textarea>
+        </label>
+        <div class="campo-linha">
+          <label>Preco (R$)
+            <input type="number" id="produto-preco" step="0.01" min="0" required>
+          </label>
+          <label>Preco promocional (opcional)
+            <input type="number" id="produto-preco-promo" step="0.01" min="0">
+          </label>
+        </div>
+        <label>Foto do produto
+          <input type="file" id="produto-foto" accept="image/*">
+        </label>
+        <label class="campo-checkbox">
+          <input type="checkbox" id="produto-disponivel" checked>
+          Disponivel para venda
+        </label>
+        <button type="submit" class="botao-primario">Salvar produto</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-promocao" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-promocao">Nova promocao</h3>
+      <form id="form-promocao">
+        <input type="hidden" id="promocao-id">
+        <label>Titulo
+          <input type="text" id="promocao-titulo" required maxlength="150">
+        </label>
+        <label>Descricao
+          <textarea id="promocao-descricao" maxlength="300"></textarea>
+        </label>
+        <label>Produto vinculado (opcional)
+          <select id="promocao-produto">
+            <option value="">Nenhum</option>
+          </select>
+        </label>
+        <label>Imagem do banner
+          <input type="file" id="promocao-imagem" accept="image/*">
+        </label>
+        <button type="submit" class="botao-primario">Salvar promocao</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast oculto"></div>
+
+  <script src="../js/config.js"></script>
+  <script src="js/admin-api.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
