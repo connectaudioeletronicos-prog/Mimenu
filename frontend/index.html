@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cardapio Digital</title>
+  <meta name="description" content="Cardapio digital online">
+
+  <link rel="icon" id="favicon" href="">
+
+  <link rel="stylesheet" href="css/variaveis.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/componentes.css">
+  <link rel="stylesheet" href="css/temas/classico.css" id="tema-css">
+</head>
+<body>
+
+  <div id="tela-carregando" class="tela-carregando">
+    <div class="spinner"></div>
+  </div>
+
+  <div id="tela-erro" class="tela-erro oculto">
+    <div class="tela-erro__conteudo">
+      <h1>Cardapio nao encontrado</h1>
+      <p id="tela-erro__mensagem">Verifique o endereco e tente novamente.</p>
+    </div>
+  </div>
+
+  <div id="app" class="oculto">
+
+    <header class="topo">
+      <div class="topo__banner" id="topo-banner"></div>
+      <div class="topo__identidade">
+        <img id="logo-estabelecimento" class="topo__logo" src="" alt="Logo">
+        <h1 id="nome-estabelecimento" class="topo__nome"></h1>
+      </div>
+    </header>
+
+    <section class="apresentacao">
+      <p id="texto-apresentacao" class="apresentacao__texto"></p>
+      <div id="status-funcionamento" class="apresentacao__status"></div>
+    </section>
+
+    <section id="secao-promocoes" class="promocoes oculto">
+      <h2 class="secao-titulo">Promocoes</h2>
+      <div id="lista-promocoes" class="promocoes__lista"></div>
+    </section>
+
+    <section class="categorias">
+      <h2 class="secao-titulo">Categorias</h2>
+      <div id="lista-categorias" class="categorias__lista"></div>
+    </section>
+
+    <section class="produtos" id="secao-produtos">
+    </section>
+
+    <footer class="rodape">
+      <h3 class="rodape__titulo">Contato</h3>
+      <div id="rodape-info" class="rodape__info"></div>
+      <div id="rodape-redes" class="rodape__redes"></div>
+    </footer>
+
+    <button id="botao-carrinho" class="botao-carrinho oculto" aria-label="Ver carrinho">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="9" cy="21" r="1"></circle>
+        <circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span id="contador-carrinho" class="botao-carrinho__contador">0</span>
+    </button>
+  </div>
+
+  <div id="modal-produto" class="modal oculto">
+    <div class="modal__fundo" data-fechar-modal></div>
+    <div class="modal__caixa">
+      <button class="modal__fechar" data-fechar-modal aria-label="Fechar">&times;</button>
+      <img id="produto-modal-foto" class="modal__foto" src="" alt="">
+      <div class="modal__corpo">
+        <span id="produto-modal-codigo" class="modal__codigo"></span>
+        <h3 id="produto-modal-nome" class="modal__nome"></h3>
+        <p id="produto-modal-descricao" class="modal__descricao"></p>
+        <div class="modal__preco-linha">
+          <span id="produto-modal-preco" class="modal__preco"></span>
+          <span id="produto-modal-preco-original" class="modal__preco-original"></span>
+        </div>
+        <div class="modal__quantidade">
+          <button id="produto-modal-menos" aria-label="Diminuir quantidade">−</button>
+          <span id="produto-modal-qtd">1</span>
+          <button id="produto-modal-mais" aria-label="Aumentar quantidade">+</button>
+        </div>
+        <textarea id="produto-modal-obs" class="modal__observacao" placeholder="Alguma observacao? (opcional)" maxlength="300"></textarea>
+        <button id="produto-modal-adicionar" class="botao-primario">Adicionar ao carrinho</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-carrinho" class="modal oculto">
+    <div class="modal__fundo" data-fechar-modal></div>
+    <div class="modal__caixa modal__caixa--carrinho">
+      <button class="modal__fechar" data-fechar-modal aria-label="Fechar">&times;</button>
+
+      <div id="carrinho-etapa-itens" class="carrinho-etapa">
+        <h3 class="modal__titulo">Seu carrinho</h3>
+        <div id="carrinho-lista" class="carrinho-lista"></div>
+        <div id="carrinho-vazio" class="carrinho-vazio oculto">Seu carrinho esta vazio.</div>
+        <div class="carrinho-resumo">
+          <div class="carrinho-resumo__linha">
+            <span>Subtotal</span>
+            <span id="carrinho-subtotal">R$ 0,00</span>
+          </div>
+        </div>
+        <button id="botao-ir-checkout" class="botao-primario">Continuar</button>
+      </div>
+
+      <div id="carrinho-etapa-checkout" class="carrinho-etapa oculto">
+        <h3 class="modal__titulo">Seus dados</h3>
+        <form id="form-checkout" class="form-checkout">
+          <label>Nome completo
+            <input type="text" id="checkout-nome" required maxlength="150">
+          </label>
+          <label>WhatsApp / Telefone
+            <input type="tel" id="checkout-telefone" required maxlength="20" placeholder="(11) 99999-9999">
+          </label>
+          <label>Endereco de entrega
+            <textarea id="checkout-endereco" maxlength="300" placeholder="Rua, numero, bairro, complemento"></textarea>
+          </label>
+          <label>Observacoes do pedido
+            <textarea id="checkout-observacoes" maxlength="300" placeholder="Opcional"></textarea>
+          </label>
+
+          <fieldset class="form-checkout__pagamento">
+            <legend>Forma de pagamento</legend>
+            <label class="opcao-pagamento">
+              <input type="radio" name="pagamento" value="pix" checked>
+              <span>Pix</span>
+            </label>
+            <label class="opcao-pagamento">
+              <input type="radio" name="pagamento" value="cartao">
+              <span>Cartao (online)</span>
+            </label>
+            <label class="opcao-pagamento">
+              <input type="radio" name="pagamento" value="dinheiro">
+              <span>Dinheiro na entrega</span>
+            </label>
+          </fieldset>
+
+          <div class="carrinho-resumo">
+            <div class="carrinho-resumo__linha">
+              <span>Total</span>
+              <span id="checkout-total">R$ 0,00</span>
+            </div>
+          </div>
+
+          <button type="submit" id="botao-finalizar-pedido" class="botao-primario">Finalizar pedido</button>
+        </form>
+      </div>
+
+      <div id="carrinho-etapa-confirmacao" class="carrinho-etapa oculto">
+        <h3 class="modal__titulo">Pedido recebido!</h3>
+        <div id="confirmacao-conteudo"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/carrinho.js"></script>
+  <script src="js/cardapio.js"></script>
+</body>
+</html>
