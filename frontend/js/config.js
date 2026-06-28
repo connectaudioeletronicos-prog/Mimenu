@@ -3,7 +3,7 @@ const API_BASE_URL = (() => {
   if (host === 'localhost' || host === '127.0.0.1') {
     return 'http://localhost:3000/api';
   }
-  return 'https://SEU-BACKEND.onrender.com/api';
+  return 'https://mimenu-bcsl.onrender.com/api';
 })();
 
 function obterSlugDaURL() {
