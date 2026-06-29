@@ -86,4 +86,49 @@ async function trocarSenha(req, res) {
   }
 }
 
-module.exports = { login, trocarSenha };
+async function cadastrar(req, res) {
+  try {
+    const { chaveCadastro, slug, nome, email, senha } = req.body;
+
+    // Validar chave de cadastro
+    if (chaveCadastro !== process.env.CHAVE_CADASTRO_ADMIN) {
+      return res.status(403).json({ erro: 'Chave de cadastro invalida.' });
+    }
+
+    // Validar campos obrigatórios
+    if (!slug || !nome || !email || !senha) {
+      return res.status(400).json({ erro: 'Slug, nome, email e senha sao obrigatorios.' });
+    }
+
+    if (senha.length < 6) {
+      return res.status(400).json({ erro: 'A senha deve ter pelo menos 6 caracteres.' });
+    }
+
+    // Verificar se já existe estabelecimento com esse email ou slug
+    const verificacao = await query(
+      'SELECT id FROM estabelecimentos WHERE email = $1 OR slug = $2',
+      [email, slug]
+    );
+
+    if (verificacao.rows.length > 0) {
+      return res.status(409).json({ erro: 'Já existe um estabelecimento com esse email ou slug.' });
+    }
+
+    // Criar hash da senha
+    const senhaHash = await bcrypt.hash(senha, 10);
+
+    // Inserir novo estabelecimento
+    await query(
+      'INSERT INTO estabelecimentos (slug, nome, email, senha_hash, ativo) VALUES ($1, $2, $3, $4, $5)',
+      [slug, nome, email, senhaHash, true]
+    );
+
+    res.status(201).json({ mensagem: 'Estabelecimento cadastrado com sucesso.' });
+
+  } catch (error) {
+    console.error('Erro ao cadastrar estabelecimento:', error);
+    res.status(500).json({ erro: 'Erro interno ao cadastrar estabelecimento.' });
+  }
+}
+
+module.exports = { login, trocarSenha, cadastrar };
