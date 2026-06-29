@@ -16,5 +16,6 @@ const limitadorLogin = rateLimit({
 
 router.post('/login', limitadorLogin, authController.login);
 router.put('/trocar-senha', autenticar, authController.trocarSenha);
+router.post('/cadastrar', limitadorLogin, authController.cadastrar);
 
 module.exports = router;
