@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadastrar Estabelecimento</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #f4f4f4; display: flex; justify-content: center; padding: 40px 16px; }
+  .card { background: white; padding: 24px; border-radius: 12px; max-width: 400px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: #666; margin-top: 0; margin-bottom: 20px; font-size: 14px; }
+  label { display: block; font-weight: bold; margin-top: 14px; margin-bottom: 4px; font-size: 14px; }
+  input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; box-sizing: border-box; }
+  button { margin-top: 20px; width: 100%; padding: 12px; background: #1D3557; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+  button:disabled { opacity: 0.6; }
+  .msg { margin-top: 14px; padding: 10px; border-radius: 6px; font-size: 14px; }
+  .erro { background: #fde2e2; color: #b00; }
+  .sucesso { background: #e2fde2; color: #060; }
+  small { color: #999; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Cadastrar novo estabelecimento</h1>
+    <p class="sub">Cria a conta de acesso ao painel administrativo.</p>
+
+    <label>URL da API do backend</label>
+    <input type="text" id="apiUrl" value="https://mimenu-bcsl.onrender.com">
+
+    <label>Chave de cadastro (CHAVE_CADASTRO_ADMIN)</label>
+    <input type="password" id="chaveCadastro" placeholder="A chave que você configurou no Render">
+
+    <label>Slug (identificador na URL)</label>
+    <input type="text" id="slug" placeholder="ex: fj-pizzaria">
+    <small>Apenas letras minúsculas, números e hífen. Sem espaços ou acentos.</small>
+
+    <label>Nome do estabelecimento</label>
+    <input type="text" id="nome" placeholder="ex: FJ Pizzaria e Esfiharia">
+
+    <label>E-mail de login</label>
+    <input type="email" id="email" placeholder="ex: dono@email.com">
+
+    <label>Senha de login</label>
+    <input type="password" id="senha" placeholder="Mínimo 6 caracteres">
+
+    <button id="btnCadastrar" onclick="cadastrar()">Cadastrar</button>
+
+    <div id="resultado"></div>
+  </div>
+
+<script>
+function normalizarSlug(valor) {
+  return valor
+    .toLowerCase()
+    .trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+document.getElementById('slug').addEventListener('blur', function() {
+  this.value = normalizarSlug(this.value);
+});
+
+async function cadastrar() {
+  const apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+  const chaveCadastro = document.getElementById('chaveCadastro').value;
+  const slug = normalizarSlug(document.getElementById('slug').value);
+  const nome = document.getElementById('nome').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const senha = document.getElementById('senha').value;
+
+  const resultadoDiv = document.getElementById('resultado');
+  const botao = document.getElementById('btnCadastrar');
+  resultadoDiv.innerHTML = '';
+
+  if (!apiUrl || !chaveCadastro || !slug || !nome || !email || !senha) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Preencha todos os campos.</div>';
+    return;
+  }
+
+  botao.disabled = true;
+  botao.textContent = 'Enviando...';
+
+  try {
+    const resposta = await fetch(apiUrl + '/api/auth/cadastrar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chaveCadastro, slug, nome, email, senha })
+    });
+
+    const dados = await resposta.json();
+
+    if (resposta.ok) {
+      resultadoDiv.innerHTML = '<div class="msg sucesso">Cadastrado com sucesso! Agora você já pode entrar no painel com o e-mail e senha cadastrados.</div>';
+    } else {
+      resultadoDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao cadastrar.') + '</div>';
+    }
+  } catch (e) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API. Verifique a URL.</div>';
+  }
+
+  botao.disabled = false;
+  botao.textContent = 'Cadastrar';
+}
+</script>
+</body>
+</html>
