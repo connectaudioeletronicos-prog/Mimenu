@@ -20,7 +20,8 @@ async function uploadImagem(buffer, mimetype, pasta) {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-        'Content-Type': mimetype
+        'Content-Type': mimetype,
+        'apikey': SUPABASE_SERVICE_KEY
       },
       body: buffer
     }
