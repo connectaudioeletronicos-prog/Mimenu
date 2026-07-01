@@ -49,16 +49,11 @@ function aplicarIdentidadeVisual(estabelecimento) {
   }
 
   const raiz = document.documentElement.style;
-  // Só setar variáveis quando existirem valores válidos
-  if (estabelecimento.cor_secundaria) raiz.setProperty('--cor-principal', estabelecimento.cor_secundaria);
-  if (estabelecimento.cor_principal) raiz.setProperty('--cor-secundaria', estabelecimento.cor_principal);
-  if (estabelecimento.cor_botoes) raiz.setProperty('--cor-botoes', estabelecimento.cor_botoes);
-
-  // Gera versões "escurecidas" apenas quando houver cores válidas
-  const corPrincipalEscura = escurecerCor(estabelecimento.cor_principal, 0.15);
-  if (corPrincipalEscura) raiz.setProperty('--cor-principal-escura', corPrincipalEscura);
-  const corBotoesEscura = escurecerCor(estabelecimento.cor_botoes, 0.15);
-  if (corBotoesEscura) raiz.setProperty('--cor-botoes-escura', corBotoesEscura);
+  raiz.setProperty('--cor-principal', estabelecimento.cor_secundaria);
+  raiz.setProperty('--cor-secundaria', estabelecimento.cor_principal);
+  raiz.setProperty('--cor-botoes', estabelecimento.cor_botoes);
+  raiz.setProperty('--cor-principal-escura', escurecerCor(estabelecimento.cor_principal, 0.15));
+  raiz.setProperty('--cor-botoes-escura', escurecerCor(estabelecimento.cor_botoes, 0.15));
 
   const fonteEscolhida = estabelecimento.fonte || 'Poppins';
   if (FONTES_GOOGLE[fonteEscolhida]) {
@@ -76,11 +71,7 @@ function aplicarIdentidadeVisual(estabelecimento) {
 }
 
 function escurecerCor(hex, fator) {
-  // Valida entrada: se não for string válida, retorna vazio para não sobrescrever variáveis CSS
-  if (!hex || typeof hex !== 'string') return '';
   const cor = hex.replace('#', '');
-  if (cor.length !== 6) return '';
-
   const r = Math.max(0, parseInt(cor.substring(0, 2), 16) * (1 - fator));
   const g = Math.max(0, parseInt(cor.substring(2, 4), 16) * (1 - fator));
   const b = Math.max(0, parseInt(cor.substring(4, 6), 16) * (1 - fator));
@@ -370,6 +361,8 @@ function configurarEventosGlobais() {
   document.getElementById('botao-carrinho').addEventListener('click', abrirModalCarrinho);
   document.getElementById('botao-ir-checkout').addEventListener('click', irParaCheckout);
   document.getElementById('form-checkout').addEventListener('submit', finalizarPedido);
+
+  inicializarMenuCliente();
 }
 
 function abrirModalCarrinho() {
@@ -618,4 +611,96 @@ function bloquearPedidos(mensagem) {
   aviso.textContent = mensagem;
   const app = document.getElementById('app');
   if (app) app.insertBefore(aviso, app.firstChild);
+}
+
+// --- Restaurando funções do Menu Cliente solicitadas ---
+function inicializarMenuCliente() {
+  const botaoMenu = document.getElementById('botao-menu-cliente');
+  const modal = document.getElementById('modal-menu-cliente');
+  if (!botaoMenu || !modal) return;
+
+  botaoMenu.addEventListener('click', () => {
+    preencherFormularioDadosCliente();
+    modal.classList.remove('oculto');
+  });
+
+  modal.querySelector('[data-fechar-modal]').addEventListener('click', () => {
+    modal.classList.add('oculto');
+  });
+
+  modal.querySelectorAll('[data-aba-cliente]').forEach(botao => {
+    botao.addEventListener('click', () => {
+      modal.querySelectorAll('[data-aba-cliente]').forEach(b => b.classList.remove('ativo'));
+      modal.querySelectorAll('.aba-cliente').forEach(a => a.classList.add('oculto'));
+      botao.classList.add('ativo');
+      document.getElementById(`aba-cliente-${botao.dataset.abaCliente}`).classList.remove('oculto');
+      if (botao.dataset.abaCliente === 'pedidos') carregarPedidosCliente();
+    });
+  });
+
+  document.getElementById('form-dados-cliente').addEventListener('submit', (evento) => {
+    evento.preventDefault();
+    salvarDadosCliente({
+      nome: document.getElementById('dados-nome').value.trim(),
+      telefone: document.getElementById('dados-telefone').value.trim(),
+      endereco: document.getElementById('dados-endereco').value.trim()
+    });
+    modal.classList.add('oculto');
+  });
+}
+
+function preencherFormularioDadosCliente() {
+  const dados = obterDadosCliente();
+  document.getElementById('dados-nome').value = dados.nome;
+  document.getElementById('dados-telefone').value = dados.telefone;
+  document.getElementById('dados-endereco').value = dados.endereco;
+
+  const linkWhats = document.getElementById('link-whatsapp-menu');
+  if (linkWhats && typeof estabelecimento !== 'undefined' && estabelecimento.whatsapp) {
+    linkWhats.href = `https://wa.me/${estabelecimento.whatsapp.replace(/\D/g, '')}`;
+  }
+}
+
+async function carregarPedidosCliente() {
+  const container = document.getElementById('lista-pedidos-cliente');
+  const dados = obterDadosCliente();
+
+  if (!dados.telefone) {
+    container.innerHTML = '<p>Preencha seu telefone em "Meus dados" para ver seu histórico.</p>';
+    return;
+  }
+
+  container.innerHTML = '<p>Carregando pedidos...</p>';
+
+  try {
+    const pedidos = await buscarPedidosCliente(SLUG_ESTABELECIMENTO, dados.telefone);
+
+    if (pedidos.length === 0) {
+      container.innerHTML = '<p>Você ainda não tem pedidos.</p>';
+      return;
+    }
+
+    container.innerHTML = pedidos.map(pedido => `
+      <div class="pedido-cliente-item">
+        <div class="pedido-cliente-item__topo">
+          <span>${new Date(pedido.criado_em).toLocaleDateString('pt-BR')}</span>
+          <span class="pedido-cliente-item__status">${traduzirStatus(pedido.status_pedido)}</span>
+        </div>
+        <div class="pedido-cliente-item__total">R$ ${Number(pedido.total).toFixed(2)}</div>
+      </div>
+    `).join('');
+  } catch (erro) {
+    container.innerHTML = '<p>Não foi possível carregar seus pedidos agora.</p>';
+  }
+}
+
+function traduzirStatus(status) {
+  const mapa = {
+    novo: 'Recebido',
+    preparando: 'Em preparo',
+    pronto: 'Pronto',
+    entregue: 'Entregue',
+    cancelado: 'Cancelado'
+  };
+  return mapa[status] || status;
 }
