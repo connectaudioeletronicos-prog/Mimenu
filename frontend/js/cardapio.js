@@ -49,11 +49,16 @@ function aplicarIdentidadeVisual(estabelecimento) {
   }
 
   const raiz = document.documentElement.style;
-  raiz.setProperty('--cor-principal', estabelecimento.cor_secundaria);
-  raiz.setProperty('--cor-secundaria', estabelecimento.cor_principal);
-  raiz.setProperty('--cor-botoes', estabelecimento.cor_botoes);
-  raiz.setProperty('--cor-principal-escura', escurecerCor(estabelecimento.cor_principal, 0.15));
-  raiz.setProperty('--cor-botoes-escura', escurecerCor(estabelecimento.cor_botoes, 0.15));
+  // Só setar variáveis quando existirem valores válidos
+  if (estabelecimento.cor_secundaria) raiz.setProperty('--cor-principal', estabelecimento.cor_secundaria);
+  if (estabelecimento.cor_principal) raiz.setProperty('--cor-secundaria', estabelecimento.cor_principal);
+  if (estabelecimento.cor_botoes) raiz.setProperty('--cor-botoes', estabelecimento.cor_botoes);
+
+  // Gera versões "escurecidas" apenas quando houver cores válidas
+  const corPrincipalEscura = escurecerCor(estabelecimento.cor_principal, 0.15);
+  if (corPrincipalEscura) raiz.setProperty('--cor-principal-escura', corPrincipalEscura);
+  const corBotoesEscura = escurecerCor(estabelecimento.cor_botoes, 0.15);
+  if (corBotoesEscura) raiz.setProperty('--cor-botoes-escura', corBotoesEscura);
 
   const fonteEscolhida = estabelecimento.fonte || 'Poppins';
   if (FONTES_GOOGLE[fonteEscolhida]) {
@@ -71,7 +76,11 @@ function aplicarIdentidadeVisual(estabelecimento) {
 }
 
 function escurecerCor(hex, fator) {
+  // Valida entrada: se não for string válida, retorna vazio para não sobrescrever variáveis CSS
+  if (!hex || typeof hex !== 'string') return '';
   const cor = hex.replace('#', '');
+  if (cor.length !== 6) return '';
+
   const r = Math.max(0, parseInt(cor.substring(0, 2), 16) * (1 - fator));
   const g = Math.max(0, parseInt(cor.substring(2, 4), 16) * (1 - fator));
   const b = Math.max(0, parseInt(cor.substring(4, 6), 16) * (1 - fator));
