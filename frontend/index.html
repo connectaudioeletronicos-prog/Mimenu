@@ -36,6 +36,41 @@
       </div>
     </header>
 
+    <button id="botao-menu-cliente" class="menu-cliente__botao" aria-label="Minha conta">👤</button>
+
+    <div id="modal-menu-cliente" class="modal oculto">
+      <div class="modal__conteudo">
+        <button class="modal__fechar" data-fechar-modal>&times;</button>
+        <h2>Minha conta</h2>
+
+        <div class="menu-cliente__abas">
+          <button class="menu-cliente__aba ativo" data-aba-cliente="dados">Meus dados</button>
+          <button class="menu-cliente__aba" data-aba-cliente="pedidos">Meus pedidos</button>
+        </div>
+
+        <div id="aba-cliente-dados" class="aba-cliente">
+          <form id="form-dados-cliente">
+            <label>Nome completo
+              <input type="text" id="dados-nome" maxlength="150">
+            </label>
+            <label>WhatsApp / Telefone
+              <input type="tel" id="dados-telefone" maxlength="20">
+            </label>
+            <label>Endereço de entrega
+              <textarea id="dados-endereco" maxlength="300"></textarea>
+            </label>
+            <button type="submit" class="botao-primario">Salvar dados</button>
+          </form>
+        </div>
+
+        <div id="aba-cliente-pedidos" class="aba-cliente oculto">
+          <div id="lista-pedidos-cliente"></div>
+        </div>
+
+        <a id="link-whatsapp-menu" class="menu-cliente__whatsapp" href="#" target="_blank" rel="noopener">💬 Falar no WhatsApp</a>
+      </div>
+    </div>
+
     <section class="apresentacao">
       <p id="texto-apresentacao" class="apresentacao__texto"></p>
       <div id="status-funcionamento" class="apresentacao__status"></div>
