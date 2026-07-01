@@ -22,3 +22,14 @@ function obterSlugDaURL() {
 
 const SLUG_ESTABELECIMENTO = obterSlugDaURL();
 const DOMINIO_ATUAL = window.location.hostname;
+
+const CHAVE_DADOS_CLIENTE = 'mimenu_dados_cliente';
+
+function salvarDadosCliente(dados) {
+  localStorage.setItem(CHAVE_DADOS_CLIENTE, JSON.stringify(dados));
+}
+
+function obterDadosCliente() {
+  const dados = localStorage.getItem(CHAVE_DADOS_CLIENTE);
+  return dados ? JSON.parse(dados) : { nome: '', telefone: '', endereco: '' };
+}
