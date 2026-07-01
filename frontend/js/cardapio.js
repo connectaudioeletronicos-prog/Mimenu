@@ -361,8 +361,6 @@ function configurarEventosGlobais() {
   document.getElementById('botao-carrinho').addEventListener('click', abrirModalCarrinho);
   document.getElementById('botao-ir-checkout').addEventListener('click', irParaCheckout);
   document.getElementById('form-checkout').addEventListener('submit', finalizarPedido);
-
-  inicializarMenuCliente();
 }
 
 function abrirModalCarrinho() {
@@ -444,6 +442,20 @@ async function finalizarPedido(evento) {
         observacao: item.observacao
       }))
     };
+
+    // Salva dados do cliente no localStorage (nome, telefone, endereco)
+    if (typeof salvarDadosCliente === 'function') {
+      try {
+        salvarDadosCliente({
+          nome: dadosPedido.cliente_nome,
+          telefone: dadosPedido.cliente_telefone,
+          endereco: dadosPedido.cliente_endereco
+        });
+      } catch (err) {
+        // Não interrompe o fluxo de envio do pedido se houver erro ao salvar
+        console.warn('Falha ao salvar dados do cliente:', err);
+      }
+    }
 
     const resultado = await enviarPedido(SLUG_ESTABELECIMENTO, dadosPedido);
     mostrarConfirmacao(resultado, formaPagamento);
@@ -598,108 +610,3 @@ function bloquearPedidos(mensagem) {
   const app = document.getElementById('app');
   if (app) app.insertBefore(aviso, app.firstChild);
 }
-
-// --- funções do Menu Cliente adicionadas abaixo ---
-function inicializarMenuCliente() {
-  const botaoMenu = document.getElementById('botao-menu-cliente');
-  const modal = document.getElementById('modal-menu-cliente');
-  if (!botaoMenu || !modal) return;
-
-  botaoMenu.addEventListener('click', () => {
-    preencherFormularioDadosCliente();
-    modal.classList.remove('oculto');
-  });
-
-  const fecharEl = modal.querySelector('[data-fechar-modal]');
-  if (fecharEl) {
-    fecharEl.addEventListener('click', () => {
-      modal.classList.add('oculto');
-    });
-  }
-
-  modal.querySelectorAll('[data-aba-cliente]').forEach(botao => {
-    botao.addEventListener('click', () => {
-      modal.querySelectorAll('[data-aba-cliente]').forEach(b => b.classList.remove('ativo'));
-      modal.querySelectorAll('.aba-cliente').forEach(a => a.classList.add('oculto'));
-      botao.classList.add('ativo');
-      const aba = botao.getAttribute('data-aba-cliente');
-      document.getElementById(`aba-cliente-${aba}`).classList.remove('oculto');
-      if (aba === 'pedidos') carregarPedidosCliente();
-    });
-  });
-
-  const form = document.getElementById('form-dados-cliente');
-  if (form) {
-    form.addEventListener('submit', (evento) => {
-      evento.preventDefault();
-      salvarDadosCliente({
-        nome: document.getElementById('dados-nome').value.trim(),
-        telefone: document.getElementById('dados-telefone').value.trim(),
-        endereco: document.getElementById('dados-endereco').value.trim()
-      });
-      modal.classList.add('oculto');
-    });
-  }
-}
-
-function preencherFormularioDadosCliente() {
-  const dados = obterDadosCliente();
-  const elNome = document.getElementById('dados-nome');
-  const elTel = document.getElementById('dados-telefone');
-  const elEnd = document.getElementById('dados-endereco');
-  if (elNome) elNome.value = dados.nome;
-  if (elTel) elTel.value = dados.telefone;
-  if (elEnd) elEnd.value = dados.endereco;
-
-  const linkWhats = document.getElementById('link-whatsapp-menu');
-  const whatsapp = DADOS?.estabelecimento?.whatsapp;
-  if (linkWhats && whatsapp) {
-    linkWhats.href = `https://wa.me/${whatsapp.replace(/\D/g, '')}`;
-  }
-}
-
-async function carregarPedidosCliente() {
-  const container = document.getElementById('lista-pedidos-cliente');
-  const dados = obterDadosCliente();
-
-  if (!dados.telefone) {
-    if (container) container.innerHTML = '<p>Preencha seu telefone em "Meus dados" para ver seu histórico.</p>';
-    return;
-  }
-
-  if (container) container.innerHTML = '<p>Carregando pedidos...</p>';
-
-  try {
-    const pedidos = await buscarPedidosCliente(SLUG_ESTABELECIMENTO, dados.telefone);
-
-    if (!pedidos || pedidos.length === 0) {
-      if (container) container.innerHTML = '<p>Você ainda não tem pedidos.</p>';
-      return;
-    }
-
-    if (container) container.innerHTML = pedidos.map(pedido => `
-      <div class="pedido-cliente-item">
-        <div class="pedido-cliente-item__topo">
-          <span>${new Date(pedido.criado_em).toLocaleDateString('pt-BR')}</span>
-          <span class="pedido-cliente-item__status">${traduzirStatus(pedido.status_pedido)}</span>
-        </div>
-        <div class="pedido-cliente-item__total">R$ ${Number(pedido.total).toFixed(2)}</div>
-      </div>
-    `).join('');
-  } catch (erro) {
-    if (container) container.innerHTML = '<p>Não foi possível carregar seus pedidos agora.</p>';
-  }
-}
-
-function traduzirStatus(status) {
-  const mapa = {
-    novo: 'Recebido',
-    preparando: 'Em preparo',
-    pronto: 'Pronto',
-    entregue: 'Entregue',
-    cancelado: 'Cancelado'
-  };
-  return mapa[status] || status;
-}
-
-module.exports = {};
