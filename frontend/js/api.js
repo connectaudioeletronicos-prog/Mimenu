@@ -30,3 +30,10 @@ async function consultarStatusPedido(slug, pedidoId) {
   }
   return dados;
 }
+
+async function buscarPedidosCliente(slug, telefone) {
+  const telefoneLimpo = telefone.replace(/\D/g, '');
+  const resposta = await fetch(`${API_BASE_URL}/publico/${encodeURIComponent(slug)}/pedidos/cliente/${telefoneLimpo}`);
+  if (!resposta.ok) throw new Error('Erro ao buscar pedidos');
+  return resposta.json();
+}
