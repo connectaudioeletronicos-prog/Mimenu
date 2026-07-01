@@ -64,18 +64,21 @@
           </div>
         </div>
 
-        <div class="campo-linha">
-          <div class="campo-grupo">
-            <label class="campo-label">Cor principal</label>
-            <input type="color" id="campo-cor-principal" class="campo-cor">
-          </div>
-          <div class="campo-grupo">
-            <label class="campo-label">Cor secundaria</label>
-            <input type="color" id="campo-cor-secundaria" class="campo-cor">
-          </div>
-          <div class="campo-grupo">
-            <label class="campo-label">Cor dos botoes</label>
-            <input type="color" id="campo-cor-botoes" class="campo-cor">
+        <div class="campo-grupo">
+          <label class="campo-label">Cores</label>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div class="campo-cor-wrapper">
+              <input type="color" id="campo-cor-principal" class="campo-cor">
+              <span class="campo-cor-nome">Cor principal (banner, títulos, rodapé)</span>
+            </div>
+            <div class="campo-cor-wrapper">
+              <input type="color" id="campo-cor-secundaria" class="campo-cor">
+              <span class="campo-cor-nome">Cor secundária (preços, destaques)</span>
+            </div>
+            <div class="campo-cor-wrapper">
+              <input type="color" id="campo-cor-botoes" class="campo-cor">
+              <span class="campo-cor-nome">Cor dos botões</span>
+            </div>
           </div>
         </div>
 
