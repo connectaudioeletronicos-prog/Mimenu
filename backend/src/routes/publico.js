@@ -17,5 +17,6 @@ const limitadorPedidos = rateLimit({
 router.get('/:slug', estabelecimentoController.buscarPorSlug);
 router.post('/:slug/pedidos', limitadorPedidos, pedidoController.criarPedido);
 router.get('/:slug/pedidos/:id/status', pedidoController.consultarStatusPedido);
+router.get('/:slug/pedidos/cliente/:telefone', pedidoController.listarPedidosCliente);
 
 module.exports = router;
