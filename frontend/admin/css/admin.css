@@ -231,12 +231,27 @@ input, textarea, select { font-family: inherit; }
   resize: vertical;
 }
 
+.campo-cor-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .campo-cor {
-  width: 100%;
+  width: 42px;
   height: 42px;
-  border: 1px solid var(--admin-cor-borda);
-  border-radius: 8px;
+  border: none;
+  border-radius: 50%;
   cursor: pointer;
+  padding: 0;
+  background: none;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.campo-cor::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; }
+.campo-cor::-webkit-color-swatch { border: none; border-radius: 50%; }
+.campo-cor-nome {
+  font-size: 0.85rem;
+  color: var(--admin-cor-texto-claro);
 }
 
 .campo-checkbox {
