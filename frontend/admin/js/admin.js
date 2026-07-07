@@ -401,6 +401,11 @@ function preencherSelectCategorias() {
     ESTADO.categorias.map(c => `<option value="${c.id}">${escaparHtmlAdmin(c.nome)}</option>`).join('');
 }
 
+// =============================================
+// PRODUTOS COM DRAG AND DROP
+// =============================================
+let dragSrcId = null;
+
 function renderizarProdutosAdmin() {
   const lista = document.getElementById('lista-produtos-admin');
 
@@ -409,8 +414,13 @@ function renderizarProdutosAdmin() {
     return;
   }
 
-  lista.innerHTML = ESTADO.produtos.map(p => `
-    <div class="item-admin ${!p.disponivel ? 'item-admin--indisponivel' : ''}">
+  const produtosOrdenados = [...ESTADO.produtos].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+
+  lista.innerHTML = produtosOrdenados.map(p => `
+    <div class="item-admin item-admin--drag ${!p.disponivel ? 'item-admin--indisponivel' : ''}"
+         draggable="true"
+         data-produto-id="${p.id}">
+      <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
       <img class="item-admin__imagem" src="${p.foto_url || ''}" alt="">
       <div class="item-admin__info">
         <div class="item-admin__titulo">${escaparHtmlAdmin(p.nome)} ${!p.disponivel ? '(indisponivel)' : ''}</div>
@@ -428,6 +438,64 @@ function renderizarProdutosAdmin() {
   });
   lista.querySelectorAll('[data-excluir-produto]').forEach(b => {
     b.addEventListener('click', () => excluirProduto(b.getAttribute('data-excluir-produto')));
+  });
+
+  configurarDragDrop(lista);
+}
+
+function configurarDragDrop(lista) {
+  const itens = lista.querySelectorAll('.item-admin--drag');
+
+  itens.forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+      dragSrcId = item.getAttribute('data-produto-id');
+      item.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    item.addEventListener('dragend', () => {
+      item.style.opacity = '1';
+      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
+    });
+
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
+      item.classList.add('drag-over');
+    });
+
+    item.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const targetId = item.getAttribute('data-produto-id');
+      if (dragSrcId === targetId) return;
+
+      const produtosOrdenados = [...ESTADO.produtos].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+      const indiceSrc = produtosOrdenados.findIndex(p => p.id === dragSrcId);
+      const indiceTarget = produtosOrdenados.findIndex(p => p.id === targetId);
+
+      if (indiceSrc === -1 || indiceTarget === -1) return;
+
+      const reordenados = [...produtosOrdenados];
+      const [movido] = reordenados.splice(indiceSrc, 1);
+      reordenados.splice(indiceTarget, 0, movido);
+
+      try {
+        await Promise.all(reordenados.map((p, i) => {
+          if (p.ordem !== i) {
+            const fd = new FormData();
+            fd.append('ordem', i);
+            return apiAtualizarProduto(p.id, fd);
+          }
+        }).filter(Boolean));
+
+        await carregarTudo();
+        renderizarProdutosAdmin();
+        mostrarToast('Ordem dos produtos atualizada!');
+      } catch (erro) {
+        mostrarToast('Erro ao reordenar produtos.', true);
+      }
+    });
   });
 }
 
