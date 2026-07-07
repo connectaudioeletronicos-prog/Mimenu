@@ -545,3 +545,25 @@ input, textarea, select { font-family: inherit; }
   .painel__conteudo { padding: 18px; }
   .campo-linha { flex-direction: column; gap: 0; }
 }
+.drag-handle {
+  cursor: grab;
+  font-size: 1.2rem;
+  color: #aaa;
+  padding: 0 6px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.item-admin--drag {
+  cursor: default;
+  transition: opacity 0.2s;
+}
+
+.item-admin.drag-over {
+  border: 2px dashed var(--admin-cor-primaria);
+  background: #eff6ff;
+}
