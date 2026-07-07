@@ -18,10 +18,7 @@ document.addEventListener('DOMContentLoaded', iniciarAdmin);
 function iniciarAdmin() {
   configurarLogin();
   configurarMenu();
-
-  if (obterToken()) {
-    mostrarPainel();
-  }
+  if (obterToken()) mostrarPainel();
 }
 
 function configurarLogin() {
@@ -29,7 +26,6 @@ function configurarLogin() {
     evento.preventDefault();
     const erroEl = document.getElementById('login-erro');
     erroEl.classList.add('oculto');
-
     try {
       const email = document.getElementById('login-email').value.trim();
       const senha = document.getElementById('login-senha').value;
@@ -51,7 +47,6 @@ function configurarLogin() {
 async function mostrarPainel() {
   document.getElementById('tela-login').classList.add('oculto');
   document.getElementById('painel').classList.remove('oculto');
-
   try {
     await carregarTudo();
     preencherFormularios();
@@ -80,11 +75,9 @@ function configurarMenu() {
     botao.addEventListener('click', () => {
       document.querySelectorAll('.painel__menu-item[data-aba]').forEach(b => b.classList.remove('ativo'));
       document.querySelectorAll('.aba').forEach(a => a.classList.add('oculto'));
-
       botao.classList.add('ativo');
       const aba = botao.getAttribute('data-aba');
       document.getElementById(`aba-${aba}`).classList.remove('oculto');
-
       if (aba === 'pedidos') carregarPedidos();
     });
   });
@@ -100,7 +93,6 @@ function mostrarToast(mensagem, erro = false) {
 
 function preencherFormularios() {
   const e = ESTADO.estabelecimento;
-
   document.getElementById('preview-logo').src = e.logo_url || '';
   document.getElementById('preview-banner').src = e.banner_url || '';
   document.getElementById('campo-cor-principal').value = e.cor_principal || '#E63946';
@@ -108,7 +100,6 @@ function preencherFormularios() {
   document.getElementById('campo-cor-botoes').value = e.cor_botoes || '#2A9D8F';
   document.getElementById('campo-fonte').value = e.fonte || 'Poppins';
   selecionarTemaVisual(e.tema || 'classico');
-
   document.getElementById('campo-nome').value = e.nome || '';
   document.getElementById('campo-apresentacao').value = e.texto_apresentacao || '';
   document.getElementById('campo-whatsapp').value = e.whatsapp || '';
@@ -117,7 +108,6 @@ function preencherFormularios() {
   document.getElementById('campo-instagram').value = e.instagram || '';
   document.getElementById('campo-facebook').value = e.facebook || '';
   montarCamposHorario(e.horario_funcionamento || {});
-
   document.getElementById('campo-mp-public').value = e.mp_public_key || '';
 
   renderizarCategoriasAdmin();
@@ -171,7 +161,6 @@ async function salvarAparencia() {
   const botao = document.getElementById('botao-salvar-aparencia');
   botao.disabled = true;
   botao.textContent = 'Salvando...';
-
   try {
     if (ESTADO.arquivosPendentes.logo) {
       const formData = new FormData();
@@ -185,9 +174,7 @@ async function salvarAparencia() {
       await apiUploadBanner(formData);
       ESTADO.arquivosPendentes.banner = null;
     }
-
     const temaSelecionado = document.querySelector('.tema-opcao.selecionado')?.getAttribute('data-tema') || 'classico';
-
     await apiAtualizarEstabelecimento({
       cor_principal: document.getElementById('campo-cor-principal').value,
       cor_secundaria: document.getElementById('campo-cor-secundaria').value,
@@ -195,7 +182,6 @@ async function salvarAparencia() {
       fonte: document.getElementById('campo-fonte').value,
       tema: temaSelecionado
     });
-
     await carregarTudo();
     mostrarToast('Aparencia atualizada com sucesso!');
   } catch (erro) {
@@ -212,7 +198,6 @@ function montarCamposHorario(horarios) {
     const valor = horarios[dia.chave];
     const fechado = !valor || valor.toLowerCase() === 'fechado';
     const [abertura, fechamento] = (!fechado ? valor.split('-') : ['18:00', '23:00']);
-
     return `
       <div class="horario-dia" data-dia="${dia.chave}">
         <span class="horario-dia__nome">${dia.nome}</span>
@@ -257,7 +242,6 @@ function configurarEventosInformacoes() {
     const botao = document.getElementById('botao-salvar-informacoes');
     botao.disabled = true;
     botao.textContent = 'Salvando...';
-
     try {
       await apiAtualizarEstabelecimento({
         nome: document.getElementById('campo-nome').value.trim(),
@@ -290,14 +274,12 @@ function configurarEventosPagamento() {
     const botao = document.getElementById('botao-salvar-pagamento');
     botao.disabled = true;
     botao.textContent = 'Salvando...';
-
     try {
       const token = document.getElementById('campo-mp-token').value.trim();
       const publicKey = document.getElementById('campo-mp-public').value.trim();
       const dados = {};
       if (token) dados.mp_access_token = token;
       if (publicKey) dados.mp_public_key = publicKey;
-
       await apiAtualizarEstabelecimento(dados);
       document.getElementById('campo-mp-token').value = '';
       mostrarToast('Credenciais de pagamento salvas!');
@@ -310,16 +292,23 @@ function configurarEventosPagamento() {
   });
 }
 
+// =============================================
+// CATEGORIAS COM DRAG AND DROP
+// =============================================
+let dragSrcCategoriaId = null;
+
 function renderizarCategoriasAdmin() {
   const lista = document.getElementById('lista-categorias-admin');
-
   if (ESTADO.categorias.length === 0) {
     lista.innerHTML = '<div class="lista-vazia">Nenhuma categoria cadastrada ainda.</div>';
     return;
   }
 
-  lista.innerHTML = ESTADO.categorias.map(cat => `
-    <div class="item-admin">
+  const ordenadas = [...ESTADO.categorias].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+
+  lista.innerHTML = ordenadas.map(cat => `
+    <div class="item-admin item-admin--drag" draggable="true" data-categoria-drag-id="${cat.id}">
+      <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
       <img class="item-admin__imagem" src="${cat.icone_url || ''}" alt="">
       <div class="item-admin__info">
         <div class="item-admin__titulo">${escaparHtmlAdmin(cat.nome)}</div>
@@ -337,6 +326,57 @@ function renderizarCategoriasAdmin() {
   });
   lista.querySelectorAll('[data-excluir-categoria]').forEach(b => {
     b.addEventListener('click', () => excluirCategoria(b.getAttribute('data-excluir-categoria')));
+  });
+
+  configurarDragDropCategorias(lista);
+}
+
+function configurarDragDropCategorias(lista) {
+  lista.querySelectorAll('.item-admin--drag[data-categoria-drag-id]').forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+      dragSrcCategoriaId = item.getAttribute('data-categoria-drag-id');
+      item.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    item.addEventListener('dragend', () => {
+      item.style.opacity = '1';
+      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
+    });
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
+      item.classList.add('drag-over');
+    });
+    item.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const targetId = item.getAttribute('data-categoria-drag-id');
+      if (dragSrcCategoriaId === targetId) return;
+
+      const ordenadas = [...ESTADO.categorias].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+      const indiceSrc = ordenadas.findIndex(c => c.id === dragSrcCategoriaId);
+      const indiceTarget = ordenadas.findIndex(c => c.id === targetId);
+      if (indiceSrc === -1 || indiceTarget === -1) return;
+
+      const reordenadas = [...ordenadas];
+      const [movida] = reordenadas.splice(indiceSrc, 1);
+      reordenadas.splice(indiceTarget, 0, movida);
+
+      try {
+        await Promise.all(reordenadas.map((c, i) => {
+          if (c.ordem !== i) {
+            const fd = new FormData();
+            fd.append('nome', c.nome);
+            fd.append('ordem', i);
+            return apiAtualizarCategoria(c.id, fd);
+          }
+        }).filter(Boolean));
+        await carregarTudo();
+        renderizarCategoriasAdmin();
+        mostrarToast('Ordem das categorias atualizada!');
+      } catch (erro) {
+        mostrarToast('Erro ao reordenar categorias.', true);
+      }
+    });
   });
 }
 
@@ -383,7 +423,7 @@ function abrirModalCategoria(id) {
 }
 
 async function excluirCategoria(id) {
-  if (!confirm('Tem certeza que deseja excluir esta categoria? Os produtos vinculados a ela ficarao sem categoria.')) return;
+  if (!confirm('Tem certeza que deseja excluir esta categoria?')) return;
   try {
     await apiExcluirCategoria(id);
     await carregarTudo();
@@ -404,22 +444,20 @@ function preencherSelectCategorias() {
 // =============================================
 // PRODUTOS COM DRAG AND DROP
 // =============================================
-let dragSrcId = null;
+let dragSrcProdutoId = null;
 
 function renderizarProdutosAdmin() {
   const lista = document.getElementById('lista-produtos-admin');
-
   if (ESTADO.produtos.length === 0) {
     lista.innerHTML = '<div class="lista-vazia">Nenhum produto cadastrado ainda.</div>';
     return;
   }
 
-  const produtosOrdenados = [...ESTADO.produtos].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  const ordenados = [...ESTADO.produtos].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 
-  lista.innerHTML = produtosOrdenados.map(p => `
+  lista.innerHTML = ordenados.map(p => `
     <div class="item-admin item-admin--drag ${!p.disponivel ? 'item-admin--indisponivel' : ''}"
-         draggable="true"
-         data-produto-id="${p.id}">
+         draggable="true" data-produto-drag-id="${p.id}">
       <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
       <img class="item-admin__imagem" src="${p.foto_url || ''}" alt="">
       <div class="item-admin__info">
@@ -440,43 +478,36 @@ function renderizarProdutosAdmin() {
     b.addEventListener('click', () => excluirProduto(b.getAttribute('data-excluir-produto')));
   });
 
-  configurarDragDrop(lista);
+  configurarDragDropProdutos(lista);
 }
 
-function configurarDragDrop(lista) {
-  const itens = lista.querySelectorAll('.item-admin--drag');
-
-  itens.forEach(item => {
+function configurarDragDropProdutos(lista) {
+  lista.querySelectorAll('.item-admin--drag[data-produto-drag-id]').forEach(item => {
     item.addEventListener('dragstart', (e) => {
-      dragSrcId = item.getAttribute('data-produto-id');
+      dragSrcProdutoId = item.getAttribute('data-produto-drag-id');
       item.style.opacity = '0.4';
       e.dataTransfer.effectAllowed = 'move';
     });
-
     item.addEventListener('dragend', () => {
       item.style.opacity = '1';
       lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
     });
-
     item.addEventListener('dragover', (e) => {
       e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
       lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
       item.classList.add('drag-over');
     });
-
     item.addEventListener('drop', async (e) => {
       e.preventDefault();
-      const targetId = item.getAttribute('data-produto-id');
-      if (dragSrcId === targetId) return;
+      const targetId = item.getAttribute('data-produto-drag-id');
+      if (dragSrcProdutoId === targetId) return;
 
-      const produtosOrdenados = [...ESTADO.produtos].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
-      const indiceSrc = produtosOrdenados.findIndex(p => p.id === dragSrcId);
-      const indiceTarget = produtosOrdenados.findIndex(p => p.id === targetId);
-
+      const ordenados = [...ESTADO.produtos].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+      const indiceSrc = ordenados.findIndex(p => p.id === dragSrcProdutoId);
+      const indiceTarget = ordenados.findIndex(p => p.id === targetId);
       if (indiceSrc === -1 || indiceTarget === -1) return;
 
-      const reordenados = [...produtosOrdenados];
+      const reordenados = [...ordenados];
       const [movido] = reordenados.splice(indiceSrc, 1);
       reordenados.splice(indiceTarget, 0, movido);
 
@@ -488,7 +519,6 @@ function configurarDragDrop(lista) {
             return apiAtualizarProduto(p.id, fd);
           }
         }).filter(Boolean));
-
         await carregarTudo();
         renderizarProdutosAdmin();
         mostrarToast('Ordem dos produtos atualizada!');
@@ -565,16 +595,21 @@ async function excluirProduto(id) {
   }
 }
 
+// =============================================
+// PROMOCOES COM DRAG AND DROP
+// =============================================
+let dragSrcPromocaoId = null;
+
 function renderizarPromocoesAdmin() {
   const lista = document.getElementById('lista-promocoes-admin');
-
   if (ESTADO.promocoes.length === 0) {
     lista.innerHTML = '<div class="lista-vazia">Nenhuma promocao cadastrada ainda.</div>';
     return;
   }
 
   lista.innerHTML = ESTADO.promocoes.map(promo => `
-    <div class="item-admin">
+    <div class="item-admin item-admin--drag" draggable="true" data-promocao-drag-id="${promo.id}">
+      <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
       <img class="item-admin__imagem" src="${promo.imagem_url || ''}" alt="">
       <div class="item-admin__info">
         <div class="item-admin__titulo">${escaparHtmlAdmin(promo.titulo)}</div>
@@ -592,6 +627,54 @@ function renderizarPromocoesAdmin() {
   });
   lista.querySelectorAll('[data-excluir-promocao]').forEach(b => {
     b.addEventListener('click', () => excluirPromocao(b.getAttribute('data-excluir-promocao')));
+  });
+
+  configurarDragDropPromocoes(lista);
+}
+
+function configurarDragDropPromocoes(lista) {
+  lista.querySelectorAll('.item-admin--drag[data-promocao-drag-id]').forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+      dragSrcPromocaoId = item.getAttribute('data-promocao-drag-id');
+      item.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    item.addEventListener('dragend', () => {
+      item.style.opacity = '1';
+      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
+    });
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
+      item.classList.add('drag-over');
+    });
+    item.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const targetId = item.getAttribute('data-promocao-drag-id');
+      if (dragSrcPromocaoId === targetId) return;
+
+      const reordenadas = [...ESTADO.promocoes];
+      const indiceSrc = reordenadas.findIndex(p => p.id === dragSrcPromocaoId);
+      const indiceTarget = reordenadas.findIndex(p => p.id === targetId);
+      if (indiceSrc === -1 || indiceTarget === -1) return;
+
+      const [movida] = reordenadas.splice(indiceSrc, 1);
+      reordenadas.splice(indiceTarget, 0, movida);
+
+      try {
+        await Promise.all(reordenadas.map((p, i) => {
+          const fd = new FormData();
+          fd.append('titulo', p.titulo);
+          fd.append('ordem', i);
+          return apiAtualizarPromocao(p.id, fd);
+        }));
+        await carregarTudo();
+        renderizarPromocoesAdmin();
+        mostrarToast('Ordem das promocoes atualizada!');
+      } catch (erro) {
+        mostrarToast('Erro ao reordenar promocoes.', true);
+      }
+    });
   });
 }
 
@@ -673,7 +756,6 @@ function configurarEventosPedidos() {
 async function carregarPedidos() {
   const lista = document.getElementById('lista-pedidos-admin');
   lista.innerHTML = '<div class="lista-vazia">Carregando...</div>';
-
   try {
     const pedidos = await apiListarPedidos(FILTRO_STATUS_PEDIDO);
     renderizarPedidosAdmin(pedidos);
@@ -689,7 +771,6 @@ const STATUS_PEDIDO_LABEL = {
 
 function renderizarPedidosAdmin(pedidos) {
   const lista = document.getElementById('lista-pedidos-admin');
-
   if (pedidos.length === 0) {
     lista.innerHTML = '<div class="lista-vazia">Nenhum pedido encontrado.</div>';
     return;
@@ -698,7 +779,6 @@ function renderizarPedidosAdmin(pedidos) {
   lista.innerHTML = pedidos.map(pedido => {
     const itens = pedido.itens.map(i => `${i.quantidade}x ${escaparHtmlAdmin(i.nome)}`).join(', ');
     const data = new Date(pedido.criado_em).toLocaleString('pt-BR');
-
     return `
       <div class="item-admin" style="align-items: flex-start;">
         <div class="item-admin__info">
