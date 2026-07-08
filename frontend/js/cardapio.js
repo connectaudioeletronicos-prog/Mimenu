@@ -346,6 +346,18 @@ function irParaCheckout() {
   const dados = obterDadosCliente();
   if (dados.nome) document.getElementById('checkout-nome').value = dados.nome;
   if (dados.telefone) document.getElementById('checkout-telefone').value = dados.telefone;
+
+  const campoTelefone = document.getElementById('checkout-telefone');
+  if (campoTelefone && !campoTelefone.dataset.mascara) {
+    campoTelefone.dataset.mascara='1';
+    campoTelefone.addEventListener('input', function(){
+      let numeros=this.value.replace(/\D/g,'').substring(0,11);
+      if(numeros.length===0)this.value='';
+      else if(numeros.length<=2)this.value='('+numeros;
+      else this.value='('+numeros.substring(0,2)+') '+numeros.substring(2);
+    });
+    campoTelefone.dispatchEvent(new Event('input'));
+  }
   if (dados.endereco) document.getElementById('checkout-endereco').value = dados.endereco;
   document.getElementById('carrinho-etapa-itens').classList.add('oculto');
   document.getElementById('carrinho-etapa-checkout').classList.remove('oculto');
@@ -365,7 +377,7 @@ async function finalizarPedido(evento) {
     return;
   }
 
-  const regexTelefone = /^\(\d{2}\)\s9\d{4}-\d{4}$/;
+  const regexTelefone = /^\(\d{2}\)\s\d{9}$/;
   if (!regexTelefone.test(telefone)) {
     alert('Telefone invalido. Use o formato: (11) 99999-9999');
     return;
