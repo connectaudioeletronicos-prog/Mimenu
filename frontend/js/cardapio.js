@@ -221,25 +221,93 @@ function montarCardProduto(produto) {
 
 function montarRodape(estabelecimento) {
   const info = document.getElementById('rodape-info');
-  const linhas = [];
-  if (estabelecimento.endereco) linhas.push(`📍 ${escaparHtml(estabelecimento.endereco)}`);
-  if (estabelecimento.telefone) linhas.push(`📞 ${escaparHtml(estabelecimento.telefone)}`);
-  if (estabelecimento.whatsapp) {
-    const w = estabelecimento.whatsapp.replace(/\D/g, '');
-    linhas.push(`<a href="https://wa.me/${w}" target="_blank" rel="noopener">💬 Conversar no WhatsApp</a>`);
-  }
-  info.innerHTML = linhas.join('<br>');
   const redes = document.getElementById('rodape-redes');
-  const linksRedes = [];
-  if (estabelecimento.instagram) {
-    linksRedes.push(`<a href="https://instagram.com/${escaparAspas(estabelecimento.instagram.replace('@', ''))}" target="_blank" rel="noopener">Instagram</a>`);
-  }
-  if (estabelecimento.facebook) {
-    linksRedes.push(`<a href="${escaparAspas(estabelecimento.facebook)}" target="_blank" rel="noopener">Facebook</a>`);
-  }
-  redes.innerHTML = linksRedes.join('');
-}
 
+  const telefone = estabelecimento.telefone || '';
+  const whatsapp = (estabelecimento.whatsapp || '').replace(/\D/g, '');
+  const endereco = estabelecimento.endereco || '';
+
+  // Link do Google Maps
+  const linkMapa = endereco
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`
+    : '#';
+
+  let html = '<div class="rodape-icones">';
+
+  // Localização
+  if (endereco) {
+    html += `
+      <a href="${linkMapa}" target="_blank" title="Localização">
+        <img src="img/icones/localizacao.png" alt="Localização">
+      </a>
+    `;
+  }
+
+  // Telefone
+  if (telefone) {
+    html += `
+      <a href="tel:${telefone.replace(/\D/g,'')}" title="Ligar">
+        <img src="img/icones/telefone.png" alt="Telefone">
+      </a>
+    `;
+  }
+
+  // WhatsApp
+  if (whatsapp) {
+    html += `
+      <a href="https://wa.me/${whatsapp}" target="_blank" title="WhatsApp">
+        <img src="img/icones/whatsapp.png" alt="WhatsApp">
+      </a>
+    `;
+  }
+
+  // Facebook
+  if (estabelecimento.facebook) {
+    html += `
+      <a href="${estabelecimento.facebook}" target="_blank" title="Facebook">
+        <img src="img/icones/facebook.png" alt="Facebook">
+      </a>
+    `;
+  }
+
+  // Instagram
+  if (estabelecimento.instagram) {
+    let insta = estabelecimento.instagram.trim();
+
+    if (!insta.startsWith('http')) {
+      insta = `https://instagram.com/${insta.replace('@','')}`;
+    }
+
+    html += `
+      <a href="${insta}" target="_blank" title="Instagram">
+        <img src="img/icones/instagram.png" alt="Instagram">
+      </a>
+    `;
+  }
+
+  // LinkedIn
+  if (estabelecimento.linkedin) {
+    html += `
+      <a href="${estabelecimento.linkedin}" target="_blank" title="LinkedIn">
+        <img src="img/icones/linkedin.png" alt="LinkedIn">
+      </a>
+    `;
+  }
+
+  html += '</div>';
+
+  info.innerHTML = html;
+
+  redes.innerHTML = `
+    <div class="rodape-links">
+      <a href="termos.html">Termos de Uso</a>
+      <span>•</span>
+      <a href="cookies.html">Cookies</a>
+      <span>•</span>
+      <a href="privacidade.html">Política de Privacidade</a>
+    </div>
+  `;
+}
 function abrirModalProduto(produtoId) {
   const produto = DADOS.produtos.find(p => p.id === produtoId);
   if (!produto) return;
