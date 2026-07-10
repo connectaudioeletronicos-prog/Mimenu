@@ -801,38 +801,41 @@
    ============================================= */
 .rodape-icones {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
   padding: 16px 0 8px;
 }
 
 .rodape-icone {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
   text-decoration: none;
-  background: rgba(255,255,255,0.12);
-  border-radius: 14px;
-  padding: 10px 14px;
-  min-width: 64px;
-  transition: transform 0.2s, box-shadow 0.2s;
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 7px 12px;
+  transition: transform 0.2s, background 0.2s;
+  border: 1px solid rgba(255,255,255,0.1);
 }
 
 .rodape-icone:hover {
-  transform: translateY(-2px);
-}
-
-.rodape-icone span {
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: rgba(255,255,255,0.85);
-  text-align: center;
+  background: rgba(255,255,255,0.16);
+  transform: translateX(2px);
 }
 
 .rodape-icone svg {
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.35));
+}
+
+.rodape-icone span {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
 }
 
 .rodape-links {
