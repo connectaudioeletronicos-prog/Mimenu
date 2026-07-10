@@ -258,7 +258,7 @@ function montarRodape(estabelecimento) {
   if (endereco) {
     icones += `
       <a href="${linkMapa}" target="_blank" class="rodape-icone" title="Ver no mapa"
-         style="color:${cores.localizacao};box-shadow:0 4px 14px ${cores.localizacao}55;">
+         style="color:${cores.localizacao};box-shadow:0 2px 8px rgba(0,0,0,0.2);">
         ${SVG.localizacao}
         <span>Localização</span>
       </a>`;
@@ -267,7 +267,7 @@ function montarRodape(estabelecimento) {
   if (telefone) {
     icones += `
       <a href="tel:${telefone.replace(/\D/g,'')}" class="rodape-icone" title="Ligar"
-         style="color:${cores.telefone};box-shadow:0 4px 14px ${cores.telefone}55;">
+         style="color:${cores.telefone};box-shadow:0 2px 8px rgba(0,0,0,0.2);">
         ${SVG.telefone}
         <span>Telefone</span>
       </a>`;
@@ -276,7 +276,7 @@ function montarRodape(estabelecimento) {
   if (whatsapp) {
     icones += `
       <a href="https://wa.me/${whatsapp}" target="_blank" class="rodape-icone" title="WhatsApp"
-         style="color:${cores.whatsapp};box-shadow:0 4px 14px ${cores.whatsapp}55;">
+         style="color:${cores.whatsapp};box-shadow:0 2px 8px rgba(0,0,0,0.2);">
         ${SVG.whatsapp}
         <span>WhatsApp</span>
       </a>`;
@@ -285,7 +285,7 @@ function montarRodape(estabelecimento) {
   if (email) {
     icones += `
       <a href="mailto:${email}" class="rodape-icone" title="E-mail"
-         style="color:${cores.email};box-shadow:0 4px 14px ${cores.email}55;">
+         style="color:${cores.email};box-shadow:0 2px 8px rgba(0,0,0,0.2);">
         ${SVG.email}
         <span>E-mail</span>
       </a>`;
@@ -296,7 +296,7 @@ function montarRodape(estabelecimento) {
     if (!insta.startsWith('http')) insta = `https://instagram.com/${insta.replace('@','')}`;
     icones += `
       <a href="${insta}" target="_blank" class="rodape-icone" title="Instagram"
-         style="color:${cores.instagram};box-shadow:0 4px 14px ${cores.instagram}55;">
+         style="color:${cores.instagram};box-shadow:0 2px 8px rgba(0,0,0,0.2);">
         ${SVG.instagram}
         <span>Instagram</span>
       </a>`;
@@ -305,7 +305,7 @@ function montarRodape(estabelecimento) {
   if (estabelecimento.facebook) {
     icones += `
       <a href="${estabelecimento.facebook}" target="_blank" class="rodape-icone" title="Facebook"
-         style="color:${cores.facebook};box-shadow:0 4px 14px ${cores.facebook}55;">
+         style="color:${cores.facebook};box-shadow:0 2px 8px rgba(0,0,0,0.2);">
         ${SVG.facebook}
         <span>Facebook</span>
       </a>`;
@@ -314,7 +314,7 @@ function montarRodape(estabelecimento) {
   if (estabelecimento.linkedin) {
     icones += `
       <a href="${estabelecimento.linkedin}" target="_blank" class="rodape-icone" title="LinkedIn"
-         style="color:${cores.linkedin};box-shadow:0 4px 14px ${cores.linkedin}55;">
+         style="color:${cores.linkedin};box-shadow:0 2px 8px rgba(0,0,0,0.2);">
         ${SVG.linkedin}
         <span>LinkedIn</span>
       </a>`;
