@@ -11,7 +11,7 @@ const rotasPublico = require('./routes/publico');
 const rotasAuth = require('./routes/auth');
 const rotasAdmin = require('./routes/admin');
 const rotasWebhooks = require('./routes/webhooks');
-
+const rotasFuncionarios = require('./routes/funcionarios');
 const app = express();
 
 app.use(helmet());
