@@ -40,6 +40,7 @@ app.use('/api/publico', rotasPublico);
 app.use('/api/auth', rotasAuth);
 app.use('/api/admin', rotasAdmin);
 app.use('/api/webhooks', rotasWebhooks);
+app.use('/api/funcionarios', rotasFuncionarios);
 
 app.use((err, req, res, next) => {
   if (err.name === 'MulterError' || err.message?.includes('Formato de imagem')) {
