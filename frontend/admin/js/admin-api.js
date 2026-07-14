@@ -54,6 +54,28 @@ async function apiLogin(email, senha) {
   return dados;
 }
 
+async function apiTrocarSenha(senhaAtual, novaSenha) {
+  const resposta = await fetch(`${API_BASE_URL}/auth/trocar-senha`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${obterToken()}` },
+    body: JSON.stringify({ senhaAtual, novaSenha })
+  });
+  const dados = await resposta.json();
+  if (!resposta.ok) throw new Error(dados.erro || 'Nao foi possivel trocar a senha.');
+  return dados;
+}
+
+async function apiSolicitarRecuperacaoSenha(email) {
+  const resposta = await fetch(`${API_BASE_URL}/auth/esqueci-senha`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  });
+  const dados = await resposta.json();
+  if (!resposta.ok) throw new Error(dados.erro || 'Nao foi possivel enviar o link de recuperacao.');
+  return dados;
+}
+
 const apiBuscarEstabelecimento = () => chamarApiAdmin('/estabelecimento');
 const apiAtualizarEstabelecimento = (dados) => chamarApiAdmin('/estabelecimento', { method: 'PUT', body: dados });
 const apiUploadLogo = (formData) => chamarApiAdmin('/estabelecimento/logo', { method: 'POST', body: formData, isFormData: true });
