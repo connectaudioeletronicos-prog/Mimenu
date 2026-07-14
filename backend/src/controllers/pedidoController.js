@@ -64,14 +64,6 @@ async function criarPedido(req, res) {
     );
     const pedido = pedidoRes.rows[0];
 
-    for (const item of itensValidados) {
-      await query(
-        `INSERT INTO itens_pedido (pedido_id, produto_id, nome_produto, quantidade, preco_unitario, observacao)
-         VALUES ($1,$2,$3,$4,$5,$6)`,
-        [pedido.id, item.produto_id, item.nome, item.quantidade, item.preco_unitario, item.observacao]
-      );
-    }
-
     // Tenta salvar cliente automaticamente
     try {
       await query(
@@ -119,18 +111,10 @@ async function webhookMercadoPago(req, res) {
 async function listarPedidosAdmin(req, res) {
   try {
     const { status } = req.query;
-    let sql = `
-      SELECT p.*, json_agg(json_build_object(
-        'id', ip.id, 'nome', ip.nome_produto, 'quantidade', ip.quantidade,
-        'preco_unitario', ip.preco_unitario, 'observacao', ip.observacao
-      )) as itens
-      FROM pedidos p
-      LEFT JOIN itens_pedido ip ON ip.pedido_id = p.id
-      WHERE p.estabelecimento_id = $1
-    `;
+    let sql = `SELECT * FROM pedidos WHERE estabelecimento_id = $1`;
     const params = [req.estabelecimentoId];
-    if (status) { sql += ` AND p.status_pedido = $2`; params.push(status); }
-    sql += ` GROUP BY p.id ORDER BY p.criado_em DESC LIMIT 100`;
+    if (status) { sql += ` AND status_pedido = $2`; params.push(status); }
+    sql += ` ORDER BY criado_em DESC LIMIT 100`;
     const resultado = await query(sql, params);
     res.json(resultado.rows);
   } catch (error) {
