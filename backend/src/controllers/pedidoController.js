@@ -1,13 +1,41 @@
 const { query } = require('../config/database');
 const { uploadImagem } = require('../utils/storage');
+const { validarFormatoCep, validarEnderecoGoogleMaps } = require('../utils/geocoding');
 
 async function criarPedido(req, res) {
   try {
     const { slug } = req.params;
-    const { cliente_nome, cliente_telefone, cliente_endereco, observacoes, forma_pagamento, taxa_entrega, itens } = req.body;
+    const {
+      cliente_nome, cliente_telefone, cliente_endereco, cliente_cep,
+      observacoes, forma_pagamento, taxa_entrega, itens
+    } = req.body;
 
     if (!cliente_nome || !cliente_telefone || !itens || itens.length === 0) {
       return res.status(400).json({ erro: 'Dados incompletos para criar pedido.' });
+    }
+
+    const nomePartes = cliente_nome.trim().split(/\s+/).filter(Boolean);
+    if (nomePartes.length < 2) {
+      return res.status(400).json({ erro: 'Informe nome e sobrenome completos.' });
+    }
+
+    const regexTelefone = /^\(\d{2}\)\s\d{9}$/;
+    if (!regexTelefone.test(cliente_telefone)) {
+      return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
+    }
+
+    if (!cliente_endereco || cliente_endereco.trim().length < 5) {
+      return res.status(400).json({ erro: 'Informe o endereco de entrega.' });
+    }
+
+    if (!validarFormatoCep(cliente_cep)) {
+      return res.status(400).json({ erro: 'CEP invalido. Use o formato 99999-999.' });
+    }
+
+    const enderecoParaValidar = `${cliente_endereco}, ${cliente_cep}, Brasil`;
+    const validacaoEndereco = await validarEnderecoGoogleMaps(enderecoParaValidar);
+    if (!validacaoEndereco.valido) {
+      return res.status(400).json({ erro: 'Endereco nao encontrado no Google Maps. Verifique rua, numero e CEP.' });
     }
 
     const estRes = await query('SELECT id, ativo, mp_access_token FROM estabelecimentos WHERE slug = $1', [slug]);
@@ -15,7 +43,7 @@ async function criarPedido(req, res) {
     if (!estRes.rows[0].ativo) return res.status(403).json({ erro: 'Estabelecimento indisponivel.' });
     const estabelecimentoId = estRes.rows[0].id;
 
-    let total = 0;
+    let subtotal = 0;
     const itensValidados = [];
     for (const item of itens) {
       const prodRes = await query('SELECT id, nome, preco, preco_promocional, disponivel FROM produtos WHERE id = $1 AND estabelecimento_id = $2', [item.produto_id, estabelecimentoId]);
@@ -24,16 +52,16 @@ async function criarPedido(req, res) {
       if (!produto.disponivel) return res.status(400).json({ erro: `Produto indisponivel: ${produto.nome}` });
       const preco = produto.preco_promocional && parseFloat(produto.preco_promocional) < parseFloat(produto.preco)
         ? parseFloat(produto.preco_promocional) : parseFloat(produto.preco);
-      total += preco * item.quantidade;
+      subtotal += preco * item.quantidade;
       itensValidados.push({ produto_id: produto.id, nome: produto.nome, quantidade: item.quantidade, preco_unitario: preco, observacao: item.observacao || '' });
     }
 
-    total += parseFloat(taxa_entrega || 0);
+    const total = subtotal + parseFloat(taxa_entrega || 0);
 
     const pedidoRes = await query(
-      `INSERT INTO pedidos (estabelecimento_id, cliente_nome, cliente_telefone, cliente_endereco, observacoes, forma_pagamento, taxa_entrega, total, status_pedido, status_pagamento)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'novo','pendente') RETURNING *`,
-      [estabelecimentoId, cliente_nome, cliente_telefone, cliente_endereco || '', observacoes || '', forma_pagamento, parseFloat(taxa_entrega || 0), total]
+      `INSERT INTO pedidos (estabelecimento_id, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes, forma_pagamento, itens, subtotal, taxa_entrega, total, status_pedido, status_pagamento)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'novo','pendente') RETURNING *`,
+      [estabelecimentoId, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes || '', forma_pagamento, JSON.stringify(itensValidados), subtotal, parseFloat(taxa_entrega || 0), total]
     );
     const pedido = pedidoRes.rows[0];
 
@@ -48,13 +76,14 @@ async function criarPedido(req, res) {
     // Tenta salvar cliente automaticamente
     try {
       await query(
-        `INSERT INTO clientes (estabelecimento_id, nome, telefone, endereco)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO clientes (estabelecimento_id, nome, telefone, endereco, cep)
+         VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (estabelecimento_id, telefone)
          DO UPDATE SET nome = EXCLUDED.nome,
                        endereco = COALESCE(EXCLUDED.endereco, clientes.endereco),
+                       cep = COALESCE(EXCLUDED.cep, clientes.cep),
                        atualizado_em = NOW()`,
-        [estabelecimentoId, cliente_nome, cliente_telefone, cliente_endereco || null]
+        [estabelecimentoId, cliente_nome, cliente_telefone, cliente_endereco || null, cliente_cep || null]
       );
     } catch (e) {
       console.warn('Aviso: nao foi possivel salvar cliente automaticamente:', e.message);
