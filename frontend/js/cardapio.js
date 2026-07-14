@@ -450,10 +450,35 @@ function irParaCheckout() {
     });
     campoTelefone.dispatchEvent(new Event('input'));
   }
-  if (dados.endereco) document.getElementById('checkout-endereco').value = dados.endereco;
+  if (dados.rua) document.getElementById('checkout-rua').value = dados.rua;
+  if (dados.numero) document.getElementById('checkout-numero').value = dados.numero;
+  if (dados.cep) document.getElementById('checkout-cep').value = dados.cep;
+  aplicarMascaraCep(document.getElementById('checkout-cep'));
+
   document.getElementById('carrinho-etapa-itens').classList.add('oculto');
   document.getElementById('carrinho-etapa-checkout').classList.remove('oculto');
   document.getElementById('checkout-total').textContent = formatarMoeda(Carrinho.calcularSubtotal());
+}
+
+function aplicarMascaraTelefone(campo) {
+  if (!campo || campo.dataset.mascara) return;
+  campo.dataset.mascara = '1';
+  campo.addEventListener('input', function () {
+    let numeros = this.value.replace(/\D/g, '').substring(0, 11);
+    if (numeros.length === 0) this.value = '';
+    else if (numeros.length <= 2) this.value = '(' + numeros;
+    else this.value = '(' + numeros.substring(0, 2) + ') ' + numeros.substring(2);
+  });
+}
+
+function aplicarMascaraCep(campo) {
+  if (!campo || campo.dataset.mascara) return;
+  campo.dataset.mascara = '1';
+  campo.addEventListener('input', function () {
+    let numeros = this.value.replace(/\D/g, '').substring(0, 8);
+    if (numeros.length <= 5) this.value = numeros;
+    else this.value = numeros.substring(0, 5) + '-' + numeros.substring(5);
+  });
 }
 
 async function finalizarPedido(evento) {
@@ -461,9 +486,11 @@ async function finalizarPedido(evento) {
 
   const nome = document.getElementById('checkout-nome').value.trim();
   const telefone = document.getElementById('checkout-telefone').value.trim();
-  const endereco = document.getElementById('checkout-endereco').value.trim();
+  const rua = document.getElementById('checkout-rua').value.trim();
+  const numero = document.getElementById('checkout-numero').value.trim();
+  const cep = document.getElementById('checkout-cep').value.trim();
 
-  const nomePartes = nome.split(' ').filter(p => p.length > 0);
+  const nomePartes = nome.split(/\s+/).filter(p => p.length > 0);
   if (nomePartes.length < 2) {
     alert('Por favor, informe seu nome completo (nome e sobrenome).');
     return;
@@ -471,14 +498,22 @@ async function finalizarPedido(evento) {
 
   const regexTelefone = /^\(\d{2}\)\s\d{9}$/;
   if (!regexTelefone.test(telefone)) {
-    alert('Telefone invalido. Use o formato: (11) 99999-9999');
+    alert('Telefone invalido. Use o formato: (11) 999999999');
     return;
   }
 
-  if (endereco.length < 10) {
-    alert('Por favor, informe seu endereco completo para entrega.');
+  if (!rua || !numero) {
+    alert('Por favor, informe rua e numero para entrega.');
     return;
   }
+
+  const regexCep = /^\d{5}-\d{3}$/;
+  if (!regexCep.test(cep)) {
+    alert('CEP invalido. Use o formato: 99999-999');
+    return;
+  }
+
+  const endereco = `${rua}, ${numero}`;
 
   const botao = document.getElementById('botao-finalizar-pedido');
   botao.disabled = true;
@@ -490,6 +525,7 @@ async function finalizarPedido(evento) {
       cliente_nome: nome,
       cliente_telefone: telefone,
       cliente_endereco: endereco,
+      cliente_cep: cep,
       observacoes: document.getElementById('checkout-observacoes').value.trim(),
       forma_pagamento: formaPagamento,
       taxa_entrega: 0,
@@ -500,7 +536,7 @@ async function finalizarPedido(evento) {
       }))
     };
 
-    salvarDadosCliente({ nome, telefone, endereco });
+    salvarDadosCliente({ nome, telefone, rua, numero, cep });
 
     const resultado = await enviarPedido(SLUG_ESTABELECIMENTO, dadosPedido);
     mostrarConfirmacao(resultado, formaPagamento);
@@ -674,12 +710,22 @@ function inicializarMenuCliente() {
     });
   });
 
+  aplicarMascaraCep(document.getElementById('dados-cep'));
+  aplicarMascaraTelefone(document.getElementById('dados-telefone'));
+
   document.getElementById('form-dados-cliente').addEventListener('submit', (evento) => {
     evento.preventDefault();
+    const cep = document.getElementById('dados-cep').value.trim();
+    if (cep && !/^\d{5}-\d{3}$/.test(cep)) {
+      alert('CEP invalido. Use o formato: 99999-999');
+      return;
+    }
     salvarDadosCliente({
       nome: document.getElementById('dados-nome').value.trim(),
       telefone: document.getElementById('dados-telefone').value.trim(),
-      endereco: document.getElementById('dados-endereco').value.trim()
+      rua: document.getElementById('dados-rua').value.trim(),
+      numero: document.getElementById('dados-numero').value.trim(),
+      cep
     });
     telaCliente.classList.add('oculto');
     document.getElementById('app').classList.remove('oculto');
@@ -695,7 +741,9 @@ function preencherFormularioDadosCliente() {
   const dados = obterDadosCliente();
   document.getElementById('dados-nome').value = dados.nome || '';
   document.getElementById('dados-telefone').value = dados.telefone || '';
-  document.getElementById('dados-endereco').value = dados.endereco || '';
+  document.getElementById('dados-rua').value = dados.rua || '';
+  document.getElementById('dados-numero').value = dados.numero || '';
+  document.getElementById('dados-cep').value = dados.cep || '';
 }
 
 async function carregarPedidosCliente() {
