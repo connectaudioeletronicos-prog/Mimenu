@@ -40,6 +40,7 @@
       <button class="painel__menu-item" data-aba="promocoes">🏷️ Promocoes</button>
       <button class="painel__menu-item" data-aba="pedidos">🧾 Pedidos</button>
       <button class="painel__menu-item" data-aba="pagamento">💳 Pagamento</button>
+      <button class="painel__menu-item" data-aba="paginas-legais">📄 Paginas legais</button>
       <button id="botao-sair" class="painel__menu-item painel__menu-item--sair">Sair</button>
     </nav>
 
@@ -225,6 +226,31 @@
         </p>
 
         <button id="botao-salvar-pagamento" class="botao-primario">Salvar credenciais</button>
+      </section>
+
+      <section id="aba-paginas-legais" class="aba oculto">
+        <h2 class="aba__titulo">Paginas legais</h2>
+        <p class="aba__descricao">
+          Esse conteudo fica disponivel para seus clientes no rodape do cardapio.
+          Cole aqui o texto completo de cada documento.
+        </p>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Termos de Uso</label>
+          <textarea id="campo-termos-uso" class="campo-textarea" rows="12"></textarea>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Cookies</label>
+          <textarea id="campo-cookies" class="campo-textarea" rows="12"></textarea>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Politica de Privacidade</label>
+          <textarea id="campo-politica-privacidade" class="campo-textarea" rows="12"></textarea>
+        </div>
+
+        <button id="botao-salvar-paginas-legais" class="botao-primario">Salvar paginas legais</button>
       </section>
 
     </main>
