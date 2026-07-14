@@ -428,29 +428,6 @@ input, textarea, select { font-family: inherit; }
   font-weight: 600;
 }
 
-.item-admin__mover {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.item-admin__mover button {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--admin-cor-borda);
-  border-radius: 6px;
-  background: #fff;
-  font-size: 0.9rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.item-admin__mover button:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
 .item-admin--indisponivel {
   opacity: 0.55;
 }
