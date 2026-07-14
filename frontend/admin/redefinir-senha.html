@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redefinir senha</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="tela-login">
+    <form id="form-redefinir-senha" class="login-card">
+      <h1 class="login-card__titulo">Redefinir senha</h1>
+      <p class="login-card__subtitulo">Escolha sua nova senha de acesso ao painel.</p>
+
+      <label>Nova senha
+        <div class="campo-senha-wrapper">
+          <input type="password" id="redefinir-senha-nova" required minlength="6" autocomplete="new-password">
+          <button type="button" class="botao-olho" data-alvo-senha="redefinir-senha-nova" aria-label="Mostrar senha">👁</button>
+        </div>
+      </label>
+
+      <label>Confirmar nova senha
+        <div class="campo-senha-wrapper">
+          <input type="password" id="redefinir-senha-confirmar" required minlength="6" autocomplete="new-password">
+          <button type="button" class="botao-olho" data-alvo-senha="redefinir-senha-confirmar" aria-label="Mostrar senha">👁</button>
+        </div>
+      </label>
+
+      <div id="redefinir-senha-erro" class="login-card__erro oculto"></div>
+      <div id="redefinir-senha-sucesso" class="login-card__sucesso oculto"></div>
+
+      <button type="submit" class="botao-primario">Salvar nova senha</button>
+      <a href="index.html" class="login-card__link">Voltar ao login</a>
+    </form>
+  </div>
+
+  <script src="../js/config.js"></script>
+  <script src="js/redefinir-senha.js"></script>
+</body>
+</html>
