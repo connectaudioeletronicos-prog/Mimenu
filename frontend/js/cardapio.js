@@ -110,7 +110,12 @@ function montarStatusFuncionamento(horarios) {
   const [abertura, fechamento] = horarioHoje.split('-');
   const agora = new Date();
   const minutosAgora = agora.getHours() * 60 + agora.getMinutes();
-  const aberto = minutosAgora >= converterParaMinutos(abertura) && minutosAgora <= converterParaMinutos(fechamento);
+  const minAbertura = converterParaMinutos(abertura);
+  const minFechamento = converterParaMinutos(fechamento);
+  const passaDaMeiaNoite = minFechamento < minAbertura;
+  const aberto = passaDaMeiaNoite
+    ? (minutosAgora >= minAbertura || minutosAgora <= minFechamento)
+    : (minutosAgora >= minAbertura && minutosAgora <= minFechamento);
   elemento.textContent = aberto ? `Aberto agora - ate ${fechamento}` : `Fechado agora - abre as ${abertura}`;
   elemento.className = `apresentacao__status apresentacao__status--${aberto ? 'aberto' : 'fechado'}`;
 }
@@ -648,7 +653,13 @@ function verificarBloqueioHorario() {
   const [abertura, fechamento] = horarioHoje.split('-');
   const agora = new Date();
   const minutosAgora = agora.getHours() * 60 + agora.getMinutes();
-  if (minutosAgora < converterParaMinutos(abertura) || minutosAgora > converterParaMinutos(fechamento)) {
+  const minAbertura = converterParaMinutos(abertura);
+  const minFechamento = converterParaMinutos(fechamento);
+  const passaDaMeiaNoite = minFechamento < minAbertura;
+  const dentroDoHorario = passaDaMeiaNoite
+    ? (minutosAgora >= minAbertura || minutosAgora <= minFechamento)
+    : (minutosAgora >= minAbertura && minutosAgora <= minFechamento);
+  if (!dentroDoHorario) {
     bloquearPedidos(`Estabelecimento fechado agora. Funcionamento: ${abertura.trim()} ate ${fechamento.trim()}.`);
   }
 }
