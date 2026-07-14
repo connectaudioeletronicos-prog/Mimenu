@@ -41,13 +41,19 @@
       <div id="aba-cliente-dados" class="aba-cliente">
         <form id="form-dados-cliente" class="tela-cliente__form">
           <label>Nome completo
-            <input type="text" id="dados-nome" maxlength="150">
+            <input type="text" id="dados-nome">
           </label>
           <label>WhatsApp / Telefone
-            <input type="tel" id="dados-telefone" maxlength="20">
+            <input type="tel" id="dados-telefone" maxlength="14" placeholder="(11) 999999999">
           </label>
-          <label>Endereco de entrega
-            <textarea id="dados-endereco" maxlength="300"></textarea>
+          <label>Rua / Avenida
+            <input type="text" id="dados-rua" placeholder="Rua Osvaldo Cruz">
+          </label>
+          <label>Numero
+            <input type="text" id="dados-numero" maxlength="10" placeholder="5210">
+          </label>
+          <label>CEP
+            <input type="text" id="dados-cep" maxlength="9" placeholder="99999-999">
           </label>
           <button type="submit" class="botao-primario">Salvar dados</button>
         </form>
