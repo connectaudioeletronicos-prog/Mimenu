@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documento</title>
+  <link rel="stylesheet" href="css/variaveis.css">
+  <link rel="stylesheet" href="css/base.css">
+  <style>
+    .pagina-legal { max-width: 720px; margin: 0 auto; padding: 24px 20px 60px; }
+    .pagina-legal__voltar { display: inline-block; margin-bottom: 16px; color: inherit; text-decoration: none; opacity: 0.7; }
+    .pagina-legal__titulo { font-size: 1.5rem; margin-bottom: 20px; }
+    .pagina-legal__conteudo { white-space: pre-wrap; line-height: 1.6; font-size: 0.95rem; }
+    .pagina-legal__vazio { opacity: 0.6; }
+  </style>
+</head>
+<body>
+  <div class="pagina-legal">
+    <a href="javascript:history.back()" class="pagina-legal__voltar">&larr; Voltar</a>
+    <h1 class="pagina-legal__titulo" id="pagina-legal-titulo">Documento</h1>
+    <div class="pagina-legal__conteudo" id="pagina-legal-conteudo">Carregando...</div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/pagina-legal.js"></script>
+</body>
+</html>
