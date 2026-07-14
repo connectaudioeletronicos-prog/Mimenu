@@ -76,6 +76,43 @@ input, textarea, select { font-family: inherit; }
   font-size: 0.82rem;
 }
 
+.login-card__sucesso {
+  background: #f0fdf4;
+  color: #15803d;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.login-card__link {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--admin-cor-primaria);
+  text-decoration: none;
+}
+
+.campo-senha-wrapper {
+  position: relative;
+  display: flex;
+}
+
+.campo-senha-wrapper input {
+  flex: 1;
+  padding-right: 42px;
+}
+
+.botao-olho {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
 .botao-primario {
   background: var(--admin-cor-primaria);
   color: #fff;
@@ -590,4 +627,3 @@ input, textarea, select { font-family: inherit; }
   border: 2px dashed var(--admin-cor-primaria);
   background: #eff6ff;
 }
-q
