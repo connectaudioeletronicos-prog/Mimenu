@@ -49,11 +49,12 @@ async function buscarPorSlug(req, res) {
     );
 
     const promocoesResult = await query(
-      `SELECT id, titulo, descricao, imagem_url, produto_id
+      `SELECT id, titulo, descricao, imagem_url, produto_id, ordem
        FROM promocoes
        WHERE estabelecimento_id = $1 AND ativo = true
          AND (data_inicio IS NULL OR data_inicio <= NOW())
-         AND (data_fim IS NULL OR data_fim >= NOW())`,
+         AND (data_fim IS NULL OR data_fim >= NOW())
+       ORDER BY ordem ASC`,
       [estabelecimento.id]
     );
 
