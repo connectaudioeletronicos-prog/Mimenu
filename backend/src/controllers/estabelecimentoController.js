@@ -8,7 +8,9 @@ const { uploadImagem } = require('../utils/storage');
 const CAMPOS_EDITAVEIS = [
   'nome', 'cor_principal', 'cor_secundaria', 'cor_botoes', 'fonte', 'tema',
   'texto_apresentacao', 'whatsapp', 'telefone', 'endereco', 'instagram',
-  'facebook', 'horario_funcionamento', 'mp_access_token', 'mp_public_key'
+  'facebook', 'linkedin', 'email_contato', 'horario_funcionamento',
+  'mp_access_token', 'mp_public_key',
+  'termos_uso', 'politica_privacidade', 'cookies'
 ];
 
 async function buscarPorSlug(req, res) {
@@ -18,7 +20,9 @@ async function buscarPorSlug(req, res) {
     const estabelecimentoResult = await query(
       `SELECT id, slug, nome, logo_url, banner_url, cor_principal, cor_secundaria,
               cor_botoes, fonte, tema, texto_apresentacao, whatsapp, telefone,
-              endereco, instagram, facebook, horario_funcionamento, mp_public_key, ativo
+              endereco, instagram, facebook, linkedin, email_contato,
+              horario_funcionamento, mp_public_key, ativo,
+              termos_uso, politica_privacidade, cookies
        FROM estabelecimentos WHERE slug = $1`,
       [slug]
     );
@@ -71,8 +75,10 @@ async function buscarMeuEstabelecimento(req, res) {
     const resultado = await query(
       `SELECT id, slug, nome, email, logo_url, banner_url, cor_principal, cor_secundaria,
               cor_botoes, fonte, tema, texto_apresentacao, whatsapp, telefone,
-              endereco, instagram, facebook, horario_funcionamento, dominio_proprio,
-              mp_public_key, plano, criado_em
+              endereco, instagram, facebook, linkedin, email_contato,
+              horario_funcionamento, dominio_proprio,
+              mp_public_key, plano, criado_em,
+              termos_uso, politica_privacidade, cookies
        FROM estabelecimentos WHERE id = $1`,
       [req.estabelecimentoId]
     );
