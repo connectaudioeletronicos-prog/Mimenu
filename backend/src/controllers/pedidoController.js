@@ -1,6 +1,6 @@
 const { query } = require('../config/database');
 const { uploadImagem } = require('../utils/storage');
-const { validarFormatoCep, validarEnderecoGoogleMaps } = require('../utils/geocoding');
+const { validarFormatoCep, validarCepViaCep } = require('../utils/geocoding');
 
 async function criarPedido(req, res) {
   try {
@@ -32,10 +32,9 @@ async function criarPedido(req, res) {
       return res.status(400).json({ erro: 'CEP invalido. Use o formato 99999-999.' });
     }
 
-    const enderecoParaValidar = `${cliente_endereco}, ${cliente_cep}, Brasil`;
-    const validacaoEndereco = await validarEnderecoGoogleMaps(enderecoParaValidar);
-    if (!validacaoEndereco.valido) {
-      return res.status(400).json({ erro: 'Endereco nao encontrado no Google Maps. Verifique rua, numero e CEP.' });
+    const validacaoCep = await validarCepViaCep(cliente_cep);
+    if (!validacaoCep.valido) {
+      return res.status(400).json({ erro: 'CEP nao encontrado. Verifique o CEP informado.' });
     }
 
     const estRes = await query('SELECT id, ativo, mp_access_token FROM estabelecimentos WHERE slug = $1', [slug]);
