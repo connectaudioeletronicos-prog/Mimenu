@@ -329,11 +329,11 @@ function montarRodape(estabelecimento) {
 
   redes.innerHTML = `
     <div class="rodape-links">
-      <a href="termos.html" target="_blank">Termos de Uso</a>
+      <a href="pagina-legal.html?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}&tipo=termos" target="_blank">Termos de Uso</a>
       <span>•</span>
-      <a href="cookies.html" target="_blank">Cookies</a>
+      <a href="pagina-legal.html?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}&tipo=cookies" target="_blank">Cookies</a>
       <span>•</span>
-      <a href="privacidade.html" target="_blank">Política de Privacidade</a>
+      <a href="pagina-legal.html?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}&tipo=privacidade" target="_blank">Política de Privacidade</a>
     </div>
   `;
 }
