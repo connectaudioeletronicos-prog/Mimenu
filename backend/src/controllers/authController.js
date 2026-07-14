@@ -3,7 +3,9 @@
 // ===================================================================
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { query } = require('../config/database');
+const { enviarEmailRecuperacaoSenha } = require('../utils/email');
 
 async function login(req, res) {
   try {
@@ -131,4 +133,75 @@ async function cadastrar(req, res) {
   }
 }
 
-module.exports = { login, trocarSenha, cadastrar };
+async function esqueciSenha(req, res) {
+  const respostaGenerica = { mensagem: 'Se esse e-mail estiver cadastrado, enviamos um link de recuperacao.' };
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ erro: 'Informe o e-mail.' });
+
+    const resultado = await query('SELECT id, nome, email FROM estabelecimentos WHERE email = $1', [email]);
+
+    // Sempre responde a mesma coisa, exista ou nao o e-mail (evita revelar quais e-mails estao cadastrados).
+    if (resultado.rows.length === 0) {
+      return res.json(respostaGenerica);
+    }
+
+    const estabelecimento = resultado.rows[0];
+    const tokenBruto = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(tokenBruto).digest('hex');
+    const expira = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    await query(
+      'UPDATE estabelecimentos SET reset_token = $1, reset_token_expira = $2 WHERE id = $3',
+      [tokenHash, expira, estabelecimento.id]
+    );
+
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5500';
+    const link = `${baseUrl}/admin/redefinir-senha.html?token=${tokenBruto}`;
+
+    await enviarEmailRecuperacaoSenha(estabelecimento.email, estabelecimento.nome, link);
+
+    res.json(respostaGenerica);
+  } catch (error) {
+    console.error('Erro ao solicitar recuperacao de senha:', error);
+    // Mesmo em erro interno, nao expomos detalhes ao cliente.
+    res.json(respostaGenerica);
+  }
+}
+
+async function redefinirSenha(req, res) {
+  try {
+    const { token, novaSenha } = req.body;
+
+    if (!token || !novaSenha) {
+      return res.status(400).json({ erro: 'Token e nova senha sao obrigatorios.' });
+    }
+    if (novaSenha.length < 6) {
+      return res.status(400).json({ erro: 'A nova senha deve ter pelo menos 6 caracteres.' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const resultado = await query(
+      'SELECT id FROM estabelecimentos WHERE reset_token = $1 AND reset_token_expira > NOW()',
+      [tokenHash]
+    );
+
+    if (resultado.rows.length === 0) {
+      return res.status(400).json({ erro: 'Link invalido ou expirado. Solicite a recuperacao novamente.' });
+    }
+
+    const novoHash = await bcrypt.hash(novaSenha, 10);
+    await query(
+      'UPDATE estabelecimentos SET senha_hash = $1, reset_token = NULL, reset_token_expira = NULL WHERE id = $2',
+      [novoHash, resultado.rows[0].id]
+    );
+
+    res.json({ mensagem: 'Senha redefinida com sucesso. Voce ja pode entrar com a nova senha.' });
+  } catch (error) {
+    console.error('Erro ao redefinir senha:', error);
+    res.status(500).json({ erro: 'Erro interno ao redefinir senha.' });
+  }
+}
+
+module.exports = { login, trocarSenha, cadastrar, esqueciSenha, redefinirSenha };
