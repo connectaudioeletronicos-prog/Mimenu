@@ -329,9 +329,8 @@ function configurarEventosPaginasLegais() {
 }
 
 // =============================================
-// CATEGORIAS COM DRAG AND DROP
+// CATEGORIAS
 // =============================================
-let dragSrcCategoriaId = null;
 
 function renderizarCategoriasAdmin() {
   const lista = document.getElementById('lista-categorias-admin');
@@ -342,13 +341,16 @@ function renderizarCategoriasAdmin() {
 
   const ordenadas = [...ESTADO.categorias].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 
-  lista.innerHTML = ordenadas.map(cat => `
-    <div class="item-admin item-admin--drag" draggable="true" data-categoria-drag-id="${cat.id}">
-      <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
+  lista.innerHTML = ordenadas.map((cat, indice) => `
+    <div class="item-admin" data-categoria-id="${cat.id}">
+      <div class="item-admin__mover">
+        <button data-mover-categoria-cima="${cat.id}" ${indice === 0 ? 'disabled' : ''} title="Mover para cima">▲</button>
+        <button data-mover-categoria-baixo="${cat.id}" ${indice === ordenadas.length - 1 ? 'disabled' : ''} title="Mover para baixo">▼</button>
+      </div>
       <img class="item-admin__imagem" src="${cat.icone_url || ''}" alt="">
       <div class="item-admin__info">
         <div class="item-admin__titulo">${escaparHtmlAdmin(cat.nome)}</div>
-        <div class="item-admin__subtitulo">Ordem: ${cat.ordem}</div>
+        <div class="item-admin__subtitulo">Posicao: ${indice + 1} de ${ordenadas.length}</div>
       </div>
       <div class="item-admin__acoes">
         <button data-editar-categoria="${cat.id}">Editar</button>
@@ -363,57 +365,38 @@ function renderizarCategoriasAdmin() {
   lista.querySelectorAll('[data-excluir-categoria]').forEach(b => {
     b.addEventListener('click', () => excluirCategoria(b.getAttribute('data-excluir-categoria')));
   });
-
-  configurarDragDropCategorias(lista);
+  lista.querySelectorAll('[data-mover-categoria-cima]').forEach(b => {
+    b.addEventListener('click', () => moverCategoria(b.getAttribute('data-mover-categoria-cima'), -1));
+  });
+  lista.querySelectorAll('[data-mover-categoria-baixo]').forEach(b => {
+    b.addEventListener('click', () => moverCategoria(b.getAttribute('data-mover-categoria-baixo'), 1));
+  });
 }
 
-function configurarDragDropCategorias(lista) {
-  lista.querySelectorAll('.item-admin--drag[data-categoria-drag-id]').forEach(item => {
-    item.addEventListener('dragstart', (e) => {
-      dragSrcCategoriaId = item.getAttribute('data-categoria-drag-id');
-      item.style.opacity = '0.4';
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    item.addEventListener('dragend', () => {
-      item.style.opacity = '1';
-      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
-    });
-    item.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
-      item.classList.add('drag-over');
-    });
-    item.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      const targetId = item.getAttribute('data-categoria-drag-id');
-      if (dragSrcCategoriaId === targetId) return;
+async function moverCategoria(id, direcao) {
+  const ordenadas = [...ESTADO.categorias].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  const indice = ordenadas.findIndex(c => c.id === id);
+  const indiceAlvo = indice + direcao;
+  if (indice === -1 || indiceAlvo < 0 || indiceAlvo >= ordenadas.length) return;
 
-      const ordenadas = [...ESTADO.categorias].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
-      const indiceSrc = ordenadas.findIndex(c => c.id === dragSrcCategoriaId);
-      const indiceTarget = ordenadas.findIndex(c => c.id === targetId);
-      if (indiceSrc === -1 || indiceTarget === -1) return;
+  const atual = ordenadas[indice];
+  const vizinha = ordenadas[indiceAlvo];
 
-      const reordenadas = [...ordenadas];
-      const [movida] = reordenadas.splice(indiceSrc, 1);
-      reordenadas.splice(indiceTarget, 0, movida);
+  try {
+    const fd1 = new FormData();
+    fd1.append('nome', atual.nome);
+    fd1.append('ordem', indiceAlvo);
+    const fd2 = new FormData();
+    fd2.append('nome', vizinha.nome);
+    fd2.append('ordem', indice);
 
-      try {
-        await Promise.all(reordenadas.map((c, i) => {
-          if (c.ordem !== i) {
-            const fd = new FormData();
-            fd.append('nome', c.nome);
-            fd.append('ordem', i);
-            return apiAtualizarCategoria(c.id, fd);
-          }
-        }).filter(Boolean));
-        await carregarTudo();
-        renderizarCategoriasAdmin();
-        mostrarToast('Ordem das categorias atualizada!');
-      } catch (erro) {
-        mostrarToast('Erro ao reordenar categorias.', true);
-      }
-    });
-  });
+    await Promise.all([apiAtualizarCategoria(atual.id, fd1), apiAtualizarCategoria(vizinha.id, fd2)]);
+    await carregarTudo();
+    renderizarCategoriasAdmin();
+    mostrarToast('Ordem atualizada!');
+  } catch (erro) {
+    mostrarToast('Erro ao reordenar categoria.', true);
+  }
 }
 
 let EVENTOS_CATEGORIAS_CONFIGURADOS = false;
@@ -478,9 +461,8 @@ function preencherSelectCategorias() {
 }
 
 // =============================================
-// PRODUTOS COM DRAG AND DROP
+// PRODUTOS
 // =============================================
-let dragSrcProdutoId = null;
 
 function renderizarProdutosAdmin() {
   const lista = document.getElementById('lista-produtos-admin');
@@ -491,14 +473,16 @@ function renderizarProdutosAdmin() {
 
   const ordenados = [...ESTADO.produtos].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 
-  lista.innerHTML = ordenados.map(p => `
-    <div class="item-admin item-admin--drag ${!p.disponivel ? 'item-admin--indisponivel' : ''}"
-         draggable="true" data-produto-drag-id="${p.id}">
-      <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
+  lista.innerHTML = ordenados.map((p, indice) => `
+    <div class="item-admin ${!p.disponivel ? 'item-admin--indisponivel' : ''}" data-produto-id="${p.id}">
+      <div class="item-admin__mover">
+        <button data-mover-produto-cima="${p.id}" ${indice === 0 ? 'disabled' : ''} title="Mover para cima">▲</button>
+        <button data-mover-produto-baixo="${p.id}" ${indice === ordenados.length - 1 ? 'disabled' : ''} title="Mover para baixo">▼</button>
+      </div>
       <img class="item-admin__imagem" src="${p.foto_url || ''}" alt="">
       <div class="item-admin__info">
         <div class="item-admin__titulo">${escaparHtmlAdmin(p.nome)} ${!p.disponivel ? '(indisponivel)' : ''}</div>
-        <div class="item-admin__subtitulo">${p.categoria_nome || 'Sem categoria'} - ${formatarMoedaAdmin(p.preco)}</div>
+        <div class="item-admin__subtitulo">${p.categoria_nome || 'Sem categoria'} - ${formatarMoedaAdmin(p.preco)} - Posicao: ${indice + 1} de ${ordenados.length}</div>
       </div>
       <div class="item-admin__acoes">
         <button data-editar-produto="${p.id}">Editar</button>
@@ -513,56 +497,36 @@ function renderizarProdutosAdmin() {
   lista.querySelectorAll('[data-excluir-produto]').forEach(b => {
     b.addEventListener('click', () => excluirProduto(b.getAttribute('data-excluir-produto')));
   });
-
-  configurarDragDropProdutos(lista);
+  lista.querySelectorAll('[data-mover-produto-cima]').forEach(b => {
+    b.addEventListener('click', () => moverProduto(b.getAttribute('data-mover-produto-cima'), -1));
+  });
+  lista.querySelectorAll('[data-mover-produto-baixo]').forEach(b => {
+    b.addEventListener('click', () => moverProduto(b.getAttribute('data-mover-produto-baixo'), 1));
+  });
 }
 
-function configurarDragDropProdutos(lista) {
-  lista.querySelectorAll('.item-admin--drag[data-produto-drag-id]').forEach(item => {
-    item.addEventListener('dragstart', (e) => {
-      dragSrcProdutoId = item.getAttribute('data-produto-drag-id');
-      item.style.opacity = '0.4';
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    item.addEventListener('dragend', () => {
-      item.style.opacity = '1';
-      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
-    });
-    item.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
-      item.classList.add('drag-over');
-    });
-    item.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      const targetId = item.getAttribute('data-produto-drag-id');
-      if (dragSrcProdutoId === targetId) return;
+async function moverProduto(id, direcao) {
+  const ordenados = [...ESTADO.produtos].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  const indice = ordenados.findIndex(p => p.id === id);
+  const indiceAlvo = indice + direcao;
+  if (indice === -1 || indiceAlvo < 0 || indiceAlvo >= ordenados.length) return;
 
-      const ordenados = [...ESTADO.produtos].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
-      const indiceSrc = ordenados.findIndex(p => p.id === dragSrcProdutoId);
-      const indiceTarget = ordenados.findIndex(p => p.id === targetId);
-      if (indiceSrc === -1 || indiceTarget === -1) return;
+  const atual = ordenados[indice];
+  const vizinho = ordenados[indiceAlvo];
 
-      const reordenados = [...ordenados];
-      const [movido] = reordenados.splice(indiceSrc, 1);
-      reordenados.splice(indiceTarget, 0, movido);
+  try {
+    const fd1 = new FormData();
+    fd1.append('ordem', indiceAlvo);
+    const fd2 = new FormData();
+    fd2.append('ordem', indice);
 
-      try {
-        await Promise.all(reordenados.map((p, i) => {
-          if (p.ordem !== i) {
-            const fd = new FormData();
-            fd.append('ordem', i);
-            return apiAtualizarProduto(p.id, fd);
-          }
-        }).filter(Boolean));
-        await carregarTudo();
-        renderizarProdutosAdmin();
-        mostrarToast('Ordem dos produtos atualizada!');
-      } catch (erro) {
-        mostrarToast('Erro ao reordenar produtos.', true);
-      }
-    });
-  });
+    await Promise.all([apiAtualizarProduto(atual.id, fd1), apiAtualizarProduto(vizinho.id, fd2)]);
+    await carregarTudo();
+    renderizarProdutosAdmin();
+    mostrarToast('Ordem atualizada!');
+  } catch (erro) {
+    mostrarToast('Erro ao reordenar produto.', true);
+  }
 }
 
 let EVENTOS_PRODUTOS_CONFIGURADOS = false;
@@ -632,9 +596,8 @@ async function excluirProduto(id) {
 }
 
 // =============================================
-// PROMOCOES COM DRAG AND DROP
+// PROMOCOES
 // =============================================
-let dragSrcPromocaoId = null;
 
 function renderizarPromocoesAdmin() {
   const lista = document.getElementById('lista-promocoes-admin');
@@ -643,13 +606,18 @@ function renderizarPromocoesAdmin() {
     return;
   }
 
-  lista.innerHTML = ESTADO.promocoes.map(promo => `
-    <div class="item-admin item-admin--drag" draggable="true" data-promocao-drag-id="${promo.id}">
-      <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
+  const ordenadas = [...ESTADO.promocoes].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+
+  lista.innerHTML = ordenadas.map((promo, indice) => `
+    <div class="item-admin" data-promocao-id="${promo.id}">
+      <div class="item-admin__mover">
+        <button data-mover-promocao-cima="${promo.id}" ${indice === 0 ? 'disabled' : ''} title="Mover para cima">▲</button>
+        <button data-mover-promocao-baixo="${promo.id}" ${indice === ordenadas.length - 1 ? 'disabled' : ''} title="Mover para baixo">▼</button>
+      </div>
       <img class="item-admin__imagem" src="${promo.imagem_url || ''}" alt="">
       <div class="item-admin__info">
         <div class="item-admin__titulo">${escaparHtmlAdmin(promo.titulo)}</div>
-        <div class="item-admin__subtitulo">${promo.ativo ? 'Ativa' : 'Inativa'}</div>
+        <div class="item-admin__subtitulo">${promo.ativo ? 'Ativa' : 'Inativa'} - Posicao: ${indice + 1} de ${ordenadas.length}</div>
       </div>
       <div class="item-admin__acoes">
         <button data-editar-promocao="${promo.id}">Editar</button>
@@ -664,54 +632,37 @@ function renderizarPromocoesAdmin() {
   lista.querySelectorAll('[data-excluir-promocao]').forEach(b => {
     b.addEventListener('click', () => excluirPromocao(b.getAttribute('data-excluir-promocao')));
   });
-
-  configurarDragDropPromocoes(lista);
+  lista.querySelectorAll('[data-mover-promocao-cima]').forEach(b => {
+    b.addEventListener('click', () => moverPromocao(b.getAttribute('data-mover-promocao-cima'), -1));
+  });
+  lista.querySelectorAll('[data-mover-promocao-baixo]').forEach(b => {
+    b.addEventListener('click', () => moverPromocao(b.getAttribute('data-mover-promocao-baixo'), 1));
+  });
 }
 
-function configurarDragDropPromocoes(lista) {
-  lista.querySelectorAll('.item-admin--drag[data-promocao-drag-id]').forEach(item => {
-    item.addEventListener('dragstart', (e) => {
-      dragSrcPromocaoId = item.getAttribute('data-promocao-drag-id');
-      item.style.opacity = '0.4';
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    item.addEventListener('dragend', () => {
-      item.style.opacity = '1';
-      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
-    });
-    item.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
-      item.classList.add('drag-over');
-    });
-    item.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      const targetId = item.getAttribute('data-promocao-drag-id');
-      if (dragSrcPromocaoId === targetId) return;
+async function moverPromocao(id, direcao) {
+  const ordenadas = [...ESTADO.promocoes].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  const indice = ordenadas.findIndex(p => p.id === id);
+  const indiceAlvo = indice + direcao;
+  if (indice === -1 || indiceAlvo < 0 || indiceAlvo >= ordenadas.length) return;
 
-      const reordenadas = [...ESTADO.promocoes];
-      const indiceSrc = reordenadas.findIndex(p => p.id === dragSrcPromocaoId);
-      const indiceTarget = reordenadas.findIndex(p => p.id === targetId);
-      if (indiceSrc === -1 || indiceTarget === -1) return;
+  const atual = ordenadas[indice];
+  const vizinha = ordenadas[indiceAlvo];
 
-      const [movida] = reordenadas.splice(indiceSrc, 1);
-      reordenadas.splice(indiceTarget, 0, movida);
+  try {
+    // So enviamos "ordem" -- o backend preserva produto_id/datas quando o campo nao vem na requisicao.
+    const fd1 = new FormData();
+    fd1.append('ordem', indiceAlvo);
+    const fd2 = new FormData();
+    fd2.append('ordem', indice);
 
-      try {
-        await Promise.all(reordenadas.map((p, i) => {
-          const fd = new FormData();
-          fd.append('titulo', p.titulo);
-          fd.append('ordem', i);
-          return apiAtualizarPromocao(p.id, fd);
-        }));
-        await carregarTudo();
-        renderizarPromocoesAdmin();
-        mostrarToast('Ordem das promocoes atualizada!');
-      } catch (erro) {
-        mostrarToast('Erro ao reordenar promocoes.', true);
-      }
-    });
-  });
+    await Promise.all([apiAtualizarPromocao(atual.id, fd1), apiAtualizarPromocao(vizinha.id, fd2)]);
+    await carregarTudo();
+    renderizarPromocoesAdmin();
+    mostrarToast('Ordem atualizada!');
+  } catch (erro) {
+    mostrarToast('Erro ao reordenar promocao.', true);
+  }
 }
 
 let EVENTOS_PROMOCOES_CONFIGURADOS = false;
