@@ -18,7 +18,98 @@ document.addEventListener('DOMContentLoaded', iniciarAdmin);
 function iniciarAdmin() {
   configurarLogin();
   configurarMenu();
+  configurarBotoesOlho();
+  configurarEsqueciSenha();
+  configurarTrocarSenha();
   if (obterToken()) mostrarPainel();
+}
+
+function configurarBotoesOlho() {
+  document.querySelectorAll('.botao-olho').forEach(botao => {
+    botao.addEventListener('click', () => {
+      const input = document.getElementById(botao.getAttribute('data-alvo-senha'));
+      if (!input) return;
+      const oculta = input.type === 'password';
+      input.type = oculta ? 'text' : 'password';
+      botao.textContent = oculta ? '🙈' : '👁';
+    });
+  });
+}
+
+function configurarEsqueciSenha() {
+  document.getElementById('link-esqueci-senha').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('tela-login').classList.add('oculto');
+    document.getElementById('tela-esqueci-senha').classList.remove('oculto');
+  });
+
+  document.getElementById('link-voltar-login').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('tela-esqueci-senha').classList.add('oculto');
+    document.getElementById('tela-login').classList.remove('oculto');
+  });
+
+  document.getElementById('form-esqueci-senha').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const erroEl = document.getElementById('esqueci-senha-erro');
+    const sucessoEl = document.getElementById('esqueci-senha-sucesso');
+    erroEl.classList.add('oculto');
+    sucessoEl.classList.add('oculto');
+    const botao = evento.target.querySelector('button[type="submit"]');
+    botao.disabled = true;
+    try {
+      const email = document.getElementById('esqueci-email').value.trim();
+      await apiSolicitarRecuperacaoSenha(email);
+      sucessoEl.textContent = 'Se esse e-mail estiver cadastrado, enviamos um link de recuperacao. Confira sua caixa de entrada (e o spam).';
+      sucessoEl.classList.remove('oculto');
+    } catch (erro) {
+      erroEl.textContent = erro.message;
+      erroEl.classList.remove('oculto');
+    } finally {
+      botao.disabled = false;
+    }
+  });
+}
+
+let EVENTOS_SENHA_CONFIGURADOS = false;
+function configurarTrocarSenha() {
+  if (EVENTOS_SENHA_CONFIGURADOS) return;
+  EVENTOS_SENHA_CONFIGURADOS = true;
+
+  document.getElementById('botao-salvar-senha').addEventListener('click', async () => {
+    const botao = document.getElementById('botao-salvar-senha');
+    const senhaAtual = document.getElementById('campo-senha-atual').value;
+    const novaSenha = document.getElementById('campo-senha-nova').value;
+    const confirmar = document.getElementById('campo-senha-confirmar').value;
+
+    if (!senhaAtual || !novaSenha) {
+      mostrarToast('Preencha a senha atual e a nova senha.', true);
+      return;
+    }
+    if (novaSenha.length < 6) {
+      mostrarToast('A nova senha deve ter pelo menos 6 caracteres.', true);
+      return;
+    }
+    if (novaSenha !== confirmar) {
+      mostrarToast('A confirmacao nao corresponde a nova senha.', true);
+      return;
+    }
+
+    botao.disabled = true;
+    botao.textContent = 'Salvando...';
+    try {
+      await apiTrocarSenha(senhaAtual, novaSenha);
+      document.getElementById('campo-senha-atual').value = '';
+      document.getElementById('campo-senha-nova').value = '';
+      document.getElementById('campo-senha-confirmar').value = '';
+      mostrarToast('Senha alterada com sucesso!');
+    } catch (erro) {
+      mostrarToast(erro.message, true);
+    } finally {
+      botao.disabled = false;
+      botao.textContent = 'Alterar senha';
+    }
+  });
 }
 
 function configurarLogin() {
