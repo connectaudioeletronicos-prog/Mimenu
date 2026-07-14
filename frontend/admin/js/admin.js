@@ -107,8 +107,13 @@ function preencherFormularios() {
   document.getElementById('campo-endereco').value = e.endereco || '';
   document.getElementById('campo-instagram').value = e.instagram || '';
   document.getElementById('campo-facebook').value = e.facebook || '';
+  document.getElementById('campo-linkedin').value = e.linkedin || '';
+  document.getElementById('campo-email-contato').value = e.email_contato || '';
   montarCamposHorario(e.horario_funcionamento || {});
   document.getElementById('campo-mp-public').value = e.mp_public_key || '';
+  document.getElementById('campo-termos-uso').value = e.termos_uso || '';
+  document.getElementById('campo-cookies').value = e.cookies || '';
+  document.getElementById('campo-politica-privacidade').value = e.politica_privacidade || '';
 
   renderizarCategoriasAdmin();
   renderizarProdutosAdmin();
@@ -119,6 +124,7 @@ function preencherFormularios() {
   configurarEventosAparencia();
   configurarEventosInformacoes();
   configurarEventosPagamento();
+  configurarEventosPaginasLegais();
   configurarEventosCategorias();
   configurarEventosProdutos();
   configurarEventosPromocoes();
@@ -251,6 +257,8 @@ function configurarEventosInformacoes() {
         endereco: document.getElementById('campo-endereco').value.trim(),
         instagram: document.getElementById('campo-instagram').value.trim(),
         facebook: document.getElementById('campo-facebook').value.trim(),
+        linkedin: document.getElementById('campo-linkedin').value.trim(),
+        email_contato: document.getElementById('campo-email-contato').value.trim(),
         horario_funcionamento: coletarHorarios()
       });
       await carregarTudo();
@@ -288,6 +296,34 @@ function configurarEventosPagamento() {
     } finally {
       botao.disabled = false;
       botao.textContent = 'Salvar credenciais';
+    }
+  });
+}
+
+// =============================================
+// PAGINAS LEGAIS
+// =============================================
+let EVENTOS_PAGINAS_LEGAIS_CONFIGURADOS = false;
+function configurarEventosPaginasLegais() {
+  if (EVENTOS_PAGINAS_LEGAIS_CONFIGURADOS) return;
+  EVENTOS_PAGINAS_LEGAIS_CONFIGURADOS = true;
+
+  document.getElementById('botao-salvar-paginas-legais').addEventListener('click', async () => {
+    const botao = document.getElementById('botao-salvar-paginas-legais');
+    botao.disabled = true;
+    botao.textContent = 'Salvando...';
+    try {
+      await apiAtualizarEstabelecimento({
+        termos_uso: document.getElementById('campo-termos-uso').value.trim(),
+        cookies: document.getElementById('campo-cookies').value.trim(),
+        politica_privacidade: document.getElementById('campo-politica-privacidade').value.trim()
+      });
+      mostrarToast('Paginas legais salvas com sucesso!');
+    } catch (erro) {
+      mostrarToast(erro.message, true);
+    } finally {
+      botao.disabled = false;
+      botao.textContent = 'Salvar paginas legais';
     }
   });
 }
