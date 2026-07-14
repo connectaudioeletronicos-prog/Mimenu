@@ -158,13 +158,19 @@
         <h3 class="modal__titulo">Seus dados</h3>
         <form id="form-checkout" class="form-checkout">
           <label>Nome completo
-            <input type="text" id="checkout-nome" required maxlength="150">
+            <input type="text" id="checkout-nome" required>
           </label>
           <label>WhatsApp / Telefone
-            <input type="tel" id="checkout-telefone" required maxlength="20" placeholder="(11) 99999-9999">
+            <input type="tel" id="checkout-telefone" required maxlength="14" placeholder="(11) 999999999">
           </label>
-          <label>Endereco de entrega
-            <textarea id="checkout-endereco" maxlength="300" placeholder="Rua, numero, bairro, complemento"></textarea>
+          <label>Rua / Avenida
+            <input type="text" id="checkout-rua" required placeholder="Rua Osvaldo Cruz">
+          </label>
+          <label>Numero
+            <input type="text" id="checkout-numero" required maxlength="10" placeholder="5210">
+          </label>
+          <label>CEP
+            <input type="text" id="checkout-cep" required maxlength="9" placeholder="99999-999">
           </label>
           <label>Observacoes do pedido
             <textarea id="checkout-observacoes" maxlength="300" placeholder="Opcional"></textarea>
