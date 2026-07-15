@@ -10,9 +10,10 @@ function autenticarFuncionario(req, res, next) {
   const token = authHeader.substring(7);
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.funcionarioId = payload.funcionarioId;
+    req.funcionarioId = payload.funcionarioId || null;
     req.estabelecimentoId = payload.estabelecimentoId;
-    req.cargo = payload.cargo;
+    req.cargo = payload.cargo || 'proprietario';
+    req.permissoes = payload.permissoes || [];
     req.slug = payload.slug;
     next();
   } catch (error) {
@@ -20,20 +21,14 @@ function autenticarFuncionario(req, res, next) {
   }
 }
 
-// Verifica se o funcionario tem cargo suficiente
-function exigirCargo(...cargosPermitidos) {
+// Exige que o token tenha uma permissao especifica.
+// O proprietario da loja e funcionarios com cargo "administrador" sempre tem acesso total.
+function exigirPermissao(permissao) {
   return (req, res, next) => {
-    if (!cargosPermitidos.includes(req.cargo)) {
-      return res.status(403).json({ erro: 'Acesso negado. Cargo insuficiente.' });
-    }
-    next();
+    if (req.cargo === 'proprietario' || req.cargo === 'administrador') return next();
+    if (Array.isArray(req.permissoes) && req.permissoes.includes(permissao)) return next();
+    return res.status(403).json({ erro: 'Voce nao tem permissao para essa acao.' });
   };
 }
 
-// Atalhos por cargo
-const soAdmin = exigirCargo('administrador');
-const adminOuGerente = exigirCargo('administrador', 'gerente');
-const adminGerenteOuAtendente = exigirCargo('administrador', 'gerente', 'atendente');
-const todos = exigirCargo('administrador', 'gerente', 'atendente', 'colaborador');
-
-module.exports = { autenticarFuncionario, exigirCargo, soAdmin, adminOuGerente, adminGerenteOuAtendente, todos };
+module.exports = { autenticarFuncionario, exigirPermissao };
