@@ -37,7 +37,7 @@ async function login(req, res) {
     }
 
     const token = jwt.sign(
-      { estabelecimentoId: estabelecimento.id, slug: estabelecimento.slug },
+      { estabelecimentoId: estabelecimento.id, slug: estabelecimento.slug, cargo: 'proprietario' },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -48,7 +48,8 @@ async function login(req, res) {
         id: estabelecimento.id,
         slug: estabelecimento.slug,
         nome: estabelecimento.nome,
-        email: estabelecimento.email
+        email: estabelecimento.email,
+        cargo: 'proprietario'
       }
     });
 
