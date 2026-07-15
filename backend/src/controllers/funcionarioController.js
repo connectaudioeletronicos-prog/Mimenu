@@ -122,7 +122,7 @@ async function criar(req, res) {
   } catch (error) {
     if (error.code === '23505') return res.status(409).json({ erro: 'Email ou username ja cadastrado.' });
     console.error('Erro ao criar funcionario:', error);
-    res.status(500).json({ erro: 'Erro ao criar funcionario.' });
+    res.status(500).json({ erro: 'Erro ao criar funcionario.', detalhe: error.message, codigo: error.code });
   }
 }
 
@@ -244,7 +244,7 @@ async function excluir(req, res) {
     res.json({ mensagem: 'Funcionario excluido com sucesso.' });
   } catch (error) {
     console.error('Erro ao excluir funcionario:', error);
-    res.status(500).json({ erro: 'Erro interno ao excluir funcionario.' });
+    res.status(500).json({ erro: 'Erro interno ao excluir funcionario.', detalhe: error.message, codigo: error.code });
   }
 }
 
