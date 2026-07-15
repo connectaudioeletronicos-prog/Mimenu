@@ -21,8 +21,8 @@
   elementoTitulo.textContent = config.titulo;
 
   try {
-    const estabelecimento = await buscarDadosEstabelecimento(SLUG_ESTABELECIMENTO);
-    const texto = estabelecimento[config.campo];
+    const dados = await buscarDadosEstabelecimento(SLUG_ESTABELECIMENTO);
+    const texto = dados.estabelecimento[config.campo];
 
     if (texto && texto.trim().length > 0) {
       elementoConteudo.textContent = texto;
