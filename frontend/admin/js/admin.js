@@ -3,6 +3,7 @@ let ESTADO = {
   categorias: [],
   produtos: [],
   promocoes: [],
+  funcionarios: [],
   arquivosPendentes: { logo: null, banner: null }
 };
 
@@ -17,11 +18,27 @@ document.addEventListener('DOMContentLoaded', iniciarAdmin);
 
 function iniciarAdmin() {
   configurarLogin();
+  configurarLoginFuncionario();
   configurarMenu();
   configurarBotoesOlho();
   configurarEsqueciSenha();
   configurarTrocarSenha();
+  configurarFuncionarios();
   if (obterToken()) mostrarPainel();
+}
+
+function sessaoAtual() {
+  return obterEstabelecimentoSessao() || {};
+}
+
+function ehFuncionario() {
+  return sessaoAtual().tipo === 'funcionario';
+}
+
+function temPermissao(chave) {
+  const s = sessaoAtual();
+  if (s.cargo === 'proprietario' || s.cargo === 'administrador') return true;
+  return Array.isArray(s.permissoes) && s.permissoes.includes(chave);
 }
 
 function configurarBotoesOlho() {
@@ -98,7 +115,12 @@ function configurarTrocarSenha() {
     botao.disabled = true;
     botao.textContent = 'Salvando...';
     try {
-      await apiTrocarSenha(senhaAtual, novaSenha);
+      if (ehFuncionario()) {
+        const s = sessaoAtual();
+        await apiTrocarSenhaFuncionario(s.funcionarioId, { senhaAtual, novaSenha });
+      } else {
+        await apiTrocarSenha(senhaAtual, novaSenha);
+      }
       document.getElementById('campo-senha-atual').value = '';
       document.getElementById('campo-senha-nova').value = '';
       document.getElementById('campo-senha-confirmar').value = '';
@@ -129,36 +151,108 @@ function configurarLogin() {
     }
   });
 
+  document.getElementById('link-login-funcionario').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('tela-login').classList.add('oculto');
+    document.getElementById('tela-login-funcionario').classList.remove('oculto');
+  });
+
   document.getElementById('botao-sair').addEventListener('click', () => {
     limparSessao();
     window.location.reload();
   });
 }
 
+function configurarLoginFuncionario() {
+  document.getElementById('link-voltar-login-dono').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('tela-login-funcionario').classList.add('oculto');
+    document.getElementById('tela-login').classList.remove('oculto');
+  });
+
+  document.getElementById('form-login-funcionario').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const erroEl = document.getElementById('funcionario-login-erro');
+    erroEl.classList.add('oculto');
+    try {
+      const slug = document.getElementById('funcionario-slug').value.trim();
+      const login = document.getElementById('funcionario-login').value.trim();
+      const senha = document.getElementById('funcionario-senha').value;
+      const resultado = await apiLoginFuncionario(slug, login, senha);
+      salvarSessaoFuncionario(resultado.token, resultado.funcionario);
+      mostrarPainel();
+    } catch (erro) {
+      erroEl.textContent = erro.message;
+      erroEl.classList.remove('oculto');
+    }
+  });
+}
+
 async function mostrarPainel() {
   document.getElementById('tela-login').classList.add('oculto');
+  document.getElementById('tela-login-funcionario').classList.add('oculto');
   document.getElementById('painel').classList.remove('oculto');
   try {
     await carregarTudo();
     preencherFormularios();
-    document.getElementById('menu-nome-estabelecimento').textContent = ESTADO.estabelecimento.nome;
-    document.getElementById('menu-link-publico').textContent = `/${ESTADO.estabelecimento.slug}`;
+    const s = sessaoAtual();
+    document.getElementById('menu-nome-estabelecimento').textContent =
+      ESTADO.estabelecimento ? ESTADO.estabelecimento.nome : (s.nome || 'Painel');
+    document.getElementById('menu-link-publico').textContent = s.slug ? `/${s.slug}` : '';
+    aplicarVisibilidadeMenu();
   } catch (erro) {
     mostrarToast(erro.message, true);
   }
 }
 
+// Busca cada recurso separadamente: se o funcionario nao tiver permissao
+// para algum deles (ex: configuracoes da conta), a tela nao quebra inteira,
+// so aquela parte fica vazia/oculta.
 async function carregarTudo() {
-  const [estabelecimento, categorias, produtos, promocoes] = await Promise.all([
+  const resultados = await Promise.allSettled([
     apiBuscarEstabelecimento(),
     apiListarCategorias(),
     apiListarProdutos(),
     apiListarPromocoes()
   ]);
-  ESTADO.estabelecimento = estabelecimento;
-  ESTADO.categorias = categorias;
-  ESTADO.produtos = produtos;
-  ESTADO.promocoes = promocoes;
+
+  ESTADO.estabelecimento = resultados[0].status === 'fulfilled' ? resultados[0].value : null;
+  ESTADO.categorias = resultados[1].status === 'fulfilled' ? resultados[1].value : [];
+  ESTADO.produtos = resultados[2].status === 'fulfilled' ? resultados[2].value : [];
+  ESTADO.promocoes = resultados[3].status === 'fulfilled' ? resultados[3].value : [];
+
+  if (temPermissao('gerenciar_funcionarios')) {
+    try { ESTADO.funcionarios = await apiListarFuncionarios(); } catch { ESTADO.funcionarios = []; }
+  }
+}
+
+// Mostra/esconde abas do menu conforme a permissao da sessao atual
+function aplicarVisibilidadeMenu() {
+  const mapaPermissao = {
+    aparencia: 'gerenciar_conta',
+    informacoes: 'gerenciar_conta',
+    pagamento: 'gerenciar_conta',
+    'paginas-legais': 'gerenciar_conta',
+    categorias: 'gerenciar_cardapio',
+    produtos: 'gerenciar_cardapio',
+    promocoes: 'gerenciar_cardapio',
+    funcionarios: 'gerenciar_funcionarios'
+    // "pedidos" e "senha" ficam sempre visiveis para qualquer sessao logada
+  };
+
+  let primeiraVisivel = null;
+  document.querySelectorAll('.painel__menu-item[data-aba]').forEach(botao => {
+    const aba = botao.getAttribute('data-aba');
+    const permissaoNecessaria = mapaPermissao[aba];
+    const visivel = !permissaoNecessaria || temPermissao(permissaoNecessaria);
+    botao.classList.toggle('oculto', !visivel);
+    if (visivel && !primeiraVisivel) primeiraVisivel = aba;
+  });
+
+  const abaAtivaAtual = document.querySelector('.painel__menu-item.ativo:not(.oculto)');
+  if (!abaAtivaAtual && primeiraVisivel) {
+    document.querySelector(`.painel__menu-item[data-aba="${primeiraVisivel}"]`).click();
+  }
 }
 
 function configurarMenu() {
@@ -170,6 +264,7 @@ function configurarMenu() {
       const aba = botao.getAttribute('data-aba');
       document.getElementById(`aba-${aba}`).classList.remove('oculto');
       if (aba === 'pedidos') carregarPedidos();
+      if (aba === 'funcionarios') renderizarFuncionariosAdmin();
     });
   });
 }
@@ -184,27 +279,29 @@ function mostrarToast(mensagem, erro = false) {
 
 function preencherFormularios() {
   const e = ESTADO.estabelecimento;
-  document.getElementById('preview-logo').src = e.logo_url || '';
-  document.getElementById('preview-banner').src = e.banner_url || '';
-  document.getElementById('campo-cor-principal').value = e.cor_principal || '#E63946';
-  document.getElementById('campo-cor-secundaria').value = e.cor_secundaria || '#1D3557';
-  document.getElementById('campo-cor-botoes').value = e.cor_botoes || '#2A9D8F';
-  document.getElementById('campo-fonte').value = e.fonte || 'Poppins';
-  selecionarTemaVisual(e.tema || 'classico');
-  document.getElementById('campo-nome').value = e.nome || '';
-  document.getElementById('campo-apresentacao').value = e.texto_apresentacao || '';
-  document.getElementById('campo-whatsapp').value = e.whatsapp || '';
-  document.getElementById('campo-telefone').value = e.telefone || '';
-  document.getElementById('campo-endereco').value = e.endereco || '';
-  document.getElementById('campo-instagram').value = e.instagram || '';
-  document.getElementById('campo-facebook').value = e.facebook || '';
-  document.getElementById('campo-linkedin').value = e.linkedin || '';
-  document.getElementById('campo-email-contato').value = e.email_contato || '';
-  montarCamposHorario(e.horario_funcionamento || {});
-  document.getElementById('campo-mp-public').value = e.mp_public_key || '';
-  document.getElementById('campo-termos-uso').value = e.termos_uso || '';
-  document.getElementById('campo-cookies').value = e.cookies || '';
-  document.getElementById('campo-politica-privacidade').value = e.politica_privacidade || '';
+  if (e) {
+    document.getElementById('preview-logo').src = e.logo_url || '';
+    document.getElementById('preview-banner').src = e.banner_url || '';
+    document.getElementById('campo-cor-principal').value = e.cor_principal || '#E63946';
+    document.getElementById('campo-cor-secundaria').value = e.cor_secundaria || '#1D3557';
+    document.getElementById('campo-cor-botoes').value = e.cor_botoes || '#2A9D8F';
+    document.getElementById('campo-fonte').value = e.fonte || 'Poppins';
+    selecionarTemaVisual(e.tema || 'classico');
+    document.getElementById('campo-nome').value = e.nome || '';
+    document.getElementById('campo-apresentacao').value = e.texto_apresentacao || '';
+    document.getElementById('campo-whatsapp').value = e.whatsapp || '';
+    document.getElementById('campo-telefone').value = e.telefone || '';
+    document.getElementById('campo-endereco').value = e.endereco || '';
+    document.getElementById('campo-instagram').value = e.instagram || '';
+    document.getElementById('campo-facebook').value = e.facebook || '';
+    document.getElementById('campo-linkedin').value = e.linkedin || '';
+    document.getElementById('campo-email-contato').value = e.email_contato || '';
+    montarCamposHorario(e.horario_funcionamento || {});
+    document.getElementById('campo-mp-public').value = e.mp_public_key || '';
+    document.getElementById('campo-termos-uso').value = e.termos_uso || '';
+    document.getElementById('campo-cookies').value = e.cookies || '';
+    document.getElementById('campo-politica-privacidade').value = e.politica_privacidade || '';
+  }
 
   renderizarCategoriasAdmin();
   renderizarProdutosAdmin();
@@ -942,6 +1039,137 @@ function renderizarPedidosAdmin(pedidos) {
       }
     });
   });
+}
+
+// =============================================
+// FUNCIONARIOS
+// =============================================
+const NOMES_CARGO = {
+  administrador: 'Administrador', gerente: 'Gerente', caixa: 'Caixa',
+  garcom: 'Garcom', colaborador: 'Colaborador'
+};
+
+function renderizarFuncionariosAdmin() {
+  const lista = document.getElementById('lista-funcionarios-admin');
+  if (!ESTADO.funcionarios || ESTADO.funcionarios.length === 0) {
+    lista.innerHTML = '<div class="lista-vazia">Nenhum funcionario cadastrado ainda.</div>';
+    return;
+  }
+
+  lista.innerHTML = ESTADO.funcionarios.map(f => `
+    <div class="item-admin" data-funcionario-id="${f.id}">
+      <div class="item-admin__info">
+        <div class="item-admin__titulo">${escaparHtmlAdmin(f.nome)} ${!f.ativo ? '(inativo)' : ''}</div>
+        <div class="item-admin__subtitulo">${NOMES_CARGO[f.cargo] || f.cargo} - ${escaparHtmlAdmin(f.email)}</div>
+      </div>
+      <div class="item-admin__acoes">
+        <button data-editar-funcionario="${f.id}">Editar</button>
+      </div>
+    </div>
+  `).join('');
+
+  lista.querySelectorAll('[data-editar-funcionario]').forEach(b => {
+    b.addEventListener('click', () => abrirModalEditarFuncionario(b.getAttribute('data-editar-funcionario')));
+  });
+}
+
+function alternarCaixasAdministrador(selectId, grupoId) {
+  const select = document.getElementById(selectId);
+  const grupo = document.getElementById(grupoId);
+  const atualizar = () => {
+    const ehAdmin = select.value === 'administrador';
+    grupo.classList.toggle('desabilitada', ehAdmin);
+    grupo.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = ehAdmin; });
+  };
+  select.addEventListener('change', atualizar);
+  atualizar();
+}
+
+function coletarPermissoesMarcadas(grupoId) {
+  return Array.from(document.querySelectorAll(`#${grupoId} input[type="checkbox"]:checked`)).map(cb => cb.value);
+}
+
+let EVENTOS_FUNCIONARIOS_CONFIGURADOS = false;
+function configurarFuncionarios() {
+  if (EVENTOS_FUNCIONARIOS_CONFIGURADOS) return;
+  EVENTOS_FUNCIONARIOS_CONFIGURADOS = true;
+
+  alternarCaixasAdministrador('func-cargo', 'grupo-permissoes-funcionario');
+  alternarCaixasAdministrador('edit-func-cargo', 'edit-grupo-permissoes');
+
+  document.getElementById('form-novo-funcionario').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const botao = evento.target.querySelector('button[type="submit"]');
+    botao.disabled = true;
+    try {
+      await apiCriarFuncionario({
+        nome: document.getElementById('func-nome').value.trim(),
+        email: document.getElementById('func-email').value.trim(),
+        username: document.getElementById('func-username').value.trim() || null,
+        senha: document.getElementById('func-senha').value,
+        cargo: document.getElementById('func-cargo').value,
+        permissoes: coletarPermissoesMarcadas('grupo-permissoes-funcionario')
+      });
+      evento.target.reset();
+      ESTADO.funcionarios = await apiListarFuncionarios();
+      renderizarFuncionariosAdmin();
+      mostrarToast('Funcionario cadastrado com sucesso!');
+    } catch (erro) {
+      mostrarToast(erro.message, true);
+    } finally {
+      botao.disabled = false;
+    }
+  });
+
+  document.getElementById('botao-salvar-edicao-funcionario').addEventListener('click', async () => {
+    const id = document.getElementById('edit-func-id').value;
+    try {
+      await apiAtualizarFuncionario(id, {
+        nome: document.getElementById('edit-func-nome').value.trim(),
+        email: document.getElementById('edit-func-email').value.trim(),
+        cargo: document.getElementById('edit-func-cargo').value,
+        ativo: document.getElementById('edit-func-ativo').checked,
+        permissoes: coletarPermissoesMarcadas('edit-grupo-permissoes')
+      });
+      ESTADO.funcionarios = await apiListarFuncionarios();
+      renderizarFuncionariosAdmin();
+      fecharModaisAdmin();
+      mostrarToast('Funcionario atualizado com sucesso!');
+    } catch (erro) {
+      mostrarToast(erro.message, true);
+    }
+  });
+
+  document.getElementById('botao-resetar-senha-funcionario').addEventListener('click', async () => {
+    const id = document.getElementById('edit-func-id').value;
+    const novaSenha = prompt('Digite a nova senha para esse funcionario (minimo 6 caracteres):');
+    if (!novaSenha) return;
+    if (novaSenha.length < 6) { mostrarToast('A senha deve ter pelo menos 6 caracteres.', true); return; }
+    try {
+      await apiTrocarSenhaFuncionario(id, { novaSenha });
+      mostrarToast('Senha redefinida com sucesso!');
+    } catch (erro) {
+      mostrarToast(erro.message, true);
+    }
+  });
+}
+
+function abrirModalEditarFuncionario(id) {
+  const f = ESTADO.funcionarios.find(x => x.id === id);
+  if (!f) return;
+  document.getElementById('edit-func-id').value = f.id;
+  document.getElementById('edit-func-nome').value = f.nome;
+  document.getElementById('edit-func-email').value = f.email;
+  document.getElementById('edit-func-cargo').value = f.cargo;
+  document.getElementById('edit-func-ativo').checked = f.ativo;
+
+  const grupo = document.getElementById('edit-grupo-permissoes');
+  grupo.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.checked = (f.permissoes || []).includes(cb.value);
+  });
+  grupo.classList.toggle('desabilitada', f.cargo === 'administrador');
+
+  document.getElementById('modal-editar-funcionario').classList.remove('oculto');
 }
 
 document.querySelectorAll('[data-fechar-modal-admin]').forEach(el => {
