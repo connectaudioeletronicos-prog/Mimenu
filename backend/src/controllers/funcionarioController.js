@@ -2,6 +2,29 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
 
+// As 9 permissoes possiveis (caixinhas). O cargo NAO define o que o
+// funcionario pode fazer -- serve so para limitar quantos de cada
+// categoria podem existir. Quem manda de verdade e esse array.
+const PERMISSOES_VALIDAS = [
+  'gerenciar_funcionarios',       // cadastrar/descadastrar funcionarios
+  'editar_funcionarios',          // editar dados / trocar senha de outros funcionarios
+  'gerenciar_cardapio',           // produtos, categorias, promocoes (incl. precos)
+  'criar_pedidos',
+  'cancelar_pedidos',
+  'mudar_status_pedidos',
+  'ver_valores_concluidos',       // ver valores de pedidos entregues/cancelados
+  'corrigir_valores_concluidos',  // alterar valores de pedidos ja concluidos
+  'gerenciar_conta'               // configuracoes de conta/pagamento/paginas legais
+];
+
+const CARGOS_VALIDOS = ['administrador', 'gerente', 'caixa', 'garcom', 'colaborador'];
+const LIMITES_POR_CARGO = { administrador: 2, gerente: 1, caixa: 5 }; // garcom/colaborador: sem limite
+
+function sanitizarPermissoes(permissoes) {
+  if (!Array.isArray(permissoes)) return [];
+  return permissoes.filter(p => PERMISSOES_VALIDAS.includes(p));
+}
+
 // Login de funcionario
 async function loginFuncionario(req, res) {
   try {
@@ -15,7 +38,7 @@ async function loginFuncionario(req, res) {
     const estabelecimentoId = estRes.rows[0].id;
 
     const resultado = await query(
-      `SELECT id, nome, email, username, senha_hash, cargo, ativo
+      `SELECT id, nome, email, username, senha_hash, cargo, permissoes, ativo
        FROM funcionarios
        WHERE estabelecimento_id = $1 AND (email = $2 OR username = $2)`,
       [estabelecimentoId, login]
@@ -28,26 +51,28 @@ async function loginFuncionario(req, res) {
     const senhaCorreta = await bcrypt.compare(senha, funcionario.senha_hash);
     if (!senhaCorreta) return res.status(401).json({ erro: 'Login ou senha invalidos.' });
 
+    const permissoes = funcionario.cargo === 'administrador' ? PERMISSOES_VALIDAS : (funcionario.permissoes || []);
+
     const token = jwt.sign(
-      { funcionarioId: funcionario.id, estabelecimentoId, cargo: funcionario.cargo, slug },
+      { funcionarioId: funcionario.id, estabelecimentoId, cargo: funcionario.cargo, permissoes, slug },
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );
 
     await registrarAuditoria(estabelecimentoId, funcionario.id, funcionario.nome, 'LOGIN', 'funcionarios', funcionario.id, null, null, req.ip);
 
-    res.json({ token, funcionario: { id: funcionario.id, nome: funcionario.nome, cargo: funcionario.cargo, slug } });
+    res.json({ token, funcionario: { id: funcionario.id, nome: funcionario.nome, cargo: funcionario.cargo, permissoes, slug } });
   } catch (error) {
     console.error('Erro no login funcionario:', error);
     res.status(500).json({ erro: 'Erro interno ao processar login.' });
   }
 }
 
-// Listar funcionarios (admin e gerente)
+// Listar funcionarios
 async function listar(req, res) {
   try {
     const resultado = await query(
-      `SELECT id, nome, email, username, cargo, ativo, criado_em
+      `SELECT id, nome, email, username, cargo, permissoes, ativo, criado_em
        FROM funcionarios WHERE estabelecimento_id = $1 ORDER BY criado_em ASC`,
       [req.estabelecimentoId]
     );
@@ -57,84 +82,82 @@ async function listar(req, res) {
   }
 }
 
-// Criar funcionario (so admin)
+// Criar funcionario
 async function criar(req, res) {
   try {
-    const { nome, email, username, senha, cargo } = req.body;
+    const { nome, email, username, senha, cargo, permissoes } = req.body;
 
     if (!nome || !email || !senha || !cargo) {
-      return res.status(400).json({ erro: 'Nome, email, senha e cargo sao obrigatorios.' });
+      return res.status(400).json({ erro: 'Nome, email, senha e categoria sao obrigatorios.' });
+    }
+    if (!CARGOS_VALIDOS.includes(cargo)) return res.status(400).json({ erro: 'Categoria invalida.' });
+
+    const limite = LIMITES_POR_CARGO[cargo];
+    if (limite) {
+      const count = await query(
+        `SELECT COUNT(*) FROM funcionarios WHERE estabelecimento_id = $1 AND cargo = $2 AND ativo = true`,
+        [req.estabelecimentoId, cargo]
+      );
+      if (parseInt(count.rows[0].count) >= limite) {
+        return res.status(400).json({ erro: `Limite de ${limite} para essa categoria ja foi atingido.` });
+      }
     }
 
-    const cargosValidos = ['administrador', 'gerente', 'atendente', 'colaborador'];
-    if (!cargosValidos.includes(cargo)) return res.status(400).json({ erro: 'Cargo invalido.' });
-
-    // Limites por cargo
-    if (cargo === 'administrador') {
-      const count = await query(
-        `SELECT COUNT(*) FROM funcionarios WHERE estabelecimento_id = $1 AND cargo = 'administrador' AND ativo = true`,
-        [req.estabelecimentoId]
-      );
-      if (parseInt(count.rows[0].count) >= 2) return res.status(400).json({ erro: 'Limite de 2 administradores atingido.' });
-    }
-    if (cargo === 'gerente') {
-      const count = await query(
-        `SELECT COUNT(*) FROM funcionarios WHERE estabelecimento_id = $1 AND cargo = 'gerente' AND ativo = true`,
-        [req.estabelecimentoId]
-      );
-      if (parseInt(count.rows[0].count) >= 1) return res.status(400).json({ erro: 'Limite de 1 gerente atingido.' });
-    }
-    if (cargo === 'atendente') {
-      const count = await query(
-        `SELECT COUNT(*) FROM funcionarios WHERE estabelecimento_id = $1 AND cargo = 'atendente' AND ativo = true`,
-        [req.estabelecimentoId]
-      );
-      if (parseInt(count.rows[0].count) >= 5) return res.status(400).json({ erro: 'Limite de 5 atendentes atingido.' });
-    }
-
+    const permissoesFinais = cargo === 'administrador' ? PERMISSOES_VALIDAS : sanitizarPermissoes(permissoes);
     const senhaHash = await bcrypt.hash(senha, 10);
     const resultado = await query(
-      `INSERT INTO funcionarios (estabelecimento_id, nome, email, username, senha_hash, cargo)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, nome, email, username, cargo, ativo`,
-      [req.estabelecimentoId, nome, email, username || null, senhaHash, cargo]
+      `INSERT INTO funcionarios (estabelecimento_id, nome, email, username, senha_hash, cargo, permissoes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, nome, email, username, cargo, permissoes, ativo`,
+      [req.estabelecimentoId, nome, email, username || null, senhaHash, cargo, JSON.stringify(permissoesFinais)]
     );
 
     const novo = resultado.rows[0];
-    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'CRIAR_FUNCIONARIO', 'funcionarios', novo.id, null, { nome, email, cargo }, req.ip);
+    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'CRIAR_FUNCIONARIO', 'funcionarios', novo.id, null, { nome, email, cargo, permissoes: permissoesFinais }, req.ip);
 
     res.status(201).json(novo);
   } catch (error) {
     if (error.code === '23505') return res.status(409).json({ erro: 'Email ou username ja cadastrado.' });
+    console.error('Erro ao criar funcionario:', error);
     res.status(500).json({ erro: 'Erro ao criar funcionario.' });
   }
 }
 
-// Atualizar funcionario (so admin)
+// Atualizar funcionario (dados, categoria, permissoes, ativo/inativo)
 async function atualizar(req, res) {
   try {
     const { id } = req.params;
-    const { nome, email, username, cargo, ativo } = req.body;
+    const { nome, email, username, cargo, ativo, permissoes } = req.body;
+
+    if (cargo && !CARGOS_VALIDOS.includes(cargo)) return res.status(400).json({ erro: 'Categoria invalida.' });
 
     const anterior = await query('SELECT * FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
     if (anterior.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
 
+    const cargoFinal = cargo || anterior.rows[0].cargo;
+    const permissoesFinais = cargoFinal === 'administrador'
+      ? PERMISSOES_VALIDAS
+      : (permissoes !== undefined ? sanitizarPermissoes(permissoes) : undefined);
+
     const resultado = await query(
       `UPDATE funcionarios SET nome = COALESCE($1, nome), email = COALESCE($2, email),
        username = COALESCE($3, username), cargo = COALESCE($4, cargo),
-       ativo = COALESCE($5, ativo), atualizado_em = NOW()
-       WHERE id = $6 AND estabelecimento_id = $7 RETURNING id, nome, email, username, cargo, ativo`,
-      [nome, email, username, cargo, ativo, id, req.estabelecimentoId]
+       ativo = COALESCE($5, ativo),
+       permissoes = COALESCE($6, permissoes),
+       atualizado_em = NOW()
+       WHERE id = $7 AND estabelecimento_id = $8 RETURNING id, nome, email, username, cargo, permissoes, ativo`,
+      [nome, email, username, cargo, ativo, permissoesFinais !== undefined ? JSON.stringify(permissoesFinais) : null, id, req.estabelecimentoId]
     );
 
     await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'ATUALIZAR_FUNCIONARIO', 'funcionarios', id, anterior.rows[0], resultado.rows[0], req.ip);
 
     res.json(resultado.rows[0]);
   } catch (error) {
+    console.error('Erro ao atualizar funcionario:', error);
     res.status(500).json({ erro: 'Erro ao atualizar funcionario.' });
   }
 }
 
-// Trocar senha (admin troca qualquer um, funcionario troca a propria)
+// Trocar senha (funcionario troca a propria sempre; para trocar a de outro, a rota exige a permissao 'editar_funcionarios')
 async function trocarSenha(req, res) {
   try {
     const { id } = req.params;
@@ -145,8 +168,11 @@ async function trocarSenha(req, res) {
     const resultado = await query('SELECT senha_hash FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
     if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
 
-    // Se nao for admin, precisa confirmar senha atual
-    if (req.cargo !== 'administrador') {
+    const trocandoAPropria = req.funcionarioId && req.funcionarioId === id;
+
+    // Trocando a propria senha: precisa confirmar a senha atual.
+    // Trocando a de outro (via permissao editar_funcionarios): nao precisa saber a senha antiga.
+    if (trocandoAPropria) {
       if (!senhaAtual) return res.status(400).json({ erro: 'Senha atual obrigatoria.' });
       const correta = await bcrypt.compare(senhaAtual, resultado.rows[0].senha_hash);
       if (!correta) return res.status(401).json({ erro: 'Senha atual incorreta.' });
@@ -159,6 +185,7 @@ async function trocarSenha(req, res) {
 
     res.json({ mensagem: 'Senha alterada com sucesso.' });
   } catch (error) {
+    console.error('Erro ao trocar senha:', error);
     res.status(500).json({ erro: 'Erro ao trocar senha.' });
   }
 }
@@ -178,4 +205,4 @@ async function registrarAuditoria(estabelecimentoId, funcionarioId, funcionarioN
   }
 }
 
-module.exports = { loginFuncionario, listar, criar, atualizar, trocarSenha, registrarAuditoria };
+module.exports = { loginFuncionario, listar, criar, atualizar, trocarSenha, registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS };
