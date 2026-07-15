@@ -1,5 +1,3 @@
-const ChaveSessao = 'cardapio_admin_token';
-const ChaveEstabelecimento = 'cardapio_admin_estabelecimento';
 
 function obterToken() {
   return sessionStorage.getItem(ChaveSessao);
