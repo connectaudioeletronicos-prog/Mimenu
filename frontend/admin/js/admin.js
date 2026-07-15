@@ -1066,7 +1066,7 @@ function renderizarFuncionariosAdmin() {
   const ordenados = [...ESTADO.funcionarios].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 
   lista.innerHTML = ordenados.map(f => `
-    <div class="item-admin item-admin--drag" draggable="true" data-funcionario-drag-id="${f.id}">
+    <div class="item-admin" data-funcionario-drag-id="${f.id}">
       <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
       <div class="item-admin__info">
         <div class="item-admin__titulo">${escaparHtmlAdmin(f.nome)} ${!f.ativo ? '(inativo)' : ''}</div>
@@ -1086,45 +1086,50 @@ function renderizarFuncionariosAdmin() {
 }
 
 function configurarDragDropFuncionarios(lista) {
-  lista.querySelectorAll('.item-admin--drag[data-funcionario-drag-id]').forEach(item => {
-    item.addEventListener('dragstart', (e) => {
-      dragSrcFuncionarioId = item.getAttribute('data-funcionario-drag-id');
-      item.style.opacity = '0.4';
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    item.addEventListener('dragend', () => {
-      item.style.opacity = '1';
-      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
-    });
-    item.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
-      item.classList.add('drag-over');
-    });
-    item.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      const targetId = item.getAttribute('data-funcionario-drag-id');
-      if (dragSrcFuncionarioId === targetId) return;
+  lista.querySelectorAll('.item-admin[data-funcionario-drag-id] .drag-handle').forEach(handle => {
+    handle.addEventListener('pointerdown', (evento) => {
+      evento.preventDefault();
+      const item = handle.closest('.item-admin[data-funcionario-drag-id]');
+      const indiceOrigem = Array.from(lista.children).indexOf(item);
+      item.classList.add('sendo-arrastado');
 
-      const ordenados = [...ESTADO.funcionarios].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
-      const indiceSrc = ordenados.findIndex(f => f.id === dragSrcFuncionarioId);
-      const indiceTarget = ordenados.findIndex(f => f.id === targetId);
-      if (indiceSrc === -1 || indiceTarget === -1) return;
+      const aoMover = (ev) => {
+        const elementoAlvo = document.elementFromPoint(ev.clientX, ev.clientY);
+        const itemAlvo = elementoAlvo ? elementoAlvo.closest('.item-admin[data-funcionario-drag-id]') : null;
+        if (itemAlvo && itemAlvo !== item) {
+          const indiceAlvo = Array.from(lista.children).indexOf(itemAlvo);
+          const indiceAtual = Array.from(lista.children).indexOf(item);
+          if (indiceAlvo < indiceAtual) lista.insertBefore(item, itemAlvo);
+          else lista.insertBefore(item, itemAlvo.nextSibling);
+        }
+      };
 
-      const reordenados = [...ordenados];
-      const [movido] = reordenados.splice(indiceSrc, 1);
-      reordenados.splice(indiceTarget, 0, movido);
+      const aoSoltar = async () => {
+        document.removeEventListener('pointermove', aoMover);
+        document.removeEventListener('pointerup', aoSoltar);
+        item.classList.remove('sendo-arrastado');
 
-      try {
-        await Promise.all(reordenados.map((f, i) => {
-          if (f.ordem !== i) return apiAtualizarFuncionario(f.id, { ordem: i });
-        }).filter(Boolean));
-        ESTADO.funcionarios = await apiListarFuncionarios();
-        renderizarFuncionariosAdmin();
-        mostrarToast('Ordem atualizada!');
-      } catch (erro) {
-        mostrarToast('Erro ao reordenar funcionarios.', true);
-      }
+        const novaOrdemIds = Array.from(lista.children).map(el => el.getAttribute('data-funcionario-drag-id'));
+        const indiceFinal = novaOrdemIds.indexOf(item.getAttribute('data-funcionario-drag-id'));
+        if (indiceFinal === indiceOrigem) return;
+
+        try {
+          await Promise.all(novaOrdemIds.map((id, i) => {
+            const f = ESTADO.funcionarios.find(x => x.id === id);
+            if (f && f.ordem !== i) return apiAtualizarFuncionario(id, { ordem: i });
+          }).filter(Boolean));
+          ESTADO.funcionarios = await apiListarFuncionarios();
+          renderizarFuncionariosAdmin();
+          mostrarToast('Ordem atualizada!');
+        } catch (erro) {
+          mostrarToast(erro.message || 'Erro ao reordenar funcionarios.', true);
+          ESTADO.funcionarios = await apiListarFuncionarios();
+          renderizarFuncionariosAdmin();
+        }
+      };
+
+      document.addEventListener('pointermove', aoMover);
+      document.addEventListener('pointerup', aoSoltar);
     });
   });
 }
