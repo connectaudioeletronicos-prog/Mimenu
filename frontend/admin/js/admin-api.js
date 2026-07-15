@@ -10,6 +10,19 @@ function salvarSessao(token, estabelecimento) {
   sessionStorage.setItem(ChaveEstabelecimento, JSON.stringify(estabelecimento));
 }
 
+// Mesma sessao, mas para quando quem entrou foi um funcionario (nao o dono)
+function salvarSessaoFuncionario(token, funcionario) {
+  sessionStorage.setItem(ChaveSessao, token);
+  sessionStorage.setItem(ChaveEstabelecimento, JSON.stringify({
+    nome: funcionario.nome,
+    slug: funcionario.slug,
+    cargo: funcionario.cargo,
+    permissoes: funcionario.permissoes || [],
+    funcionarioId: funcionario.id,
+    tipo: 'funcionario'
+  }));
+}
+
 function obterEstabelecimentoSessao() {
   const dados = sessionStorage.getItem(ChaveEstabelecimento);
   return dados ? JSON.parse(dados) : null;
@@ -95,6 +108,43 @@ const apiListarPromocoes = () => chamarApiAdmin('/promocoes');
 const apiCriarPromocao = (formData) => chamarApiAdmin('/promocoes', { method: 'POST', body: formData, isFormData: true });
 const apiAtualizarPromocao = (id, formData) => chamarApiAdmin(`/promocoes/${id}`, { method: 'PUT', body: formData, isFormData: true });
 const apiExcluirPromocao = (id) => chamarApiAdmin(`/promocoes/${id}`, { method: 'DELETE' });
+
+async function chamarApiFuncionarios(caminho, { method = 'GET', body = null } = {}) {
+  const headers = { 'Authorization': `Bearer ${obterToken()}`, 'Content-Type': 'application/json' };
+  const resposta = await fetch(`${API_BASE_URL}/funcionarios${caminho}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+  if (resposta.status === 401) {
+    limparSessao();
+    window.location.reload();
+    throw new Error('Sessao expirada. Faca login novamente.');
+  }
+
+  const dados = await resposta.json();
+  if (!resposta.ok) throw new Error(dados.erro || 'Ocorreu um erro ao processar a solicitacao.');
+  return dados;
+}
+
+async function apiLoginFuncionario(slug, login, senha) {
+  const resposta = await fetch(`${API_BASE_URL}/funcionarios/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug, login, senha })
+  });
+  const dados = await resposta.json();
+  if (!resposta.ok) throw new Error(dados.erro || 'Nao foi possivel entrar.');
+  return dados;
+}
+
+const apiListarFuncionarios = () => chamarApiFuncionarios('/');
+const apiCriarFuncionario = (dados) => chamarApiFuncionarios('/', { method: 'POST', body: dados });
+const apiAtualizarFuncionario = (id, dados) => chamarApiFuncionarios(`/${id}`, { method: 'PUT', body: dados });
+const apiTrocarSenhaFuncionario = (id, dados) => chamarApiFuncionarios(`/${id}/senha`, { method: 'PUT', body: dados });
+
+const apiCorrigirValoresPedido = (id, dados) => chamarApiAdmin(`/pedidos/${id}/valores`, { method: 'PUT', body: dados });
 
 const apiListarPedidos = (status = '') => chamarApiAdmin(`/pedidos${status ? `?status=${status}` : ''}`);
 const apiAtualizarStatusPedido = (id, status_pedido) => chamarApiAdmin(`/pedidos/${id}/status`, { method: 'PUT', body: { status_pedido } });
