@@ -16,8 +16,18 @@ const app = express();
 
 app.use(helmet());
 
+function extrairOrigem(url) {
+  if (!url) return url;
+  try {
+    const u = new URL(url);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return url;
+  }
+}
+
 const origensPermitidas = process.env.NODE_ENV === 'production'
-  ? [process.env.FRONTEND_URL]
+  ? [extrairOrigem(process.env.FRONTEND_URL)]
   : true;
 
 app.use(cors({ origin: origensPermitidas }));
