@@ -124,7 +124,7 @@ async function chamarApiFuncionarios(caminho, { method = 'GET', body = null } = 
   }
 
   const dados = await resposta.json();
-  if (!resposta.ok) throw new Error(dados.erro || 'Ocorreu um erro ao processar a solicitacao.');
+  if (!resposta.ok) throw new Error((dados.erro || 'Ocorreu um erro ao processar a solicitacao.') + (dados.detalhe ? ` [${dados.detalhe}]` : ''));
   return dados;
 }
 
