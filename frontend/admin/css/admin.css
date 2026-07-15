@@ -229,6 +229,43 @@ input, textarea, select { font-family: inherit; }
   margin: 10px 0 16px;
 }
 
+.aba__subtitulo {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 28px 0 14px;
+  border-top: 1px solid var(--admin-cor-borda);
+  padding-top: 20px;
+}
+
+.lista-permissoes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f9fafb;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.permissao-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.permissao-item input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.lista-permissoes.desabilitada {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .aba__cabecalho {
   display: flex;
   justify-content: space-between;
