@@ -3,6 +3,11 @@
   const tipo = parametros.get('tipo');
   const elementoTitulo = document.getElementById('pagina-legal-titulo');
   const elementoConteudo = document.getElementById('pagina-legal-conteudo');
+  const linkVoltar = document.getElementById('pagina-legal-voltar');
+
+  if (linkVoltar) {
+    linkVoltar.href = SLUG_ESTABELECIMENTO ? `index.html?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}` : 'index.html';
+  }
 
   const TIPOS = {
     termos: { titulo: 'Termos de Uso', campo: 'termos_uso' },
