@@ -197,7 +197,7 @@ async function mostrarPainel() {
     preencherFormularios();
     const s = sessaoAtual();
     document.getElementById('menu-nome-estabelecimento').textContent =
-      (ESTADO.estabelecimento ? ESTADO.estabelecimento.nome : (s.nome || 'Painel')) + ` [DEBUG ${JSON.stringify(s)}]`;
+      ESTADO.estabelecimento ? ESTADO.estabelecimento.nome : (s.nome || 'Painel');
     document.getElementById('menu-link-publico').textContent = s.slug ? `/${s.slug}` : '';
     aplicarVisibilidadeMenu();
   } catch (erro) {
