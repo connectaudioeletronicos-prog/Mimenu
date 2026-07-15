@@ -13,6 +13,7 @@ router.use(autenticarFuncionario);
 router.get('/', exigirPermissao('gerenciar_funcionarios'), funcionarioController.listar);
 router.post('/', exigirPermissao('gerenciar_funcionarios'), funcionarioController.criar);
 router.put('/:id', exigirPermissao('editar_funcionarios'), funcionarioController.atualizar);
+router.delete('/:id', exigirPermissao('gerenciar_funcionarios'), funcionarioController.excluir);
 
 // Trocar senha: cada funcionario pode trocar a propria (verificado dentro do
 // controller); para trocar a de outro, precisa da permissao 'editar_funcionarios'.
