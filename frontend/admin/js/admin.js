@@ -1006,7 +1006,12 @@ function renderizarPedidosAdmin(pedidos) {
   }
 
   lista.innerHTML = pedidos.map(pedido => {
-    const itens = pedido.itens.map(i => `${i.quantidade}x ${escaparHtmlAdmin(i.nome)}`).join(', ');
+    const itens = pedido.itens
+      ? pedido.itens.map(i => `${i.quantidade}x ${escaparHtmlAdmin(i.nome)}`).join(', ')
+      : 'Itens nao disponiveis';
+    const valorLinha = pedido.total === null
+      ? 'Valor oculto (sem permissao)'
+      : `${formatarMoedaAdmin(pedido.total)} - ${pedido.forma_pagamento.toUpperCase()} (${pedido.status_pagamento})`;
     const data = new Date(pedido.criado_em).toLocaleString('pt-BR');
     return `
       <div class="item-admin" style="align-items: flex-start;">
@@ -1016,7 +1021,7 @@ function renderizarPedidosAdmin(pedidos) {
             <span class="badge-status badge-status--${pedido.status_pedido}">${STATUS_PEDIDO_LABEL[pedido.status_pedido]}</span>
           </div>
           <div class="item-admin__subtitulo">${itens}</div>
-          <div class="item-admin__subtitulo">${data} - ${formatarMoedaAdmin(pedido.total)} - ${pedido.forma_pagamento.toUpperCase()} (${pedido.status_pagamento})</div>
+          <div class="item-admin__subtitulo">${data} - ${valorLinha}</div>
           <div class="item-admin__subtitulo">Tel: ${escaparHtmlAdmin(pedido.cliente_telefone)}</div>
         </div>
         <select class="campo-select" style="width:auto;" data-mudar-status="${pedido.id}">
@@ -1049,6 +1054,8 @@ const NOMES_CARGO = {
   garcom: 'Garcom', colaborador: 'Colaborador'
 };
 
+let dragSrcFuncionarioId = null;
+
 function renderizarFuncionariosAdmin() {
   const lista = document.getElementById('lista-funcionarios-admin');
   if (!ESTADO.funcionarios || ESTADO.funcionarios.length === 0) {
@@ -1056,8 +1063,11 @@ function renderizarFuncionariosAdmin() {
     return;
   }
 
-  lista.innerHTML = ESTADO.funcionarios.map(f => `
-    <div class="item-admin" data-funcionario-id="${f.id}">
+  const ordenados = [...ESTADO.funcionarios].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+
+  lista.innerHTML = ordenados.map(f => `
+    <div class="item-admin item-admin--drag" draggable="true" data-funcionario-drag-id="${f.id}">
+      <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
       <div class="item-admin__info">
         <div class="item-admin__titulo">${escaparHtmlAdmin(f.nome)} ${!f.ativo ? '(inativo)' : ''}</div>
         <div class="item-admin__subtitulo">${NOMES_CARGO[f.cargo] || f.cargo} - ${escaparHtmlAdmin(f.email)}</div>
@@ -1070,6 +1080,52 @@ function renderizarFuncionariosAdmin() {
 
   lista.querySelectorAll('[data-editar-funcionario]').forEach(b => {
     b.addEventListener('click', () => abrirModalEditarFuncionario(b.getAttribute('data-editar-funcionario')));
+  });
+
+  configurarDragDropFuncionarios(lista);
+}
+
+function configurarDragDropFuncionarios(lista) {
+  lista.querySelectorAll('.item-admin--drag[data-funcionario-drag-id]').forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+      dragSrcFuncionarioId = item.getAttribute('data-funcionario-drag-id');
+      item.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    item.addEventListener('dragend', () => {
+      item.style.opacity = '1';
+      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
+    });
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
+      item.classList.add('drag-over');
+    });
+    item.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const targetId = item.getAttribute('data-funcionario-drag-id');
+      if (dragSrcFuncionarioId === targetId) return;
+
+      const ordenados = [...ESTADO.funcionarios].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+      const indiceSrc = ordenados.findIndex(f => f.id === dragSrcFuncionarioId);
+      const indiceTarget = ordenados.findIndex(f => f.id === targetId);
+      if (indiceSrc === -1 || indiceTarget === -1) return;
+
+      const reordenados = [...ordenados];
+      const [movido] = reordenados.splice(indiceSrc, 1);
+      reordenados.splice(indiceTarget, 0, movido);
+
+      try {
+        await Promise.all(reordenados.map((f, i) => {
+          if (f.ordem !== i) return apiAtualizarFuncionario(f.id, { ordem: i });
+        }).filter(Boolean));
+        ESTADO.funcionarios = await apiListarFuncionarios();
+        renderizarFuncionariosAdmin();
+        mostrarToast('Ordem atualizada!');
+      } catch (erro) {
+        mostrarToast('Erro ao reordenar funcionarios.', true);
+      }
+    });
   });
 }
 
@@ -1148,6 +1204,25 @@ function configurarFuncionarios() {
     try {
       await apiTrocarSenhaFuncionario(id, { novaSenha });
       mostrarToast('Senha redefinida com sucesso!');
+    } catch (erro) {
+      mostrarToast(erro.message, true);
+    }
+  });
+
+  document.getElementById('botao-excluir-funcionario').addEventListener('click', async () => {
+    const id = document.getElementById('edit-func-id').value;
+    const nome = document.getElementById('edit-func-nome').value;
+    if (!confirm(`Tem certeza que deseja excluir "${nome}" definitivamente? Essa acao nao pode ser desfeita.`)) return;
+
+    const senha = prompt('Digite SUA senha (administrador) para confirmar a exclusao:');
+    if (!senha) return;
+
+    try {
+      await apiExcluirFuncionario(id, senha);
+      ESTADO.funcionarios = await apiListarFuncionarios();
+      renderizarFuncionariosAdmin();
+      fecharModaisAdmin();
+      mostrarToast('Funcionario excluido com sucesso.');
     } catch (erro) {
       mostrarToast(erro.message, true);
     }
