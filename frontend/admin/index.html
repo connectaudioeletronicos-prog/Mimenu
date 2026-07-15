@@ -27,6 +27,32 @@
 
       <button type="submit" class="botao-primario">Entrar</button>
       <a href="#" id="link-esqueci-senha" class="login-card__link">Esqueci minha senha</a>
+      <a href="#" id="link-login-funcionario" class="login-card__link">Sou funcionario</a>
+    </form>
+  </div>
+
+  <div id="tela-login-funcionario" class="tela-login oculto">
+    <form id="form-login-funcionario" class="login-card">
+      <h1 class="login-card__titulo">Entrar como funcionario</h1>
+      <p class="login-card__subtitulo">Peca o "slug" da loja para o seu gestor, se nao souber.</p>
+
+      <label>Slug da loja
+        <input type="text" id="funcionario-slug" required placeholder="minha-loja">
+      </label>
+      <label>Login (e-mail ou usuario)
+        <input type="text" id="funcionario-login" required autocomplete="username">
+      </label>
+      <label>Senha
+        <div class="campo-senha-wrapper">
+          <input type="password" id="funcionario-senha" required autocomplete="current-password">
+          <button type="button" class="botao-olho" data-alvo-senha="funcionario-senha" aria-label="Mostrar senha">👁</button>
+        </div>
+      </label>
+
+      <div id="funcionario-login-erro" class="login-card__erro oculto"></div>
+
+      <button type="submit" class="botao-primario">Entrar</button>
+      <a href="#" id="link-voltar-login-dono" class="login-card__link">Sou o dono da loja</a>
     </form>
   </div>
 
@@ -63,6 +89,7 @@
       <button class="painel__menu-item" data-aba="pagamento">💳 Pagamento</button>
       <button class="painel__menu-item" data-aba="paginas-legais">📄 Paginas legais</button>
       <button class="painel__menu-item" data-aba="senha">🔒 Senha</button>
+      <button class="painel__menu-item" data-aba="funcionarios" id="menu-item-funcionarios">👥 Funcionarios</button>
       <button id="botao-sair" class="painel__menu-item painel__menu-item--sair">Sair</button>
     </nav>
 
@@ -305,7 +332,104 @@
         <button id="botao-salvar-senha" class="botao-primario">Alterar senha</button>
       </section>
 
+      <section id="aba-funcionarios" class="aba oculto">
+        <h2 class="aba__titulo">Funcionarios</h2>
+        <div id="lista-funcionarios-admin" class="lista-itens-admin"></div>
+
+        <h3 class="aba__subtitulo">Cadastrar novo funcionario</h3>
+        <form id="form-novo-funcionario">
+          <div class="campo-grupo">
+            <label class="campo-label">Nome completo</label>
+            <input type="text" id="func-nome" class="campo-texto" required>
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">E-mail</label>
+            <input type="email" id="func-email" class="campo-texto" required>
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Usuario (opcional, alternativa ao e-mail para login)</label>
+            <input type="text" id="func-username" class="campo-texto">
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Senha</label>
+            <div class="campo-senha-wrapper">
+              <input type="password" id="func-senha" class="campo-texto" required minlength="6">
+              <button type="button" class="botao-olho" data-alvo-senha="func-senha" aria-label="Mostrar senha">👁</button>
+            </div>
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Categoria (define so o limite de quantidade)</label>
+            <select id="func-cargo" class="campo-texto">
+              <option value="administrador">Administrador (max. 2) - acesso total</option>
+              <option value="gerente">Gerente (max. 1)</option>
+              <option value="caixa">Caixa (max. 5)</option>
+              <option value="garcom">Garcom (sem limite)</option>
+              <option value="colaborador">Colaborador (sem limite)</option>
+            </select>
+          </div>
+
+          <div class="campo-grupo" id="grupo-permissoes-funcionario">
+            <label class="campo-label">Permissoes</label>
+            <div class="lista-permissoes">
+              <label class="permissao-item"><input type="checkbox" value="gerenciar_funcionarios"> Gerenciar funcionarios (cadastrar/descadastrar)</label>
+              <label class="permissao-item"><input type="checkbox" value="editar_funcionarios"> Editar dados / trocar senha de funcionarios</label>
+              <label class="permissao-item"><input type="checkbox" value="gerenciar_cardapio"> Gerenciar produtos, categorias e promocoes (com precos)</label>
+              <label class="permissao-item"><input type="checkbox" value="criar_pedidos"> Criar pedidos</label>
+              <label class="permissao-item"><input type="checkbox" value="cancelar_pedidos"> Cancelar pedidos</label>
+              <label class="permissao-item"><input type="checkbox" value="mudar_status_pedidos"> Mudar status do pedido (preparo/entrega)</label>
+              <label class="permissao-item"><input type="checkbox" value="ver_valores_concluidos"> Ver valores de pedidos concluidos/cancelados</label>
+              <label class="permissao-item"><input type="checkbox" value="corrigir_valores_concluidos"> Corrigir valores de pedidos concluidos</label>
+              <label class="permissao-item"><input type="checkbox" value="gerenciar_conta"> Gerenciar configuracoes da conta (pagamento, dados, paginas legais)</label>
+            </div>
+          </div>
+
+          <button type="submit" class="botao-primario">Cadastrar funcionario</button>
+        </form>
+      </section>
+
     </main>
+  </div>
+
+  <div id="modal-editar-funcionario" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+      <h3>Editar funcionario</h3>
+      <input type="hidden" id="edit-func-id">
+
+      <label>Nome completo
+        <input type="text" id="edit-func-nome">
+      </label>
+      <label>E-mail
+        <input type="email" id="edit-func-email">
+      </label>
+      <label>Categoria
+        <select id="edit-func-cargo">
+          <option value="administrador">Administrador (max. 2) - acesso total</option>
+          <option value="gerente">Gerente (max. 1)</option>
+          <option value="caixa">Caixa (max. 5)</option>
+          <option value="garcom">Garcom (sem limite)</option>
+          <option value="colaborador">Colaborador (sem limite)</option>
+        </select>
+      </label>
+      <label>
+        <div id="edit-grupo-permissoes" class="lista-permissoes">
+          <label class="permissao-item"><input type="checkbox" value="gerenciar_funcionarios"> Gerenciar funcionarios (cadastrar/descadastrar)</label>
+          <label class="permissao-item"><input type="checkbox" value="editar_funcionarios"> Editar dados / trocar senha de funcionarios</label>
+          <label class="permissao-item"><input type="checkbox" value="gerenciar_cardapio"> Gerenciar produtos, categorias e promocoes (com precos)</label>
+          <label class="permissao-item"><input type="checkbox" value="criar_pedidos"> Criar pedidos</label>
+          <label class="permissao-item"><input type="checkbox" value="cancelar_pedidos"> Cancelar pedidos</label>
+          <label class="permissao-item"><input type="checkbox" value="mudar_status_pedidos"> Mudar status do pedido (preparo/entrega)</label>
+          <label class="permissao-item"><input type="checkbox" value="ver_valores_concluidos"> Ver valores de pedidos concluidos/cancelados</label>
+          <label class="permissao-item"><input type="checkbox" value="corrigir_valores_concluidos"> Corrigir valores de pedidos concluidos</label>
+          <label class="permissao-item"><input type="checkbox" value="gerenciar_conta"> Gerenciar configuracoes da conta (pagamento, dados, paginas legais)</label>
+        </div>
+      </label>
+      <label class="permissao-item"><input type="checkbox" id="edit-func-ativo"> Funcionario ativo</label>
+
+      <button id="botao-salvar-edicao-funcionario" class="botao-primario">Salvar alteracoes</button>
+      <button id="botao-resetar-senha-funcionario" class="botao-secundario">Redefinir senha</button>
+    </div>
   </div>
 
   <div id="modal-categoria" class="modal-admin oculto">
