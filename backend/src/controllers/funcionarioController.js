@@ -72,8 +72,8 @@ async function loginFuncionario(req, res) {
 async function listar(req, res) {
   try {
     const resultado = await query(
-      `SELECT id, nome, email, username, cargo, permissoes, ativo, criado_em
-       FROM funcionarios WHERE estabelecimento_id = $1 ORDER BY criado_em ASC`,
+      `SELECT id, nome, email, username, cargo, permissoes, ativo, ordem, criado_em
+       FROM funcionarios WHERE estabelecimento_id = $1 ORDER BY ordem ASC, criado_em ASC`,
       [req.estabelecimentoId]
     );
     res.json(resultado.rows);
@@ -105,10 +105,14 @@ async function criar(req, res) {
 
     const permissoesFinais = cargo === 'administrador' ? PERMISSOES_VALIDAS : sanitizarPermissoes(permissoes);
     const senhaHash = await bcrypt.hash(senha, 10);
+
+    const contagemTotal = await query('SELECT COUNT(*) FROM funcionarios WHERE estabelecimento_id = $1', [req.estabelecimentoId]);
+    const proximaOrdem = parseInt(contagemTotal.rows[0].count);
+
     const resultado = await query(
-      `INSERT INTO funcionarios (estabelecimento_id, nome, email, username, senha_hash, cargo, permissoes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, nome, email, username, cargo, permissoes, ativo`,
-      [req.estabelecimentoId, nome, email, username || null, senhaHash, cargo, JSON.stringify(permissoesFinais)]
+      `INSERT INTO funcionarios (estabelecimento_id, nome, email, username, senha_hash, cargo, permissoes, ordem)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, nome, email, username, cargo, permissoes, ativo, ordem`,
+      [req.estabelecimentoId, nome, email, username || null, senhaHash, cargo, JSON.stringify(permissoesFinais), proximaOrdem]
     );
 
     const novo = resultado.rows[0];
@@ -126,7 +130,7 @@ async function criar(req, res) {
 async function atualizar(req, res) {
   try {
     const { id } = req.params;
-    const { nome, email, username, cargo, ativo, permissoes } = req.body;
+    const { nome, email, username, cargo, ativo, permissoes, ordem } = req.body;
 
     if (cargo && !CARGOS_VALIDOS.includes(cargo)) return res.status(400).json({ erro: 'Categoria invalida.' });
 
@@ -143,9 +147,10 @@ async function atualizar(req, res) {
        username = COALESCE($3, username), cargo = COALESCE($4, cargo),
        ativo = COALESCE($5, ativo),
        permissoes = COALESCE($6, permissoes),
+       ordem = COALESCE($7, ordem),
        atualizado_em = NOW()
-       WHERE id = $7 AND estabelecimento_id = $8 RETURNING id, nome, email, username, cargo, permissoes, ativo`,
-      [nome, email, username, cargo, ativo, permissoesFinais !== undefined ? JSON.stringify(permissoesFinais) : null, id, req.estabelecimentoId]
+       WHERE id = $8 AND estabelecimento_id = $9 RETURNING id, nome, email, username, cargo, permissoes, ativo, ordem`,
+      [nome, email, username, cargo, ativo, permissoesFinais !== undefined ? JSON.stringify(permissoesFinais) : null, ordem, id, req.estabelecimentoId]
     );
 
     await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'ATUALIZAR_FUNCIONARIO', 'funcionarios', id, anterior.rows[0], resultado.rows[0], req.ip);
@@ -205,4 +210,42 @@ async function registrarAuditoria(estabelecimentoId, funcionarioId, funcionarioN
   }
 }
 
-module.exports = { loginFuncionario, listar, criar, atualizar, trocarSenha, registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS };
+// Exclui definitivamente um funcionario. Exige a senha de quem esta fazendo a
+// exclusao (proprietario ou funcionario administrador) como confirmacao.
+async function excluir(req, res) {
+  try {
+    const { id } = req.params;
+    const { senhaConfirmacao } = req.body;
+
+    if (!senhaConfirmacao) {
+      return res.status(400).json({ erro: 'Informe sua senha para confirmar a exclusao.' });
+    }
+
+    let hashParaConferir;
+    if (req.funcionarioId) {
+      const quem = await query('SELECT senha_hash FROM funcionarios WHERE id = $1', [req.funcionarioId]);
+      if (quem.rows.length === 0) return res.status(401).json({ erro: 'Sessao invalida.' });
+      hashParaConferir = quem.rows[0].senha_hash;
+    } else {
+      const quem = await query('SELECT senha_hash FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
+      hashParaConferir = quem.rows[0].senha_hash;
+    }
+
+    const senhaCorreta = await bcrypt.compare(senhaConfirmacao, hashParaConferir);
+    if (!senhaCorreta) return res.status(401).json({ erro: 'Senha incorreta.' });
+
+    const anterior = await query('SELECT * FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
+    if (anterior.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
+
+    await query('DELETE FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
+
+    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'EXCLUIR_FUNCIONARIO', 'funcionarios', id, anterior.rows[0], null, req.ip);
+
+    res.json({ mensagem: 'Funcionario excluido com sucesso.' });
+  } catch (error) {
+    console.error('Erro ao excluir funcionario:', error);
+    res.status(500).json({ erro: 'Erro interno ao excluir funcionario.' });
+  }
+}
+
+module.exports = { loginFuncionario, listar, criar, atualizar, trocarSenha, excluir, registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS };
