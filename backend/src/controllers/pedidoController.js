@@ -116,7 +116,18 @@ async function listarPedidosAdmin(req, res) {
     if (status) { sql += ` AND status_pedido = $2`; params.push(status); }
     sql += ` ORDER BY criado_em DESC LIMIT 100`;
     const resultado = await query(sql, params);
-    res.json(resultado.rows);
+
+    const podeVerValoresConcluidos = req.cargo === 'proprietario' || (req.permissoes || []).includes('ver_valores_concluidos');
+    const finalizados = ['entregue', 'cancelado'];
+
+    const pedidos = resultado.rows.map(p => {
+      if (!podeVerValoresConcluidos && finalizados.includes(p.status_pedido)) {
+        return { ...p, subtotal: null, total: null, taxa_entrega: null, itens: null };
+      }
+      return p;
+    });
+
+    res.json(pedidos);
   } catch (error) {
     res.status(500).json({ erro: 'Erro ao listar pedidos.' });
   }
@@ -129,6 +140,15 @@ async function atualizarStatusPedido(req, res) {
 
     const statusValidos = ['novo', 'preparando', 'saiu_entrega', 'entregue', 'cancelado'];
     if (!statusValidos.includes(status_pedido)) return res.status(400).json({ erro: 'Status invalido.' });
+
+    const temPermissao = (chave) => req.cargo === 'proprietario' || (req.permissoes || []).includes(chave);
+
+    if (status_pedido === 'cancelado' && !temPermissao('cancelar_pedidos')) {
+      return res.status(403).json({ erro: 'Voce nao tem permissao para cancelar pedidos.' });
+    }
+    if (status_pedido !== 'cancelado' && !temPermissao('mudar_status_pedidos')) {
+      return res.status(403).json({ erro: 'Voce nao tem permissao para mudar o status do pedido.' });
+    }
 
     const pedidoAtual = await query('SELECT status_pedido FROM pedidos WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
     if (pedidoAtual.rows.length === 0) return res.status(404).json({ erro: 'Pedido nao encontrado.' });
@@ -145,6 +165,46 @@ async function atualizarStatusPedido(req, res) {
     res.json(resultado.rows[0]);
   } catch (error) {
     res.status(500).json({ erro: 'Erro ao atualizar status.' });
+  }
+}
+
+// Corrige valores de um pedido ja finalizado (entregue/cancelado).
+// So acessivel a quem tem a permissao 'corrigir_valores_concluidos' (checado na rota).
+// Toda correcao fica registrada na auditoria, com o valor antigo e o novo.
+async function corrigirValoresPedido(req, res) {
+  try {
+    const { id } = req.params;
+    const { subtotal, taxa_entrega, total, motivo } = req.body;
+
+    const anterior = await query('SELECT * FROM pedidos WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
+    if (anterior.rows.length === 0) return res.status(404).json({ erro: 'Pedido nao encontrado.' });
+
+    if (total === undefined || isNaN(parseFloat(total))) {
+      return res.status(400).json({ erro: 'Informe o novo valor total do pedido.' });
+    }
+
+    const resultado = await query(
+      `UPDATE pedidos SET
+        subtotal = COALESCE($1, subtotal),
+        taxa_entrega = COALESCE($2, taxa_entrega),
+        total = $3
+       WHERE id = $4 AND estabelecimento_id = $5 RETURNING *`,
+      [subtotal, taxa_entrega, parseFloat(total), id, req.estabelecimentoId]
+    );
+
+    const { registrarAuditoria } = require('./funcionarioController');
+    await registrarAuditoria(
+      req.estabelecimentoId, req.funcionarioId, req.funcionarioNome || 'Proprietario',
+      'CORRIGIR_VALORES_PEDIDO', 'pedidos', id,
+      { subtotal: anterior.rows[0].subtotal, taxa_entrega: anterior.rows[0].taxa_entrega, total: anterior.rows[0].total },
+      { subtotal: resultado.rows[0].subtotal, taxa_entrega: resultado.rows[0].taxa_entrega, total: resultado.rows[0].total, motivo: motivo || null },
+      req.ip
+    );
+
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao corrigir valores do pedido:', error);
+    res.status(500).json({ erro: 'Erro interno ao corrigir valores do pedido.' });
   }
 }
 
@@ -179,5 +239,6 @@ module.exports = {
   webhookMercadoPago,
   listarPedidosAdmin,
   atualizarStatusPedido,
+  corrigirValoresPedido,
   listarPedidosCliente
 };
