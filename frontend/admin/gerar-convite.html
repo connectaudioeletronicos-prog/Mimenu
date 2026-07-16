@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerar Convite de Cadastro - Mimenu</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #f4f4f4; display: flex; justify-content: center; padding: 40px 16px; margin: 0; }
+  .card { background: white; padding: 24px; border-radius: 12px; max-width: 420px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: #666; margin-top: 0; margin-bottom: 20px; font-size: 14px; }
+  label { display: block; font-weight: bold; margin-top: 14px; margin-bottom: 4px; font-size: 14px; }
+  input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; box-sizing: border-box; }
+  button { margin-top: 20px; width: 100%; padding: 12px; background: #1D3557; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+  button:disabled { opacity: 0.6; }
+  .msg { margin-top: 14px; padding: 10px; border-radius: 6px; font-size: 14px; word-break: break-all; }
+  .erro { background: #fde2e2; color: #b00; }
+  .sucesso { background: #e2fde2; color: #060; }
+  small { color: #999; }
+  img.qrcode { width: 220px; height: 220px; display: block; margin: 12px auto 0; }
+  .acoes { display: flex; gap: 8px; margin-top: 10px; }
+  .acoes button { margin-top: 0; }
+  #resultado { display: none; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Gerar link de cadastro</h1>
+    <p class="sub">Uso interno seu. Gera um link único de uso único para enviar a um novo lojista (WhatsApp, e-mail ou QR Code impresso).</p>
+
+    <label>Chave mestra</label>
+    <input type="password" id="chaveMestra" placeholder="A CHAVE_CADASTRO_ADMIN configurada no Render">
+    <small>Essa chave é só sua. Nunca aparece no link enviado ao lojista.</small>
+
+    <label>Observação (opcional, só pra você lembrar)</label>
+    <input type="text" id="observacao" placeholder="ex: Pizzaria do João - indicação Instagram">
+
+    <label>Validade do link (dias)</label>
+    <input type="number" id="dias" value="7" min="1" max="30">
+
+    <button id="btnGerar" onclick="gerarConvite()">Gerar link</button>
+
+    <div id="resultado">
+      <div class="msg sucesso" id="msgSucesso"></div>
+      <img class="qrcode" id="qrcodeImagem" src="" alt="QR Code do convite">
+      <div class="acoes">
+        <button onclick="copiarLink()">Copiar link</button>
+        <button onclick="baixarQrCode()">Baixar QR Code</button>
+      </div>
+    </div>
+    <div id="erro"></div>
+  </div>
+
+<script src="../js/config.js"></script>
+<script>
+let LINK_GERADO = '';
+
+async function gerarConvite() {
+  const chaveMestra = document.getElementById('chaveMestra').value;
+  const observacao = document.getElementById('observacao').value.trim();
+  const dias = document.getElementById('dias').value;
+
+  const erroDiv = document.getElementById('erro');
+  const resultadoDiv = document.getElementById('resultado');
+  const botao = document.getElementById('btnGerar');
+  erroDiv.innerHTML = '';
+  resultadoDiv.style.display = 'none';
+
+  if (!chaveMestra) {
+    erroDiv.innerHTML = '<div class="msg erro">Informe a chave mestra.</div>';
+    return;
+  }
+
+  botao.disabled = true;
+  botao.textContent = 'Gerando...';
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/convites/gerar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chaveMestra, observacao, diasValidade: Number(dias) })
+    });
+
+    const dados = await resposta.json();
+
+    if (resposta.ok) {
+      LINK_GERADO = dados.link;
+      document.getElementById('msgSucesso').textContent = 'Link gerado! Válido até ' + new Date(dados.expira_em).toLocaleString('pt-BR') + '.\n\n' + dados.link;
+      document.getElementById('qrcodeImagem').src = dados.qrcode;
+      resultadoDiv.style.display = 'block';
+    } else {
+      erroDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao gerar convite.') + '</div>';
+    }
+  } catch (e) {
+    erroDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+
+  botao.disabled = false;
+  botao.textContent = 'Gerar link';
+}
+
+function copiarLink() {
+  if (!LINK_GERADO) return;
+  navigator.clipboard.writeText(LINK_GERADO).then(() => alert('Link copiado!'));
+}
+
+function baixarQrCode() {
+  const img = document.getElementById('qrcodeImagem');
+  if (!img.src) return;
+  const a = document.createElement('a');
+  a.href = img.src;
+  a.download = 'qrcode-convite.png';
+  a.click();
+}
+</script>
+</body>
+</html>
