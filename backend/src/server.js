@@ -12,6 +12,7 @@ const rotasAuth = require('./routes/auth');
 const rotasAdmin = require('./routes/admin');
 const rotasWebhooks = require('./routes/webhooks');
 const rotasFuncionarios = require('./routes/funcionarios');
+const { sincronizarSchema } = require('./config/database');
 const app = express();
 
 app.use(helmet());
@@ -65,6 +66,8 @@ app.use((req, res) => {
 });
 
 const PORTA = process.env.PORT || 3000;
-app.listen(PORTA, () => {
-  console.log(`Servidor rodando na porta ${PORTA}`);
+sincronizarSchema().finally(() => {
+  app.listen(PORTA, () => {
+    console.log(`Servidor rodando na porta ${PORTA}`);
+  });
 });
