@@ -87,6 +87,7 @@
       <button class="painel__menu-item" data-aba="categorias">📂 Categorias</button>
       <button class="painel__menu-item" data-aba="produtos">🍽️ Produtos</button>
       <button class="painel__menu-item" data-aba="promocoes">🏷️ Promocoes</button>
+      <button class="painel__menu-item" data-aba="vitrines">🖼️ Carrosseis e Vitrines</button>
       <button class="painel__menu-item" data-aba="pedidos">🧾 Pedidos</button>
       <button class="painel__menu-item" data-aba="pagamento">💳 Pagamento</button>
       <button class="painel__menu-item" data-aba="paginas-legais">📄 Paginas legais</button>
@@ -119,30 +120,49 @@
         <div class="campo-grupo">
           <label class="campo-label">Cores</label>
           <div style="display:flex; flex-direction:column; gap:12px;">
-            <div class="campo-cor-wrapper">
-              <input type="color" id="campo-cor-principal" class="campo-cor">
-              <span class="campo-cor-nome">Cor principal (banner, títulos, rodapé)</span>
+            <div>
+              <div class="campo-cor-wrapper">
+                <input type="color" id="campo-cor-principal" class="campo-cor" data-paleta-alvo>
+                <span class="campo-cor-nome">Cor principal (banner, títulos, rodapé)</span>
+              </div>
+              <div class="paleta-cores" data-paleta-para="campo-cor-principal"></div>
             </div>
-            <div class="campo-cor-wrapper">
-              <input type="color" id="campo-cor-secundaria" class="campo-cor">
-              <span class="campo-cor-nome">Cor secundária (preços, destaques)</span>
+            <div>
+              <div class="campo-cor-wrapper">
+                <input type="color" id="campo-cor-secundaria" class="campo-cor" data-paleta-alvo>
+                <span class="campo-cor-nome">Cor secundária (preços, destaques)</span>
+              </div>
+              <div class="paleta-cores" data-paleta-para="campo-cor-secundaria"></div>
             </div>
-            <div class="campo-cor-wrapper">
-              <input type="color" id="campo-cor-botoes" class="campo-cor">
-              <span class="campo-cor-nome">Cor dos botões</span>
+            <div>
+              <div class="campo-cor-wrapper">
+                <input type="color" id="campo-cor-botoes" class="campo-cor" data-paleta-alvo>
+                <span class="campo-cor-nome">Cor dos botões</span>
+              </div>
+              <div class="paleta-cores" data-paleta-para="campo-cor-botoes"></div>
             </div>
           </div>
+          <p class="campo-dica">Paleta padrão da marca. Os códigos exatos são respeitados ao clicar.</p>
         </div>
 
         <div class="campo-grupo">
           <label class="campo-label">Fonte</label>
           <select id="campo-fonte" class="campo-select">
             <option value="Poppins">Poppins</option>
+            <option value="Inter">Inter</option>
             <option value="Playfair Display">Playfair Display</option>
             <option value="Roboto">Roboto</option>
             <option value="Montserrat">Montserrat</option>
             <option value="Lato">Lato</option>
+            <option value="Nunito">Nunito</option>
+            <option value="Quicksand">Quicksand</option>
+            <option value="Raleway">Raleway</option>
+            <option value="Work Sans">Work Sans</option>
+            <option value="DM Sans">DM Sans</option>
+            <option value="Merriweather">Merriweather</option>
+            <option value="Oswald">Oswald</option>
           </select>
+          <div id="fonte-preview" class="fonte-preview">Pangram, dolor sit amet, passou seia mteigna.</div>
         </div>
 
         <div class="campo-grupo">
@@ -241,6 +261,28 @@
           <button id="botao-nova-promocao" class="botao-secundario">+ Nova promocao</button>
         </div>
         <div id="lista-promocoes-admin" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-vitrines" class="aba oculto">
+        <div class="aba__cabecalho">
+          <h2 class="aba__titulo">Carrosséis extras</h2>
+          <button id="botao-novo-carrossel" class="botao-secundario">+ Novo carrossel</button>
+        </div>
+        <p class="aba__descricao">
+          Além do banner principal, você pode criar um ou dois carrosséis extras com quantas fotos quiser,
+          e escolher em qual parte da página cada um aparece. Ficam desativados até você ativar.
+        </p>
+        <div id="lista-carrosseis-admin" class="lista-itens-admin"></div>
+
+        <div class="aba__cabecalho" style="margin-top:32px;">
+          <h2 class="aba__titulo">Vitrines</h2>
+          <button id="botao-nova-vitrine" class="botao-secundario">+ Nova vitrine</button>
+        </div>
+        <p class="aba__descricao">
+          Vitrine é um bloco com uma imagem grande (retrato, de 1350x1800 até 2000x2000px) e uma caixa de texto.
+          Também posicionável e desativada por padrão até você ativar.
+        </p>
+        <div id="lista-vitrines-admin" class="lista-itens-admin"></div>
       </section>
 
       <section id="aba-pedidos" class="aba oculto">
@@ -497,6 +539,84 @@
     </div>
   </div>
 
+  <div id="modal-carrossel" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-carrossel">Novo carrossel</h3>
+      <form id="form-carrossel">
+        <input type="hidden" id="carrossel-id">
+        <div class="campo-grupo">
+          <label class="campo-label">Nome (só para você identificar)</label>
+          <input type="text" id="carrossel-nome" class="campo-texto" maxlength="100" placeholder="Ex: Carrossel de sobremesas">
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Onde aparece na página</label>
+          <select id="carrossel-posicao" class="campo-select">
+            <option value="topo">No topo (antes do banner principal)</option>
+            <option value="apos-cabecalho">Logo após o cabeçalho</option>
+            <option value="apos-categorias">Após as categorias</option>
+            <option value="apos-produtos">Após os produtos</option>
+            <option value="antes-rodape">Antes do rodapé</option>
+          </select>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-checkbox">
+            <input type="checkbox" id="carrossel-ativo">
+            Ativar este carrossel no cardápio público
+          </label>
+        </div>
+        <button type="submit" class="botao-primario">Salvar carrossel</button>
+      </form>
+
+      <div class="campo-grupo" style="margin-top:20px;">
+        <label class="campo-label">Fotos do carrossel (sem limite)</label>
+        <div id="lista-imagens-carrossel" class="lista-imagens-carrossel"></div>
+        <input type="file" id="input-nova-imagem-carrossel" accept="image/*">
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-vitrine" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-vitrine">Nova vitrine</h3>
+      <form id="form-vitrine">
+        <input type="hidden" id="vitrine-id">
+        <div class="campo-grupo">
+          <label class="campo-label">Imagem (retrato, de 1350x1800 até 2000x2000px)</label>
+          <div class="upload-area">
+            <img id="preview-vitrine-imagem" class="upload-area__preview" alt="">
+            <input type="file" id="vitrine-imagem" accept="image/*">
+          </div>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Texto (a caixa de texto fica do mesmo tamanho da imagem)</label>
+          <textarea id="vitrine-texto" class="campo-textarea" maxlength="300"></textarea>
+          <span id="vitrine-texto-contador" class="campo-contador">0/300</span>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Onde aparece na página</label>
+          <select id="vitrine-posicao" class="campo-select">
+            <option value="topo">No topo (antes do banner principal)</option>
+            <option value="apos-cabecalho">Logo após o cabeçalho</option>
+            <option value="apos-categorias">Após as categorias</option>
+            <option value="apos-produtos">Após os produtos</option>
+            <option value="antes-rodape">Antes do rodapé</option>
+          </select>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-checkbox">
+            <input type="checkbox" id="vitrine-ativo">
+            Ativar esta vitrine no cardápio público
+          </label>
+        </div>
+        <button type="submit" class="botao-primario">Salvar vitrine</button>
+      </form>
+    </div>
+  </div>
+
   <div id="modal-promocao" class="modal-admin oculto">
     <div class="modal-admin__fundo" data-fechar-modal-admin></div>
     <div class="modal-admin__caixa">
@@ -526,7 +646,8 @@
   <div id="toast" class="toast oculto"></div>
 
   <script src="../js/config.js"></script>
-  <script src="js/admin-api.js?v=20260715c"></script>
-  <script src="js/admin.js?v=20260715c"></script>
+  <script src="js/admin-api.js?v=20260716a"></script>
+  <script src="js/admin.js?v=20260716a"></script>
+  <script src="js/admin-vitrines.js?v=20260716a"></script>
 </body>
 </html>
