@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { query } = require('../config/database');
 const { enviarEmailRecuperacaoSenha } = require('../utils/email');
+const { gerarQRCodeBase64 } = require('../utils/qrcode');
 
 async function login(req, res) {
   try {
@@ -91,20 +92,39 @@ async function trocarSenha(req, res) {
 
 async function cadastrar(req, res) {
   try {
-    const { chaveCadastro, slug, nome, email, senha } = req.body;
-
-    // Validar chave de cadastro
-    if (chaveCadastro !== process.env.CHAVE_CADASTRO_ADMIN) {
-      return res.status(403).json({ erro: 'Chave de cadastro invalida.' });
-    }
+    const { convite, slug, nome, email, senha } = req.body;
 
     // Validar campos obrigatórios
+    if (!convite) {
+      return res.status(400).json({ erro: 'Link de convite invalido ou ausente.' });
+    }
     if (!slug || !nome || !email || !senha) {
       return res.status(400).json({ erro: 'Slug, nome, email e senha sao obrigatorios.' });
     }
 
     if (senha.length < 6) {
       return res.status(400).json({ erro: 'A senha deve ter pelo menos 6 caracteres.' });
+    }
+
+    // Validar o convite (link unico de uso unico)
+    const tokenHash = crypto.createHash('sha256').update(convite).digest('hex');
+    const conviteResultado = await query(
+      `SELECT id, status, expira_em FROM convites_cadastro WHERE token = $1`,
+      [tokenHash]
+    );
+
+    if (conviteResultado.rows.length === 0) {
+      return res.status(403).json({ erro: 'Link de convite invalido.' });
+    }
+
+    const conviteRow = conviteResultado.rows[0];
+
+    if (conviteRow.status === 'concluido' || conviteRow.status === 'cancelado') {
+      return res.status(403).json({ erro: 'Este link de convite ja foi utilizado ou cancelado.' });
+    }
+    if (new Date(conviteRow.expira_em) < new Date()) {
+      await query(`UPDATE convites_cadastro SET status = 'expirado' WHERE id = $1`, [conviteRow.id]);
+      return res.status(403).json({ erro: 'Este link de convite expirou. Peca um novo link.' });
     }
 
     // Verificar se já existe estabelecimento com esse email ou slug
@@ -121,12 +141,29 @@ async function cadastrar(req, res) {
     const senhaHash = await bcrypt.hash(senha, 10);
 
     // Inserir novo estabelecimento
-    await query(
-      'INSERT INTO estabelecimentos (slug, nome, email, senha_hash, ativo) VALUES ($1, $2, $3, $4, $5)',
+    const novoEstabelecimento = await query(
+      'INSERT INTO estabelecimentos (slug, nome, email, senha_hash, ativo) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [slug, nome, email, senhaHash, true]
     );
+    const novoEstabelecimentoId = novoEstabelecimento.rows[0].id;
 
-    res.status(201).json({ mensagem: 'Estabelecimento cadastrado com sucesso.' });
+    // Marcar o convite como concluido e "queimar" o link (nao pode ser reusado)
+    await query(
+      `UPDATE convites_cadastro SET status = 'concluido', estabelecimento_id = $1, usado_em = NOW() WHERE id = $2`,
+      [novoEstabelecimentoId, conviteRow.id]
+    );
+
+    // Gerar o QR Code fixo do cardapio dessa loja, para o lojista ja
+    // baixar e usar em embalagens, panfletos, redes sociais, etc.
+    const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5500').replace(/\/$/, '');
+    const linkCardapio = `${baseUrl}/frontend/index.html?slug=${slug}`;
+    const qrcodeCardapio = await gerarQRCodeBase64(linkCardapio);
+
+    res.status(201).json({
+      mensagem: 'Estabelecimento cadastrado com sucesso.',
+      link_cardapio: linkCardapio,
+      qrcode_cardapio: qrcodeCardapio
+    });
 
   } catch (error) {
     console.error('Erro ao cadastrar estabelecimento:', error);
