@@ -3,32 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cadastrar Estabelecimento</title>
+<title>Cadastrar Estabelecimento - Mimenu</title>
 <style>
-  body { font-family: Arial, sans-serif; background: #f4f4f4; display: flex; justify-content: center; padding: 40px 16px; }
-  .card { background: white; padding: 24px; border-radius: 12px; max-width: 400px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  body { font-family: Arial, sans-serif; background: #f4f4f4; display: flex; justify-content: center; padding: 40px 16px; margin: 0; }
+  .card { background: white; padding: 24px; border-radius: 12px; max-width: 420px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center; }
   h1 { font-size: 20px; margin-bottom: 4px; }
   p.sub { color: #666; margin-top: 0; margin-bottom: 20px; font-size: 14px; }
-  label { display: block; font-weight: bold; margin-top: 14px; margin-bottom: 4px; font-size: 14px; }
+  label { display: block; font-weight: bold; margin-top: 14px; margin-bottom: 4px; font-size: 14px; text-align: left; }
   input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; box-sizing: border-box; }
   button { margin-top: 20px; width: 100%; padding: 12px; background: #1D3557; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
   button:disabled { opacity: 0.6; }
-  .msg { margin-top: 14px; padding: 10px; border-radius: 6px; font-size: 14px; }
+  .msg { margin-top: 14px; padding: 10px; border-radius: 6px; font-size: 14px; text-align: left; }
   .erro { background: #fde2e2; color: #b00; }
   .sucesso { background: #e2fde2; color: #060; }
-  small { color: #999; }
+  small { color: #999; display:block; text-align:left; }
+  #tela-invalida, #tela-sucesso { display: none; }
+  #tela-invalida .icone, #tela-sucesso .icone { font-size: 40px; }
+  img.qrcode { width: 220px; height: 220px; margin-top: 12px; }
+  a.botao-link { display:block; margin-top: 12px; padding: 12px; background:#2A9D8F; color:white; border-radius:6px; text-decoration:none; }
 </style>
 </head>
 <body>
-  <div class="card">
+
+  <div class="card" id="tela-invalida">
+    <div class="icone">⚠️</div>
+    <h1>Link indisponível</h1>
+    <p class="sub" id="motivo-invalido">Este link de cadastro não é mais válido.</p>
+    <p class="sub">Entre em contato com quem te enviou este link para receber um novo.</p>
+  </div>
+
+  <div class="card" id="tela-formulario">
     <h1>Cadastrar novo estabelecimento</h1>
     <p class="sub">Cria a conta de acesso ao painel administrativo.</p>
-
-    <label>URL da API do backend</label>
-    <input type="text" id="apiUrl" value="https://mimenu-bcsl.onrender.com">
-
-    <label>Chave de cadastro (CHAVE_CADASTRO_ADMIN)</label>
-    <input type="password" id="chaveCadastro" placeholder="A chave que você configurou no Render">
 
     <label>Slug (identificador na URL)</label>
     <input type="text" id="slug" placeholder="ex: fj-pizzaria">
@@ -48,6 +54,16 @@
     <div id="resultado"></div>
   </div>
 
+  <div class="card" id="tela-sucesso">
+    <div class="icone">🎉</div>
+    <h1>Cadastro concluído!</h1>
+    <p class="sub">Este é o QR Code fixo do seu cardápio. Baixe e use em embalagens, panfletos ou redes sociais.</p>
+    <img class="qrcode" id="qrcode-imagem" src="" alt="QR Code do cardápio">
+    <p class="sub" id="link-cardapio-texto"></p>
+    <a class="botao-link" id="link-entrar" href="index.html">Entrar no painel agora</a>
+  </div>
+
+<script src="../js/config.js"></script>
 <script>
 function normalizarSlug(valor) {
   return valor
@@ -62,9 +78,40 @@ document.getElementById('slug').addEventListener('blur', function() {
   this.value = normalizarSlug(this.value);
 });
 
+const parametros = new URLSearchParams(window.location.search);
+const TOKEN_CONVITE = parametros.get('convite');
+
+async function validarConviteAoAbrir() {
+  const telaInvalida = document.getElementById('tela-invalida');
+  const telaFormulario = document.getElementById('tela-formulario');
+
+  if (!TOKEN_CONVITE) {
+    document.getElementById('motivo-invalido').textContent = 'Link de cadastro ausente ou incompleto.';
+    telaInvalida.style.display = 'block';
+    telaFormulario.style.display = 'none';
+    return;
+  }
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/convites/' + encodeURIComponent(TOKEN_CONVITE) + '/validar');
+    const dados = await resposta.json();
+
+    if (!dados.valido) {
+      document.getElementById('motivo-invalido').textContent = dados.motivo || 'Este link de cadastro não é mais válido.';
+      telaInvalida.style.display = 'block';
+      telaFormulario.style.display = 'none';
+      return;
+    }
+
+    telaFormulario.style.display = 'block';
+  } catch (e) {
+    document.getElementById('motivo-invalido').textContent = 'Não foi possível verificar o link agora. Tente novamente em instantes.';
+    telaInvalida.style.display = 'block';
+    telaFormulario.style.display = 'none';
+  }
+}
+
 async function cadastrar() {
-  const apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
-  const chaveCadastro = document.getElementById('chaveCadastro').value;
   const slug = normalizarSlug(document.getElementById('slug').value);
   const nome = document.getElementById('nome').value.trim();
   const email = document.getElementById('email').value.trim();
@@ -74,7 +121,7 @@ async function cadastrar() {
   const botao = document.getElementById('btnCadastrar');
   resultadoDiv.innerHTML = '';
 
-  if (!apiUrl || !chaveCadastro || !slug || !nome || !email || !senha) {
+  if (!slug || !nome || !email || !senha) {
     resultadoDiv.innerHTML = '<div class="msg erro">Preencha todos os campos.</div>';
     return;
   }
@@ -83,26 +130,14 @@ async function cadastrar() {
   botao.textContent = 'Enviando...';
 
   try {
-    const resposta = await fetch(apiUrl + '/api/auth/cadastrar', {
+    const resposta = await fetch(API_BASE_URL + '/auth/cadastrar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chaveCadastro, slug, nome, email, senha })
+      body: JSON.stringify({ convite: TOKEN_CONVITE, slug, nome, email, senha })
     });
 
     const dados = await resposta.json();
 
     if (resposta.ok) {
-      resultadoDiv.innerHTML = '<div class="msg sucesso">Cadastrado com sucesso! Agora você já pode entrar no painel com o e-mail e senha cadastrados.</div>';
-    } else {
-      resultadoDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao cadastrar.') + '</div>';
-    }
-  } catch (e) {
-    resultadoDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API. Verifique a URL.</div>';
-  }
-
-  botao.disabled = false;
-  botao.textContent = 'Cadastrar';
-}
-</script>
-</body>
-</html>
+      document.getElementById('tela-formulario').style.display = 'none';
+      document.getElementById('qrcode-imagem').src = dados.qrc
