@@ -1025,9 +1025,11 @@ function renderizarPedidosAdmin(pedidos) {
           <div class="item-admin__subtitulo">Tel: ${escaparHtmlAdmin(pedido.cliente_telefone)}</div>
         </div>
         <select class="campo-select" style="width:auto;" data-mudar-status="${pedido.id}">
-          ${Object.entries(STATUS_PEDIDO_LABEL).map(([valor, label]) =>
-            `<option value="${valor}" ${pedido.status_pedido === valor ? 'selected' : ''}>${label}</option>`
-          ).join('')}
+          ${Object.entries(STATUS_PEDIDO_LABEL)
+            .filter(([valor]) => valor !== 'cancelado' || temPermissao('cancelar_pedidos'))
+            .map(([valor, label]) =>
+              `<option value="${valor}" ${pedido.status_pedido === valor ? 'selected' : ''}>${label}</option>`
+            ).join('')}
         </select>
       </div>
     `;
