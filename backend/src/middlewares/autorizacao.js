@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
+const { query } = require('../config/database');
 
 // Autentica funcionario pelo token JWT
-function autenticarFuncionario(req, res, next) {
+async function autenticarFuncionario(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ erro: 'Token nao fornecido.' });
@@ -10,7 +11,19 @@ function autenticarFuncionario(req, res, next) {
   const token = authHeader.substring(7);
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.funcionarioId = payload.funcionarioId || null;
+    const funcionarioId = payload.funcionarioId || null;
+
+    // Confere no banco se o funcionario ainda existe e esta ativo. Assim, ao
+    // excluir/desativar um funcionario, o acesso dele e cortado na proxima
+    // requisicao, mesmo que ele ja tenha um token valido em uso.
+    if (funcionarioId) {
+      const resultado = await query('SELECT ativo FROM funcionarios WHERE id = $1', [funcionarioId]);
+      if (resultado.rows.length === 0 || !resultado.rows[0].ativo) {
+        return res.status(401).json({ erro: 'Seu acesso foi revogado. Faca login novamente.' });
+      }
+    }
+
+    req.funcionarioId = funcionarioId;
     req.estabelecimentoId = payload.estabelecimentoId;
     req.cargo = payload.cargo || 'proprietario';
     req.permissoes = payload.permissoes || [];
