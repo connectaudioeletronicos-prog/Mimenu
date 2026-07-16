@@ -166,3 +166,11 @@ const apiCorrigirValoresPedido = (id, dados) => chamarApiAdmin(`/pedidos/${id}/v
 
 const apiListarPedidos = (status = '') => chamarApiAdmin(`/pedidos${status ? `?status=${status}` : ''}`);
 const apiAtualizarStatusPedido = (id, status_pedido) => chamarApiAdmin(`/pedidos/${id}/status`, { method: 'PUT', body: { status_pedido } });
+
+const apiObterCaixaGeral = (dataInicio = '', dataFim = '') => {
+  const parametros = new URLSearchParams();
+  if (dataInicio) parametros.set('data_inicio', dataInicio);
+  if (dataFim) parametros.set('data_fim', dataFim);
+  const query = parametros.toString();
+  return chamarApiAdmin(`/caixa-geral${query ? `?${query}` : ''}`);
+};
