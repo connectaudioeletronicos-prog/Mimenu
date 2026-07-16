@@ -7,7 +7,10 @@ function obterToken() {
 
 function salvarSessao(token, estabelecimento) {
   sessionStorage.setItem(ChaveSessao, token);
-  sessionStorage.setItem(ChaveEstabelecimento, JSON.stringify(estabelecimento));
+  sessionStorage.setItem(ChaveEstabelecimento, JSON.stringify({
+    ...estabelecimento,
+    estabelecimentoNome: estabelecimento.nome
+  }));
 }
 
 // Mesma sessao, mas para quando quem entrou foi um funcionario (nao o dono)
@@ -18,6 +21,7 @@ function salvarSessaoFuncionario(token, funcionario) {
     slug: funcionario.slug,
     cargo: funcionario.cargo,
     permissoes: funcionario.permissoes || [],
+    estabelecimentoNome: funcionario.estabelecimentoNome || '',
     funcionarioId: funcionario.id,
     tipo: 'funcionario'
   }));
