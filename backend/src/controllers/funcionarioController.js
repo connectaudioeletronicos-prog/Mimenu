@@ -33,9 +33,10 @@ async function loginFuncionario(req, res) {
       return res.status(400).json({ erro: 'Login, senha e slug sao obrigatorios.' });
     }
 
-    const estRes = await query('SELECT id FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
+    const estRes = await query('SELECT id, nome FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
     if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
     const estabelecimentoId = estRes.rows[0].id;
+    const estabelecimentoNome = estRes.rows[0].nome;
 
     const resultado = await query(
       `SELECT id, nome, email, username, senha_hash, cargo, permissoes, ativo
@@ -61,7 +62,13 @@ async function loginFuncionario(req, res) {
 
     await registrarAuditoria(estabelecimentoId, funcionario.id, funcionario.nome, 'LOGIN', 'funcionarios', funcionario.id, null, null, req.ip);
 
-    res.json({ token, funcionario: { id: funcionario.id, nome: funcionario.nome, cargo: funcionario.cargo, permissoes, slug } });
+    res.json({
+      token,
+      funcionario: {
+        id: funcionario.id, nome: funcionario.nome, cargo: funcionario.cargo, permissoes, slug,
+        estabelecimentoNome
+      }
+    });
   } catch (error) {
     console.error('Erro no login funcionario:', error);
     res.status(500).json({ erro: 'Erro interno ao processar login.' });
