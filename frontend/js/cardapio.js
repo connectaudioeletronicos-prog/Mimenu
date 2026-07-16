@@ -8,7 +8,15 @@ const FONTES_GOOGLE = {
   'Playfair Display': 'Playfair+Display:wght@500;700;800',
   'Roboto': 'Roboto:wght@400;500;700;900',
   'Montserrat': 'Montserrat:wght@400;600;700;800',
-  'Lato': 'Lato:wght@400;700;900'
+  'Lato': 'Lato:wght@400;700;900',
+  'Inter': 'Inter:wght@400;500;600;700;800',
+  'Nunito': 'Nunito:wght@400;600;700;800',
+  'Quicksand': 'Quicksand:wght@400;600;700',
+  'Raleway': 'Raleway:wght@400;600;700;800',
+  'Work Sans': 'Work+Sans:wght@400;500;600;700',
+  'DM Sans': 'DM+Sans:wght@400;500;700',
+  'Merriweather': 'Merriweather:wght@400;700;900',
+  'Oswald': 'Oswald:wght@400;500;600;700'
 };
 
 document.addEventListener('DOMContentLoaded', iniciar);
@@ -25,6 +33,7 @@ async function iniciar() {
     montarPromocoes(DADOS.promocoes, DADOS.produtos);
     montarCategorias(DADOS.categorias);
     montarProdutos(DADOS.categorias, DADOS.produtos);
+    montarBlocosDinamicos(DADOS.carrosseis, DADOS.vitrines);
     montarRodape(DADOS.estabelecimento);
     configurarEventosGlobais();
     document.getElementById('tela-carregando').classList.add('oculto');
@@ -222,6 +231,79 @@ function montarCardProduto(produto) {
         : `<div class="produto-card__foto produto-card__foto--vazia">🍽️</div>`}
     </button>
   `;
+}
+
+function montarBlocosDinamicos(carrosseis, vitrines) {
+  const blocos = [
+    ...(carrosseis || []).map(c => ({ tipo: 'carrossel', dado: c })),
+    ...(vitrines || []).map(v => ({ tipo: 'vitrine', dado: v }))
+  ];
+
+  // Limpa slots antes de montar (evita duplicar se a funcao rodar de novo)
+  document.querySelectorAll('.slot-dinamico').forEach(slot => { slot.innerHTML = ''; });
+
+  blocos
+    .sort((a, b) => (a.dado.ordem || 0) - (b.dado.ordem || 0))
+    .forEach(bloco => {
+      const slot = document.getElementById(`slot-${bloco.dado.posicao}`);
+      if (!slot) return;
+      if (bloco.tipo === 'carrossel' && bloco.dado.imagens && bloco.dado.imagens.length > 0) {
+        slot.appendChild(criarElementoCarrossel(bloco.dado));
+      } else if (bloco.tipo === 'vitrine') {
+        slot.appendChild(criarElementoVitrine(bloco.dado));
+      }
+    });
+}
+
+function criarElementoCarrossel(carrossel) {
+  const imagens = carrossel.imagens.slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+  const container = document.createElement('div');
+  container.className = 'carrossel-extra';
+  container.innerHTML = `
+    <div class="carrossel-extra__trilho">
+      ${imagens.map((img, i) => `
+        <div class="carrossel-extra__slide ${i === 0 ? 'ativo' : ''}"
+             style="background-image:url('${escaparAspas(img.imagem_url)}')"></div>
+      `).join('')}
+    </div>
+    ${imagens.length > 1 ? `
+      <div class="carrossel-extra__pontos">
+        ${imagens.map((_, i) => `<button class="carrossel-extra__ponto ${i === 0 ? 'ativo' : ''}" data-indice="${i}"></button>`).join('')}
+      </div>
+    ` : ''}
+  `;
+
+  if (imagens.length > 1) {
+    let indiceAtual = 0;
+    const slides = container.querySelectorAll('.carrossel-extra__slide');
+    const pontos = container.querySelectorAll('.carrossel-extra__ponto');
+
+    function mostrarSlide(indice) {
+      slides.forEach(s => s.classList.remove('ativo'));
+      pontos.forEach(p => p.classList.remove('ativo'));
+      slides[indice].classList.add('ativo');
+      pontos[indice].classList.add('ativo');
+      indiceAtual = indice;
+    }
+
+    pontos.forEach(ponto => {
+      ponto.addEventListener('click', () => mostrarSlide(parseInt(ponto.getAttribute('data-indice'), 10)));
+    });
+
+    setInterval(() => mostrarSlide((indiceAtual + 1) % slides.length), 5000);
+  }
+
+  return container;
+}
+
+function criarElementoVitrine(vitrine) {
+  const container = document.createElement('div');
+  container.className = 'vitrine-card';
+  container.innerHTML = `
+    <img class="vitrine-card__imagem" src="${escaparAspas(vitrine.imagem_url)}" alt="">
+    ${vitrine.texto ? `<div class="vitrine-card__texto">${escaparHtml(vitrine.texto)}</div>` : ''}
+  `;
+  return container;
 }
 
 function montarRodape(estabelecimento) {
