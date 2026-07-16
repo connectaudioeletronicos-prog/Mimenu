@@ -58,11 +58,40 @@ async function buscarPorSlug(req, res) {
       [estabelecimento.id]
     );
 
+    const carrosseisResult = await query(
+      `SELECT id, nome, posicao, ordem FROM carrosseis
+       WHERE estabelecimento_id = $1 AND ativo = true ORDER BY ordem ASC`,
+      [estabelecimento.id]
+    );
+
+    let carrosselImagens = [];
+    if (carrosseisResult.rows.length > 0) {
+      const imagensResult = await query(
+        `SELECT carrossel_id, imagem_url, ordem FROM carrossel_imagens
+         WHERE carrossel_id = ANY($1::uuid[]) ORDER BY ordem ASC`,
+        [carrosseisResult.rows.map(c => c.id)]
+      );
+      carrosselImagens = imagensResult.rows;
+    }
+
+    const carrosseis = carrosseisResult.rows.map(c => ({
+      ...c,
+      imagens: carrosselImagens.filter(img => img.carrossel_id === c.id)
+    }));
+
+    const vitrinesResult = await query(
+      `SELECT id, imagem_url, texto, posicao, ordem FROM vitrines
+       WHERE estabelecimento_id = $1 AND ativo = true ORDER BY ordem ASC`,
+      [estabelecimento.id]
+    );
+
     res.json({
       estabelecimento,
       categorias: categoriasResult.rows,
       produtos: produtosResult.rows,
-      promocoes: promocoesResult.rows
+      promocoes: promocoesResult.rows,
+      carrosseis,
+      vitrines: vitrinesResult.rows
     });
 
   } catch (error) {
