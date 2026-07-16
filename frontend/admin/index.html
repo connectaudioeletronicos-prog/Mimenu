@@ -78,6 +78,8 @@
     <nav class="painel__menu">
       <div class="painel__menu-topo">
         <strong id="menu-nome-estabelecimento">Meu Estabelecimento</strong>
+        <span id="menu-cargo-funcionario" class="painel__menu-cargo"></span>
+        <span id="menu-nome-funcionario" class="painel__menu-funcionario"></span>
         <span id="menu-link-publico" class="painel__menu-link"></span>
       </div>
       <button class="painel__menu-item ativo" data-aba="aparencia">🎨 Aparencia</button>
@@ -369,6 +371,7 @@
 
           <div class="campo-grupo" id="grupo-permissoes-funcionario">
             <label class="campo-label">Permissoes</label>
+            <button type="button" class="botao-secundario botao-marcar-todas" data-alvo-permissoes="grupo-permissoes-funcionario" style="margin-bottom:8px;">Marcar todas / Desmarcar todas</button>
             <div class="lista-permissoes">
               <label class="permissao-item"><input type="checkbox" value="gerenciar_funcionarios"> Gerenciar funcionarios (cadastrar/descadastrar)</label>
               <label class="permissao-item"><input type="checkbox" value="editar_funcionarios"> Editar dados / trocar senha de funcionarios</label>
@@ -415,6 +418,8 @@
         </select>
       </label>
       <label>
+        <span class="campo-label">Permissoes</span>
+        <button type="button" class="botao-secundario botao-marcar-todas" data-alvo-permissoes="edit-grupo-permissoes" style="margin-bottom:8px;">Marcar todas / Desmarcar todas</button>
         <div id="edit-grupo-permissoes" class="lista-permissoes">
           <label class="permissao-item"><input type="checkbox" value="gerenciar_funcionarios"> Gerenciar funcionarios (cadastrar/descadastrar)</label>
           <label class="permissao-item"><input type="checkbox" value="editar_funcionarios"> Editar dados / trocar senha de funcionarios</label>
