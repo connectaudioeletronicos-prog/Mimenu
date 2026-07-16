@@ -233,6 +233,50 @@ async function listarPedidosCliente(req, res) {
   }
 }
 
+// Caixa geral: resumo dos valores das entregas concluidas.
+// Restrito a quem tem a permissao 'ver_caixa_geral' (checado na rota).
+// Hoje so existe pedido do tipo "entrega". A coluna tipo_pedido ja
+// deixa o caminho pronto para quando o pedido de balcao existir --
+// nesse dia, e so tirar o filtro abaixo (ou somar os dois tipos
+// separadamente) sem precisar mexer no resto do controller.
+async function obterCaixaGeral(req, res) {
+  try {
+    const { data_inicio, data_fim } = req.query;
+
+    let sql = `
+      SELECT id, cliente_nome, subtotal, taxa_entrega, total, forma_pagamento,
+             tipo_pedido, criado_em, atualizado_em
+      FROM pedidos
+      WHERE estabelecimento_id = $1 AND status_pedido = 'entregue'
+    `;
+    const params = [req.estabelecimentoId];
+
+    if (data_inicio) { params.push(data_inicio); sql += ` AND criado_em >= $${params.length}`; }
+    if (data_fim) { params.push(data_fim); sql += ` AND criado_em < ($${params.length}::date + INTERVAL '1 day')`; }
+
+    sql += ' ORDER BY criado_em DESC LIMIT 500';
+
+    const resultado = await query(sql, params);
+
+    const totalGeral = resultado.rows.reduce((soma, p) => soma + parseFloat(p.total || 0), 0);
+    const totalPorTipo = resultado.rows.reduce((acc, p) => {
+      const tipo = p.tipo_pedido || 'entrega';
+      acc[tipo] = (acc[tipo] || 0) + parseFloat(p.total || 0);
+      return acc;
+    }, {});
+
+    res.json({
+      quantidade: resultado.rows.length,
+      total_geral: totalGeral,
+      total_por_tipo: totalPorTipo,
+      pedidos: resultado.rows
+    });
+  } catch (error) {
+    console.error('Erro ao obter caixa geral:', error);
+    res.status(500).json({ erro: 'Erro interno ao obter caixa geral.' });
+  }
+}
+
 module.exports = {
   criarPedido,
   consultarStatusPedido,
@@ -240,5 +284,6 @@ module.exports = {
   listarPedidosAdmin,
   atualizarStatusPedido,
   corrigirValoresPedido,
-  listarPedidosCliente
+  listarPedidosCliente,
+  obterCaixaGeral
 };
