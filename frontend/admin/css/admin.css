@@ -664,3 +664,105 @@ input, textarea, select { font-family: inherit; }
   opacity: 0.4;
   background: #eff6ff;
 }
+
+/* ===================================================================
+   Paleta de cores padrao (aba Aparencia)
+   =================================================================== */
+.paleta-cores {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0 2px 34px;
+}
+
+.paleta-cores__swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.15);
+  cursor: pointer;
+  padding: 0;
+}
+
+.paleta-cores__swatch:hover {
+  transform: scale(1.1);
+}
+
+.campo-dica {
+  font-size: 0.78rem;
+  color: var(--admin-cor-texto-claro);
+  margin-top: 6px;
+}
+
+.fonte-preview {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: var(--admin-raio);
+  font-size: 1.1rem;
+}
+
+.campo-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.campo-contador {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--admin-cor-texto-claro);
+  margin-top: 2px;
+}
+
+.item-admin__detalhe {
+  font-size: 0.78rem;
+  color: var(--admin-cor-texto-claro);
+  display: block;
+}
+
+/* ===================================================================
+   Gerenciamento de fotos do carrossel extra (dentro do modal)
+   =================================================================== */
+.lista-imagens-carrossel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.lista-imagens-carrossel__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: var(--admin-raio);
+  padding: 6px 8px;
+}
+
+.lista-imagens-carrossel__item img {
+  width: 60px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.lista-imagens-carrossel__botoes {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.lista-imagens-carrossel__botoes button {
+  border: 1px solid var(--admin-cor-borda);
+  background: #fff;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
