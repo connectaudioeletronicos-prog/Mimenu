@@ -2,8 +2,9 @@
 // Middleware de autenticacao - protege rotas do painel administrativo
 // ===================================================================
 const jwt = require('jsonwebtoken');
+const { query } = require('../config/database');
 
-function autenticar(req, res, next) {
+async function autenticar(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -14,10 +15,23 @@ function autenticar(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const funcionarioId = payload.funcionarioId || null;
+
+    // Se o token pertence a um funcionario (nao ao dono da loja), confere no
+    // banco se ele ainda existe e ainda esta ativo. Isso garante que, ao
+    // excluir ou desativar um funcionario, o acesso dele e revogado na
+    // proxima requisicao -- mesmo que ele ja esteja logado com um token valido.
+    if (funcionarioId) {
+      const resultado = await query('SELECT ativo FROM funcionarios WHERE id = $1', [funcionarioId]);
+      if (resultado.rows.length === 0 || !resultado.rows[0].ativo) {
+        return res.status(401).json({ erro: 'Seu acesso foi revogado. Faca login novamente.' });
+      }
+    }
+
     req.estabelecimentoId = payload.estabelecimentoId;
     req.slug = payload.slug;
     req.cargo = payload.cargo || 'proprietario';
-    req.funcionarioId = payload.funcionarioId || null;
+    req.funcionarioId = funcionarioId;
     req.permissoes = payload.permissoes || [];
     next();
   } catch (error) {
