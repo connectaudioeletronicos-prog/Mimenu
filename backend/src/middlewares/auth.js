@@ -17,21 +17,29 @@ async function autenticar(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const funcionarioId = payload.funcionarioId || null;
 
-    // Se o token pertence a um funcionario (nao ao dono da loja), confere no
-    // banco se ele ainda existe e ainda esta ativo. Isso garante que, ao
-    // excluir ou desativar um funcionario, o acesso dele e revogado na
-    // proxima requisicao -- mesmo que ele ja esteja logado com um token valido.
+    // Se o token pertence a um funcionario (nao ao dono da loja), busca no
+    // banco o estado ATUAL dele -- ativo, cargo e permissoes -- em vez de
+    // confiar no que ficou gravado no token no momento do login. Isso garante
+    // que excluir, desativar ou apenas mudar as permissoes de um funcionario
+    // tem efeito imediato na proxima requisicao, mesmo que ele ja esteja
+    // logado com um token antigo e ainda valido.
     if (funcionarioId) {
-      const resultado = await query('SELECT ativo FROM funcionarios WHERE id = $1', [funcionarioId]);
+      const resultado = await query('SELECT ativo, cargo, permissoes FROM funcionarios WHERE id = $1', [funcionarioId]);
       if (resultado.rows.length === 0 || !resultado.rows[0].ativo) {
         return res.status(401).json({ erro: 'Seu acesso foi revogado. Faca login novamente.' });
       }
+      req.estabelecimentoId = payload.estabelecimentoId;
+      req.slug = payload.slug;
+      req.cargo = resultado.rows[0].cargo;
+      req.funcionarioId = funcionarioId;
+      req.permissoes = resultado.rows[0].permissoes || [];
+      return next();
     }
 
     req.estabelecimentoId = payload.estabelecimentoId;
     req.slug = payload.slug;
     req.cargo = payload.cargo || 'proprietario';
-    req.funcionarioId = funcionarioId;
+    req.funcionarioId = null;
     req.permissoes = payload.permissoes || [];
     next();
   } catch (error) {
