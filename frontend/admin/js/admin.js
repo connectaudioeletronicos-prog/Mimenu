@@ -245,7 +245,8 @@ function aplicarVisibilidadeMenu() {
     produtos: 'gerenciar_cardapio',
     promocoes: 'gerenciar_cardapio',
     vitrines: 'gerenciar_cardapio',
-    funcionarios: 'gerenciar_funcionarios'
+    funcionarios: 'gerenciar_funcionarios',
+    'caixa-geral': 'ver_caixa_geral'
     // "pedidos" e "senha" ficam sempre visiveis para qualquer sessao logada
   };
 
@@ -273,6 +274,7 @@ function configurarMenu() {
       const aba = botao.getAttribute('data-aba');
       document.getElementById(`aba-${aba}`).classList.remove('oculto');
       if (aba === 'pedidos') carregarPedidos();
+      if (aba === 'caixa-geral') carregarCaixaGeral();
       if (aba === 'funcionarios') renderizarFuncionariosAdmin();
     });
   });
@@ -334,6 +336,7 @@ function preencherFormularios() {
   if (typeof configurarEventosCarrosseis === 'function') configurarEventosCarrosseis();
   if (typeof configurarEventosVitrines === 'function') configurarEventosVitrines();
   configurarEventosPedidos();
+  configurarEventosCaixaGeral();
 }
 
 function selecionarTemaVisual(tema) {
@@ -540,6 +543,7 @@ let dragSrcCategoriaId = null;
 
 function renderizarCategoriasAdmin() {
   const lista = document.getElementById('lista-categorias-admin');
+  document.getElementById('contador-categorias').textContent = `(${ESTADO.categorias.length})`;
   if (ESTADO.categorias.length === 0) {
     lista.innerHTML = '<div class="lista-vazia">Nenhuma categoria cadastrada ainda.</div>';
     return;
@@ -689,6 +693,7 @@ let dragSrcProdutoId = null;
 
 function renderizarProdutosAdmin() {
   const lista = document.getElementById('lista-produtos-admin');
+  document.getElementById('contador-produtos').textContent = `(${ESTADO.produtos.length})`;
   if (ESTADO.produtos.length === 0) {
     lista.innerHTML = '<div class="lista-vazia">Nenhum produto cadastrado ainda.</div>';
     return;
@@ -843,6 +848,7 @@ let dragSrcPromocaoId = null;
 
 function renderizarPromocoesAdmin() {
   const lista = document.getElementById('lista-promocoes-admin');
+  document.getElementById('contador-promocoes').textContent = `(${ESTADO.promocoes.length})`;
   if (ESTADO.promocoes.length === 0) {
     lista.innerHTML = '<div class="lista-vazia">Nenhuma promocao cadastrada ainda.</div>';
     return;
@@ -1063,6 +1069,72 @@ function renderizarPedidosAdmin(pedidos) {
       }
     });
   });
+}
+
+// =============================================
+// CAIXA GERAL
+// =============================================
+function configurarEventosCaixaGeral() {
+  const botao = document.getElementById('botao-filtrar-caixa');
+  if (botao) botao.addEventListener('click', carregarCaixaGeral);
+}
+
+async function carregarCaixaGeral() {
+  const resumo = document.getElementById('resumo-caixa-geral');
+  const lista = document.getElementById('lista-caixa-geral');
+  if (!resumo || !lista) return;
+
+  resumo.innerHTML = '';
+  lista.innerHTML = '<div class="lista-vazia">Carregando...</div>';
+
+  try {
+    const dataInicio = document.getElementById('caixa-data-inicio').value;
+    const dataFim = document.getElementById('caixa-data-fim').value;
+    const dados = await apiObterCaixaGeral(dataInicio, dataFim);
+    renderizarCaixaGeral(dados);
+  } catch (erro) {
+    lista.innerHTML = '<div class="lista-vazia">Erro ao carregar o caixa geral.</div>';
+  }
+}
+
+function renderizarCaixaGeral(dados) {
+  const resumo = document.getElementById('resumo-caixa-geral');
+  const lista = document.getElementById('lista-caixa-geral');
+
+  resumo.innerHTML = `
+    <div class="resumo-caixa-geral__cartao">
+      <div class="resumo-caixa-geral__rotulo">Total de entregas concluidas</div>
+      <div class="resumo-caixa-geral__valor">${dados.quantidade}</div>
+    </div>
+    <div class="resumo-caixa-geral__cartao">
+      <div class="resumo-caixa-geral__rotulo">Valor total</div>
+      <div class="resumo-caixa-geral__valor">${formatarMoedaAdmin(dados.total_geral)}</div>
+    </div>
+    ${Object.entries(dados.total_por_tipo || {}).map(([tipo, valor]) => `
+      <div class="resumo-caixa-geral__cartao">
+        <div class="resumo-caixa-geral__rotulo">Total (${tipo})</div>
+        <div class="resumo-caixa-geral__valor">${formatarMoedaAdmin(valor)}</div>
+      </div>
+    `).join('')}
+  `;
+
+  if (!dados.pedidos || dados.pedidos.length === 0) {
+    lista.innerHTML = '<div class="lista-vazia">Nenhuma entrega concluida no periodo.</div>';
+    return;
+  }
+
+  lista.innerHTML = dados.pedidos.map(pedido => {
+    const data = new Date(pedido.criado_em).toLocaleString('pt-BR');
+    return `
+      <div class="item-admin">
+        <div class="item-admin__info">
+          <div class="item-admin__titulo">${escaparHtmlAdmin(pedido.cliente_nome)}</div>
+          <div class="item-admin__subtitulo">${data} - ${pedido.forma_pagamento.toUpperCase()} - ${pedido.tipo_pedido || 'entrega'}</div>
+        </div>
+        <div class="item-admin__titulo">${formatarMoedaAdmin(pedido.total)}</div>
+      </div>
+    `;
+  }).join('');
 }
 
 // =============================================
@@ -1301,7 +1373,7 @@ function escaparHtmlAdmin(texto) {
 // ===================================================================
 // Paleta de cores padrao da marca (Mimenu) - codigos exatos respeitados
 // ===================================================================
-const PALETA_CORES_PADRAO = ['#10B981', '#FFC107', '#212121', '#EBEBEB', '#90907F', '#374156'];
+const PALETA_CORES_PADRAO = ['#10B981', '#FFC107', '#212121', '#EBEBEB', '#90907F', '#374156', '#E63946', '#1D3557', '#2A9D8F'];
 let PALETA_CORES_CONFIGURADA = false;
 
 function montarPaletaCores() {
