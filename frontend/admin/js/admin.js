@@ -3,6 +3,8 @@ let ESTADO = {
   categorias: [],
   produtos: [],
   promocoes: [],
+  carrosseis: [],
+  vitrines: [],
   funcionarios: [],
   arquivosPendentes: { logo: null, banner: null }
 };
@@ -215,13 +217,17 @@ async function carregarTudo() {
     apiBuscarEstabelecimento(),
     apiListarCategorias(),
     apiListarProdutos(),
-    apiListarPromocoes()
+    apiListarPromocoes(),
+    apiListarCarrosseis(),
+    apiListarVitrines()
   ]);
 
   ESTADO.estabelecimento = resultados[0].status === 'fulfilled' ? resultados[0].value : null;
   ESTADO.categorias = resultados[1].status === 'fulfilled' ? resultados[1].value : [];
   ESTADO.produtos = resultados[2].status === 'fulfilled' ? resultados[2].value : [];
   ESTADO.promocoes = resultados[3].status === 'fulfilled' ? resultados[3].value : [];
+  ESTADO.carrosseis = resultados[4].status === 'fulfilled' ? resultados[4].value : [];
+  ESTADO.vitrines = resultados[5].status === 'fulfilled' ? resultados[5].value : [];
 
   if (temPermissao('gerenciar_funcionarios')) {
     try { ESTADO.funcionarios = await apiListarFuncionarios(); } catch { ESTADO.funcionarios = []; }
@@ -238,6 +244,7 @@ function aplicarVisibilidadeMenu() {
     categorias: 'gerenciar_cardapio',
     produtos: 'gerenciar_cardapio',
     promocoes: 'gerenciar_cardapio',
+    vitrines: 'gerenciar_cardapio',
     funcionarios: 'gerenciar_funcionarios'
     // "pedidos" e "senha" ficam sempre visiveis para qualquer sessao logada
   };
@@ -318,6 +325,14 @@ function preencherFormularios() {
   configurarEventosCategorias();
   configurarEventosProdutos();
   configurarEventosPromocoes();
+
+  montarPaletaCores();
+  configurarPreviewFonte();
+
+  if (typeof renderizarCarrosseisAdmin === 'function') renderizarCarrosseisAdmin();
+  if (typeof renderizarVitrinesAdmin === 'function') renderizarVitrinesAdmin();
+  if (typeof configurarEventosCarrosseis === 'function') configurarEventosCarrosseis();
+  if (typeof configurarEventosVitrines === 'function') configurarEventosVitrines();
   configurarEventosPedidos();
 }
 
@@ -1282,3 +1297,73 @@ function escaparHtmlAdmin(texto) {
   div.textContent = texto ?? '';
   return div.innerHTML;
 }
+
+// ===================================================================
+// Paleta de cores padrao da marca (Mimenu) - codigos exatos respeitados
+// ===================================================================
+const PALETA_CORES_PADRAO = ['#10B981', '#FFC107', '#212121', '#EBEBEB', '#90907F', '#374156'];
+let PALETA_CORES_CONFIGURADA = false;
+
+function montarPaletaCores() {
+  if (PALETA_CORES_CONFIGURADA) return;
+  PALETA_CORES_CONFIGURADA = true;
+
+  document.querySelectorAll('.paleta-cores').forEach(container => {
+    const alvoId = container.getAttribute('data-paleta-para');
+    container.innerHTML = PALETA_CORES_PADRAO.map(hex => `
+      <button type="button" class="paleta-cores__swatch" style="background:${hex}" data-hex="${hex}" title="${hex}"></button>
+    `).join('');
+    container.querySelectorAll('.paleta-cores__swatch').forEach(botao => {
+      botao.addEventListener('click', () => {
+        const input = document.getElementById(alvoId);
+        input.value = botao.getAttribute('data-hex');
+        input.dispatchEvent(new Event('input'));
+        input.dispatchEvent(new Event('change'));
+      });
+    });
+  });
+}
+
+// ===================================================================
+// Preview ao vivo da fonte escolhida na aba Aparencia
+// ===================================================================
+let FONTE_PREVIEW_CONFIGURADA = false;
+
+function configurarPreviewFonte() {
+  if (FONTE_PREVIEW_CONFIGURADA) return;
+  FONTE_PREVIEW_CONFIGURADA = true;
+
+  const select = document.getElementById('campo-fonte');
+  const preview = document.getElementById('fonte-preview');
+
+  function atualizar() {
+    const fonte = select.value || 'Poppins';
+    preview.style.fontFamily = `'${fonte}', sans-serif`;
+    if (FONTES_GOOGLE_ADMIN[fonte] && !document.getElementById(`fonte-link-${fonte}`)) {
+      const link = document.createElement('link');
+      link.id = `fonte-link-${fonte}`;
+      link.rel = 'stylesheet';
+      link.href = `https://fonts.googleapis.com/css2?family=${FONTES_GOOGLE_ADMIN[fonte]}&display=swap`;
+      document.head.appendChild(link);
+    }
+  }
+
+  select.addEventListener('change', atualizar);
+  atualizar();
+}
+
+const FONTES_GOOGLE_ADMIN = {
+  'Poppins': 'Poppins:wght@400;600;700;800',
+  'Playfair Display': 'Playfair+Display:wght@500;700;800',
+  'Roboto': 'Roboto:wght@400;500;700;900',
+  'Montserrat': 'Montserrat:wght@400;600;700;800',
+  'Lato': 'Lato:wght@400;700;900',
+  'Inter': 'Inter:wght@400;500;600;700;800',
+  'Nunito': 'Nunito:wght@400;600;700;800',
+  'Quicksand': 'Quicksand:wght@400;600;700',
+  'Raleway': 'Raleway:wght@400;600;700;800',
+  'Work Sans': 'Work+Sans:wght@400;500;600;700',
+  'DM Sans': 'DM+Sans:wght@400;500;700',
+  'Merriweather': 'Merriweather:wght@400;700;900',
+  'Oswald': 'Oswald:wght@400;500;600;700'
+};
