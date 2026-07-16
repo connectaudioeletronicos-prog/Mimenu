@@ -196,8 +196,10 @@ async function mostrarPainel() {
     await carregarTudo();
     preencherFormularios();
     const s = sessaoAtual();
-    document.getElementById('menu-nome-estabelecimento').textContent =
-      ESTADO.estabelecimento ? ESTADO.estabelecimento.nome : (s.nome || 'Painel');
+    const nomeLoja = (ESTADO.estabelecimento && ESTADO.estabelecimento.nome) || s.estabelecimentoNome || 'Painel';
+    document.getElementById('menu-nome-estabelecimento').textContent = nomeLoja;
+    document.getElementById('menu-cargo-funcionario').textContent = NOMES_CARGO[s.cargo] || '';
+    document.getElementById('menu-nome-funcionario').textContent = ehFuncionario() ? (s.nome || '') : '';
     document.getElementById('menu-link-publico').textContent = s.slug ? `/${s.slug}` : '';
     aplicarVisibilidadeMenu();
   } catch (erro) {
@@ -1052,7 +1054,7 @@ function renderizarPedidosAdmin(pedidos) {
 // FUNCIONARIOS
 // =============================================
 const NOMES_CARGO = {
-  administrador: 'Administrador', gerente: 'Gerente', caixa: 'Caixa',
+  proprietario: 'Proprietario', administrador: 'Administrador', gerente: 'Gerente', caixa: 'Caixa',
   garcom: 'Garcom', colaborador: 'Colaborador'
 };
 
@@ -1159,6 +1161,15 @@ function configurarFuncionarios() {
 
   alternarCaixasAdministrador('func-cargo', 'grupo-permissoes-funcionario');
   alternarCaixasAdministrador('edit-func-cargo', 'edit-grupo-permissoes');
+
+  document.querySelectorAll('.botao-marcar-todas').forEach(botao => {
+    botao.addEventListener('click', () => {
+      const grupoId = botao.getAttribute('data-alvo-permissoes');
+      const caixas = document.querySelectorAll(`#${grupoId} input[type="checkbox"]`);
+      const todasMarcadas = Array.from(caixas).every(cb => cb.checked);
+      caixas.forEach(cb => { cb.checked = !todasMarcadas; });
+    });
+  });
 
   document.getElementById('form-novo-funcionario').addEventListener('submit', async (evento) => {
     evento.preventDefault();
