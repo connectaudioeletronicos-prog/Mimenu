@@ -13,6 +13,8 @@ const estabelecimentoController = require('../controllers/estabelecimentoControl
 const categoriaController = require('../controllers/categoriaController');
 const produtoController = require('../controllers/produtoController');
 const promocaoController = require('../controllers/promocaoController');
+const carrosselController = require('../controllers/carrosselController');
+const vitrineController = require('../controllers/vitrineController');
 const pedidoController = require('../controllers/pedidoController');
 
 router.use(autenticar);
@@ -38,6 +40,21 @@ router.get('/promocoes', promocaoController.listar);
 router.post('/promocoes', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), promocaoController.criar);
 router.put('/promocoes/:id', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), promocaoController.atualizar);
 router.delete('/promocoes/:id', exigirPermissao('gerenciar_cardapio'), promocaoController.excluir);
+
+// Carrosseis extras (banners adicionais, fotos ilimitadas, posicionaveis)
+router.get('/carrosseis', carrosselController.listar);
+router.post('/carrosseis', exigirPermissao('gerenciar_cardapio'), carrosselController.criar);
+router.put('/carrosseis/:id', exigirPermissao('gerenciar_cardapio'), carrosselController.atualizar);
+router.delete('/carrosseis/:id', exigirPermissao('gerenciar_cardapio'), carrosselController.excluir);
+router.post('/carrosseis/:id/imagens', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), carrosselController.adicionarImagem);
+router.put('/carrosseis/imagens/:imagemId', exigirPermissao('gerenciar_cardapio'), carrosselController.atualizarImagem);
+router.delete('/carrosseis/imagens/:imagemId', exigirPermissao('gerenciar_cardapio'), carrosselController.removerImagem);
+
+// Vitrines (imagem grande + texto, posicionavel)
+router.get('/vitrines', vitrineController.listar);
+router.post('/vitrines', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), vitrineController.criar);
+router.put('/vitrines/:id', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), vitrineController.atualizar);
+router.delete('/vitrines/:id', exigirPermissao('gerenciar_cardapio'), vitrineController.excluir);
 
 // Pedidos - qualquer funcionario logado pode ver a lista (valores de pedidos
 // concluidos/cancelados sao filtrados dentro do controller conforme permissao).
