@@ -89,6 +89,7 @@
       <button class="painel__menu-item" data-aba="promocoes">🏷️ Promocoes</button>
       <button class="painel__menu-item" data-aba="vitrines">🖼️ Carrosseis e Vitrines</button>
       <button class="painel__menu-item" data-aba="pedidos">🧾 Pedidos</button>
+      <button class="painel__menu-item" data-aba="caixa-geral">💰 Caixa Geral</button>
       <button class="painel__menu-item" data-aba="pagamento">💳 Pagamento</button>
       <button class="painel__menu-item" data-aba="paginas-legais">📄 Paginas legais</button>
       <button class="painel__menu-item" data-aba="senha">🔒 Senha</button>
@@ -241,7 +242,7 @@
 
       <section id="aba-categorias" class="aba oculto">
         <div class="aba__cabecalho">
-          <h2 class="aba__titulo">Categorias</h2>
+          <h2 class="aba__titulo">Categorias <span id="contador-categorias" class="aba__contador"></span></h2>
           <button id="botao-nova-categoria" class="botao-secundario">+ Nova categoria</button>
         </div>
         <div id="lista-categorias-admin" class="lista-itens-admin"></div>
@@ -249,7 +250,7 @@
 
       <section id="aba-produtos" class="aba oculto">
         <div class="aba__cabecalho">
-          <h2 class="aba__titulo">Produtos</h2>
+          <h2 class="aba__titulo">Produtos <span id="contador-produtos" class="aba__contador"></span></h2>
           <button id="botao-novo-produto" class="botao-secundario">+ Novo produto</button>
         </div>
         <div id="lista-produtos-admin" class="lista-itens-admin"></div>
@@ -257,7 +258,7 @@
 
       <section id="aba-promocoes" class="aba oculto">
         <div class="aba__cabecalho">
-          <h2 class="aba__titulo">Promocoes</h2>
+          <h2 class="aba__titulo">Promocoes <span id="contador-promocoes" class="aba__contador"></span></h2>
           <button id="botao-nova-promocao" class="botao-secundario">+ Nova promocao</button>
         </div>
         <div id="lista-promocoes-admin" class="lista-itens-admin"></div>
@@ -293,8 +294,33 @@
           <button class="filtro-pedidos__botao" data-status="preparando">Preparando</button>
           <button class="filtro-pedidos__botao" data-status="saiu_entrega">Saiu p/ entrega</button>
           <button class="filtro-pedidos__botao" data-status="entregue">Entregues</button>
+          <button class="filtro-pedidos__botao" data-status="cancelado">Cancelados</button>
         </div>
         <div id="lista-pedidos-admin" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-caixa-geral" class="aba oculto">
+        <h2 class="aba__titulo">Caixa Geral</h2>
+        <p class="aba__descricao">
+          Resumo dos valores das entregas concluidas. Visivel apenas para gerente e administrador
+          (ou quem tiver essa permissao marcada). Hoje a loja so tem pedido por entrega; quando o
+          pedido de balcao existir, ele entra automaticamente nesse mesmo resumo.
+        </p>
+
+        <div class="campo-linha">
+          <div class="campo-grupo">
+            <label class="campo-label">De</label>
+            <input type="date" id="caixa-data-inicio" class="campo-texto">
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Ate</label>
+            <input type="date" id="caixa-data-fim" class="campo-texto">
+          </div>
+        </div>
+        <button id="botao-filtrar-caixa" class="botao-secundario">Filtrar</button>
+
+        <div id="resumo-caixa-geral" class="resumo-caixa-geral"></div>
+        <div id="lista-caixa-geral" class="lista-itens-admin"></div>
       </section>
 
       <section id="aba-pagamento" class="aba oculto">
@@ -424,6 +450,7 @@
               <label class="permissao-item"><input type="checkbox" value="ver_valores_concluidos"> Ver valores de pedidos concluidos/cancelados</label>
               <label class="permissao-item"><input type="checkbox" value="corrigir_valores_concluidos"> Corrigir valores de pedidos concluidos</label>
               <label class="permissao-item"><input type="checkbox" value="gerenciar_conta"> Gerenciar configuracoes da conta (pagamento, dados, paginas legais)</label>
+              <label class="permissao-item"><input type="checkbox" value="ver_caixa_geral"> Ver caixa geral (valores das entregas concluidas)</label>
             </div>
           </div>
 
@@ -472,6 +499,7 @@
           <label class="permissao-item"><input type="checkbox" value="ver_valores_concluidos"> Ver valores de pedidos concluidos/cancelados</label>
           <label class="permissao-item"><input type="checkbox" value="corrigir_valores_concluidos"> Corrigir valores de pedidos concluidos</label>
           <label class="permissao-item"><input type="checkbox" value="gerenciar_conta"> Gerenciar configuracoes da conta (pagamento, dados, paginas legais)</label>
+              <label class="permissao-item"><input type="checkbox" value="ver_caixa_geral"> Ver caixa geral (valores das entregas concluidas)</label>
         </div>
       </label>
       <label class="permissao-item"><input type="checkbox" id="edit-func-ativo"> Funcionario ativo</label>
