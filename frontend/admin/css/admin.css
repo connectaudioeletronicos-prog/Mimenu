@@ -179,6 +179,23 @@ input, textarea, select { font-family: inherit; }
   word-break: break-all;
 }
 
+.painel__menu-cargo {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--admin-cor-primaria);
+  margin-top: 2px;
+}
+
+.painel__menu-funcionario {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--admin-cor-texto-secundario, #666);
+  margin-top: 1px;
+}
+
 .painel__menu-item {
   text-align: left;
   background: none;
