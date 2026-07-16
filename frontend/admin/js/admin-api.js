@@ -113,6 +113,19 @@ const apiCriarPromocao = (formData) => chamarApiAdmin('/promocoes', { method: 'P
 const apiAtualizarPromocao = (id, formData) => chamarApiAdmin(`/promocoes/${id}`, { method: 'PUT', body: formData, isFormData: true });
 const apiExcluirPromocao = (id) => chamarApiAdmin(`/promocoes/${id}`, { method: 'DELETE' });
 
+const apiListarCarrosseis = () => chamarApiAdmin('/carrosseis');
+const apiCriarCarrossel = (dados) => chamarApiAdmin('/carrosseis', { method: 'POST', body: dados });
+const apiAtualizarCarrossel = (id, dados) => chamarApiAdmin(`/carrosseis/${id}`, { method: 'PUT', body: dados });
+const apiExcluirCarrossel = (id) => chamarApiAdmin(`/carrosseis/${id}`, { method: 'DELETE' });
+const apiAdicionarImagemCarrossel = (id, formData) => chamarApiAdmin(`/carrosseis/${id}/imagens`, { method: 'POST', body: formData, isFormData: true });
+const apiAtualizarImagemCarrossel = (imagemId, dados) => chamarApiAdmin(`/carrosseis/imagens/${imagemId}`, { method: 'PUT', body: dados });
+const apiRemoverImagemCarrossel = (imagemId) => chamarApiAdmin(`/carrosseis/imagens/${imagemId}`, { method: 'DELETE' });
+
+const apiListarVitrines = () => chamarApiAdmin('/vitrines');
+const apiCriarVitrine = (formData) => chamarApiAdmin('/vitrines', { method: 'POST', body: formData, isFormData: true });
+const apiAtualizarVitrine = (id, formData) => chamarApiAdmin(`/vitrines/${id}`, { method: 'PUT', body: formData, isFormData: true });
+const apiExcluirVitrine = (id) => chamarApiAdmin(`/vitrines/${id}`, { method: 'DELETE' });
+
 async function chamarApiFuncionarios(caminho, { method = 'GET', body = null } = {}) {
   const headers = { 'Authorization': `Bearer ${obterToken()}`, 'Content-Type': 'application/json' };
   const resposta = await fetch(`${API_BASE_URL}/funcionarios${caminho}`, {
