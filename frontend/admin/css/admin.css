@@ -717,6 +717,38 @@ input, textarea, select { font-family: inherit; }
   margin-top: 2px;
 }
 
+.aba__contador {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--admin-cor-texto-claro);
+  margin-left: 4px;
+}
+
+.resumo-caixa-geral {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+
+.resumo-caixa-geral__cartao {
+  background: #fff;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: var(--admin-raio);
+  padding: 14px 18px;
+  min-width: 160px;
+}
+
+.resumo-caixa-geral__rotulo {
+  font-size: 0.78rem;
+  color: var(--admin-cor-texto-claro);
+}
+
+.resumo-caixa-geral__valor {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
 .item-admin__detalhe {
   font-size: 0.78rem;
   color: var(--admin-cor-texto-claro);
