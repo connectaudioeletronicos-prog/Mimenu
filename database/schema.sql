@@ -23,6 +23,11 @@ CREATE TABLE estabelecimentos (
     endereco TEXT,
     instagram VARCHAR(150),
     facebook VARCHAR(150),
+    linkedin VARCHAR(255),
+    email_contato VARCHAR(150),
+    termos_uso TEXT,
+    politica_privacidade TEXT,
+    cookies TEXT,
     horario_funcionamento JSONB DEFAULT '{}',
     dominio_proprio VARCHAR(150) UNIQUE,
     mp_access_token TEXT,
@@ -96,6 +101,9 @@ CREATE TABLE pedidos (
     status_pagamento VARCHAR(30) DEFAULT 'pendente',
     mp_payment_id VARCHAR(100),
     status_pedido VARCHAR(30) DEFAULT 'novo',
+    -- Hoje so existe pedido por entrega. Essa coluna ja deixa o caminho
+    -- pronto para quando o pedido de balcao for criado (Caixa Geral).
+    tipo_pedido VARCHAR(20) DEFAULT 'entrega',
     observacoes TEXT,
     criado_em TIMESTAMP DEFAULT NOW(),
     atualizado_em TIMESTAMP DEFAULT NOW()
@@ -104,6 +112,109 @@ CREATE TABLE pedidos (
 CREATE INDEX idx_pedidos_estabelecimento ON pedidos(estabelecimento_id);
 CREATE INDEX idx_pedidos_status ON pedidos(status_pedido);
 CREATE INDEX idx_pedidos_mp_payment ON pedidos(mp_payment_id);
+CREATE INDEX idx_pedidos_tipo ON pedidos(tipo_pedido);
+
+-- ===================================================================
+-- Clientes (cadastro automatico ao fazer pedido + tela "Meus dados")
+-- ===================================================================
+CREATE TABLE clientes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    nome VARCHAR(150) NOT NULL,
+    telefone VARCHAR(20) NOT NULL,
+    endereco TEXT,
+    cep VARCHAR(9),
+    email VARCHAR(150),
+    criado_em TIMESTAMP DEFAULT NOW(),
+    atualizado_em TIMESTAMP DEFAULT NOW(),
+    UNIQUE (estabelecimento_id, telefone)
+);
+
+CREATE INDEX idx_clientes_estabelecimento ON clientes(estabelecimento_id);
+
+-- ===================================================================
+-- Funcionarios (login proprio, cargo, permissoes)
+-- ===================================================================
+CREATE TABLE funcionarios (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    nome VARCHAR(150) NOT NULL,
+    email VARCHAR(150) NOT NULL,
+    username VARCHAR(100),
+    senha_hash VARCHAR(255) NOT NULL,
+    cargo VARCHAR(30) NOT NULL,
+    permissoes JSONB DEFAULT '[]',
+    ativo BOOLEAN DEFAULT true,
+    ordem INT DEFAULT 0,
+    criado_em TIMESTAMP DEFAULT NOW(),
+    atualizado_em TIMESTAMP DEFAULT NOW(),
+    UNIQUE (estabelecimento_id, email),
+    UNIQUE (estabelecimento_id, username)
+);
+
+CREATE INDEX idx_funcionarios_estabelecimento ON funcionarios(estabelecimento_id);
+
+-- ===================================================================
+-- Auditoria (trilha de quem fez o que)
+-- ===================================================================
+CREATE TABLE auditoria (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    funcionario_id UUID,
+    funcionario_nome VARCHAR(150),
+    acao VARCHAR(100) NOT NULL,
+    tabela_afetada VARCHAR(100),
+    registro_id UUID,
+    dados_anteriores JSONB,
+    dados_novos JSONB,
+    ip VARCHAR(60),
+    criado_em TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_auditoria_estabelecimento ON auditoria(estabelecimento_id);
+
+-- ===================================================================
+-- Carrosseis extras (banners adicionais, fotos ilimitadas, posicionaveis)
+-- ===================================================================
+CREATE TABLE carrosseis (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    nome VARCHAR(100) DEFAULT 'Carrossel',
+    posicao VARCHAR(30) NOT NULL DEFAULT 'apos-cabecalho',
+    ordem INT DEFAULT 0,
+    ativo BOOLEAN DEFAULT false,
+    criado_em TIMESTAMP DEFAULT NOW(),
+    atualizado_em TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_carrosseis_estabelecimento ON carrosseis(estabelecimento_id);
+
+CREATE TABLE carrossel_imagens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    carrossel_id UUID NOT NULL REFERENCES carrosseis(id) ON DELETE CASCADE,
+    imagem_url TEXT NOT NULL,
+    ordem INT DEFAULT 0,
+    criado_em TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_carrossel_imagens_carrossel ON carrossel_imagens(carrossel_id);
+
+-- ===================================================================
+-- Vitrines (imagem grande + caixa de texto, posicionavel)
+-- ===================================================================
+CREATE TABLE vitrines (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    imagem_url TEXT NOT NULL,
+    texto VARCHAR(300),
+    posicao VARCHAR(30) NOT NULL DEFAULT 'apos-produtos',
+    ordem INT DEFAULT 0,
+    ativo BOOLEAN DEFAULT false,
+    criado_em TIMESTAMP DEFAULT NOW(),
+    atualizado_em TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_vitrines_estabelecimento ON vitrines(estabelecimento_id);
 
 CREATE OR REPLACE FUNCTION atualizar_timestamp()
 RETURNS TRIGGER AS $$
