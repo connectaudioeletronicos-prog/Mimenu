@@ -14,7 +14,8 @@ const PERMISSOES_VALIDAS = [
   'mudar_status_pedidos',
   'ver_valores_concluidos',       // ver valores de pedidos entregues/cancelados
   'corrigir_valores_concluidos',  // alterar valores de pedidos ja concluidos
-  'gerenciar_conta'               // configuracoes de conta/pagamento/paginas legais
+  'gerenciar_conta',              // configuracoes de conta/pagamento/paginas legais
+  'ver_caixa_geral'               // ver o caixa geral (valores das entregas concluidas)
 ];
 
 const CARGOS_VALIDOS = ['administrador', 'gerente', 'caixa', 'garcom', 'colaborador'];
