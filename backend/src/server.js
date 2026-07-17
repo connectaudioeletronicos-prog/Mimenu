@@ -16,6 +16,11 @@ const rotasConvites = require('./routes/convites');
 const { sincronizarSchema } = require('./config/database');
 const app = express();
 
+// O Render roda o servidor atras de um proxy reverso. Sem esta linha,
+// o Express nao confia no cabecalho X-Forwarded-For, o que quebra o
+// express-rate-limit e pode causar falhas silenciosas nas requisicoes.
+app.set('trust proxy', 1);
+
 app.use(helmet());
 
 function extrairOrigem(url) {
