@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel do Administrador - Mimenu</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 16px; color: #222; }
+  .card { background: white; padding: 20px; border-radius: 12px; max-width: 640px; margin: 0 auto 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 0 0 12px; color: #1D3557; }
+  p.sub { color: #666; margin-top: 0; font-size: 14px; }
+  label { display: block; font-weight: bold; margin-top: 12px; margin-bottom: 4px; font-size: 14px; }
+  input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; }
+  button { margin-top: 16px; padding: 11px 16px; background: #1D3557; color: white; border: none; border-radius: 6px; font-size: 15px; cursor: pointer; }
+  button.secundario { background: #6c757d; }
+  button.perigo { background: #b00020; }
+  button.sucesso { background: #2A9D8F; }
+  button:disabled { opacity: 0.6; }
+  .msg { margin-top: 12px; padding: 10px; border-radius: 6px; font-size: 14px; }
+  .erro { background: #fde2e2; color: #b00; }
+  .ok { background: #e2fde2; color: #060; }
+  .oculto { display: none; }
+  img.qrcode { width: 180px; height: 180px; display: block; margin: 12px auto 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 4px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  th { color: #666; font-weight: normal; }
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 20px; font-size: 12px; }
+  .badge-pendente { background: #fff3cd; color: #856404; }
+  .badge-em_andamento { background: #cce5ff; color: #004085; }
+  .badge-concluido { background: #d4edda; color: #155724; }
+  .badge-expirado, .badge-cancelado { background: #eee; color: #888; }
+  .badge-ativo { background: #d4edda; color: #155724; }
+  .badge-bloqueado { background: #fde2e2; color: #b00; }
+  .acoes-tabela button { margin: 2px 0 0; padding: 5px 8px; font-size: 12px; }
+  .link-copiavel { font-size: 12px; word-break: break-all; color: #444; background: #f7f7f7; padding: 6px; border-radius: 6px; margin-top: 6px; }
+  .topo { display:flex; justify-content: space-between; align-items:center; }
+  .topo button { margin-top: 0; }
+</style>
+</head>
+<body>
+
+  <!-- TELA DE LOGIN COM CHAVE MESTRA -->
+  <div class="card" id="tela-login">
+    <h1>Painel do Administrador</h1>
+    <p class="sub">Área restrita — só você tem acesso.</p>
+    <label>Chave mestra</label>
+    <input type="password" id="inputChaveMestra" placeholder="Sua CHAVE_CADASTRO_ADMIN">
+    <button onclick="entrar()">Entrar</button>
+    <div id="msgLogin"></div>
+  </div>
+
+  <!-- PAINEL PRINCIPAL -->
+  <div id="painel-principal" class="oculto">
+
+    <div class="card">
+      <div class="topo">
+        <h1 style="margin:0">Painel do Administrador</h1>
+        <button class="secundario" onclick="sair()">Sair</button>
+      </div>
+    </div>
+
+    <!-- GERAR CONVITE -->
+    <div class="card">
+      <h2>Gerar link de cadastro para lojista</h2>
+      <label>Observação (opcional)</label>
+      <input type="text" id="observacao" placeholder="ex: Pizzaria do João - indicação Instagram">
+      <label>Validade (dias)</label>
+      <input type="number" id="dias" value="7" min="1" max="30">
+      <button onclick="gerarConvite()" id="btnGerarConvite">Gerar link</button>
+      <div id="resultadoConvite"></div>
+    </div>
+
+    <!-- LISTA DE CONVITES -->
+    <div class="card">
+      <div class="topo">
+        <h2 style="margin:0">Convites gerados</h2>
+        <button class="secundario" onclick="carregarConvites()">Atualizar</button>
+      </div>
+      <div id="listaConvites">Carregando...</div>
+    </div>
+
+    <!-- LISTA DE LOJISTAS -->
+    <div class="card">
+      <div class="topo">
+        <h2 style="margin:0">Lojistas cadastrados</h2>
+        <button class="secundario" onclick="carregarLojistas()">Atualizar</button>
+      </div>
+      <div id="listaLojistas">Carregando...</div>
+    </div>
+
+  </div>
+
+<script src="../js/config.js"></script>
+<script>
+let CHAVE_MESTRA = '';
+
+function entrar() {
+  const chave = document.getElementById('inputChaveMestra').value.trim();
+  const msgDiv = document.getElementById('msgLogin');
+  if (!chave) {
+    msgDiv.innerHTML = '<div class="msg erro">Informe a chave mestra.</div>';
+    return;
+  }
+  CHAVE_MESTRA = chave;
+  sessionStorage.setItem('chaveMestraPainel', chave);
+  document.getElementById('tela-login').classList.add('oculto');
+  document.getElementById('painel-principal').classList.remove('oculto');
+  carregarConvites();
+  carregarLojistas();
+}
+
+function sair() {
+  CHAVE_MESTRA = '';
+  sessionStorage.removeItem('chaveMestraPainel');
+  document.getElementById('tela-login').classList.remove('oculto');
+  document.getElementById('painel-principal').classList.add('oculto');
+  document.getElementById('inputChaveMestra').value = '';
+}
+
+// Re-usa a chave se a pagina for recarregada na mesma aba/sessao
+window.addEventListener('DOMContentLoaded', () => {
+  const salva = sessionStorage.getItem('chaveMestraPainel');
+  if (salva) {
+    document.getElementById('inputChaveMestra').value = salva;
+    entrar();
+  }
+});
+
+async function gerarConvite() {
+  const observacao = document.getElementById('observacao').value.trim();
+  const dias = document.getElementById('dias').value;
+  const resultadoDiv = document.getElementById('resultadoConvite');
+  const botao = document.getElementById('btnGerarConvite');
+  resultadoDiv.innerHTML = '';
+  botao.disabled = true;
+  botao.textContent = 'Gerando...';
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/convites/gerar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chaveMestra: CHAVE_MESTRA, observacao, diasValidade: Number(dias) })
+    });
+    const dados = await resposta.json();
+
+    if (resposta.ok) {
+      resultadoDiv.innerHTML = `
+        <div class="msg ok">Link gerado! Válido até ${new Date(dados.expira_em).toLocaleString('pt-BR')}</div>
+        <div class="link-copiavel">${dados.link}</div>
+        <img class="qrcode" src="${dados.qrcode}" alt="QR Code">
+        <button class="secundario" onclick="navigator.clipboard.writeText('${dados.link}').then(()=>alert('Link copiado!'))">Copiar link</button>
+      `;
+      document.getElementById('observacao').value = '';
+      carregarConvites();
+    } else {
+      resultadoDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao gerar convite.') + '</div>';
+    }
+  } catch (e) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+  botao.disabled = false;
+  botao.textContent = 'Gerar link';
+}
+
+async function carregarConvites() {
+  const div = document.getElementById('listaConvites');
+  div.innerHTML = 'Carregando...';
+  try {
+    const resposta = await fetch(API_BASE_URL + '/convites?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA));
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      div.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao carregar.') + '</div>';
+      return;
+    }
+    if (dados.length === 0) {
+      div.innerHTML = '<p class="sub">Nenhum convite gerado ainda.</p>';
+      return;
+    }
+    let html = '<table><tr><th>Observação</th><th>Status</th><th>Expira</th><th></th></tr>';
+    dados.forEach(c => {
+      const podeCancelar = c.status === 'pendente' || c.status === 'em_andamento';
+      html += `<tr>
+        <td>${c.observacao || '-'}</td>
+        <td><span class="badge badge-${c.status}">${c.status.replace('_',' ')}</span></td>
+        <td>${new Date(c.expira_em).toLocaleDateString('pt-BR')}</td>
+        <td class="acoes-tabela">${podeCancelar ? `<button class="perigo" onclick="cancelarConvite('${c.id}')">Cancelar</button>` : ''}</td>
+      </tr>`;
+    });
+    html += '</table>';
+    div.innerHTML = html;
+  } catch (e) {
+    div.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+}
+
+async function cancelarConvite(id) {
+  if (!confirm('Cancelar este convite? O link deixará de funcionar.')) return;
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/convites/' + id + '/cancelar', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chaveMestra: CHAVE_MESTRA })
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) { alert(dados.erro || 'Erro ao cancelar.'); return; }
+    carregarConvites();
+  } catch (e) {
+    alert('Não foi possível conectar à API.');
+  }
+}
+
+async function carregarLojistas() {
+  const div = document.getElementById('listaLojistas');
+  div.innerHTML = 'Carregando...';
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/estabelecimentos?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA));
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      div.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao carregar.') + '</div>';
+      return;
+    }
+    if (dados.length === 0) {
+      div.innerHTML = '<p class="sub">Nenhum lojista cadastrado ainda.</p>';
+      return;
+    }
+    let html = '<table><tr><th>Loja</th><th>Status</th><th></th></tr>';
+    dados.forEach(l => {
+      html += `<tr>
+        <td>${l.nome}<br><span class="sub" style="font-size:11px">${l.slug}</span></td>
+        <td><span class="badge ${l.ativo ? 'badge-ativo' : 'badge-bloqueado'}">${l.ativo ? 'Ativo' : 'Bloqueado'}</span></td>
+        <td class="acoes-tabela">
+          <button class="${l.ativo ? 'perigo' : 'sucesso'}" onclick="alternarStatus('${l.id}', ${!l.ativo})">${l.ativo ? 'Bloquear' : 'Desbloquear'}</button>
+        </td>
+      </tr>`;
+    });
+    html += '</table>';
+    div.innerHTML = html;
+  } catch (e) {
+    div.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+}
+
+async function alternarStatus(id, novoAtivo) {
+  const acao = novoAtivo ? 'desbloquear' : 'bloquear';
+  if (!confirm(`Tem certeza que quer ${acao} esta loja?`)) return;
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/estabelecimentos/' + id + '/status', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chaveMestra: CHAVE_MESTRA, ativo: novoAtivo })
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) { alert(dados.erro || 'Erro ao atualizar.'); return; }
+    carregarLojistas();
+  } catch (e) {
+    alert('Não foi possível conectar à API.');
+  }
+}
+</script>
+</body>
+</html>
