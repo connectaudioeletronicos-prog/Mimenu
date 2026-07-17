@@ -13,6 +13,7 @@ const rotasAdmin = require('./routes/admin');
 const rotasWebhooks = require('./routes/webhooks');
 const rotasFuncionarios = require('./routes/funcionarios');
 const rotasConvites = require('./routes/convites');
+const rotasPainel = require('./routes/painel');
 const { sincronizarSchema } = require('./config/database');
 const app = express();
 
@@ -67,6 +68,7 @@ app.use('/api/admin', rotasAdmin);
 app.use('/api/webhooks', rotasWebhooks);
 app.use('/api/funcionarios', rotasFuncionarios);
 app.use('/api/convites', rotasConvites);
+app.use('/api/painel', rotasPainel);
 
 app.use((err, req, res, next) => {
   if (err.name === 'MulterError' || err.message?.includes('Formato de imagem')) {
