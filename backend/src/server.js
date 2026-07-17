@@ -21,7 +21,9 @@ const app = express();
 // express-rate-limit e pode causar falhas silenciosas nas requisicoes.
 app.set('trust proxy', 1);
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 
 function extrairOrigem(url) {
   if (!url) return url;
