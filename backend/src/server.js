@@ -28,8 +28,14 @@ function extrairOrigem(url) {
   }
 }
 
+const origensFixasPermitidas = [
+  'https://palatos.com.br',
+  'https://www.palatos.com.br',
+  'https://connectaudioeletronicos-prog.github.io'
+];
+
 const origensPermitidas = process.env.NODE_ENV === 'production'
-  ? [extrairOrigem(process.env.FRONTEND_URL)]
+  ? [...new Set([...origensFixasPermitidas, extrairOrigem(process.env.FRONTEND_URL)].filter(Boolean))]
   : true;
 
 app.use(cors({ origin: origensPermitidas }));
