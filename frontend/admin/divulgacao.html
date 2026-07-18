@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Divulgação - Mimenu</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; background: #f4f4f4; display: flex; justify-content: center; padding: 40px 16px; margin: 0; }
+  .card { background: white; padding: 24px; border-radius: 12px; max-width: 460px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: #666; margin-top: 0; margin-bottom: 20px; font-size: 14px; }
+  label { display: block; font-weight: bold; margin-top: 14px; margin-bottom: 4px; font-size: 14px; }
+  input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; box-sizing: border-box; }
+  button { margin-top: 20px; width: 100%; padding: 12px; background: #1D3557; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+  small { color: #999; }
+  #qrcode { display: flex; justify-content: center; margin: 18px 0 6px; }
+  #qrcode img, #qrcode canvas { border-radius: 8px; }
+  .linkBox { background: #f4f4f4; padding: 10px; border-radius: 6px; font-size: 13px; word-break: break-all; margin-top: 8px; }
+  .acoes { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .acoes button { margin-top: 0; flex: 1; min-width: 130px; }
+  .whatsapp { background: #25D366; }
+  .voltar { display: inline-block; margin-bottom: 16px; color: #1D3557; text-decoration: none; font-size: 14px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <a class="voltar" href="index.html">&larr; Voltar ao painel</a>
+    <h1>Divulgação do cardápio</h1>
+    <p class="sub">Gere um QR Code ou link do seu cardápio online para postar nas redes sociais, enviar no WhatsApp ou imprimir em panfletos e embalagens.</p>
+
+    <label>Origem (opcional)</label>
+    <input type="text" id="origem" placeholder="ex: instagram, panfleto, mesa-1">
+    <small>Ajuda você a saber de onde veio o cliente. Não é obrigatório.</small>
+
+    <button id="btnGerar" onclick="gerar()">Gerar QR Code e link</button>
+
+    <div id="resultado" style="display:none;">
+      <div id="qrcode"></div>
+      <div class="linkBox" id="linkTexto"></div>
+      <div class="acoes">
+        <button onclick="copiarLink()">Copiar link</button>
+        <button onclick="baixarQrCode()">Baixar QR Code</button>
+        <button class="whatsapp" onclick="enviarWhatsapp()">Enviar no WhatsApp</button>
+      </div>
+    </div>
+    <div id="erro"></div>
+  </div>
+
+<script src="../js/config.js"></script>
+<script src="js/admin-api.js"></script>
+<script>
+let LINK_ATUAL = '';
+let QR_INSTANCIA = null;
+
+const sessao = obterEstabelecimentoSessao();
+if (!sessao || !sessao.slug) {
+  window.location.href = 'index.html';
+}
+
+function gerar() {
+  const origem = document.getElementById('origem').value.trim();
+  const erroDiv = document.getElementById('erro');
+  erroDiv.innerHTML = '';
+
+  const baseUrl = window.location.origin + '/frontend/index.html';
+  let link = baseUrl + '?slug=' + encodeURIComponent(sessao.slug);
+  if (origem) {
+    link += '&origem=' + encodeURIComponent(normalizarOrigem(origem));
+  }
+  LINK_ATUAL = link;
+
+  const qrcodeDiv = document.getElementById('qrcode');
+  qrcodeDiv.innerHTML = '';
+
+  if (typeof QRCode === 'undefined') {
+    erroDiv.innerHTML = '<div style="color:#b00;margin-top:10px;">Não foi possível carregar o gerador de QR Code. Verifique sua conexão e tente novamente.</div>';
+    return;
+  }
+
+  QR_INSTANCIA = new QRCode(qrcodeDiv, {
+    text: link,
+    width: 220,
+    height: 220
+  });
+
+  document.getElementById('linkTexto').textContent = link;
+  document.getElementById('resultado').style.display = 'block';
+}
+
+function normalizarOrigem(valor) {
+  return valor.toLowerCase().trim().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function copiarLink() {
+  if (!LINK_ATUAL) return;
+  navigator.clipboard.writeText(LINK_ATUAL).then(() => alert('Link copiado!'));
+}
+
+function baixarQrCode() {
+  const qrcodeDiv = document.getElementById('qrcode');
+  const canvas = qrcodeDiv.querySelector('canvas');
+  const img = qrcodeDiv.querySelector('img');
+
+  const a = document.createElement('a');
+  a.download = 'qrcode-' + (sessao.slug || 'mimenu') + '.png';
+
+  if (canvas) {
+    a.href = canvas.toDataURL('image/png');
+  } else if (img) {
+    a.href = img.src;
+  } else {
+    return;
+  }
+  a.click();
+}
+
+function enviarWhatsapp() {
+  if (!LINK_ATUAL) return;
+  const texto = encodeURIComponent('Confira nosso cardápio online: ' + LINK_ATUAL);
+  window.open('https://wa.me/?text=' + texto, '_blank');
+}
+
+// Gera automaticamente ao abrir a pagina, com o link padrao (sem origem)
+gerar();
+</script>
+</body>
+</html>
