@@ -58,7 +58,7 @@ async function enviarEmail(req, res) {
     const enviado = await enviarEmailGenerico(destinatario.email, destinatario.nome, assunto, mensagem);
 
     if (!enviado.enviado) {
-      return res.status(502).json({ erro: 'Nao foi possivel enviar o e-mail agora. Tente novamente em instantes.' });
+      return res.status(502).json({ erro: 'Não foi possível enviar o e-mail: ' + (enviado.motivo || 'erro desconhecido') });
     }
 
     res.json({ mensagem: 'E-mail enviado com sucesso.' });
