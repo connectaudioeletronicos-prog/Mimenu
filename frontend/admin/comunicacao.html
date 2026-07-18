@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comunicação - Mimenu</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 16px; color: #222; }
+  .card { background: white; padding: 20px; border-radius: 12px; max-width: 640px; margin: 0 auto 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 0 0 12px; color: #1D3557; }
+  p.sub { color: #666; margin-top: 0; font-size: 14px; }
+  label { display: block; font-weight: bold; margin-top: 12px; margin-bottom: 4px; font-size: 14px; }
+  input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; font-family: inherit; }
+  textarea { resize: vertical; min-height: 100px; }
+  button { margin-top: 16px; padding: 11px 16px; background: #1D3557; color: white; border: none; border-radius: 6px; font-size: 15px; cursor: pointer; }
+  button.secundario { background: #6c757d; }
+  button.whatsapp { background: #25D366; }
+  button:disabled { opacity: 0.6; }
+  .msg { margin-top: 12px; padding: 10px; border-radius: 6px; font-size: 14px; }
+  .erro { background: #fde2e2; color: #b00; }
+  .ok { background: #e2fde2; color: #060; }
+  .oculto { display: none; }
+  .topo { display:flex; justify-content: space-between; align-items:center; }
+  .topo button { margin-top: 0; }
+  .contato-item { padding: 10px; border: 1px solid #eee; border-radius: 8px; margin-top: 8px; cursor: pointer; }
+  .contato-item:hover { background: #f7f7f7; }
+  .contato-item.selecionado { border-color: #1D3557; background: #eef2f7; }
+  .contato-item .nome { font-weight: bold; font-size: 14px; }
+  .contato-item .detalhe { font-size: 12px; color: #777; }
+  .sem-telefone { color: #b00; }
+  .voltar { display: inline-block; margin-bottom: 12px; color: #1D3557; text-decoration: none; font-size: 14px; }
+</style>
+</head>
+<body>
+
+  <div class="card" id="tela-login">
+    <h1>Comunicação / Suporte</h1>
+    <p class="sub">Área restrita — só você tem acesso.</p>
+    <label>Chave mestra</label>
+    <input type="password" id="inputChaveMestra" placeholder="Sua CHAVE_CADASTRO_ADMIN">
+    <button onclick="entrar()">Entrar</button>
+    <div id="msgLogin"></div>
+  </div>
+
+  <div id="painel-principal" class="oculto">
+    <div class="card">
+      <a class="voltar" href="painel-superadmin.html">&larr; Painel do administrador</a>
+      <div class="topo">
+        <h1 style="margin:0">Comunicação / Suporte</h1>
+        <button class="secundario" onclick="sair()">Sair</button>
+      </div>
+      <p class="sub">Envie uma mensagem de suporte para um lojista, por e-mail ou WhatsApp.</p>
+    </div>
+
+    <div class="card">
+      <div class="topo">
+        <h2 style="margin:0">Escolha o lojista</h2>
+        <button class="secundario" onclick="carregarContatos()">Atualizar</button>
+      </div>
+      <div id="listaContatos">Carregando...</div>
+    </div>
+
+    <div class="card" id="blocoMensagem" style="display:none;">
+      <h2>Mensagem para <span id="nomeContatoSelecionado"></span></h2>
+
+      <label>Assunto (para e-mail)</label>
+      <input type="text" id="assunto" placeholder="ex: Sobre o seu cadastro no Mimenu">
+
+      <label>Mensagem</label>
+      <textarea id="mensagem" placeholder="Escreva a mensagem aqui..."></textarea>
+
+      <button onclick="enviarPorEmail()" id="btnEmail">📧 Enviar por e-mail</button>
+      <button class="whatsapp" onclick="enviarPorWhatsapp()" id="btnWhatsapp">💬 Abrir no WhatsApp</button>
+
+      <div id="resultadoMensagem"></div>
+    </div>
+  </div>
+
+<script src="../js/config.js"></script>
+<script>
+let CHAVE_MESTRA = '';
+let CONTATOS = [];
+let CONTATO_SELECIONADO = null;
+
+function entrar() {
+  const chave = document.getElementById('inputChaveMestra').value.trim();
+  const msgDiv = document.getElementById('msgLogin');
+  if (!chave) {
+    msgDiv.innerHTML = '<div class="msg erro">Informe a chave mestra.</div>';
+    return;
+  }
+  CHAVE_MESTRA = chave;
+  sessionStorage.setItem('chaveMestraPainel', chave);
+  document.getElementById('tela-login').classList.add('oculto');
+  document.getElementById('painel-principal').classList.remove('oculto');
+  carregarContatos();
+}
+
+function sair() {
+  CHAVE_MESTRA = '';
+  sessionStorage.removeItem('chaveMestraPainel');
+  document.getElementById('tela-login').classList.remove('oculto');
+  document.getElementById('painel-principal').classList.add('oculto');
+  document.getElementById('inputChaveMestra').value = '';
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const salva = sessionStorage.getItem('chaveMestraPainel');
+  if (salva) {
+    document.getElementById('inputChaveMestra').value = salva;
+    entrar();
+  }
+});
+
+async function carregarContatos() {
+  const listaDiv = document.getElementById('listaContatos');
+  listaDiv.textContent = 'Carregando...';
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/contatos?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA));
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      listaDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao carregar lojistas.') + '</div>';
+      return;
+    }
+    CONTATOS = dados;
+    if (CONTATOS.length === 0) {
+      listaDiv.innerHTML = '<p class="sub">Nenhum lojista cadastrado ainda.</p>';
+      return;
+    }
+    listaDiv.innerHTML = CONTATOS.map((c, indice) => {
+      const nomeResponsavel = c.nome_responsavel ? (c.nome_responsavel + ' ' + (c.sobrenome_responsavel || '')) : null;
+      return `
+        <div class="contato-item" id="contato-${indice}" onclick="selecionarContato(${indice})">
+          <div class="nome">${escaparHtmlLocal(c.nome)}</div>
+          <div class="detalhe">${escaparHtmlLocal(c.email)}${nomeResponsavel ? ' · ' + escaparHtmlLocal(nomeResponsavel) : ''}</div>
+          <div class="detalhe">${c.telefone ? '📱 ' + escaparHtmlLocal(c.telefone) : '<span class="sem-telefone">Sem telefone cadastrado ainda</span>'}</div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    listaDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+}
+
+function escaparHtmlLocal(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto || '';
+  return div.innerHTML;
+}
+
+function selecionarContato(indice) {
+  document.querySelectorAll('.contato-item').forEach(el => el.classList.remove('selecionado'));
+  document.getElementById('contato-' + indice).classList.add('selecionado');
+
+  CONTATO_SELECIONADO = CONTATOS[indice];
+  document.getElementById('nomeContatoSelecionado').textContent = CONTATO_SELECIONADO.nome;
+  document.getElementById('blocoMensagem').style.display = 'block';
+  document.getElementById('resultadoMensagem').innerHTML = '';
+
+  document.getElementById('btnWhatsapp').disabled = !CONTATO_SELECIONADO.telefone;
+}
+
+async function enviarPorEmail() {
+  const assunto = document.getElementById('assunto').value.trim();
+  const mensagem = document.getElementById('mensagem').value.trim();
+  const resultadoDiv = document.getElementById('resultadoMensagem');
+  const botao = document.getElementById('btnEmail');
+  resultadoDiv.innerHTML = '';
+
+  if (!CONTATO_SELECIONADO) return;
+  if (!assunto || !mensagem) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Preencha o assunto e a mensagem.</div>';
+    return;
+  }
+
+  botao.disabled = true;
+  botao.textContent = 'Enviando...';
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/contatos/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chaveMestra: CHAVE_MESTRA,
+        estabelecimentoId: CONTATO_SELECIONADO.id,
+        assunto,
+        mensagem
+      })
+    });
+    const dados = await resposta.json();
+    if (resposta.ok) {
+      resultadoDiv.innerHTML = '<div class="msg ok">E-mail enviado com sucesso.</div>';
+    } else {
+      resultadoDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao enviar e-mail.') + '</div>';
+    }
+  } catch (e) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+
+  botao.disabled = false;
+  botao.textContent = '📧 Enviar por e-mail';
+}
+
+function enviarPorWhatsapp() {
+  if (!CONTATO_SELECIONADO || !CONTATO_SELECIONADO.telefone) return;
+  const mensagem = document.getElementById('mensagem').value.trim();
+  let telefone = CONTATO_SELECIONADO.telefone.replace(/\D/g, '');
+  if (telefone.length <= 11) telefone = '55' + telefone; // adiciona o DDI do Brasil se ainda nao tiver
+  const texto = encodeURIComponent(mensagem || ('Olá, ' + CONTATO_SELECIONADO.nome + '! Aqui é o suporte do Mimenu.'));
+  window.open('https://wa.me/' + telefone + '?text=' + texto, '_blank');
+}
+</script>
+</body>
+</html>
