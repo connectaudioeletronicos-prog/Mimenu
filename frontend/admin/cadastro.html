@@ -188,6 +188,7 @@
     <p class="sub">Este é o QR Code fixo do seu cardápio. Baixe e use em embalagens, panfletos ou redes sociais.</p>
     <img class="qrcode" id="qrcode-imagem" src="" alt="QR Code do cardápio">
     <p class="sub" id="link-cardapio-texto"></p>
+    <p class="sub">Link do seu painel: <span id="link-painel-texto"></span></p>
     <a class="botao-link" id="link-entrar" href="index.html">Entrar no painel agora</a>
   </div>
 
@@ -384,6 +385,7 @@ async function cadastrar() {
       document.getElementById('tela-formulario').style.display = 'none';
       document.getElementById('qrcode-imagem').src = dados.qrcode_cardapio || '';
       document.getElementById('link-cardapio-texto').textContent = dados.link_cardapio || '';
+      document.getElementById('link-painel-texto').textContent = dados.link_painel || '';
       document.getElementById('tela-sucesso').style.display = 'block';
     } else {
       resultadoDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Não foi possível concluir o cadastro.') + '</div>';
