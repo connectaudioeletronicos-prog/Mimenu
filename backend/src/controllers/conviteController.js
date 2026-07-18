@@ -31,7 +31,7 @@ async function gerarConvite(req, res) {
       return res.status(403).json({ erro: 'Chave mestra invalida.' });
     }
 
-    const tokenBruto = crypto.randomBytes(32).toString('hex');
+    const tokenBruto = crypto.randomBytes(24).toString('base64url');
     const tokenHash = hashToken(tokenBruto);
 
     const dias = Number(diasValidade) > 0 ? Number(diasValidade) : 7;
