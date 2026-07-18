@@ -14,7 +14,7 @@ async function enviarEmailRecuperacaoSenha(destinatario, nomeEstabelecimento, li
   if (!resend) return { enviado: false, motivo: 'sem_chave_configurada' };
 
   try {
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
       to: destinatario,
       subject: 'Recuperacao de senha - Mimenu',
@@ -28,6 +28,11 @@ async function enviarEmailRecuperacaoSenha(destinatario, nomeEstabelecimento, li
         </div>
       `
     });
+
+    if (error) {
+      console.error('Resend recusou o envio:', error.message || error);
+      return { enviado: false, motivo: error.message || 'recusado_pela_resend' };
+    }
     return { enviado: true };
   } catch (erro) {
     console.error('Erro ao enviar e-mail via Resend:', erro.message);
@@ -40,9 +45,10 @@ async function enviarEmailGenerico(destinatario, nomeEstabelecimento, assunto, m
   if (!resend) return { enviado: false, motivo: 'sem_chave_configurada' };
 
   try {
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
       to: destinatario,
+      replyTo: process.env.RESEND_REPLY_TO || 'palatosoficial@gmail.com',
       subject: assunto,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
@@ -52,6 +58,11 @@ async function enviarEmailGenerico(destinatario, nomeEstabelecimento, assunto, m
         </div>
       `
     });
+
+    if (error) {
+      console.error('Resend recusou o envio:', error.message || error);
+      return { enviado: false, motivo: error.message || 'recusado_pela_resend' };
+    }
     return { enviado: true };
   } catch (erro) {
     console.error('Erro ao enviar e-mail via Resend:', erro.message);
