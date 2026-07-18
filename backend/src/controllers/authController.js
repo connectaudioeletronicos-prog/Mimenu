@@ -241,12 +241,14 @@ async function cadastrar(req, res) {
     // Gerar o QR Code fixo do cardapio dessa loja, para o lojista ja
     // baixar e usar em embalagens, panfletos, redes sociais, etc.
     const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5500').replace(/\/$/, '');
-    const linkCardapio = `${baseUrl}/frontend/index.html?slug=${slug}`;
+    const linkCardapio = `${baseUrl}/${slug}`;
+    const linkPainel = `${baseUrl}/${slug}/admin`;
     const qrcodeCardapio = await gerarQRCodeBase64(linkCardapio);
 
     res.status(201).json({
       mensagem: 'Estabelecimento cadastrado com sucesso.',
       link_cardapio: linkCardapio,
+      link_painel: linkPainel,
       qrcode_cardapio: qrcodeCardapio
     });
 
