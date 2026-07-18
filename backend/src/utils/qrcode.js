@@ -9,8 +9,9 @@ const QRCode = require('qrcode');
 // nenhum arquivo em disco.
 async function gerarQRCodeBase64(link) {
   return await QRCode.toDataURL(link, {
-    width: 500,
-    margin: 2,
+    width: 600,
+    margin: 3,
+    errorCorrectionLevel: 'L',
     color: { dark: '#000000', light: '#FFFFFF' }
   });
 }
