@@ -141,7 +141,7 @@ function montarPromocoes(promocoes, produtos) {
   lista.innerHTML = promocoes.map(promo => {
     const produtoVinculado = produtos.find(p => p.id === promo.produto_id);
     return `
-      <button class="promocao-card" data-promocao-produto="${produtoVinculado ? produtoVinculado.id : ''}">
+      <button class="promocao-card" data-promocao-id="${promo.id}" data-promocao-produto="${produtoVinculado ? produtoVinculado.id : ''}">
         ${promo.imagem_url ? `<img src="${escaparAspas(promo.imagem_url)}" alt="${escaparHtml(promo.titulo)}">` : ''}
         <div class="promocao-card__texto">
           <div class="promocao-card__titulo">${escaparHtml(promo.titulo)}</div>
@@ -155,6 +155,25 @@ function montarPromocoes(promocoes, produtos) {
     if (produtoId) botao.addEventListener('click', () => abrirModalProduto(produtoId));
   });
   secao.classList.remove('oculto');
+  destacarPromocaoDaUrl();
+}
+
+// Se o link foi aberto com "?promocao=<id>" (gerado na pagina de Divulgacao
+// do painel do lojista), rola ate o card da promocao e destaca ele por
+// alguns segundos, pra chamar a atencao de quem clicou no link/QR Code.
+function destacarPromocaoDaUrl() {
+  const idPromocao = new URLSearchParams(window.location.search).get('promocao');
+  if (!idPromocao) return;
+
+  const card = document.querySelector(`[data-promocao-id="${idPromocao}"]`);
+  if (!card) return;
+
+  setTimeout(() => {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.style.transition = 'box-shadow 0.3s ease';
+    card.style.boxShadow = '0 0 0 3px #E63946';
+    setTimeout(() => { card.style.boxShadow = ''; }, 3500);
+  }, 300);
 }
 
 function montarCategorias(categorias) {
