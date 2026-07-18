@@ -35,4 +35,28 @@ async function enviarEmailRecuperacaoSenha(destinatario, nomeEstabelecimento, li
   }
 }
 
-module.exports = { enviarEmailRecuperacaoSenha };
+async function enviarEmailGenerico(destinatario, nomeEstabelecimento, assunto, mensagem) {
+  const resend = obterCliente();
+  if (!resend) return { enviado: false, motivo: 'sem_chave_configurada' };
+
+  try {
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      to: destinatario,
+      subject: assunto,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+          <p>Ola${nomeEstabelecimento ? ', ' + nomeEstabelecimento : ''}!</p>
+          <p style="white-space: pre-wrap;">${mensagem}</p>
+          <p style="color:#888; font-size:12px; margin-top:24px;">Mensagem enviada pela equipe Mimenu.</p>
+        </div>
+      `
+    });
+    return { enviado: true };
+  } catch (erro) {
+    console.error('Erro ao enviar e-mail via Resend:', erro.message);
+    return { enviado: false, motivo: 'falha_envio' };
+  }
+}
+
+module.exports = { enviarEmailRecuperacaoSenha, enviarEmailGenerico };
