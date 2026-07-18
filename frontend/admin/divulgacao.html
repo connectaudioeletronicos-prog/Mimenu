@@ -145,16 +145,18 @@ function gerar() {
     return;
   }
 
-  const baseUrl = window.location.origin + '/frontend/index.html';
-  let link = baseUrl + '?slug=' + encodeURIComponent(sessao.slug);
+  const baseUrl = window.location.origin;
+  let link = baseUrl + '/' + encodeURIComponent(sessao.slug);
+  let separadorQuery = '?';
 
   if (tipo === 'promocao') {
     const idPromocao = document.getElementById('promocaoSelecionada').value;
     if (!idPromocao) { document.getElementById('resultado').style.display = 'none'; return; }
-    link += '&promocao=' + encodeURIComponent(idPromocao);
+    link += separadorQuery + 'promocao=' + encodeURIComponent(idPromocao);
+    separadorQuery = '&';
   }
   if (origem) {
-    link += '&origem=' + encodeURIComponent(normalizarOrigem(origem));
+    link += separadorQuery + 'origem=' + encodeURIComponent(normalizarOrigem(origem));
   }
   LINK_ATUAL = link;
 
