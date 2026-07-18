@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Redirecionando...</title>
+</head>
+<body>
+<script>
+(function () {
+  // Remove barras no inicio/fim e separa em partes: /nomedaloja/admin -> ["nomedaloja", "admin"]
+  var caminho = window.location.pathname.replace(/^\/+|\/+$/g, '');
+  var partes = caminho.split('/').filter(Boolean);
+
+  // Se acessou so a raiz (ou algo sem slug), manda pra pagina inicial normal
+  if (partes.length === 0) {
+    window.location.replace('/index.html');
+    return;
+  }
+
+  var slug = partes[0];
+  var ehAdmin = partes[1] === 'admin';
+
+  var paramsFinal = new URLSearchParams(window.location.search);
+  paramsFinal.set('slug', slug);
+
+  var destino = (ehAdmin ? '/frontend/admin/index.html' : '/frontend/index.html') + '?' + paramsFinal.toString();
+
+  window.location.replace(destino);
+})();
+</script>
+<p>Redirecionando...</p>
+</body>
+</html>
