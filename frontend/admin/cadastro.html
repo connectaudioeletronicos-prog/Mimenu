@@ -17,7 +17,7 @@
   .erro { background: #fde2e2; color: #b00; }
   .sucesso { background: #e2fde2; color: #060; }
   small { color: #999; display:block; text-align:left; }
-  #tela-invalida, #tela-sucesso { display: none; }
+  #tela-invalida, #tela-formulario, #tela-sucesso { display: none; }
   #tela-invalida .icone, #tela-sucesso .icone { font-size: 40px; }
   img.qrcode { width: 220px; height: 220px; margin-top: 12px; }
   a.botao-link { display:block; margin-top: 12px; padding: 12px; background:#2A9D8F; color:white; border-radius:6px; text-decoration:none; }
@@ -126,6 +126,11 @@ async function cadastrar() {
     return;
   }
 
+  if (senha.length < 6) {
+    resultadoDiv.innerHTML = '<div class="msg erro">A senha deve ter pelo menos 6 caracteres.</div>';
+    return;
+  }
+
   botao.disabled = true;
   botao.textContent = 'Enviando...';
 
@@ -140,4 +145,22 @@ async function cadastrar() {
 
     if (resposta.ok) {
       document.getElementById('tela-formulario').style.display = 'none';
-      document.getElementById('qrcode-imagem').src = dados.qrc
+      document.getElementById('qrcode-imagem').src = dados.qrcode_cardapio || '';
+      document.getElementById('link-cardapio-texto').textContent = dados.link_cardapio || '';
+      document.getElementById('tela-sucesso').style.display = 'block';
+    } else {
+      resultadoDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Não foi possível concluir o cadastro.') + '</div>';
+      botao.disabled = false;
+      botao.textContent = 'Cadastrar';
+    }
+  } catch (e) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Erro de conexão. Tente novamente.</div>';
+    botao.disabled = false;
+    botao.textContent = 'Cadastrar';
+  }
+}
+
+validarConviteAoAbrir();
+</script>
+</body>
+</html>
