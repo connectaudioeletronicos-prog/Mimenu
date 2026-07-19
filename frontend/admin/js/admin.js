@@ -234,6 +234,30 @@ async function carregarTudo() {
   if (temPermissao('gerenciar_funcionarios')) {
     try { ESTADO.funcionarios = await apiListarFuncionarios(); } catch { ESTADO.funcionarios = []; }
   }
+
+  atualizarContadoresMenu();
+}
+
+// Mostra, ao lado de cada item do menu lateral, a quantidade de itens que
+// aquela pagina tem (categorias, produtos, promocoes, carrosseis/vitrines,
+// funcionarios) -- assim da pra ver a quantidade sem precisar abrir a pagina.
+function atualizarContadoresMenu() {
+  const definir = (seletor, valor) => {
+    const el = document.querySelector(seletor);
+    if (el) el.textContent = valor > 0 ? valor : '';
+  };
+
+  definir('[data-menu-contador="categorias"]', (ESTADO.categorias || []).length);
+  definir('[data-menu-contador="produtos"]', (ESTADO.produtos || []).length);
+  definir('[data-menu-contador="promocoes"]', (ESTADO.promocoes || []).length);
+  definir('[data-menu-contador="vitrines"]', (ESTADO.carrosseis || []).length + (ESTADO.vitrines || []).length);
+  definir('[data-menu-contador="funcionarios"]', (ESTADO.funcionarios || []).length);
+
+  if (typeof apiContarPedidos === 'function') {
+    apiContarPedidos()
+      .then(contagem => definir('[data-menu-contador="pedidos"]', contagem.todos || 0))
+      .catch(() => {});
+  }
 }
 
 // Mostra/esconde abas do menu conforme a permissao da sessao atual
