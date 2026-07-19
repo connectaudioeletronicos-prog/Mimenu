@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const funcionarioController = require('../controllers/funcionarioController');
 const clienteController = require('../controllers/clienteController');
-const { autenticarFuncionario, exigirPermissao } = require('../middlewares/autorizacao');
+const { autenticarFuncionario, exigirPermissao, exigirCargoAdministrativo } = require('../middlewares/autorizacao');
 
 // Login de funcionario (publico)
 router.post('/login', funcionarioController.loginFuncionario);
@@ -13,6 +13,7 @@ router.use(autenticarFuncionario);
 router.get('/', exigirPermissao('gerenciar_funcionarios'), funcionarioController.listar);
 router.post('/', exigirPermissao('gerenciar_funcionarios'), funcionarioController.criar);
 router.put('/:id', exigirPermissao('editar_funcionarios'), funcionarioController.atualizar);
+router.put('/:id/cadastro-completo', exigirCargoAdministrativo, funcionarioController.atualizarCadastroCompleto);
 router.delete('/:id', exigirPermissao('gerenciar_funcionarios'), funcionarioController.excluir);
 
 // Trocar senha: cada funcionario pode trocar a propria (verificado dentro do
