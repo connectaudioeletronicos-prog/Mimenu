@@ -43,7 +43,7 @@ async function criar(req, res) {
     res.status(201).json(resultado.rows[0]);
   } catch (error) {
     console.error('Erro ao criar vitrine:', error);
-    res.status(500).json({ erro: 'Erro interno ao criar vitrine.' });
+    res.status(500).json({ erro: 'Erro ao criar vitrine: ' + (error.message || 'erro desconhecido') });
   }
 }
 
@@ -84,7 +84,7 @@ async function atualizar(req, res) {
     res.json(resultado.rows[0]);
   } catch (error) {
     console.error('Erro ao atualizar vitrine:', error);
-    res.status(500).json({ erro: 'Erro interno ao atualizar vitrine.' });
+    res.status(500).json({ erro: 'Erro ao atualizar vitrine: ' + (error.message || 'erro desconhecido') });
   }
 }
 
