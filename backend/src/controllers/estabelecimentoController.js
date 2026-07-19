@@ -85,13 +85,20 @@ async function buscarPorSlug(req, res) {
       [estabelecimento.id]
     );
 
+    const caixasTextoResult = await query(
+      `SELECT id, titulo, corpo, posicao, ordem FROM caixas_texto
+       WHERE estabelecimento_id = $1 AND ativo = true ORDER BY ordem ASC`,
+      [estabelecimento.id]
+    );
+
     res.json({
       estabelecimento,
       categorias: categoriasResult.rows,
       produtos: produtosResult.rows,
       promocoes: promocoesResult.rows,
       carrosseis,
-      vitrines: vitrinesResult.rows
+      vitrines: vitrinesResult.rows,
+      caixasTexto: caixasTextoResult.rows
     });
 
   } catch (error) {
