@@ -285,6 +285,16 @@
           Também posicionável e desativada por padrão até você ativar.
         </p>
         <div id="lista-vitrines-admin" class="lista-itens-admin"></div>
+
+        <div class="aba__cabecalho" style="margin-top:32px;">
+          <h2 class="aba__titulo">Caixas de texto</h2>
+          <button id="botao-nova-caixa-texto" class="botao-secundario">+ Nova caixa de texto</button>
+        </div>
+        <p class="aba__descricao">
+          Um bloco de texto livre (título + corpo), sem precisar de imagem. Use pra avisos, boas-vindas,
+          promoções escritas ou qualquer coisa que você queira comunicar. Também posicionável.
+        </p>
+        <div id="lista-caixas-texto-admin" class="lista-itens-admin"></div>
       </section>
 
       <section id="aba-pedidos" class="aba oculto">
@@ -646,6 +656,43 @@
     </div>
   </div>
 
+  <div id="modal-caixa-texto" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-caixa-texto">Nova caixa de texto</h3>
+      <form id="form-caixa-texto">
+        <input type="hidden" id="caixa-texto-id">
+        <div class="campo-grupo">
+          <label class="campo-label">Título</label>
+          <input type="text" id="caixa-texto-titulo" class="campo-texto" maxlength="100" placeholder="ex: Boas-vindas, Promoção do dia...">
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Texto</label>
+          <textarea id="caixa-texto-corpo" class="campo-textarea" maxlength="600"></textarea>
+          <span id="caixa-texto-corpo-contador" class="campo-contador">0/600</span>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Onde aparece na página</label>
+          <select id="caixa-texto-posicao" class="campo-select">
+            <option value="topo">No topo (antes do banner principal)</option>
+            <option value="apos-cabecalho">Logo após o cabeçalho</option>
+            <option value="apos-categorias">Após as categorias</option>
+            <option value="apos-produtos">Após os produtos</option>
+            <option value="antes-rodape">Antes do rodapé</option>
+          </select>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-checkbox">
+            <input type="checkbox" id="caixa-texto-ativo">
+            Ativar esta caixa de texto no cardápio público
+          </label>
+        </div>
+        <button type="submit" class="botao-primario">Salvar caixa de texto</button>
+      </form>
+    </div>
+  </div>
+
   <div id="modal-promocao" class="modal-admin oculto">
     <div class="modal-admin__fundo" data-fechar-modal-admin></div>
     <div class="modal-admin__caixa">
@@ -678,5 +725,6 @@
   <script src="js/admin-api.js?v=20260716a"></script>
   <script src="js/admin.js?v=20260716a"></script>
   <script src="js/admin-vitrines.js?v=20260716a"></script>
+  <script src="js/admin-caixatexto.js?v=20260719a"></script>
 </body>
 </html>
