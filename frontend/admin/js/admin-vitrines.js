@@ -6,10 +6,42 @@
 const NOMES_POSICAO = {
   'topo': 'No topo',
   'apos-cabecalho': 'Apos o cabecalho',
-  'apos-categorias': 'Apos as categorias',
-  'apos-produtos': 'Apos os produtos',
+  'apos-categorias': 'Apos todas as categorias',
+  'apos-produtos': 'Apos todos os produtos',
   'antes-rodape': 'Antes do rodape'
 };
+
+// Traduz qualquer posicao (fixa ou "apos-categoria:<id>") pra um texto legivel
+function nomePosicaoLegivel(posicao) {
+  if (NOMES_POSICAO[posicao]) return NOMES_POSICAO[posicao];
+  if (posicao && posicao.startsWith('apos-categoria:')) {
+    const idCategoria = posicao.split(':')[1];
+    const categoria = (ESTADO.categorias || []).find(c => c.id === idCategoria);
+    return categoria ? `Entre "${categoria.nome}" e a proxima categoria` : 'Categoria removida';
+  }
+  return posicao;
+}
+
+// Preenche um <select> de posicao com os 5 pontos fixos + uma opcao
+// pra cada categoria do cardapio (pra intercalar entre categorias)
+function preencherSelectPosicao(idSelect, valorAtual) {
+  const select = document.getElementById(idSelect);
+  if (!select) return;
+
+  const opcoesFixas = Object.entries(NOMES_POSICAO)
+    .map(([valor, rotulo]) => `<option value="${valor}">${rotulo}</option>`)
+    .join('');
+
+  const categorias = ESTADO.categorias || [];
+  const opcoesCategorias = categorias.length > 0
+    ? `<optgroup label="Entre categorias">
+        ${categorias.map(cat => `<option value="apos-categoria:${cat.id}">Logo apos "${escaparHtmlAdmin(cat.nome)}"</option>`).join('')}
+      </optgroup>`
+    : '';
+
+  select.innerHTML = opcoesFixas + opcoesCategorias;
+  select.value = valorAtual || 'apos-cabecalho';
+}
 
 let CARROSSEL_ABERTO_ID = null;
 
@@ -30,7 +62,7 @@ function renderizarCarrosseisAdmin() {
       <div class="item-admin__info">
         <strong>${escaparHtmlAdmin(carrossel.nome || 'Carrossel')}</strong>
         <span class="item-admin__detalhe">
-          ${NOMES_POSICAO[carrossel.posicao] || carrossel.posicao} ·
+          ${nomePosicaoLegivel(carrossel.posicao)} ·
           ${(carrossel.imagens || []).length} foto(s) ·
           ${carrossel.ativo ? '<span style="color:var(--cor-sucesso,#2a9d4f)">Ativo</span>' : 'Desativado'}
         </span>
@@ -106,7 +138,7 @@ function abrirModalCarrossel(id) {
   document.getElementById('titulo-modal-carrossel').textContent = carrossel ? 'Gerenciar carrossel' : 'Novo carrossel';
   document.getElementById('carrossel-id').value = id || '';
   document.getElementById('carrossel-nome').value = carrossel?.nome || '';
-  document.getElementById('carrossel-posicao').value = carrossel?.posicao || 'apos-cabecalho';
+  preencherSelectPosicao('carrossel-posicao', carrossel?.posicao || 'apos-cabecalho');
   document.getElementById('carrossel-ativo').checked = !!carrossel?.ativo;
   renderizarImagensCarrosselModal();
   document.getElementById('modal-carrossel').classList.remove('oculto');
@@ -207,9 +239,9 @@ function renderizarVitrinesAdmin() {
     <div class="item-admin">
       <img src="${vitrine.imagem_url}" alt="" style="width:44px;height:56px;object-fit:cover;border-radius:6px;margin-right:10px;">
       <div class="item-admin__info">
-        <strong>${escaparHtmlAdmin((vitrine.texto || 'Sem texto').slice(0, 40))}${vitrine.texto && vitrine.texto.length > 40 ? '…' : ''}</strong>
+        <strong>${escaparHtmlAdmin(vitrine.nome || 'Vitrine')}</strong>
         <span class="item-admin__detalhe">
-          ${NOMES_POSICAO[vitrine.posicao] || vitrine.posicao} ·
+          ${nomePosicaoLegivel(vitrine.posicao)} ·
           ${vitrine.ativo ? '<span style="color:var(--cor-sucesso,#2a9d4f)">Ativa</span>' : 'Desativada'}
         </span>
       </div>
@@ -250,6 +282,7 @@ function configurarEventosVitrines() {
     evento.preventDefault();
     const id = document.getElementById('vitrine-id').value;
     const formData = new FormData();
+    formData.append('nome', document.getElementById('vitrine-nome').value.trim() || 'Vitrine');
     formData.append('texto', document.getElementById('vitrine-texto').value.trim());
     formData.append('posicao', document.getElementById('vitrine-posicao').value);
     formData.append('ativo', document.getElementById('vitrine-ativo').checked);
@@ -281,9 +314,10 @@ function abrirModalVitrine(id) {
   const vitrine = id ? ESTADO.vitrines.find(v => v.id === id) : null;
   document.getElementById('titulo-modal-vitrine').textContent = vitrine ? 'Editar vitrine' : 'Nova vitrine';
   document.getElementById('vitrine-id').value = id || '';
+  document.getElementById('vitrine-nome').value = vitrine?.nome || '';
   document.getElementById('vitrine-texto').value = vitrine?.texto || '';
   document.getElementById('vitrine-texto-contador').textContent = `${(vitrine?.texto || '').length}/300`;
-  document.getElementById('vitrine-posicao').value = vitrine?.posicao || 'apos-produtos';
+  preencherSelectPosicao('vitrine-posicao', vitrine?.posicao || 'apos-produtos');
   document.getElementById('vitrine-ativo').checked = !!vitrine?.ativo;
   document.getElementById('vitrine-imagem').value = '';
   document.getElementById('preview-vitrine-imagem').src = vitrine?.imagem_url || '';
