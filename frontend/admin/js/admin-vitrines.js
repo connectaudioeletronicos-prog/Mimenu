@@ -58,7 +58,8 @@ function renderizarCarrosseisAdmin() {
   }
 
   lista.innerHTML = ESTADO.carrosseis.map(carrossel => `
-    <div class="item-admin">
+    <div class="item-admin" data-carrossel-drag-id="${carrossel.id}">
+      <span class="drag-handle" title="Segure e arraste para reordenar">⠿</span>
       <div class="item-admin__info">
         <strong>${escaparHtmlAdmin(carrossel.nome || 'Carrossel')}</strong>
         <span class="item-admin__detalhe">
@@ -73,6 +74,16 @@ function renderizarCarrosseisAdmin() {
       </div>
     </div>
   `).join('');
+
+  configurarArrastarSoltar(lista, '[data-carrossel-drag-id]', 'data-carrossel-drag-id', async (novaOrdemIds) => {
+    try {
+      await Promise.all(novaOrdemIds.map((id, i) => apiAtualizarCarrossel(id, { ordem: i })));
+      ESTADO.carrosseis = await apiListarCarrosseis();
+      renderizarCarrosseisAdmin();
+    } catch (erro) {
+      mostrarToast(erro.message, true);
+    }
+  });
 
   lista.querySelectorAll('[data-editar-carrossel]').forEach(b => {
     b.addEventListener('click', () => abrirModalCarrossel(b.getAttribute('data-editar-carrossel')));
@@ -157,12 +168,11 @@ function renderizarImagensCarrosselModal() {
     area.innerHTML = '<p class="campo-dica">Nenhuma foto ainda. Adicione quantas quiser abaixo.</p>';
     return;
   }
-  area.innerHTML = imagens.map((img, i) => `
-    <div class="lista-imagens-carrossel__item">
+  area.innerHTML = imagens.map((img) => `
+    <div class="lista-imagens-carrossel__item" data-imagem-id="${img.id}">
+      <span class="drag-handle" title="Segure e arraste para reordenar">⠿</span>
       <img src="${img.imagem_url}" alt="">
       <div class="lista-imagens-carrossel__botoes">
-        <button type="button" data-mover-imagem="${img.id}" data-direcao="-1" ${i === 0 ? 'disabled' : ''}>↑</button>
-        <button type="button" data-mover-imagem="${img.id}" data-direcao="1" ${i === imagens.length - 1 ? 'disabled' : ''}>↓</button>
         <button type="button" class="botao-perigo" data-remover-imagem="${img.id}">Excluir</button>
       </div>
     </div>
@@ -171,11 +181,16 @@ function renderizarImagensCarrosselModal() {
   area.querySelectorAll('[data-remover-imagem]').forEach(b => {
     b.addEventListener('click', () => removerImagemCarrossel(b.getAttribute('data-remover-imagem')));
   });
-  area.querySelectorAll('[data-mover-imagem]').forEach(b => {
-    b.addEventListener('click', () => moverImagemCarrossel(
-      b.getAttribute('data-mover-imagem'),
-      parseInt(b.getAttribute('data-direcao'), 10)
-    ));
+
+  configurarArrastarSoltar(area, '.lista-imagens-carrossel__item', 'data-imagem-id', async (novaOrdemIds) => {
+    try {
+      await Promise.all(novaOrdemIds.map((id, i) => apiAtualizarImagemCarrossel(id, { ordem: i })));
+      ESTADO.carrosseis = await apiListarCarrosseis();
+      renderizarCarrosseisAdmin();
+      renderizarImagensCarrosselModal();
+    } catch (erro) {
+      mostrarToast(erro.message, true);
+    }
   });
 }
 
@@ -183,26 +198,6 @@ async function removerImagemCarrossel(imagemId) {
   if (!confirm('Excluir esta foto do carrossel?')) return;
   try {
     await apiRemoverImagemCarrossel(imagemId);
-    ESTADO.carrosseis = await apiListarCarrosseis();
-    renderizarCarrosseisAdmin();
-    renderizarImagensCarrosselModal();
-  } catch (erro) {
-    mostrarToast(erro.message, true);
-  }
-}
-
-async function moverImagemCarrossel(imagemId, direcao) {
-  const carrossel = ESTADO.carrosseis.find(c => c.id === CARROSSEL_ABERTO_ID);
-  if (!carrossel) return;
-  const imagens = carrossel.imagens.slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
-  const indice = imagens.findIndex(img => img.id === imagemId);
-  const novoIndice = indice + direcao;
-  if (novoIndice < 0 || novoIndice >= imagens.length) return;
-
-  [imagens[indice], imagens[novoIndice]] = [imagens[novoIndice], imagens[indice]];
-
-  try {
-    await Promise.all(imagens.map((img, i) => apiAtualizarImagemCarrossel(img.id, { ordem: i })));
     ESTADO.carrosseis = await apiListarCarrosseis();
     renderizarCarrosseisAdmin();
     renderizarImagensCarrosselModal();
@@ -236,7 +231,8 @@ function renderizarVitrinesAdmin() {
   }
 
   lista.innerHTML = ESTADO.vitrines.map(vitrine => `
-    <div class="item-admin">
+    <div class="item-admin" data-vitrine-drag-id="${vitrine.id}">
+      <span class="drag-handle" title="Segure e arraste para reordenar">⠿</span>
       <img src="${vitrine.imagem_url}" alt="" style="width:44px;height:56px;object-fit:cover;border-radius:6px;margin-right:10px;">
       <div class="item-admin__info">
         <strong>${escaparHtmlAdmin(vitrine.nome || 'Vitrine')}</strong>
@@ -251,6 +247,20 @@ function renderizarVitrinesAdmin() {
       </div>
     </div>
   `).join('');
+
+  configurarArrastarSoltar(lista, '[data-vitrine-drag-id]', 'data-vitrine-drag-id', async (novaOrdemIds) => {
+    try {
+      await Promise.all(novaOrdemIds.map((id, i) => {
+        const fd = new FormData();
+        fd.append('ordem', i);
+        return apiAtualizarVitrine(id, fd);
+      }));
+      ESTADO.vitrines = await apiListarVitrines();
+      renderizarVitrinesAdmin();
+    } catch (erro) {
+      mostrarToast(erro.message, true);
+    }
+  });
 
   lista.querySelectorAll('[data-editar-vitrine]').forEach(b => {
     b.addEventListener('click', () => abrirModalVitrine(b.getAttribute('data-editar-vitrine')));
