@@ -300,12 +300,12 @@
       <section id="aba-pedidos" class="aba oculto">
         <h2 class="aba__titulo">Pedidos recebidos</h2>
         <div class="filtro-pedidos">
-          <button class="filtro-pedidos__botao ativo" data-status="">Todos</button>
-          <button class="filtro-pedidos__botao" data-status="novo">Novos</button>
-          <button class="filtro-pedidos__botao" data-status="preparando">Preparando</button>
-          <button class="filtro-pedidos__botao" data-status="saiu_entrega">Saiu p/ entrega</button>
-          <button class="filtro-pedidos__botao" data-status="entregue">Entregues</button>
-          <button class="filtro-pedidos__botao" data-status="cancelado">Cancelados</button>
+          <button class="filtro-pedidos__botao ativo" data-status="">Todos <span class="filtro-pedidos__contador" data-contador="todos"></span></button>
+          <button class="filtro-pedidos__botao" data-status="novo">Novos <span class="filtro-pedidos__contador" data-contador="novo"></span></button>
+          <button class="filtro-pedidos__botao" data-status="preparando">Preparando <span class="filtro-pedidos__contador" data-contador="preparando"></span></button>
+          <button class="filtro-pedidos__botao" data-status="saiu_entrega">Saiu p/ entrega <span class="filtro-pedidos__contador" data-contador="saiu_entrega"></span></button>
+          <button class="filtro-pedidos__botao" data-status="entregue">Entregues <span class="filtro-pedidos__contador" data-contador="entregue"></span></button>
+          <button class="filtro-pedidos__botao" data-status="cancelado">Cancelados <span class="filtro-pedidos__contador" data-contador="cancelado"></span></button>
         </div>
         <div id="lista-pedidos-admin" class="lista-itens-admin"></div>
       </section>
