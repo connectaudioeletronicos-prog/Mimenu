@@ -13,7 +13,8 @@ function renderizarCaixasTextoAdmin() {
   }
 
   lista.innerHTML = ESTADO.caixasTexto.map(caixa => `
-    <div class="item-admin">
+    <div class="item-admin" data-caixatexto-drag-id="${caixa.id}">
+      <span class="drag-handle" title="Segure e arraste para reordenar">⠿</span>
       <div class="item-admin__info">
         <strong>${escaparHtmlAdmin(caixa.titulo)}</strong>
         <span class="item-admin__detalhe">
@@ -27,6 +28,16 @@ function renderizarCaixasTextoAdmin() {
       </div>
     </div>
   `).join('');
+
+  configurarArrastarSoltar(lista, '[data-caixatexto-drag-id]', 'data-caixatexto-drag-id', async (novaOrdemIds) => {
+    try {
+      await Promise.all(novaOrdemIds.map((id, i) => apiAtualizarCaixaTexto(id, { ordem: i })));
+      ESTADO.caixasTexto = await apiListarCaixasTexto();
+      renderizarCaixasTextoAdmin();
+    } catch (erro) {
+      mostrarToast(erro.message, true);
+    }
+  });
 
   lista.querySelectorAll('[data-editar-caixa-texto]').forEach(b => {
     b.addEventListener('click', () => abrirModalCaixaTexto(b.getAttribute('data-editar-caixa-texto')));
