@@ -3,9 +3,9 @@
 // Comecam desativadas por padrao, o lojista ativa quando quiser.
 // ===================================================================
 const { query } = require('../config/database');
+const { normalizarPosicao } = require('../utils/posicao');
 const { uploadImagem } = require('../utils/storage');
 
-const POSICOES_VALIDAS = ['topo', 'apos-cabecalho', 'apos-categorias', 'apos-produtos', 'antes-rodape'];
 const LIMITE_TEXTO = 300;
 
 async function listar(req, res) {
@@ -23,20 +23,21 @@ async function listar(req, res) {
 
 async function criar(req, res) {
   try {
-    const { texto, posicao, ordem } = req.body;
+    const { nome, texto, posicao, ordem } = req.body;
 
     if (!req.file) {
       return res.status(400).json({ erro: 'A imagem da vitrine e obrigatoria.' });
     }
 
+    const nomeFinal = (nome || 'Vitrine').slice(0, 100);
     const textoFinal = (texto || '').slice(0, LIMITE_TEXTO);
-    const posicaoFinal = POSICOES_VALIDAS.includes(posicao) ? posicao : 'apos-produtos';
+    const posicaoFinal = normalizarPosicao(posicao, 'apos-produtos');
     const imagemUrl = await uploadImagem(req.file.buffer, req.file.mimetype, 'vitrines');
 
     const resultado = await query(
-      `INSERT INTO vitrines (estabelecimento_id, imagem_url, texto, posicao, ordem, ativo)
-       VALUES ($1, $2, $3, $4, $5, false) RETURNING *`,
-      [req.estabelecimentoId, imagemUrl, textoFinal, posicaoFinal, ordem || 0]
+      `INSERT INTO vitrines (estabelecimento_id, nome, imagem_url, texto, posicao, ordem, ativo)
+       VALUES ($1, $2, $3, $4, $5, $6, false) RETURNING *`,
+      [req.estabelecimentoId, nomeFinal, imagemUrl, textoFinal, posicaoFinal, ordem || 0]
     );
 
     res.status(201).json(resultado.rows[0]);
@@ -49,7 +50,7 @@ async function criar(req, res) {
 async function atualizar(req, res) {
   try {
     const { id } = req.params;
-    const { texto, posicao, ativo, ordem } = req.body;
+    const { nome, texto, posicao, ativo, ordem } = req.body;
 
     const verificacao = await query(
       'SELECT id, imagem_url FROM vitrines WHERE id = $1 AND estabelecimento_id = $2',
@@ -64,20 +65,20 @@ async function atualizar(req, res) {
       imagemUrl = await uploadImagem(req.file.buffer, req.file.mimetype, 'vitrines');
     }
 
+    const nomeFinal = nome !== undefined ? nome.slice(0, 100) : undefined;
     const textoFinal = texto !== undefined ? texto.slice(0, LIMITE_TEXTO) : undefined;
-    const posicaoFinal = posicao !== undefined
-      ? (POSICOES_VALIDAS.includes(posicao) ? posicao : 'apos-produtos')
-      : undefined;
+    const posicaoFinal = posicao !== undefined ? normalizarPosicao(posicao, 'apos-produtos') : undefined;
 
     const resultado = await query(
       `UPDATE vitrines SET
-        texto = COALESCE($1, texto),
-        posicao = COALESCE($2, posicao),
-        ativo = COALESCE($3, ativo),
-        ordem = COALESCE($4, ordem),
-        imagem_url = $5
-       WHERE id = $6 RETURNING *`,
-      [textoFinal, posicaoFinal, ativo, ordem, imagemUrl, id]
+        nome = COALESCE($1, nome),
+        texto = COALESCE($2, texto),
+        posicao = COALESCE($3, posicao),
+        ativo = COALESCE($4, ativo),
+        ordem = COALESCE($5, ordem),
+        imagem_url = $6
+       WHERE id = $7 RETURNING *`,
+      [nomeFinal, textoFinal, posicaoFinal, ativo, ordem, imagemUrl, id]
     );
 
     res.json(resultado.rows[0]);
