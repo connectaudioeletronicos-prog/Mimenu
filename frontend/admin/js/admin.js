@@ -1076,6 +1076,20 @@ async function carregarPedidos() {
   } catch (erro) {
     lista.innerHTML = '<div class="lista-vazia">Erro ao carregar pedidos.</div>';
   }
+  atualizarContagemPedidos();
+}
+
+async function atualizarContagemPedidos() {
+  try {
+    const contagem = await apiContarPedidos();
+    document.querySelectorAll('[data-contador]').forEach(span => {
+      const chave = span.getAttribute('data-contador');
+      const valor = contagem[chave] || 0;
+      span.textContent = `(${valor})`;
+    });
+  } catch (erro) {
+    // Silencioso: se a contagem falhar, os botoes de filtro continuam funcionando normalmente.
+  }
 }
 
 const STATUS_PEDIDO_LABEL = {
