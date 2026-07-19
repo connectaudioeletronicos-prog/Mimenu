@@ -38,6 +38,30 @@ async function sincronizarSchema() {
   } catch (error) {
     console.error('Aviso: nao foi possivel sincronizar funcionarios_cargo_check:', error.message);
   }
+
+  // Permite posicionar carrosseis/vitrines logo apos uma categoria especifica
+  // (formato "apos-categoria:<uuid>"), alem dos pontos fixos de sempre.
+  // A coluna precisa ser maior pra caber esse formato, e a constraint antiga
+  // (se existir) precisa ser removida, senao o INSERT/UPDATE e recusado.
+  try {
+    await pool.query(`
+      ALTER TABLE carrosseis ALTER COLUMN posicao TYPE VARCHAR(80);
+      ALTER TABLE carrosseis DROP CONSTRAINT IF EXISTS carrosseis_posicao_check;
+    `);
+    console.log('Schema sincronizado: coluna/constraint de posicao em carrosseis atualizada.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar posicao em carrosseis:', error.message);
+  }
+
+  try {
+    await pool.query(`
+      ALTER TABLE vitrines ALTER COLUMN posicao TYPE VARCHAR(80);
+      ALTER TABLE vitrines DROP CONSTRAINT IF EXISTS vitrines_posicao_check;
+    `);
+    console.log('Schema sincronizado: coluna/constraint de posicao em vitrines atualizada.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar posicao em vitrines:', error.message);
+  }
 }
 
 module.exports = { pool, query, sincronizarSchema };
