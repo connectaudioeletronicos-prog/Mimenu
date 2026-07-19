@@ -4,8 +4,8 @@
 // ativa quando quiser e escolhe a posicao entre 5 pontos da pagina.
 // ===================================================================
 const { query } = require('../config/database');
+const { normalizarPosicao } = require('../utils/posicao');
 
-const POSICOES_VALIDAS = ['topo', 'apos-cabecalho', 'apos-categorias', 'apos-produtos', 'antes-rodape'];
 const LIMITE_TITULO = 100;
 const LIMITE_CORPO = 600;
 
@@ -32,7 +32,7 @@ async function criar(req, res) {
 
     const tituloFinal = (titulo || 'Aviso').slice(0, LIMITE_TITULO);
     const corpoFinal = corpo.slice(0, LIMITE_CORPO);
-    const posicaoFinal = POSICOES_VALIDAS.includes(posicao) ? posicao : 'apos-cabecalho';
+    const posicaoFinal = normalizarPosicao(posicao);
 
     const resultado = await query(
       `INSERT INTO caixas_texto (estabelecimento_id, titulo, corpo, posicao, ordem, ativo)
@@ -63,7 +63,7 @@ async function atualizar(req, res) {
     const tituloFinal = titulo !== undefined ? titulo.slice(0, LIMITE_TITULO) : undefined;
     const corpoFinal = corpo !== undefined ? corpo.slice(0, LIMITE_CORPO) : undefined;
     const posicaoFinal = posicao !== undefined
-      ? (POSICOES_VALIDAS.includes(posicao) ? posicao : 'apos-cabecalho')
+      ? (normalizarPosicao(posicao))
       : undefined;
 
     const resultado = await query(
@@ -103,4 +103,3 @@ async function excluir(req, res) {
 }
 
 module.exports = { listar, criar, atualizar, excluir };
-
