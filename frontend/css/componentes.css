@@ -947,7 +947,6 @@
 
 .vitrine-card__texto {
   width: 100%;
-  aspect-ratio: 3 / 4;
   box-sizing: border-box;
   padding: 16px;
   border-radius: var(--raio-borda);
@@ -956,6 +955,7 @@
   font-size: 0.95rem;
   line-height: 1.5;
   color: var(--cor-texto);
+  max-height: 340px;
   overflow-y: auto;
   white-space: pre-wrap;
 }
@@ -963,14 +963,18 @@
 @media (max-width: 900px) {
   .vitrine-card {
     flex-direction: row;
-    align-items: stretch;
+    align-items: flex-start;
     max-width: 100%;
   }
 
-  .vitrine-card__imagem,
+  .vitrine-card__imagem {
+    flex: 1 1 50%;
+    width: 50%;
+  }
+
   .vitrine-card__texto {
     flex: 1 1 50%;
     width: 50%;
-    aspect-ratio: auto;
+    max-height: none;
   }
 }
