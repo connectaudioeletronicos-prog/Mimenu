@@ -4,9 +4,9 @@
 // em um ponto diferente da pagina publica. Comecam desativados por padrao.
 // ===================================================================
 const { query } = require('../config/database');
+const { normalizarPosicao } = require('../utils/posicao');
 const { uploadImagem } = require('../utils/storage');
 
-const POSICOES_VALIDAS = ['topo', 'apos-cabecalho', 'apos-categorias', 'apos-produtos', 'antes-rodape'];
 
 async function listar(req, res) {
   try {
@@ -38,7 +38,7 @@ async function listar(req, res) {
 async function criar(req, res) {
   try {
     const { nome, posicao, ordem } = req.body;
-    const posicaoFinal = POSICOES_VALIDAS.includes(posicao) ? posicao : 'apos-cabecalho';
+    const posicaoFinal = normalizarPosicao(posicao);
 
     const resultado = await query(
       `INSERT INTO carrosseis (estabelecimento_id, nome, posicao, ordem, ativo)
@@ -67,7 +67,7 @@ async function atualizar(req, res) {
     }
 
     const posicaoFinal = posicao !== undefined
-      ? (POSICOES_VALIDAS.includes(posicao) ? posicao : 'apos-cabecalho')
+      ? (normalizarPosicao(posicao))
       : undefined;
 
     const resultado = await query(
