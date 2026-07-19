@@ -62,6 +62,16 @@ async function sincronizarSchema() {
   } catch (error) {
     console.error('Aviso: nao foi possivel sincronizar posicao em vitrines:', error.message);
   }
+
+  try {
+    await pool.query(`
+      ALTER TABLE caixas_texto ALTER COLUMN posicao TYPE VARCHAR(80);
+      ALTER TABLE caixas_texto DROP CONSTRAINT IF EXISTS caixas_texto_posicao_check;
+    `);
+    console.log('Schema sincronizado: coluna/constraint de posicao em caixas_texto atualizada.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar posicao em caixas_texto:', error.message);
+  }
 }
 
 module.exports = { pool, query, sincronizarSchema };
