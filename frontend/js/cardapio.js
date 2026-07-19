@@ -216,6 +216,7 @@ function montarProdutos(categorias, produtos) {
         <h3 class="produtos-grupo__titulo">${escaparHtml(categoria.nome)}</h3>
         ${produtosDaCategoria.map(produto => montarCardProduto(produto)).join('')}
       </div>
+      <div class="slot-dinamico" id="slot-apos-categoria:${categoria.id}"></div>
     `;
   }).join('');
   const semCategoria = produtos.filter(p => !p.categoria_id);
