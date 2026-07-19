@@ -72,6 +72,22 @@ async function sincronizarSchema() {
   } catch (error) {
     console.error('Aviso: nao foi possivel sincronizar posicao em caixas_texto:', error.message);
   }
+
+  // Campos extras do cadastro de funcionario: telefone (rapido, no cadastro
+  // inicial) e o cadastro completo opcional (celular, nascimento, RG, CPF),
+  // preenchivel so por proprietario/administrador.
+  try {
+    await pool.query(`
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS telefone VARCHAR(20);
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS celular VARCHAR(20);
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS data_nascimento DATE;
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS rg VARCHAR(20);
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS cpf VARCHAR(14);
+    `);
+    console.log('Schema sincronizado: colunas de cadastro completo em funcionarios atualizadas.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar colunas de funcionarios:', error.message);
+  }
 }
 
 module.exports = { pool, query, sincronizarSchema };
