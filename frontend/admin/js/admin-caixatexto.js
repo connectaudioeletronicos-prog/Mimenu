@@ -17,7 +17,7 @@ function renderizarCaixasTextoAdmin() {
       <div class="item-admin__info">
         <strong>${escaparHtmlAdmin(caixa.titulo)}</strong>
         <span class="item-admin__detalhe">
-          ${NOMES_POSICAO[caixa.posicao] || caixa.posicao} ·
+          ${nomePosicaoLegivel(caixa.posicao)} ·
           ${caixa.ativo ? '<span style="color:var(--cor-sucesso,#2a9d4f)">Ativa</span>' : 'Desativada'}
         </span>
       </div>
@@ -86,7 +86,7 @@ function abrirModalCaixaTexto(id) {
   document.getElementById('caixa-texto-titulo').value = caixa?.titulo || '';
   document.getElementById('caixa-texto-corpo').value = caixa?.corpo || '';
   document.getElementById('caixa-texto-corpo-contador').textContent = `${(caixa?.corpo || '').length}/600`;
-  document.getElementById('caixa-texto-posicao').value = caixa?.posicao || 'apos-cabecalho';
+  preencherSelectPosicao('caixa-texto-posicao', caixa?.posicao || 'apos-cabecalho');
   document.getElementById('caixa-texto-ativo').checked = !!caixa?.ativo;
   document.getElementById('modal-caixa-texto').classList.remove('oculto');
 }
