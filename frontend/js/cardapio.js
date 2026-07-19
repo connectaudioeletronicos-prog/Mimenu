@@ -33,7 +33,7 @@ async function iniciar() {
     montarPromocoes(DADOS.promocoes, DADOS.produtos);
     montarCategorias(DADOS.categorias);
     montarProdutos(DADOS.categorias, DADOS.produtos);
-    montarBlocosDinamicos(DADOS.carrosseis, DADOS.vitrines);
+    montarBlocosDinamicos(DADOS.carrosseis, DADOS.vitrines, DADOS.caixasTexto);
     montarRodape(DADOS.estabelecimento);
     configurarEventosGlobais();
     document.getElementById('tela-carregando').classList.add('oculto');
@@ -252,10 +252,11 @@ function montarCardProduto(produto) {
   `;
 }
 
-function montarBlocosDinamicos(carrosseis, vitrines) {
+function montarBlocosDinamicos(carrosseis, vitrines, caixasTexto) {
   const blocos = [
     ...(carrosseis || []).map(c => ({ tipo: 'carrossel', dado: c })),
-    ...(vitrines || []).map(v => ({ tipo: 'vitrine', dado: v }))
+    ...(vitrines || []).map(v => ({ tipo: 'vitrine', dado: v })),
+    ...(caixasTexto || []).map(t => ({ tipo: 'caixaTexto', dado: t }))
   ];
 
   // Limpa slots antes de montar (evita duplicar se a funcao rodar de novo)
@@ -270,6 +271,8 @@ function montarBlocosDinamicos(carrosseis, vitrines) {
         slot.appendChild(criarElementoCarrossel(bloco.dado));
       } else if (bloco.tipo === 'vitrine') {
         slot.appendChild(criarElementoVitrine(bloco.dado));
+      } else if (bloco.tipo === 'caixaTexto') {
+        slot.appendChild(criarElementoCaixaTexto(bloco.dado));
       }
     });
 }
@@ -321,6 +324,16 @@ function criarElementoVitrine(vitrine) {
   container.innerHTML = `
     <img class="vitrine-card__imagem" src="${escaparAspas(vitrine.imagem_url)}" alt="">
     ${vitrine.texto ? `<div class="vitrine-card__texto">${escaparHtml(vitrine.texto)}</div>` : ''}
+  `;
+  return container;
+}
+
+function criarElementoCaixaTexto(caixa) {
+  const container = document.createElement('div');
+  container.className = 'caixa-texto-extra';
+  container.innerHTML = `
+    <h3 class="caixa-texto-extra__titulo">${escaparHtml(caixa.titulo)}</h3>
+    <p class="caixa-texto-extra__corpo">${escaparHtml(caixa.corpo)}</p>
   `;
   return container;
 }
