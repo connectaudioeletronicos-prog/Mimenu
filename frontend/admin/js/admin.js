@@ -545,6 +545,64 @@ function configurarEventosPaginasLegais() {
 // =============================================
 let dragSrcCategoriaId = null;
 
+// ===================================================================
+// Arrastar-e-soltar universal (Pointer Events) — ao contrario do HTML5
+// Drag and Drop nativo, isso funciona em toque de celular e em mouse
+// igualmente. Padrao para QUALQUER lista reordenavel do painel.
+// Uso: configurarArrastarSoltar(container, '.item', 'data-algo-id', (novaOrdemIds) => {...})
+// ===================================================================
+function configurarArrastarSoltar(container, seletorItem, atributoId, aoSoltar) {
+  if (!container) return;
+  let itemArrastado = null;
+
+  container.querySelectorAll(seletorItem).forEach(item => {
+    const alca = item.querySelector('.drag-handle');
+    if (!alca) return;
+    alca.style.touchAction = 'none';
+    alca.onpointerdown = (evento) => {
+      itemArrastado = item;
+      item.classList.add('sendo-arrastado');
+      evento.preventDefault();
+    };
+  });
+
+  if (container._removerListenersArrastar) {
+    container._removerListenersArrastar();
+  }
+
+  const aoMover = (evento) => {
+    if (!itemArrastado) return;
+    const elemento = document.elementFromPoint(evento.clientX, evento.clientY);
+    const itemSobre = elemento && elemento.closest(seletorItem);
+    if (!itemSobre || itemSobre === itemArrastado || itemSobre.parentElement !== container) return;
+    const retangulo = itemSobre.getBoundingClientRect();
+    const meio = retangulo.top + retangulo.height / 2;
+    if (evento.clientY < meio) {
+      container.insertBefore(itemArrastado, itemSobre);
+    } else {
+      container.insertBefore(itemArrastado, itemSobre.nextSibling);
+    }
+  };
+
+  const aoFinalizar = () => {
+    if (!itemArrastado) return;
+    itemArrastado.classList.remove('sendo-arrastado');
+    const novaOrdem = Array.from(container.querySelectorAll(seletorItem)).map(el => el.getAttribute(atributoId));
+    itemArrastado = null;
+    aoSoltar(novaOrdem);
+  };
+
+  document.addEventListener('pointermove', aoMover);
+  document.addEventListener('pointerup', aoFinalizar);
+  document.addEventListener('pointercancel', aoFinalizar);
+
+  container._removerListenersArrastar = () => {
+    document.removeEventListener('pointermove', aoMover);
+    document.removeEventListener('pointerup', aoFinalizar);
+    document.removeEventListener('pointercancel', aoFinalizar);
+  };
+}
+
 function renderizarCategoriasAdmin() {
   const lista = document.getElementById('lista-categorias-admin');
   document.getElementById('contador-categorias').textContent = `(${ESTADO.categorias.length})`;
