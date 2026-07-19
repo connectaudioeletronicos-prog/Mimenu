@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
+const { validarTelefone, validarCPF } = require('../utils/validadores');
 
 // As 9 permissoes possiveis (caixinhas). O cargo NAO define o que o
 // funcionario pode fazer -- serve so para limitar quantos de cada
@@ -19,7 +20,7 @@ const PERMISSOES_VALIDAS = [
 ];
 
 const CARGOS_VALIDOS = ['administrador', 'gerente', 'caixa', 'garcom', 'colaborador'];
-const LIMITES_POR_CARGO = { administrador: 2, gerente: 1, caixa: 5 }; // garcom/colaborador: sem limite
+const LIMITES_POR_CARGO = { administrador: 1, gerente: 1, caixa: 5 }; // garcom/colaborador: sem limite
 
 function sanitizarPermissoes(permissoes) {
   if (!Array.isArray(permissoes)) return [];
@@ -80,7 +81,7 @@ async function loginFuncionario(req, res) {
 async function listar(req, res) {
   try {
     const resultado = await query(
-      `SELECT id, nome, email, username, cargo, permissoes, ativo, ordem, criado_em
+      `SELECT id, nome, email, username, telefone, celular, data_nascimento, rg, cpf, cargo, permissoes, ativo, ordem, criado_em
        FROM funcionarios WHERE estabelecimento_id = $1 ORDER BY ordem ASC, criado_em ASC`,
       [req.estabelecimentoId]
     );
@@ -93,12 +94,15 @@ async function listar(req, res) {
 // Criar funcionario
 async function criar(req, res) {
   try {
-    const { nome, email, username, senha, cargo, permissoes } = req.body;
+    const { nome, email, username, senha, cargo, permissoes, telefone } = req.body;
 
     if (!nome || !email || !senha || !cargo) {
       return res.status(400).json({ erro: 'Nome, email, senha e categoria sao obrigatorios.' });
     }
     if (!CARGOS_VALIDOS.includes(cargo)) return res.status(400).json({ erro: 'Categoria invalida.' });
+    if (telefone && !validarTelefone(telefone)) {
+      return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
+    }
 
     const limite = LIMITES_POR_CARGO[cargo];
     if (limite) {
@@ -118,9 +122,9 @@ async function criar(req, res) {
     const proximaOrdem = parseInt(contagemTotal.rows[0].count);
 
     const resultado = await query(
-      `INSERT INTO funcionarios (estabelecimento_id, nome, email, username, senha_hash, cargo, permissoes, ordem)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, nome, email, username, cargo, permissoes, ativo, ordem`,
-      [req.estabelecimentoId, nome, email, username || null, senhaHash, cargo, JSON.stringify(permissoesFinais), proximaOrdem]
+      `INSERT INTO funcionarios (estabelecimento_id, nome, email, username, telefone, senha_hash, cargo, permissoes, ordem)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem`,
+      [req.estabelecimentoId, nome, email, username || null, telefone || null, senhaHash, cargo, JSON.stringify(permissoesFinais), proximaOrdem]
     );
 
     const novo = resultado.rows[0];
@@ -138,9 +142,12 @@ async function criar(req, res) {
 async function atualizar(req, res) {
   try {
     const { id } = req.params;
-    const { nome, email, username, cargo, ativo, permissoes, ordem } = req.body;
+    const { nome, email, username, cargo, ativo, permissoes, ordem, telefone } = req.body;
 
     if (cargo && !CARGOS_VALIDOS.includes(cargo)) return res.status(400).json({ erro: 'Categoria invalida.' });
+    if (telefone && !validarTelefone(telefone)) {
+      return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
+    }
 
     const anterior = await query('SELECT * FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
     if (anterior.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
@@ -156,9 +163,10 @@ async function atualizar(req, res) {
        ativo = COALESCE($5, ativo),
        permissoes = COALESCE($6, permissoes),
        ordem = COALESCE($7, ordem),
+       telefone = COALESCE($8, telefone),
        atualizado_em = NOW()
-       WHERE id = $8 AND estabelecimento_id = $9 RETURNING id, nome, email, username, cargo, permissoes, ativo, ordem`,
-      [nome, email, username, cargo, ativo, permissoesFinais !== undefined ? JSON.stringify(permissoesFinais) : null, ordem, id, req.estabelecimentoId]
+       WHERE id = $9 AND estabelecimento_id = $10 RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem`,
+      [nome, email, username, cargo, ativo, permissoesFinais !== undefined ? JSON.stringify(permissoesFinais) : null, ordem, telefone, id, req.estabelecimentoId]
     );
 
     await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'ATUALIZAR_FUNCIONARIO', 'funcionarios', id, anterior.rows[0], resultado.rows[0], req.ip);
@@ -167,6 +175,51 @@ async function atualizar(req, res) {
   } catch (error) {
     console.error('Erro ao atualizar funcionario:', error);
     res.status(500).json({ erro: 'Erro ao atualizar funcionario.' });
+  }
+}
+
+// Cadastro completo (opcional) do funcionario: nome ja existe, aqui e so o
+// complemento -- data de nascimento, RG, CPF, celular (obrigatorio) e
+// telefone fixo (opcional). Restrito a proprietario/administrador na ROTA
+// (exigirCargoAdministrativo), nao so por permissao, ja que sao dados
+// pessoais sensiveis do funcionario.
+async function atualizarCadastroCompleto(req, res) {
+  try {
+    const { id } = req.params;
+    const { data_nascimento, rg, cpf, celular, telefone } = req.body;
+
+    if (!celular || !validarTelefone(celular)) {
+      return res.status(400).json({ erro: 'Celular e obrigatorio. Use o formato (DDD) 000000000.' });
+    }
+    if (telefone && !validarTelefone(telefone)) {
+      return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
+    }
+    if (cpf && !validarCPF(cpf)) {
+      return res.status(400).json({ erro: 'CPF invalido. Use o formato 000.000.000-00.' });
+    }
+
+    const anterior = await query('SELECT id FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
+    if (anterior.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
+
+    const resultado = await query(
+      `UPDATE funcionarios SET
+        data_nascimento = COALESCE($1, data_nascimento),
+        rg = COALESCE($2, rg),
+        cpf = COALESCE($3, cpf),
+        celular = $4,
+        telefone = COALESCE($5, telefone),
+        atualizado_em = NOW()
+       WHERE id = $6 AND estabelecimento_id = $7
+       RETURNING id, nome, email, telefone, celular, data_nascimento, rg, cpf`,
+      [data_nascimento || null, rg || null, cpf || null, celular, telefone || null, id, req.estabelecimentoId]
+    );
+
+    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'ATUALIZAR_CADASTRO_COMPLETO_FUNCIONARIO', 'funcionarios', id, null, { preenchido: true }, req.ip);
+
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao atualizar cadastro completo do funcionario:', error);
+    res.status(500).json({ erro: 'Erro ao atualizar cadastro completo.' });
   }
 }
 
@@ -256,4 +309,4 @@ async function excluir(req, res) {
   }
 }
 
-module.exports = { loginFuncionario, listar, criar, atualizar, trocarSenha, excluir, registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS };
+module.exports = { loginFuncionario, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir, registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS };
