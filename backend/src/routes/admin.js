@@ -66,6 +66,7 @@ router.delete('/caixas-texto/:id', exigirPermissao('gerenciar_cardapio'), caixaT
 // Pedidos - qualquer funcionario logado pode ver a lista (valores de pedidos
 // concluidos/cancelados sao filtrados dentro do controller conforme permissao).
 router.get('/pedidos', pedidoController.listarPedidosAdmin);
+router.get('/pedidos/contagem', pedidoController.contarPedidosAdmin);
 
 // Caixa geral - resumo dos valores das entregas concluidas. So gerente e
 // administrador (ou quem tiver a permissao marcada) tem acesso.
