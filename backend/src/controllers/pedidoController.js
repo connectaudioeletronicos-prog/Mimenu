@@ -133,6 +133,29 @@ async function listarPedidosAdmin(req, res) {
   }
 }
 
+// Retorna a quantidade de pedidos por status, pra mostrar nos botoes de
+// filtro (Todos, Novos, Preparando, Saiu p/ entrega, Entregues, Cancelados).
+async function contarPedidosAdmin(req, res) {
+  try {
+    const resultado = await query(
+      `SELECT status_pedido, COUNT(*)::int AS total
+       FROM pedidos WHERE estabelecimento_id = $1
+       GROUP BY status_pedido`,
+      [req.estabelecimentoId]
+    );
+
+    const contagem = { todos: 0, novo: 0, preparando: 0, saiu_entrega: 0, entregue: 0, cancelado: 0 };
+    resultado.rows.forEach(linha => {
+      contagem[linha.status_pedido] = linha.total;
+      contagem.todos += linha.total;
+    });
+
+    res.json(contagem);
+  } catch (error) {
+    res.status(500).json({ erro: 'Erro ao contar pedidos.' });
+  }
+}
+
 async function atualizarStatusPedido(req, res) {
   try {
     const { id } = req.params;
@@ -156,6 +179,18 @@ async function atualizarStatusPedido(req, res) {
     const statusFinal = ['entregue', 'cancelado'];
     if (statusFinal.includes(pedidoAtual.rows[0].status_pedido)) {
       return res.status(400).json({ erro: 'Pedidos finalizados ou cancelados nao podem ser alterados.' });
+    }
+
+    // Impede voltar para um status anterior: o pedido so pode avancar na
+    // sequencia (novo -> preparando -> saiu_entrega -> entregue), ou ser
+    // cancelado a qualquer momento antes de ser entregue.
+    const ORDEM_STATUS = ['novo', 'preparando', 'saiu_entrega', 'entregue'];
+    if (status_pedido !== 'cancelado') {
+      const indiceAtual = ORDEM_STATUS.indexOf(pedidoAtual.rows[0].status_pedido);
+      const indiceNovo = ORDEM_STATUS.indexOf(status_pedido);
+      if (indiceNovo <= indiceAtual) {
+        return res.status(400).json({ erro: 'Nao e possivel voltar um pedido para um status anterior.' });
+      }
     }
 
     const resultado = await query(
@@ -282,6 +317,7 @@ module.exports = {
   consultarStatusPedido,
   webhookMercadoPago,
   listarPedidosAdmin,
+  contarPedidosAdmin,
   atualizarStatusPedido,
   corrigirValoresPedido,
   listarPedidosCliente,
