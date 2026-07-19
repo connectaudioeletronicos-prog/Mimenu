@@ -578,6 +578,7 @@ let dragSrcCategoriaId = null;
 function configurarArrastarSoltar(container, seletorItem, atributoId, aoSoltar) {
   if (!container) return;
   let itemArrastado = null;
+  let deslocamentoInicialY = 0;
 
   container.querySelectorAll(seletorItem).forEach(item => {
     const alca = item.querySelector('.drag-handle');
@@ -585,7 +586,9 @@ function configurarArrastarSoltar(container, seletorItem, atributoId, aoSoltar) 
     alca.style.touchAction = 'none';
     alca.onpointerdown = (evento) => {
       itemArrastado = item;
+      deslocamentoInicialY = evento.clientY;
       item.classList.add('sendo-arrastado');
+      try { alca.setPointerCapture(evento.pointerId); } catch (e) { /* alguns navegadores antigos nao suportam, ok ignorar */ }
       evento.preventDefault();
     };
   });
@@ -596,6 +599,10 @@ function configurarArrastarSoltar(container, seletorItem, atributoId, aoSoltar) 
 
   const aoMover = (evento) => {
     if (!itemArrastado) return;
+    // Efeito visual: o item acompanha o dedo verticalmente, pra ficar
+    // claro que o arrastar esta funcionando.
+    itemArrastado.style.transform = `translateY(${evento.clientY - deslocamentoInicialY}px)`;
+
     const elemento = document.elementFromPoint(evento.clientX, evento.clientY);
     const itemSobre = elemento && elemento.closest(seletorItem);
     if (!itemSobre || itemSobre === itemArrastado || itemSobre.parentElement !== container) return;
@@ -606,11 +613,14 @@ function configurarArrastarSoltar(container, seletorItem, atributoId, aoSoltar) 
     } else {
       container.insertBefore(itemArrastado, itemSobre.nextSibling);
     }
+    deslocamentoInicialY = evento.clientY;
+    itemArrastado.style.transform = '';
   };
 
   const aoFinalizar = () => {
     if (!itemArrastado) return;
     itemArrastado.classList.remove('sendo-arrastado');
+    itemArrastado.style.transform = '';
     const novaOrdem = Array.from(container.querySelectorAll(seletorItem)).map(el => el.getAttribute(atributoId));
     itemArrastado = null;
     aoSoltar(novaOrdem);
@@ -1342,12 +1352,43 @@ function coletarPermissoesMarcadas(grupoId) {
 }
 
 let EVENTOS_FUNCIONARIOS_CONFIGURADOS = false;
+// Mascaras padronizadas -- mesmo formato usado no checkout do cliente final:
+// telefone "(99) 999999999" e CPF "999.999.999-99".
+function aplicarMascaraTelefoneAdmin(campo) {
+  if (!campo || campo.dataset.mascara) return;
+  campo.dataset.mascara = '1';
+  campo.addEventListener('input', function () {
+    let numeros = this.value.replace(/\D/g, '').substring(0, 11);
+    if (numeros.length === 0) this.value = '';
+    else if (numeros.length <= 2) this.value = '(' + numeros;
+    else this.value = '(' + numeros.substring(0, 2) + ') ' + numeros.substring(2);
+  });
+}
+
+function aplicarMascaraCpfAdmin(campo) {
+  if (!campo || campo.dataset.mascara) return;
+  campo.dataset.mascara = '1';
+  campo.addEventListener('input', function () {
+    let numeros = this.value.replace(/\D/g, '').substring(0, 11);
+    let valor = numeros;
+    if (numeros.length > 3) valor = numeros.substring(0, 3) + '.' + numeros.substring(3);
+    if (numeros.length > 6) valor = valor.substring(0, 7) + '.' + numeros.substring(6);
+    if (numeros.length > 9) valor = valor.substring(0, 11) + '-' + numeros.substring(9);
+    this.value = valor;
+  });
+}
+
 function configurarFuncionarios() {
   if (EVENTOS_FUNCIONARIOS_CONFIGURADOS) return;
   EVENTOS_FUNCIONARIOS_CONFIGURADOS = true;
 
   alternarCaixasAdministrador('func-cargo', 'grupo-permissoes-funcionario');
   alternarCaixasAdministrador('edit-func-cargo', 'edit-grupo-permissoes');
+
+  aplicarMascaraTelefoneAdmin(document.getElementById('func-telefone'));
+  aplicarMascaraTelefoneAdmin(document.getElementById('edit-func-telefone'));
+  aplicarMascaraTelefoneAdmin(document.getElementById('edit-func-celular'));
+  aplicarMascaraCpfAdmin(document.getElementById('edit-func-cpf'));
 
   document.querySelectorAll('.botao-marcar-todas').forEach(botao => {
     botao.addEventListener('click', () => {
@@ -1367,6 +1408,7 @@ function configurarFuncionarios() {
         nome: document.getElementById('func-nome').value.trim(),
         email: document.getElementById('func-email').value.trim(),
         username: document.getElementById('func-username').value.trim() || null,
+        telefone: document.getElementById('func-telefone').value.trim() || null,
         senha: document.getElementById('func-senha').value,
         cargo: document.getElementById('func-cargo').value,
         permissoes: coletarPermissoesMarcadas('grupo-permissoes-funcionario')
@@ -1388,6 +1430,7 @@ function configurarFuncionarios() {
       await apiAtualizarFuncionario(id, {
         nome: document.getElementById('edit-func-nome').value.trim(),
         email: document.getElementById('edit-func-email').value.trim(),
+        telefone: document.getElementById('edit-func-telefone').value.trim() || null,
         cargo: document.getElementById('edit-func-cargo').value,
         ativo: document.getElementById('edit-func-ativo').checked,
         permissoes: coletarPermissoesMarcadas('edit-grupo-permissoes')
@@ -1396,6 +1439,22 @@ function configurarFuncionarios() {
       renderizarFuncionariosAdmin();
       fecharModaisAdmin();
       mostrarToast('Funcionario atualizado com sucesso!');
+    } catch (erro) {
+      mostrarToast(erro.message, true);
+    }
+  });
+
+  document.getElementById('botao-salvar-cadastro-completo-funcionario').addEventListener('click', async () => {
+    const id = document.getElementById('edit-func-id').value;
+    try {
+      await apiAtualizarCadastroCompletoFuncionario(id, {
+        celular: document.getElementById('edit-func-celular').value.trim(),
+        telefone: document.getElementById('edit-func-telefone').value.trim() || null,
+        data_nascimento: document.getElementById('edit-func-nascimento').value || null,
+        rg: document.getElementById('edit-func-rg').value.trim() || null,
+        cpf: document.getElementById('edit-func-cpf').value.trim() || null
+      });
+      mostrarToast('Cadastro completo salvo com sucesso!');
     } catch (erro) {
       mostrarToast(erro.message, true);
     }
@@ -1440,6 +1499,7 @@ function abrirModalEditarFuncionario(id) {
   document.getElementById('edit-func-id').value = f.id;
   document.getElementById('edit-func-nome').value = f.nome;
   document.getElementById('edit-func-email').value = f.email;
+  document.getElementById('edit-func-telefone').value = f.telefone || '';
   document.getElementById('edit-func-cargo').value = f.cargo;
   document.getElementById('edit-func-ativo').checked = f.ativo;
 
@@ -1448,6 +1508,19 @@ function abrirModalEditarFuncionario(id) {
     cb.checked = (f.permissoes || []).includes(cb.value);
   });
   grupo.classList.toggle('desabilitada', f.cargo === 'administrador');
+
+  // O bloco de cadastro completo (dados pessoais sensiveis) so aparece
+  // para quem esta logado como proprietario ou administrador.
+  const cargoSessao = sessaoAtual().cargo;
+  const podeVerCadastroCompleto = cargoSessao === 'proprietario' || cargoSessao === 'administrador';
+  const blocoCompleto = document.getElementById('bloco-cadastro-completo-funcionario');
+  blocoCompleto.classList.toggle('oculto', !podeVerCadastroCompleto);
+  if (podeVerCadastroCompleto) {
+    document.getElementById('edit-func-celular').value = f.celular || '';
+    document.getElementById('edit-func-nascimento').value = f.data_nascimento ? f.data_nascimento.substring(0, 10) : '';
+    document.getElementById('edit-func-rg').value = f.rg || '';
+    document.getElementById('edit-func-cpf').value = f.cpf || '';
+  }
 
   document.getElementById('modal-editar-funcionario').classList.remove('oculto');
 }
