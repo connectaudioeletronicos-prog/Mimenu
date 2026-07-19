@@ -431,6 +431,10 @@
             <input type="text" id="func-username" class="campo-texto">
           </div>
           <div class="campo-grupo">
+            <label class="campo-label">Telefone</label>
+            <input type="text" id="func-telefone" class="campo-texto" placeholder="(00) 000000000">
+          </div>
+          <div class="campo-grupo">
             <label class="campo-label">Senha</label>
             <div class="campo-senha-wrapper">
               <input type="password" id="func-senha" class="campo-texto" required minlength="6">
@@ -440,7 +444,7 @@
           <div class="campo-grupo">
             <label class="campo-label">Categoria (define so o limite de quantidade)</label>
             <select id="func-cargo" class="campo-texto">
-              <option value="administrador">Administrador (max. 2) - acesso total</option>
+              <option value="administrador">Administrador (max. 1) - acesso total</option>
               <option value="gerente">Gerente (max. 1)</option>
               <option value="caixa">Caixa (max. 5)</option>
               <option value="garcom">Garcom (sem limite)</option>
@@ -488,9 +492,12 @@
       <label>E-mail
         <input type="email" id="edit-func-email">
       </label>
+      <label>Telefone
+        <input type="text" id="edit-func-telefone" placeholder="(00) 000000000">
+      </label>
       <label>Categoria
         <select id="edit-func-cargo">
-          <option value="administrador">Administrador (max. 2) - acesso total</option>
+          <option value="administrador">Administrador (max. 1) - acesso total</option>
           <option value="gerente">Gerente (max. 1)</option>
           <option value="caixa">Caixa (max. 5)</option>
           <option value="garcom">Garcom (sem limite)</option>
@@ -514,6 +521,24 @@
         </div>
       </label>
       <label class="permissao-item"><input type="checkbox" id="edit-func-ativo"> Funcionario ativo</label>
+
+      <div id="bloco-cadastro-completo-funcionario" class="oculto" style="margin-top:18px; padding-top:18px; border-top:1px solid var(--admin-cor-borda,#e2e2e2);">
+        <h3 style="margin-top:0;">Cadastro completo (opcional)</h3>
+        <p style="font-size:0.85rem; color:#777; margin-top:-8px;">Visivel so para proprietario/administrador. Preencha se quiser manter os dados pessoais completos do funcionario.</p>
+        <label>Celular (obrigatorio nesta secao)
+          <input type="text" id="edit-func-celular" placeholder="(00) 000000000">
+        </label>
+        <label>Data de nascimento
+          <input type="date" id="edit-func-nascimento">
+        </label>
+        <label>RG
+          <input type="text" id="edit-func-rg">
+        </label>
+        <label>CPF
+          <input type="text" id="edit-func-cpf" placeholder="000.000.000-00">
+        </label>
+        <button id="botao-salvar-cadastro-completo-funcionario" class="botao-secundario">Salvar cadastro completo</button>
+      </div>
 
       <button id="botao-salvar-edicao-funcionario" class="botao-primario">Salvar alteracoes</button>
       <button id="botao-resetar-senha-funcionario" class="botao-secundario">Redefinir senha</button>
