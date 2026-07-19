@@ -164,6 +164,7 @@ async function apiLoginFuncionario(slug, login, senha) {
 const apiListarFuncionarios = () => chamarApiFuncionarios('/');
 const apiCriarFuncionario = (dados) => chamarApiFuncionarios('/', { method: 'POST', body: dados });
 const apiAtualizarFuncionario = (id, dados) => chamarApiFuncionarios(`/${id}`, { method: 'PUT', body: dados });
+const apiAtualizarCadastroCompletoFuncionario = (id, dados) => chamarApiFuncionarios(`/${id}/cadastro-completo`, { method: 'PUT', body: dados });
 const apiTrocarSenhaFuncionario = (id, dados) => chamarApiFuncionarios(`/${id}/senha`, { method: 'PUT', body: dados });
 const apiExcluirFuncionario = (id, senhaConfirmacao) => chamarApiFuncionarios(`/${id}`, { method: 'DELETE', body: { senhaConfirmacao } });
 
