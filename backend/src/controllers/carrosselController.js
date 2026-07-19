@@ -49,7 +49,7 @@ async function criar(req, res) {
     res.status(201).json({ ...resultado.rows[0], imagens: [] });
   } catch (error) {
     console.error('Erro ao criar carrossel:', error);
-    res.status(500).json({ erro: 'Erro interno ao criar carrossel.' });
+    res.status(500).json({ erro: 'Erro ao criar carrossel: ' + (error.message || 'erro desconhecido') });
   }
 }
 
@@ -83,7 +83,7 @@ async function atualizar(req, res) {
     res.json(resultado.rows[0]);
   } catch (error) {
     console.error('Erro ao atualizar carrossel:', error);
-    res.status(500).json({ erro: 'Erro interno ao atualizar carrossel.' });
+    res.status(500).json({ erro: 'Erro ao atualizar carrossel: ' + (error.message || 'erro desconhecido') });
   }
 }
 
