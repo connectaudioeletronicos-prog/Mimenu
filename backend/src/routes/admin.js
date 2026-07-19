@@ -15,6 +15,7 @@ const produtoController = require('../controllers/produtoController');
 const promocaoController = require('../controllers/promocaoController');
 const carrosselController = require('../controllers/carrosselController');
 const vitrineController = require('../controllers/vitrineController');
+const caixaTextoController = require('../controllers/caixaTextoController');
 const pedidoController = require('../controllers/pedidoController');
 
 router.use(autenticar);
@@ -55,6 +56,12 @@ router.get('/vitrines', vitrineController.listar);
 router.post('/vitrines', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), vitrineController.criar);
 router.put('/vitrines/:id', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), vitrineController.atualizar);
 router.delete('/vitrines/:id', exigirPermissao('gerenciar_cardapio'), vitrineController.excluir);
+
+// Caixas de texto (titulo + corpo livre, posicionavel)
+router.get('/caixas-texto', caixaTextoController.listar);
+router.post('/caixas-texto', exigirPermissao('gerenciar_cardapio'), caixaTextoController.criar);
+router.put('/caixas-texto/:id', exigirPermissao('gerenciar_cardapio'), caixaTextoController.atualizar);
+router.delete('/caixas-texto/:id', exigirPermissao('gerenciar_cardapio'), caixaTextoController.excluir);
 
 // Pedidos - qualquer funcionario logado pode ver a lista (valores de pedidos
 // concluidos/cancelados sao filtrados dentro do controller conforme permissao).
