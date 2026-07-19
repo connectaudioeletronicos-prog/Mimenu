@@ -694,12 +694,20 @@ input, textarea, select { font-family: inherit; }
 }
 .drag-handle {
   cursor: grab;
-  font-size: 1.2rem;
-  color: #aaa;
-  padding: 0 6px;
+  font-size: 1.5rem;
+  color: #888;
+  padding: 12px 14px;
+  margin: -12px 4px -12px -8px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   user-select: none;
   flex-shrink: 0;
   touch-action: none;
+  border-radius: 8px;
+  background: #f2f2f2;
 }
 
 .drag-handle:active {
@@ -717,8 +725,11 @@ input, textarea, select { font-family: inherit; }
 }
 
 .item-admin.sendo-arrastado {
-  opacity: 0.4;
+  opacity: 0.85;
   background: #eff6ff;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+  position: relative;
+  z-index: 5;
 }
 
 /* ===================================================================
