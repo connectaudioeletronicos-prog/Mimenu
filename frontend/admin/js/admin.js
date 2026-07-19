@@ -219,7 +219,8 @@ async function carregarTudo() {
     apiListarProdutos(),
     apiListarPromocoes(),
     apiListarCarrosseis(),
-    apiListarVitrines()
+    apiListarVitrines(),
+    apiListarCaixasTexto()
   ]);
 
   ESTADO.estabelecimento = resultados[0].status === 'fulfilled' ? resultados[0].value : null;
@@ -228,6 +229,7 @@ async function carregarTudo() {
   ESTADO.promocoes = resultados[3].status === 'fulfilled' ? resultados[3].value : [];
   ESTADO.carrosseis = resultados[4].status === 'fulfilled' ? resultados[4].value : [];
   ESTADO.vitrines = resultados[5].status === 'fulfilled' ? resultados[5].value : [];
+  ESTADO.caixasTexto = resultados[6].status === 'fulfilled' ? resultados[6].value : [];
 
   if (temPermissao('gerenciar_funcionarios')) {
     try { ESTADO.funcionarios = await apiListarFuncionarios(); } catch { ESTADO.funcionarios = []; }
@@ -333,8 +335,10 @@ function preencherFormularios() {
 
   if (typeof renderizarCarrosseisAdmin === 'function') renderizarCarrosseisAdmin();
   if (typeof renderizarVitrinesAdmin === 'function') renderizarVitrinesAdmin();
+  if (typeof renderizarCaixasTextoAdmin === 'function') renderizarCaixasTextoAdmin();
   if (typeof configurarEventosCarrosseis === 'function') configurarEventosCarrosseis();
   if (typeof configurarEventosVitrines === 'function') configurarEventosVitrines();
+  if (typeof configurarEventosCaixasTexto === 'function') configurarEventosCaixasTexto();
   configurarEventosPedidos();
   configurarEventosCaixaGeral();
 }
@@ -1373,7 +1377,7 @@ function escaparHtmlAdmin(texto) {
 // ===================================================================
 // Paleta de cores padrao da marca (Mimenu) - codigos exatos respeitados
 // ===================================================================
-const PALETA_CORES_PADRAO = ['#10B981', '#FFC107', '#212121', '#EBEBEB', '#90907F', '#374156', '#E63946', '#1D3557', '#2A9D8F'];
+const PALETA_CORES_PADRAO = ['#0E7C3F', '#FFC107', '#212121', '#EBEBEB', '#90907F', '#374156', '#E63946', '#1D3557', '#D6249F'];
 let PALETA_CORES_CONFIGURADA = false;
 
 function montarPaletaCores() {
