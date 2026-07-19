@@ -43,7 +43,7 @@ async function criar(req, res) {
     res.status(201).json(resultado.rows[0]);
   } catch (error) {
     console.error('Erro ao criar caixa de texto:', error);
-    res.status(500).json({ erro: 'Erro interno ao criar caixa de texto.' });
+    res.status(500).json({ erro: 'Erro ao criar caixa de texto: ' + (error.message || 'erro desconhecido') });
   }
 }
 
@@ -81,7 +81,7 @@ async function atualizar(req, res) {
     res.json(resultado.rows[0]);
   } catch (error) {
     console.error('Erro ao atualizar caixa de texto:', error);
-    res.status(500).json({ erro: 'Erro interno ao atualizar caixa de texto.' });
+    res.status(500).json({ erro: 'Erro ao atualizar caixa de texto: ' + (error.message || 'erro desconhecido') });
   }
 }
 
