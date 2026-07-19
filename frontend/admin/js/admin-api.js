@@ -170,6 +170,7 @@ const apiExcluirFuncionario = (id, senhaConfirmacao) => chamarApiFuncionarios(`/
 const apiCorrigirValoresPedido = (id, dados) => chamarApiAdmin(`/pedidos/${id}/valores`, { method: 'PUT', body: dados });
 
 const apiListarPedidos = (status = '') => chamarApiAdmin(`/pedidos${status ? `?status=${status}` : ''}`);
+const apiContarPedidos = () => chamarApiAdmin('/pedidos/contagem');
 const apiAtualizarStatusPedido = (id, status_pedido) => chamarApiAdmin(`/pedidos/${id}/status`, { method: 'PUT', body: { status_pedido } });
 
 const apiObterCaixaGeral = (dataInicio = '', dataFim = '') => {
