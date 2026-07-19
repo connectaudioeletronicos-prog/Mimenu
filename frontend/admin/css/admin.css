@@ -237,6 +237,27 @@ input, textarea, select { font-family: inherit; }
   color: var(--admin-cor-erro);
 }
 
+.painel__menu-contador {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  background: var(--admin-cor-primaria-clara);
+  color: var(--admin-cor-primaria);
+}
+
+.painel__menu-item.ativo .painel__menu-contador {
+  background: #fff;
+}
+
+.painel__menu-contador:empty {
+  display: none;
+}
+
 .painel__conteudo {
   flex: 1;
   padding: 32px;
