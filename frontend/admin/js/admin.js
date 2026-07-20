@@ -663,16 +663,30 @@ function configurarArrastarSoltar(container, seletorItem, atributoId, aoSoltar) 
 
 function renderizarCategoriasAdmin() {
   const lista = document.getElementById('lista-categorias-admin');
-  document.getElementById('contador-categorias').textContent = `(${ESTADO.categorias.length})`;
-  if (ESTADO.categorias.length === 0) {
-    lista.innerHTML = '<div class="lista-vazia">Nenhuma categoria cadastrada ainda.</div>';
-    return;
+  const ativas = ESTADO.categorias.filter(c => c.ativo !== false);
+  const desativadas = ESTADO.categorias.filter(c => c.ativo === false);
+  document.getElementById('contador-categorias').textContent = `(${ativas.length})`;
+  document.getElementById('contador-categorias-desativadas').textContent = `(${desativadas.length})`;
+
+  if (ativas.length === 0) {
+    lista.innerHTML = '<div class="lista-vazia">Nenhuma categoria ativa.</div>';
+  } else {
+    lista.innerHTML = montarItensCategoria([...ativas].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)));
+    configurarItensCategoria(lista);
+    configurarDragDropCategorias(lista);
   }
 
-  const ordenadas = [...ESTADO.categorias].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  const blocoDesativadas = document.getElementById('bloco-categorias-desativadas');
+  blocoDesativadas.innerHTML = desativadas.length === 0
+    ? '<div class="lista-vazia">Nenhuma categoria desativada.</div>'
+    : montarItensCategoria(desativadas);
+  configurarItensCategoria(blocoDesativadas);
+}
 
-  lista.innerHTML = ordenadas.map(cat => `
-    <div class="item-admin item-admin--drag" draggable="true" data-categoria-drag-id="${cat.id}">
+function montarItensCategoria(categorias) {
+  return categorias.map(cat => `
+    <div class="item-admin ${cat.ativo === false ? 'item-admin--indisponivel' : ''} item-admin--drag"
+         draggable="true" data-categoria-drag-id="${cat.id}" data-categoria-expandir="${cat.id}">
       <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
       <img class="item-admin__imagem" src="${cat.icone_url || ''}" alt="">
       <div class="item-admin__info">
@@ -681,19 +695,58 @@ function renderizarCategoriasAdmin() {
       </div>
       <div class="item-admin__acoes">
         <button data-editar-categoria="${cat.id}">Editar</button>
+        <label class="interruptor" title="${cat.ativo === false ? 'Ativar categoria' : 'Desativar categoria'}">
+          <input type="checkbox" data-toggle-categoria="${cat.id}" ${cat.ativo !== false ? 'checked' : ''}>
+          <span class="interruptor__trilho"></span>
+        </label>
         <button class="botao-perigo" data-excluir-categoria="${cat.id}">Excluir</button>
       </div>
     </div>
+    <div class="item-admin__descricao-painel oculto" data-descricao-painel-categoria="${cat.id}">
+      ${cat.descricao ? escaparHtmlAdmin(cat.descricao) : 'Sem descricao cadastrada.'}
+    </div>
   `).join('');
+}
 
-  lista.querySelectorAll('[data-editar-categoria]').forEach(b => {
-    b.addEventListener('click', () => abrirModalCategoria(b.getAttribute('data-editar-categoria')));
+function configurarItensCategoria(container) {
+  container.querySelectorAll('[data-editar-categoria]').forEach(b => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      abrirModalCategoria(b.getAttribute('data-editar-categoria'));
+    });
   });
-  lista.querySelectorAll('[data-excluir-categoria]').forEach(b => {
-    b.addEventListener('click', () => excluirCategoria(b.getAttribute('data-excluir-categoria')));
+  container.querySelectorAll('[data-excluir-categoria]').forEach(b => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      excluirCategoria(b.getAttribute('data-excluir-categoria'));
+    });
   });
+  container.querySelectorAll('[data-toggle-categoria]').forEach(input => {
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('change', () => alternarAtivoCategoria(input.getAttribute('data-toggle-categoria'), input.checked));
+  });
+  container.querySelectorAll('.item-admin[data-categoria-expandir]').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('button, label.interruptor, .drag-handle')) return;
+      const id = item.getAttribute('data-categoria-expandir');
+      const painel = container.querySelector(`[data-descricao-painel-categoria="${id}"]`);
+      if (painel) painel.classList.toggle('oculto');
+    });
+  });
+}
 
-  configurarDragDropCategorias(lista);
+async function alternarAtivoCategoria(id, ativo) {
+  try {
+    const fd = new FormData();
+    fd.append('ativo', ativo);
+    await apiAtualizarCategoria(id, fd);
+    await carregarTudo();
+    renderizarCategoriasAdmin();
+    mostrarToast(ativo ? 'Categoria ativada.' : 'Categoria desativada.');
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+    renderizarCategoriasAdmin();
+  }
 }
 
 function configurarDragDropCategorias(lista) {
@@ -750,13 +803,17 @@ function configurarEventosCategorias() {
   if (EVENTOS_CATEGORIAS_CONFIGURADOS) return;
   EVENTOS_CATEGORIAS_CONFIGURADOS = true;
 
-  document.getElementById('botao-nova-categoria').addEventListener('click', () => abrirModalCategoria(null));
+  document.getElementById('botao-nova-categoria')?.addEventListener('click', () => abrirModalCategoria(null));
+  document.getElementById('botao-alternar-categorias-desativadas')?.addEventListener('click', () => {
+    document.getElementById('bloco-categorias-desativadas').classList.toggle('oculto');
+  });
 
   document.getElementById('form-categoria').addEventListener('submit', async (evento) => {
     evento.preventDefault();
     const id = document.getElementById('categoria-id').value;
     const formData = new FormData();
     formData.append('nome', document.getElementById('categoria-nome').value.trim());
+    formData.append('descricao', document.getElementById('categoria-descricao').value.trim());
     formData.append('ordem', ESTADO.categorias.length);
     const arquivo = document.getElementById('categoria-icone').files[0];
     if (arquivo) formData.append('imagem', arquivo);
@@ -783,6 +840,7 @@ function abrirModalCategoria(id) {
   document.getElementById('titulo-modal-categoria').textContent = categoria ? 'Editar categoria' : 'Nova categoria';
   document.getElementById('categoria-id').value = id || '';
   document.getElementById('categoria-nome').value = categoria ? categoria.nome : '';
+  document.getElementById('categoria-descricao').value = categoria?.descricao || '';
   document.getElementById('categoria-icone').value = '';
   document.getElementById('modal-categoria').classList.remove('oculto');
 }
@@ -1207,26 +1265,43 @@ let dragSrcPromocaoId = null;
 
 function renderizarPromocoesAdmin() {
   const lista = document.getElementById('lista-promocoes-admin');
-  document.getElementById('contador-promocoes').textContent = `(${ESTADO.promocoes.length})`;
-  if (ESTADO.promocoes.length === 0) {
-    lista.innerHTML = '<div class="lista-vazia">Nenhuma promocao cadastrada ainda.</div>';
-    return;
+  const ativas = ESTADO.promocoes.filter(p => p.ativo !== false);
+  const desativadas = ESTADO.promocoes.filter(p => p.ativo === false);
+  document.getElementById('contador-promocoes').textContent = `(${ativas.length})`;
+  document.getElementById('contador-promocoes-desativadas').textContent = `(${desativadas.length})`;
+
+  if (ativas.length === 0) {
+    lista.innerHTML = '<div class="lista-vazia">Nenhuma promocao ativa.</div>';
+  } else {
+    lista.innerHTML = montarItensPromocao([...ativas].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)));
+    configurarItensPromocao(lista);
+    configurarDragDropPromocoes(lista);
   }
 
-  const ordenadas = [...ESTADO.promocoes].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  const blocoDesativadas = document.getElementById('bloco-promocoes-desativadas');
+  blocoDesativadas.innerHTML = desativadas.length === 0
+    ? '<div class="lista-vazia">Nenhuma promocao desativada.</div>'
+    : montarItensPromocao(desativadas);
+  configurarItensPromocao(blocoDesativadas);
+}
 
-  lista.innerHTML = ordenadas.map(promo => {
+function montarItensPromocao(promocoes) {
+  return promocoes.map(promo => {
     const produtoVinculado = promo.produto_id ? ESTADO.produtos.find(p => p.id === promo.produto_id) : null;
     return `
-    <div class="item-admin item-admin--drag" draggable="true" data-promocao-drag-id="${promo.id}" data-promocao-expandir="${promo.id}">
+    <div class="item-admin item-admin--drag ${promo.ativo === false ? 'item-admin--indisponivel' : ''}" draggable="true" data-promocao-drag-id="${promo.id}" data-promocao-expandir="${promo.id}">
       <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
       <img class="item-admin__imagem" src="${promo.imagem_url || ''}" alt="">
       <div class="item-admin__info">
         <div class="item-admin__titulo">${escaparHtmlAdmin(promo.titulo)}</div>
-        <div class="item-admin__subtitulo">${promo.ativo ? 'Ativa' : 'Inativa'}${produtoVinculado ? ' - ' + formatarMoedaAdmin(produtoVinculado.preco) : ''}</div>
+        <div class="item-admin__subtitulo">${produtoVinculado ? formatarMoedaAdmin(produtoVinculado.preco) : ''}</div>
       </div>
       <div class="item-admin__acoes">
         <button data-editar-promocao="${promo.id}">Editar</button>
+        <label class="interruptor" title="${promo.ativo === false ? 'Ativar promocao' : 'Desativar promocao'}">
+          <input type="checkbox" data-toggle-promocao="${promo.id}" ${promo.ativo !== false ? 'checked' : ''}>
+          <span class="interruptor__trilho"></span>
+        </label>
         <button class="botao-perigo" data-excluir-promocao="${promo.id}">Excluir</button>
       </div>
     </div>
@@ -1235,29 +1310,47 @@ function renderizarPromocoesAdmin() {
     </div>
   `;
   }).join('');
+}
 
-  lista.querySelectorAll('[data-editar-promocao]').forEach(b => {
+function configurarItensPromocao(container) {
+  container.querySelectorAll('[data-editar-promocao]').forEach(b => {
     b.addEventListener('click', (e) => {
       e.stopPropagation();
       abrirModalPromocao(b.getAttribute('data-editar-promocao'));
     });
   });
-  lista.querySelectorAll('[data-excluir-promocao]').forEach(b => {
+  container.querySelectorAll('[data-excluir-promocao]').forEach(b => {
     b.addEventListener('click', (e) => {
       e.stopPropagation();
       excluirPromocao(b.getAttribute('data-excluir-promocao'));
     });
   });
-  lista.querySelectorAll('.item-admin[data-promocao-expandir]').forEach(item => {
+  container.querySelectorAll('[data-toggle-promocao]').forEach(input => {
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('change', () => alternarAtivoPromocao(input.getAttribute('data-toggle-promocao'), input.checked));
+  });
+  container.querySelectorAll('.item-admin[data-promocao-expandir]').forEach(item => {
     item.addEventListener('click', (e) => {
-      if (e.target.closest('button, .drag-handle')) return;
+      if (e.target.closest('button, label.interruptor, .drag-handle')) return;
       const id = item.getAttribute('data-promocao-expandir');
-      const painel = lista.querySelector(`[data-descricao-painel-promocao="${id}"]`);
+      const painel = container.querySelector(`[data-descricao-painel-promocao="${id}"]`);
       if (painel) painel.classList.toggle('oculto');
     });
   });
+}
 
-  configurarDragDropPromocoes(lista);
+async function alternarAtivoPromocao(id, ativo) {
+  try {
+    const fd = new FormData();
+    fd.append('ativo', ativo);
+    await apiAtualizarPromocao(id, fd);
+    await carregarTudo();
+    renderizarPromocoesAdmin();
+    mostrarToast(ativo ? 'Promocao ativada.' : 'Promocao desativada.');
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+    renderizarPromocoesAdmin();
+  }
 }
 
 function configurarDragDropPromocoes(lista) {
