@@ -77,11 +77,9 @@ function renderizarCarrosseisAdmin() {
 
   configurarArrastarSoltar(lista, '[data-carrossel-drag-id]', 'data-carrossel-drag-id', async (novaOrdemIds) => {
     try {
-      const respostas = await Promise.all(novaOrdemIds.map((id, i) => apiAtualizarCarrossel(id, { ordem: i })));
+      await Promise.all(novaOrdemIds.map((id, i) => apiAtualizarCarrossel(id, { ordem: i })));
       ESTADO.carrosseis = await apiListarCarrosseis();
       renderizarCarrosseisAdmin();
-      const diagnostico = ESTADO.carrosseis.map(c => `${c.nome}: ordem=${c.ordem}`).join('\n');
-      alert('DIAGNOSTICO -- ordem devolvida pelo servidor apos salvar:\n' + diagnostico);
     } catch (erro) {
       mostrarToast(erro.message, true);
     }
