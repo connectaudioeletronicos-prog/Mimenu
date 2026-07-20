@@ -644,10 +644,12 @@ function configurarArrastarSoltar(container, seletorItem, atributoId, aoSoltar) 
     const novaOrdem = Array.from(cont.querySelectorAll(seletor)).map(el => el.getAttribute(atributo));
     try {
       await callback(novaOrdem);
-      alert('Nova ordem salva com sucesso!');
+      if (typeof mostrarToast === 'function') mostrarToast('Nova ordem salva com sucesso!');
     } catch (erro) {
       console.error('Erro ao salvar nova ordem:', erro);
-      alert('ERRO ao salvar a nova ordem: ' + ((erro && erro.message) || 'motivo desconhecido'));
+      if (typeof mostrarToast === 'function') {
+        mostrarToast('ERRO ao salvar a nova ordem: ' + ((erro && erro.message) || 'motivo desconhecido'), true);
+      }
     }
   };
 
