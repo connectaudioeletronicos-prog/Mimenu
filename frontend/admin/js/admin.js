@@ -811,13 +811,30 @@ function preencherSelectCategorias() {
 // =============================================
 let dragSrcProdutoId = null;
 
+let FILTRO_CATEGORIA_PRODUTOS = null;
+
 function renderizarProdutosAdmin() {
   const lista = document.getElementById('lista-produtos-admin');
-  document.getElementById('contador-produtos').textContent = `(${ESTADO.produtos.length})`;
-  if (ESTADO.produtos.length === 0) {
-    lista.innerHTML = '<div class="lista-vazia">Nenhum produto cadastrado ainda.</div>';
+  const chip = document.getElementById('chip-filtro-categoria');
+
+  const produtosFiltrados = FILTRO_CATEGORIA_PRODUTOS
+    ? ESTADO.produtos.filter(p => p.categoria_id === FILTRO_CATEGORIA_PRODUTOS)
+    : ESTADO.produtos;
+
+  document.getElementById('contador-produtos').textContent = `(${produtosFiltrados.length})`;
+
+  if (FILTRO_CATEGORIA_PRODUTOS) {
+    const categoria = ESTADO.categorias.find(c => c.id === FILTRO_CATEGORIA_PRODUTOS);
+    document.getElementById('chip-filtro-categoria-nome').textContent = categoria ? categoria.nome : 'categoria';
+    chip.classList.remove('oculto');
   } else {
-    const ordenados = [...ESTADO.produtos].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+    chip.classList.add('oculto');
+  }
+
+  if (produtosFiltrados.length === 0) {
+    lista.innerHTML = `<div class="lista-vazia">${FILTRO_CATEGORIA_PRODUTOS ? 'Nenhum produto nesta categoria.' : 'Nenhum produto cadastrado ainda.'}</div>`;
+  } else {
+    const ordenados = [...produtosFiltrados].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 
     lista.innerHTML = ordenados.map(p => `
       <div class="item-admin item-admin--drag ${!p.disponivel ? 'item-admin--indisponivel' : ''}"
@@ -972,18 +989,16 @@ function configurarDragDropProdutos(lista) {
 }
 
 let EVENTOS_PRODUTOS_CONFIGURADOS = false;
-let PRODUTO_MODO_PAGINA = false;
 
 function configurarEventosProdutos() {
   if (EVENTOS_PRODUTOS_CONFIGURADOS) return;
   EVENTOS_PRODUTOS_CONFIGURADOS = true;
 
-  document.getElementById('botao-novo-produto')?.addEventListener('click', () => abrirModalProdutoAdmin(null, false));
-  document.getElementById('botao-nova-pagina')?.addEventListener('click', () => abrirModalProdutoAdmin(null, true));
-
-  document.getElementById('botao-concluir-pagina')?.addEventListener('click', () => {
-    PRODUTO_MODO_PAGINA = false;
-    fecharModaisAdmin();
+  document.getElementById('botao-novo-produto')?.addEventListener('click', () => abrirModalProdutoAdmin(null));
+  document.getElementById('botao-filtro-categorias')?.addEventListener('click', abrirModalFiltroCategorias);
+  document.getElementById('botao-limpar-filtro-categoria')?.addEventListener('click', () => {
+    FILTRO_CATEGORIA_PRODUTOS = null;
+    renderizarProdutosAdmin();
   });
 
   document.getElementById('botao-ler-codigo-barras')?.addEventListener('click', abrirLeitorCodigoBarras);
@@ -1017,25 +1032,41 @@ function configurarEventosProdutos() {
       renderizarProdutosAdmin();
       preencherSelectProdutosPromocao();
       mostrarToast('Produto salvo com sucesso!');
-
-      if (PRODUTO_MODO_PAGINA && !id) {
-        // Modo pagina: mantem o modal aberto, na mesma categoria, pronto para o proximo produto
-        abrirModalProdutoAdmin(null, true, categoriaSelecionada);
-      } else {
-        fecharModaisAdmin();
-      }
+      fecharModaisAdmin();
     } catch (erro) {
       mostrarToast(erro.message, true);
     }
   });
 }
 
-function abrirModalProdutoAdmin(id, modoPagina = false, categoriaPreSelecionada = '') {
+function abrirModalFiltroCategorias() {
+  const lista = document.getElementById('lista-categorias-filtro');
+  const categorias = [...ESTADO.categorias].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+
+  const botaoTodas = `<button data-filtro-categoria-id="" class="${!FILTRO_CATEGORIA_PRODUTOS ? 'ativa' : ''}">Todas as categorias</button>`;
+  const botoesCategorias = categorias.map(c => `
+    <button data-filtro-categoria-id="${c.id}" class="${FILTRO_CATEGORIA_PRODUTOS === c.id ? 'ativa' : ''}">${escaparHtmlAdmin(c.nome)}</button>
+  `).join('');
+
+  lista.innerHTML = botaoTodas + botoesCategorias;
+
+  lista.querySelectorAll('[data-filtro-categoria-id]').forEach(b => {
+    b.addEventListener('click', () => {
+      const idCategoria = b.getAttribute('data-filtro-categoria-id');
+      FILTRO_CATEGORIA_PRODUTOS = idCategoria || null;
+      renderizarProdutosAdmin();
+      fecharModaisAdmin();
+    });
+  });
+
+  document.getElementById('modal-filtro-categorias').classList.remove('oculto');
+}
+
+function abrirModalProdutoAdmin(id) {
   const produto = id ? ESTADO.produtos.find(p => p.id === id) : null;
-  PRODUTO_MODO_PAGINA = modoPagina;
   document.getElementById('titulo-modal-produto').textContent = produto ? 'Editar produto' : 'Novo produto';
   document.getElementById('produto-id').value = id || '';
-  document.getElementById('produto-categoria').value = produto?.categoria_id || categoriaPreSelecionada || '';
+  document.getElementById('produto-categoria').value = produto?.categoria_id || FILTRO_CATEGORIA_PRODUTOS || '';
   document.getElementById('produto-nome').value = produto?.nome || '';
   document.getElementById('produto-codigo').value = produto?.codigo || '';
   document.getElementById('produto-descricao').value = produto?.descricao || '';
@@ -1044,8 +1075,6 @@ function abrirModalProdutoAdmin(id, modoPagina = false, categoriaPreSelecionada 
   document.getElementById('produto-estoque').value = (produto && produto.estoque !== null && produto.estoque !== undefined) ? produto.estoque : '';
   document.getElementById('produto-disponivel').checked = produto ? produto.disponivel : true;
   document.getElementById('produto-foto').value = '';
-  document.getElementById('aviso-modo-pagina').classList.toggle('oculto', !modoPagina);
-  document.getElementById('botao-concluir-pagina').classList.toggle('oculto', !modoPagina);
   document.getElementById('modal-produto-admin').classList.remove('oculto');
   document.getElementById('produto-nome').focus();
 }
@@ -1186,26 +1215,46 @@ function renderizarPromocoesAdmin() {
 
   const ordenadas = [...ESTADO.promocoes].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 
-  lista.innerHTML = ordenadas.map(promo => `
-    <div class="item-admin item-admin--drag" draggable="true" data-promocao-drag-id="${promo.id}">
+  lista.innerHTML = ordenadas.map(promo => {
+    const produtoVinculado = promo.produto_id ? ESTADO.produtos.find(p => p.id === promo.produto_id) : null;
+    return `
+    <div class="item-admin item-admin--drag" draggable="true" data-promocao-drag-id="${promo.id}" data-promocao-expandir="${promo.id}">
       <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
       <img class="item-admin__imagem" src="${promo.imagem_url || ''}" alt="">
       <div class="item-admin__info">
         <div class="item-admin__titulo">${escaparHtmlAdmin(promo.titulo)}</div>
-        <div class="item-admin__subtitulo">${promo.ativo ? 'Ativa' : 'Inativa'}</div>
+        <div class="item-admin__subtitulo">${promo.ativo ? 'Ativa' : 'Inativa'}${produtoVinculado ? ' - ' + formatarMoedaAdmin(produtoVinculado.preco) : ''}</div>
       </div>
       <div class="item-admin__acoes">
         <button data-editar-promocao="${promo.id}">Editar</button>
         <button class="botao-perigo" data-excluir-promocao="${promo.id}">Excluir</button>
       </div>
     </div>
-  `).join('');
+    <div class="item-admin__descricao-painel oculto" data-descricao-painel-promocao="${promo.id}">
+      ${promo.descricao ? escaparHtmlAdmin(promo.descricao) : 'Sem descricao cadastrada.'}
+    </div>
+  `;
+  }).join('');
 
   lista.querySelectorAll('[data-editar-promocao]').forEach(b => {
-    b.addEventListener('click', () => abrirModalPromocao(b.getAttribute('data-editar-promocao')));
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      abrirModalPromocao(b.getAttribute('data-editar-promocao'));
+    });
   });
   lista.querySelectorAll('[data-excluir-promocao]').forEach(b => {
-    b.addEventListener('click', () => excluirPromocao(b.getAttribute('data-excluir-promocao')));
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      excluirPromocao(b.getAttribute('data-excluir-promocao'));
+    });
+  });
+  lista.querySelectorAll('.item-admin[data-promocao-expandir]').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('button, .drag-handle')) return;
+      const id = item.getAttribute('data-promocao-expandir');
+      const painel = lista.querySelector(`[data-descricao-painel-promocao="${id}"]`);
+      if (painel) painel.classList.toggle('oculto');
+    });
   });
 
   configurarDragDropPromocoes(lista);
@@ -1765,7 +1814,6 @@ document.querySelectorAll('[data-fechar-modal-admin]').forEach(el => {
 
 function fecharModaisAdmin() {
   document.querySelectorAll('.modal-admin').forEach(m => m.classList.add('oculto'));
-  PRODUTO_MODO_PAGINA = false;
 }
 
 function formatarMoedaAdmin(valor) {
