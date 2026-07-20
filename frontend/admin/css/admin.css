@@ -996,6 +996,25 @@ input, textarea, select { font-family: inherit; }
   margin-top: 6px;
 }
 
+.botao-mostrar-desativados {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--admin-cor-borda);
+  padding: 14px 4px;
+  margin-top: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--admin-cor-texto-claro);
+  cursor: pointer;
+}
+
+.botao-mostrar-desativados:hover {
+  color: var(--admin-cor-texto);
+}
+
 .fonte-preview {
   margin-top: 8px;
   padding: 10px 12px;
