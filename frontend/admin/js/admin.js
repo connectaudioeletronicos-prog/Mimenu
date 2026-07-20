@@ -340,31 +340,35 @@ function preencherFormularios() {
     document.getElementById('campo-politica-privacidade').value = e.politica_privacidade || '';
   }
 
-  renderizarCategoriasAdmin();
-  renderizarProdutosAdmin();
-  renderizarPromocoesAdmin();
-  preencherSelectCategorias();
-  preencherSelectProdutosPromocao();
+  const tentar = (nome, fn) => {
+    try { fn(); } catch (erro) { console.error(`Erro ao inicializar "${nome}":`, erro); }
+  };
 
-  configurarEventosAparencia();
-  configurarEventosInformacoes();
-  configurarEventosPagamento();
-  configurarEventosPaginasLegais();
-  configurarEventosCategorias();
-  configurarEventosProdutos();
-  configurarEventosPromocoes();
+  tentar('categorias', renderizarCategoriasAdmin);
+  tentar('produtos', renderizarProdutosAdmin);
+  tentar('promocoes', renderizarPromocoesAdmin);
+  tentar('select-categorias', preencherSelectCategorias);
+  tentar('select-produtos-promocao', preencherSelectProdutosPromocao);
 
-  montarPaletaCores();
-  configurarPreviewFonte();
+  tentar('eventos-aparencia', configurarEventosAparencia);
+  tentar('eventos-informacoes', configurarEventosInformacoes);
+  tentar('eventos-pagamento', configurarEventosPagamento);
+  tentar('eventos-paginas-legais', configurarEventosPaginasLegais);
+  tentar('eventos-categorias', configurarEventosCategorias);
+  tentar('eventos-produtos', configurarEventosProdutos);
+  tentar('eventos-promocoes', configurarEventosPromocoes);
 
-  if (typeof renderizarCarrosseisAdmin === 'function') renderizarCarrosseisAdmin();
-  if (typeof renderizarVitrinesAdmin === 'function') renderizarVitrinesAdmin();
-  if (typeof renderizarCaixasTextoAdmin === 'function') renderizarCaixasTextoAdmin();
-  if (typeof configurarEventosCarrosseis === 'function') configurarEventosCarrosseis();
-  if (typeof configurarEventosVitrines === 'function') configurarEventosVitrines();
-  if (typeof configurarEventosCaixasTexto === 'function') configurarEventosCaixasTexto();
-  configurarEventosPedidos();
-  configurarEventosCaixaGeral();
+  tentar('paleta-cores', montarPaletaCores);
+  tentar('preview-fonte', configurarPreviewFonte);
+
+  if (typeof renderizarCarrosseisAdmin === 'function') tentar('carrosseis', renderizarCarrosseisAdmin);
+  if (typeof renderizarVitrinesAdmin === 'function') tentar('vitrines', renderizarVitrinesAdmin);
+  if (typeof renderizarCaixasTextoAdmin === 'function') tentar('caixas-texto', renderizarCaixasTextoAdmin);
+  if (typeof configurarEventosCarrosseis === 'function') tentar('eventos-carrosseis', configurarEventosCarrosseis);
+  if (typeof configurarEventosVitrines === 'function') tentar('eventos-vitrines', configurarEventosVitrines);
+  if (typeof configurarEventosCaixasTexto === 'function') tentar('eventos-caixas-texto', configurarEventosCaixasTexto);
+  tentar('eventos-pedidos', configurarEventosPedidos);
+  tentar('eventos-caixa-geral', configurarEventosCaixaGeral);
 }
 
 function selecionarTemaVisual(tema) {
@@ -974,20 +978,20 @@ function configurarEventosProdutos() {
   if (EVENTOS_PRODUTOS_CONFIGURADOS) return;
   EVENTOS_PRODUTOS_CONFIGURADOS = true;
 
-  document.getElementById('botao-novo-produto').addEventListener('click', () => abrirModalProdutoAdmin(null, false));
-  document.getElementById('botao-nova-pagina').addEventListener('click', () => abrirModalProdutoAdmin(null, true));
+  document.getElementById('botao-novo-produto')?.addEventListener('click', () => abrirModalProdutoAdmin(null, false));
+  document.getElementById('botao-nova-pagina')?.addEventListener('click', () => abrirModalProdutoAdmin(null, true));
 
-  document.getElementById('botao-concluir-pagina').addEventListener('click', () => {
+  document.getElementById('botao-concluir-pagina')?.addEventListener('click', () => {
     PRODUTO_MODO_PAGINA = false;
     fecharModaisAdmin();
   });
 
-  document.getElementById('botao-ler-codigo-barras').addEventListener('click', abrirLeitorCodigoBarras);
+  document.getElementById('botao-ler-codigo-barras')?.addEventListener('click', abrirLeitorCodigoBarras);
   document.querySelectorAll('[data-fechar-leitor-codigo-barras]').forEach(el => {
     el.addEventListener('click', fecharLeitorCodigoBarras);
   });
 
-  document.getElementById('form-produto').addEventListener('submit', async (evento) => {
+  document.getElementById('form-produto')?.addEventListener('submit', async (evento) => {
     evento.preventDefault();
     const id = document.getElementById('produto-id').value;
     const categoriaSelecionada = document.getElementById('produto-categoria').value;
@@ -1091,7 +1095,7 @@ function fecharLeitorCodigoBarras() {
   document.getElementById('modal-leitor-codigo-barras').classList.add('oculto');
 }
 
-function processarCodigoBarrasLido(codigo) {
+async function processarCodigoBarrasLido(codigo) {
   fecharLeitorCodigoBarras();
 
   const produtoExistente = ESTADO.produtos.find(p => p.codigo && p.codigo === codigo);
@@ -1105,6 +1109,53 @@ function processarCodigoBarrasLido(codigo) {
 
   document.getElementById('produto-codigo').value = codigo;
   mostrarToast('Codigo de barras lido: ' + codigo);
+
+  // Tenta buscar dados do produto (nome/foto) numa base externa. Enquanto a
+  // conexao nao estiver configurada (ver funcao abaixo), isso simplesmente
+  // nao faz nada e o lojista preenche o resto manualmente, como ja acontecia.
+  const dadosExternos = await buscarProdutoExternoPorCodigoBarras(codigo);
+  if (dadosExternos) {
+    if (dadosExternos.nome && !document.getElementById('produto-nome').value) {
+      document.getElementById('produto-nome').value = dadosExternos.nome;
+    }
+    mostrarToast('Dados do produto preenchidos automaticamente.');
+  }
+}
+
+// =============================================
+// BUSCA EXTERNA DE PRODUTO POR CODIGO DE BARRAS
+// =============================================
+// Ainda NAO esta conectado a nenhuma API externa (de proposito -- ver
+// conversa com o Claude). Assim que voce tiver uma chave de API, e so
+// preencher CHAVE_API_CATALOGO_PRODUTOS abaixo e descomentar o bloco fetch.
+//
+// Opcao gratuita para comecar (sugerida): DotCompany, catalogo com 1,89
+// milhao de produtos brasileiros. 25 consultas/dia de graca sem cadastro,
+// e criando conta gratis (usa CNPJ) voce ganha 50 creditos de teste +
+// chave "dc_test_" com uso ilimitado em modo sandbox (nunca cobra).
+// Cadastro: https://erp.dotcompany.com.br/auth/register
+// Documentacao interativa (testa no navegador): https://erp.dotcompany.com.br/api/v1/docs
+// Depois de criar a conta e pegar a chave, me manda o endpoint exato que
+// aparecer na documentacao (pode mudar) que eu conecto aqui em 2 minutos.
+const CHAVE_API_CATALOGO_PRODUTOS = ''; // cole aqui a chave "dc_test_..." ou "dc_live_..." quando tiver
+
+async function buscarProdutoExternoPorCodigoBarras(codigo) {
+  if (!CHAVE_API_CATALOGO_PRODUTOS) return null;
+
+  try {
+    // Exemplo (confirme o endpoint exato na documentacao antes de usar):
+    // const resposta = await fetch(`https://erp.dotcompany.com.br/api/v1/catalogo/buscar?q=${codigo}`, {
+    //   headers: { Authorization: `Bearer ${CHAVE_API_CATALOGO_PRODUTOS}` }
+    // });
+    // const dados = await resposta.json();
+    // if (dados.sucesso && dados.produto) {
+    //   return { nome: dados.produto.nome, imagem_url: dados.produto.imagem_url };
+    // }
+    return null;
+  } catch (erro) {
+    console.error('Erro ao buscar produto na base externa:', erro);
+    return null;
+  }
 }
 
 async function excluirProduto(id) {
