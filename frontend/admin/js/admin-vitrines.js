@@ -50,32 +50,54 @@ let CARROSSEL_ABERTO_ID = null;
 // ---------------------------------------------------------------
 function renderizarCarrosseisAdmin() {
   const lista = document.getElementById('lista-carrosseis-admin');
+  const blocoDesativados = document.getElementById('bloco-carrosseis-desativados');
   if (!lista) return;
 
-  if (!ESTADO.carrosseis || ESTADO.carrosseis.length === 0) {
-    lista.innerHTML = '<div class="lista-vazia">Nenhum carrossel extra cadastrado ainda.</div>';
-    return;
-  }
+  const todos = ESTADO.carrosseis || [];
+  const ativos = todos.filter(c => c.ativo);
+  const desativados = todos.filter(c => !c.ativo);
 
-  lista.innerHTML = ESTADO.carrosseis.map(carrossel => `
+  const contadorEl = document.getElementById('contador-carrosseis-desativados');
+  if (contadorEl) contadorEl.textContent = `(${desativados.length})`;
+
+  lista.innerHTML = ativos.length === 0
+    ? '<div class="lista-vazia">Nenhum carrossel ativo.</div>'
+    : montarItensCarrossel(ativos);
+  configurarItensCarrossel(lista);
+
+  if (blocoDesativados) {
+    blocoDesativados.innerHTML = desativados.length === 0
+      ? '<div class="lista-vazia">Nenhum carrossel desativado.</div>'
+      : montarItensCarrossel(desativados);
+    configurarItensCarrossel(blocoDesativados);
+  }
+}
+
+function montarItensCarrossel(carrosseis) {
+  return carrosseis.map(carrossel => `
     <div class="item-admin" data-carrossel-drag-id="${carrossel.id}">
       <span class="drag-handle" title="Segure e arraste para reordenar">⠿</span>
       <div class="item-admin__info">
         <strong>${escaparHtmlAdmin(carrossel.nome || 'Carrossel')}</strong>
         <span class="item-admin__detalhe">
           ${nomePosicaoLegivel(carrossel.posicao)} ·
-          ${(carrossel.imagens || []).length} foto(s) ·
-          ${carrossel.ativo ? '<span style="color:var(--cor-sucesso,#2a9d4f)">Ativo</span>' : 'Desativado'}
+          ${(carrossel.imagens || []).length} foto(s)
         </span>
       </div>
       <div class="item-admin__acoes">
         <button data-editar-carrossel="${carrossel.id}">Gerenciar</button>
+        <label class="interruptor" title="${carrossel.ativo ? 'Desativar carrossel' : 'Ativar carrossel'}">
+          <input type="checkbox" data-toggle-carrossel="${carrossel.id}" ${carrossel.ativo ? 'checked' : ''}>
+          <span class="interruptor__trilho"></span>
+        </label>
         <button class="botao-perigo" data-excluir-carrossel="${carrossel.id}">Excluir</button>
       </div>
     </div>
   `).join('');
+}
 
-  configurarArrastarSoltar(lista, '[data-carrossel-drag-id]', 'data-carrossel-drag-id', async (novaOrdemIds) => {
+function configurarItensCarrossel(container) {
+  configurarArrastarSoltar(container, '[data-carrossel-drag-id]', 'data-carrossel-drag-id', async (novaOrdemIds) => {
     try {
       await Promise.all(novaOrdemIds.map((id, i) => apiAtualizarCarrossel(id, { ordem: i })));
       ESTADO.carrosseis = await apiListarCarrosseis();
@@ -85,12 +107,27 @@ function renderizarCarrosseisAdmin() {
     }
   });
 
-  lista.querySelectorAll('[data-editar-carrossel]').forEach(b => {
+  container.querySelectorAll('[data-editar-carrossel]').forEach(b => {
     b.addEventListener('click', () => abrirModalCarrossel(b.getAttribute('data-editar-carrossel')));
   });
-  lista.querySelectorAll('[data-excluir-carrossel]').forEach(b => {
+  container.querySelectorAll('[data-excluir-carrossel]').forEach(b => {
     b.addEventListener('click', () => excluirCarrossel(b.getAttribute('data-excluir-carrossel')));
   });
+  container.querySelectorAll('[data-toggle-carrossel]').forEach(input => {
+    input.addEventListener('change', () => alternarAtivoCarrossel(input.getAttribute('data-toggle-carrossel'), input.checked));
+  });
+}
+
+async function alternarAtivoCarrossel(id, ativo) {
+  try {
+    await apiAtualizarCarrossel(id, { ativo });
+    ESTADO.carrosseis = await apiListarCarrosseis();
+    renderizarCarrosseisAdmin();
+    mostrarToast(ativo ? 'Carrossel ativado.' : 'Carrossel desativado.');
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+    renderizarCarrosseisAdmin();
+  }
 }
 
 function configurarEventosCarrosseis() {
@@ -98,6 +135,9 @@ function configurarEventosCarrosseis() {
   window.EVENTOS_CARROSSEIS_CONFIGURADOS = true;
 
   document.getElementById('botao-novo-carrossel').addEventListener('click', () => abrirModalCarrossel(null));
+  document.getElementById('botao-alternar-carrosseis-desativados')?.addEventListener('click', () => {
+    document.getElementById('bloco-carrosseis-desativados').classList.toggle('oculto');
+  });
 
   document.getElementById('form-carrossel').addEventListener('submit', async (evento) => {
     evento.preventDefault();
@@ -229,32 +269,52 @@ async function excluirCarrossel(id) {
 // ---------------------------------------------------------------
 function renderizarVitrinesAdmin() {
   const lista = document.getElementById('lista-vitrines-admin');
+  const blocoDesativadas = document.getElementById('bloco-vitrines-desativadas');
   if (!lista) return;
 
-  if (!ESTADO.vitrines || ESTADO.vitrines.length === 0) {
-    lista.innerHTML = '<div class="lista-vazia">Nenhuma vitrine cadastrada ainda.</div>';
-    return;
-  }
+  const todas = ESTADO.vitrines || [];
+  const ativas = todas.filter(v => v.ativo);
+  const desativadas = todas.filter(v => !v.ativo);
 
-  lista.innerHTML = ESTADO.vitrines.map(vitrine => `
+  const contadorEl = document.getElementById('contador-vitrines-desativadas');
+  if (contadorEl) contadorEl.textContent = `(${desativadas.length})`;
+
+  lista.innerHTML = ativas.length === 0
+    ? '<div class="lista-vazia">Nenhuma vitrine ativa.</div>'
+    : montarItensVitrine(ativas);
+  configurarItensVitrine(lista);
+
+  if (blocoDesativadas) {
+    blocoDesativadas.innerHTML = desativadas.length === 0
+      ? '<div class="lista-vazia">Nenhuma vitrine desativada.</div>'
+      : montarItensVitrine(desativadas);
+    configurarItensVitrine(blocoDesativadas);
+  }
+}
+
+function montarItensVitrine(vitrines) {
+  return vitrines.map(vitrine => `
     <div class="item-admin" data-vitrine-drag-id="${vitrine.id}">
       <span class="drag-handle" title="Segure e arraste para reordenar">⠿</span>
       <img src="${vitrine.imagem_url}" alt="" style="width:44px;height:56px;object-fit:cover;border-radius:6px;margin-right:10px;">
       <div class="item-admin__info">
         <strong>${escaparHtmlAdmin(vitrine.nome || 'Vitrine')}</strong>
-        <span class="item-admin__detalhe">
-          ${nomePosicaoLegivel(vitrine.posicao)} ·
-          ${vitrine.ativo ? '<span style="color:var(--cor-sucesso,#2a9d4f)">Ativa</span>' : 'Desativada'}
-        </span>
+        <span class="item-admin__detalhe">${nomePosicaoLegivel(vitrine.posicao)}</span>
       </div>
       <div class="item-admin__acoes">
         <button data-editar-vitrine="${vitrine.id}">Editar</button>
+        <label class="interruptor" title="${vitrine.ativo ? 'Desativar vitrine' : 'Ativar vitrine'}">
+          <input type="checkbox" data-toggle-vitrine="${vitrine.id}" ${vitrine.ativo ? 'checked' : ''}>
+          <span class="interruptor__trilho"></span>
+        </label>
         <button class="botao-perigo" data-excluir-vitrine="${vitrine.id}">Excluir</button>
       </div>
     </div>
   `).join('');
+}
 
-  configurarArrastarSoltar(lista, '[data-vitrine-drag-id]', 'data-vitrine-drag-id', async (novaOrdemIds) => {
+function configurarItensVitrine(container) {
+  configurarArrastarSoltar(container, '[data-vitrine-drag-id]', 'data-vitrine-drag-id', async (novaOrdemIds) => {
     try {
       await Promise.all(novaOrdemIds.map((id, i) => {
         const fd = new FormData();
@@ -269,12 +329,29 @@ function renderizarVitrinesAdmin() {
     }
   });
 
-  lista.querySelectorAll('[data-editar-vitrine]').forEach(b => {
+  container.querySelectorAll('[data-editar-vitrine]').forEach(b => {
     b.addEventListener('click', () => abrirModalVitrine(b.getAttribute('data-editar-vitrine')));
   });
-  lista.querySelectorAll('[data-excluir-vitrine]').forEach(b => {
+  container.querySelectorAll('[data-excluir-vitrine]').forEach(b => {
     b.addEventListener('click', () => excluirVitrine(b.getAttribute('data-excluir-vitrine')));
   });
+  container.querySelectorAll('[data-toggle-vitrine]').forEach(input => {
+    input.addEventListener('change', () => alternarAtivoVitrine(input.getAttribute('data-toggle-vitrine'), input.checked));
+  });
+}
+
+async function alternarAtivoVitrine(id, ativo) {
+  try {
+    const fd = new FormData();
+    fd.append('ativo', ativo);
+    await apiAtualizarVitrine(id, fd);
+    ESTADO.vitrines = await apiListarVitrines();
+    renderizarVitrinesAdmin();
+    mostrarToast(ativo ? 'Vitrine ativada.' : 'Vitrine desativada.');
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+    renderizarVitrinesAdmin();
+  }
 }
 
 function configurarEventosVitrines() {
@@ -282,6 +359,9 @@ function configurarEventosVitrines() {
   window.EVENTOS_VITRINES_CONFIGURADOS = true;
 
   document.getElementById('botao-nova-vitrine').addEventListener('click', () => abrirModalVitrine(null));
+  document.getElementById('botao-alternar-vitrines-desativadas')?.addEventListener('click', () => {
+    document.getElementById('bloco-vitrines-desativadas').classList.toggle('oculto');
+  });
 
   const textoCampo = document.getElementById('vitrine-texto');
   const contador = document.getElementById('vitrine-texto-contador');
