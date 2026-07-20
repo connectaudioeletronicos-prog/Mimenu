@@ -256,7 +256,7 @@
               <h2 class="aba__titulo">Produtos <span id="contador-produtos" class="aba__contador"></span></h2>
               <div class="aba__cabecalho-acoes">
                 <button id="botao-novo-produto" class="botao-primario">+ Novo produto</button>
-                <button id="botao-nova-pagina" class="botao-primario" title="Cadastre varios produtos seguidos, um atras do outro, dentro da mesma categoria">+ Página</button>
+                <button id="botao-nova-pagina" class="botao-primario" title="Cadastre varios produtos seguidos, um atras do outro, dentro da mesma categoria">+ Por categoria</button>
               </div>
             </div>
             <div id="lista-produtos-admin" class="lista-itens-admin"></div>
@@ -595,8 +595,11 @@
         <label>Nome do produto
           <input type="text" id="produto-nome" required maxlength="150">
         </label>
-        <label>Codigo (opcional)
-          <input type="text" id="produto-codigo" maxlength="50">
+        <label>Codigo / codigo de barras (opcional)
+          <div class="campo-com-botao">
+            <input type="text" id="produto-codigo" maxlength="50">
+            <button type="button" id="botao-ler-codigo-barras" class="botao-secundario" title="Ler codigo de barras pela camera">📷 Ler</button>
+          </div>
         </label>
         <label>Descricao
           <textarea id="produto-descricao" maxlength="500"></textarea>
@@ -609,6 +612,9 @@
             <input type="number" id="produto-preco-promo" step="0.01" min="0">
           </label>
         </div>
+        <label>Quantidade em estoque (deixe em branco se não controla estoque para este produto)
+          <input type="number" id="produto-estoque" step="1" min="0" placeholder="Sem controle de estoque">
+        </label>
         <label>Foto do produto
           <input type="file" id="produto-foto" accept="image/*">
         </label>
@@ -769,12 +775,24 @@
     </div>
   </div>
 
+  <div id="modal-leitor-codigo-barras" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-leitor-codigo-barras></div>
+    <div class="modal-admin__caixa modal-admin__caixa--leitor">
+      <button class="modal-admin__fechar" data-fechar-leitor-codigo-barras>&times;</button>
+      <h3>Ler código de barras</h3>
+      <p class="aba__ajuda">Aponte a câmera para o código de barras do produto.</p>
+      <video id="video-leitor-codigo-barras" class="leitor-codigo-barras__video" playsinline></video>
+      <p id="leitor-codigo-barras-erro" class="leitor-codigo-barras__erro oculto"></p>
+    </div>
+  </div>
+
   <div id="toast" class="toast oculto"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
   <script src="../js/config.js"></script>
-  <script src="js/admin-api.js?v=20260720c"></script>
-  <script src="js/admin.js?v=20260720c"></script>
-  <script src="js/admin-vitrines.js?v=20260720c"></script>
-  <script src="js/admin-caixatexto.js?v=20260720c"></script>
+  <script src="js/admin-api.js?v=20260720d"></script>
+  <script src="js/admin.js?v=20260720d"></script>
+  <script src="js/admin-vitrines.js?v=20260720d"></script>
+  <script src="js/admin-caixatexto.js?v=20260720d"></script>
 </body>
 </html>
