@@ -730,6 +730,9 @@ input, textarea, select { font-family: inherit; }
   box-shadow: 0 6px 16px rgba(0,0,0,0.18);
   position: relative;
   z-index: 5;
+}
+
+.sendo-arrastado {
   pointer-events: none;
 }
 
