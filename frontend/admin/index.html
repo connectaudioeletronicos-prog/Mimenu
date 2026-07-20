@@ -256,8 +256,12 @@
               <h2 class="aba__titulo">Produtos <span id="contador-produtos" class="aba__contador"></span></h2>
               <div class="aba__cabecalho-acoes">
                 <button id="botao-novo-produto" class="botao-primario">+ Novo produto</button>
-                <button id="botao-nova-pagina" class="botao-primario" title="Cadastre varios produtos seguidos, um atras do outro, dentro da mesma categoria">+ Por categoria</button>
+                <button id="botao-filtro-categorias" class="botao-secundario" title="Ver produtos de uma categoria especifica, sem sair desta pagina">Categorias</button>
               </div>
+            </div>
+            <div id="chip-filtro-categoria" class="chip-filtro-ativo oculto">
+              Categoria: <strong id="chip-filtro-categoria-nome"></strong>
+              <button id="botao-limpar-filtro-categoria" title="Mostrar todos os produtos">✕</button>
             </div>
             <div id="lista-produtos-admin" class="lista-itens-admin"></div>
           </div>
@@ -584,9 +588,6 @@
     <div class="modal-admin__caixa">
       <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
       <h3 id="titulo-modal-produto">Novo produto</h3>
-      <p id="aviso-modo-pagina" class="aba__ajuda oculto">
-        Modo página: escolha a categoria e cadastre um produto atras do outro. Clique em "Concluir" quando terminar.
-      </p>
       <form id="form-produto">
         <input type="hidden" id="produto-id">
         <label>Categoria
@@ -624,7 +625,6 @@
         </label>
         <div class="modal-admin__acoes-rodape">
           <button type="submit" class="botao-primario">Salvar produto</button>
-          <button type="button" id="botao-concluir-pagina" class="botao-secundario oculto">Concluir</button>
         </div>
       </form>
     </div>
@@ -772,6 +772,16 @@
         </label>
         <button type="submit" class="botao-primario">Salvar promocao</button>
       </form>
+    </div>
+  </div>
+
+  <div id="modal-filtro-categorias" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3>Ver produtos por categoria</h3>
+      <p class="aba__ajuda">Escolha uma categoria pra ver so os produtos dela, sem precisar sair desta pagina.</p>
+      <div id="lista-categorias-filtro" class="lista-categorias-filtro"></div>
     </div>
   </div>
 
