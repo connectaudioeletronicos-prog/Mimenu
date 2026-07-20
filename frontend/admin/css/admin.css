@@ -687,7 +687,58 @@ input, textarea, select { font-family: inherit; }
   align-items: center;
 }
 
-.campo-com-botao {
+.chip-filtro-ativo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--admin-cor-fundo);
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  width: fit-content;
+  margin-bottom: 14px;
+}
+
+.chip-filtro-ativo button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--admin-cor-texto-claro);
+  padding: 0 2px;
+}
+
+.lista-categorias-filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.lista-categorias-filtro button {
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.lista-categorias-filtro button:hover {
+  border-color: var(--admin-cor-primaria);
+  background: var(--admin-cor-fundo);
+}
+
+.lista-categorias-filtro button.ativa {
+  border-color: var(--admin-cor-primaria);
+  background: var(--admin-cor-primaria);
+  color: #fff;
+}
   display: flex;
   gap: 8px;
 }
