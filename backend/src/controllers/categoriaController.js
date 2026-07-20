@@ -19,7 +19,7 @@ async function listar(req, res) {
 
 async function criar(req, res) {
   try {
-    const { nome, ordem } = req.body;
+    const { nome, ordem, descricao } = req.body;
 
     if (!nome || nome.trim() === '') {
       return res.status(400).json({ erro: 'O nome da categoria e obrigatorio.' });
@@ -31,8 +31,8 @@ async function criar(req, res) {
     }
 
     const resultado = await query(
-      'INSERT INTO categorias (estabelecimento_id, nome, icone_url, ordem) VALUES ($1, $2, $3, $4) RETURNING *',
-      [req.estabelecimentoId, nome.trim(), iconeUrl, ordem || 0]
+      'INSERT INTO categorias (estabelecimento_id, nome, icone_url, ordem, descricao) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [req.estabelecimentoId, nome.trim(), iconeUrl, ordem || 0, descricao || null]
     );
 
     res.status(201).json(resultado.rows[0]);
@@ -45,7 +45,7 @@ async function criar(req, res) {
 async function atualizar(req, res) {
   try {
     const { id } = req.params;
-    const { nome, ordem, ativo } = req.body;
+    const { nome, ordem, ativo, descricao } = req.body;
 
     const verificacao = await query(
       'SELECT id FROM categorias WHERE id = $1 AND estabelecimento_id = $2',
@@ -65,9 +65,10 @@ async function atualizar(req, res) {
         nome = COALESCE($1, nome),
         ordem = COALESCE($2, ordem),
         ativo = COALESCE($3, ativo),
-        icone_url = COALESCE($4, icone_url)
-       WHERE id = $5 RETURNING *`,
-      [nome, ordem, ativo, iconeUrl, id]
+        icone_url = COALESCE($4, icone_url),
+        descricao = COALESCE($5, descricao)
+       WHERE id = $6 RETURNING *`,
+      [nome, ordem, ativo, iconeUrl, descricao, id]
     );
 
     res.json(resultado.rows[0]);
