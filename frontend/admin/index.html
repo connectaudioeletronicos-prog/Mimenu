@@ -250,11 +250,26 @@
       </section>
 
       <section id="aba-produtos" class="aba oculto">
-        <div class="aba__cabecalho">
-          <h2 class="aba__titulo">Produtos <span id="contador-produtos" class="aba__contador"></span></h2>
-          <button id="botao-novo-produto" class="botao-secundario">+ Novo produto</button>
+        <div class="produtos-layout">
+          <div class="produtos-coluna-principal">
+            <div class="aba__cabecalho">
+              <h2 class="aba__titulo">Produtos <span id="contador-produtos" class="aba__contador"></span></h2>
+              <div class="aba__cabecalho-acoes">
+                <button id="botao-novo-produto" class="botao-primario">+ Novo produto</button>
+                <button id="botao-nova-pagina" class="botao-primario" title="Cadastre varios produtos seguidos, um atras do outro, dentro da mesma categoria">+ Página</button>
+              </div>
+            </div>
+            <div id="lista-produtos-admin" class="lista-itens-admin"></div>
+          </div>
+
+          <aside class="produtos-sidebar">
+            <div class="produtos-sidebar__card">
+              <h3 class="produtos-sidebar__titulo">Produtos desativados <span id="contador-desativados" class="aba__contador"></span></h3>
+              <div id="lista-desativados-admin" class="produtos-sidebar__lista"></div>
+              <p id="mensagem-sem-desativados" class="lista-vazia oculto">Nenhum produto desativado.</p>
+            </div>
+          </aside>
         </div>
-        <div id="lista-produtos-admin" class="lista-itens-admin"></div>
       </section>
 
       <section id="aba-promocoes" class="aba oculto">
@@ -569,6 +584,9 @@
     <div class="modal-admin__caixa">
       <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
       <h3 id="titulo-modal-produto">Novo produto</h3>
+      <p id="aviso-modo-pagina" class="aba__ajuda oculto">
+        Modo página: escolha a categoria e cadastre um produto atras do outro. Clique em "Concluir" quando terminar.
+      </p>
       <form id="form-produto">
         <input type="hidden" id="produto-id">
         <label>Categoria
@@ -598,7 +616,10 @@
           <input type="checkbox" id="produto-disponivel" checked>
           Disponivel para venda
         </label>
-        <button type="submit" class="botao-primario">Salvar produto</button>
+        <div class="modal-admin__acoes-rodape">
+          <button type="submit" class="botao-primario">Salvar produto</button>
+          <button type="button" id="botao-concluir-pagina" class="botao-secundario oculto">Concluir</button>
+        </div>
       </form>
     </div>
   </div>
