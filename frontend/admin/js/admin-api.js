@@ -127,8 +127,8 @@ const apiAtualizarVitrine = (id, formData) => chamarApiAdmin(`/vitrines/${id}`, 
 const apiExcluirVitrine = (id) => chamarApiAdmin(`/vitrines/${id}`, { method: 'DELETE' });
 
 const apiListarCaixasTexto = () => chamarApiAdmin('/caixas-texto');
-const apiCriarCaixaTexto = (dados) => chamarApiAdmin('/caixas-texto', { method: 'POST', body: JSON.stringify(dados) });
-const apiAtualizarCaixaTexto = (id, dados) => chamarApiAdmin(`/caixas-texto/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
+const apiCriarCaixaTexto = (dados) => chamarApiAdmin('/caixas-texto', { method: 'POST', body: dados });
+const apiAtualizarCaixaTexto = (id, dados) => chamarApiAdmin(`/caixas-texto/${id}`, { method: 'PUT', body: dados });
 const apiExcluirCaixaTexto = (id) => chamarApiAdmin(`/caixas-texto/${id}`, { method: 'DELETE' });
 
 async function chamarApiFuncionarios(caminho, { method = 'GET', body = null } = {}) {
