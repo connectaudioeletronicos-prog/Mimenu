@@ -24,7 +24,7 @@ async function listar(req, res) {
 
 async function criar(req, res) {
   try {
-    const { titulo, corpo, posicao, ordem } = req.body;
+    const { titulo, corpo, posicao, ordem, ativo } = req.body;
 
     if (!corpo || !corpo.trim()) {
       return res.status(400).json({ erro: 'O texto da caixa e obrigatorio.' });
@@ -36,8 +36,8 @@ async function criar(req, res) {
 
     const resultado = await query(
       `INSERT INTO caixas_texto (estabelecimento_id, titulo, corpo, posicao, ordem, ativo)
-       VALUES ($1, $2, $3, $4, $5, false) RETURNING *`,
-      [req.estabelecimentoId, tituloFinal, corpoFinal, posicaoFinal, ordem || 0]
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [req.estabelecimentoId, tituloFinal, corpoFinal, posicaoFinal, ordem || 0, ativo === true]
     );
 
     res.status(201).json(resultado.rows[0]);
