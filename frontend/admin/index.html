@@ -247,6 +247,11 @@
           <button id="botao-nova-categoria" class="botao-secundario">+ Nova categoria</button>
         </div>
         <div id="lista-categorias-admin" class="lista-itens-admin"></div>
+
+        <button id="botao-alternar-categorias-desativadas" class="botao-mostrar-desativados">
+          Categorias desativadas <span id="contador-categorias-desativadas" class="aba__contador"></span> ▾
+        </button>
+        <div id="bloco-categorias-desativadas" class="lista-itens-admin oculto"></div>
       </section>
 
       <section id="aba-produtos" class="aba oculto">
@@ -282,6 +287,11 @@
           <button id="botao-nova-promocao" class="botao-secundario">+ Nova promocao</button>
         </div>
         <div id="lista-promocoes-admin" class="lista-itens-admin"></div>
+
+        <button id="botao-alternar-promocoes-desativadas" class="botao-mostrar-desativados">
+          Promocoes desativadas <span id="contador-promocoes-desativadas" class="aba__contador"></span> ▾
+        </button>
+        <div id="bloco-promocoes-desativadas" class="lista-itens-admin oculto"></div>
       </section>
 
       <section id="aba-vitrines" class="aba oculto">
@@ -294,6 +304,10 @@
           e escolher em qual parte da página cada um aparece. Ficam desativados até você ativar.
         </p>
         <div id="lista-carrosseis-admin" class="lista-itens-admin"></div>
+        <button id="botao-alternar-carrosseis-desativados" class="botao-mostrar-desativados">
+          Carrosséis desativados <span id="contador-carrosseis-desativados" class="aba__contador"></span> ▾
+        </button>
+        <div id="bloco-carrosseis-desativados" class="lista-itens-admin oculto"></div>
 
         <div class="aba__cabecalho" style="margin-top:32px;">
           <h2 class="aba__titulo">Vitrines</h2>
@@ -304,6 +318,10 @@
           Também posicionável e desativada por padrão até você ativar.
         </p>
         <div id="lista-vitrines-admin" class="lista-itens-admin"></div>
+        <button id="botao-alternar-vitrines-desativadas" class="botao-mostrar-desativados">
+          Vitrines desativadas <span id="contador-vitrines-desativadas" class="aba__contador"></span> ▾
+        </button>
+        <div id="bloco-vitrines-desativadas" class="lista-itens-admin oculto"></div>
 
         <div class="aba__cabecalho" style="margin-top:32px;">
           <h2 class="aba__titulo">Caixas de texto</h2>
@@ -575,9 +593,13 @@
         <label>Nome da categoria
           <input type="text" id="categoria-nome" required maxlength="100">
         </label>
+        <label>Descricao (opcional)
+          <textarea id="categoria-descricao" maxlength="500" placeholder="Ex: bebidas geladas, servidas com gelo e limao"></textarea>
+        </label>
         <label>Icone (opcional)
           <input type="file" id="categoria-icone" accept="image/*">
         </label>
+        <p class="campo-dica">Imagem quadrada, minimo 300x300px (aparece como circulo pequeno no cardapio).</p>
         <button type="submit" class="botao-primario">Salvar categoria</button>
       </form>
     </div>
@@ -619,6 +641,7 @@
         <label>Foto do produto
           <input type="file" id="produto-foto" accept="image/*">
         </label>
+        <p class="campo-dica">Imagem quadrada, ideal 800x800px (aparece cortada em circulo/quadrado dependendo da tela).</p>
         <label class="campo-checkbox">
           <input type="checkbox" id="produto-disponivel" checked>
           Disponivel para venda
@@ -662,6 +685,7 @@
 
       <div class="campo-grupo" style="margin-top:20px;">
         <label class="campo-label">Fotos do carrossel (sem limite)</label>
+        <p class="campo-dica">Imagem larga (paisagem), ideal 1600x400px — mesma proporcao do banner principal.</p>
         <div id="lista-imagens-carrossel" class="lista-imagens-carrossel"></div>
         <input type="file" id="input-nova-imagem-carrossel" accept="image/*">
       </div>
@@ -770,6 +794,7 @@
         <label>Imagem do banner
           <input type="file" id="promocao-imagem" accept="image/*">
         </label>
+        <p class="campo-dica">Imagem paisagem, ideal 750x330px.</p>
         <button type="submit" class="botao-primario">Salvar promocao</button>
       </form>
     </div>
