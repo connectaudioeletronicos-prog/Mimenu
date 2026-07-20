@@ -812,35 +812,111 @@ function renderizarProdutosAdmin() {
   document.getElementById('contador-produtos').textContent = `(${ESTADO.produtos.length})`;
   if (ESTADO.produtos.length === 0) {
     lista.innerHTML = '<div class="lista-vazia">Nenhum produto cadastrado ainda.</div>';
-    return;
+  } else {
+    const ordenados = [...ESTADO.produtos].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+
+    lista.innerHTML = ordenados.map(p => `
+      <div class="item-admin item-admin--drag ${!p.disponivel ? 'item-admin--indisponivel' : ''}"
+           draggable="true" data-produto-drag-id="${p.id}" data-produto-expandir="${p.id}">
+        <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
+        <img class="item-admin__imagem" src="${p.foto_url || ''}" alt="">
+        <div class="item-admin__info">
+          <div class="item-admin__titulo">${escaparHtmlAdmin(p.nome)}</div>
+          <div class="item-admin__subtitulo">${p.categoria_nome || 'Sem categoria'} - ${formatarMoedaAdmin(p.preco)}${p.estoque !== null && p.estoque !== undefined ? ` - Estoque: ${p.estoque}` : ''}</div>
+        </div>
+        <div class="item-admin__acoes">
+          <button data-editar-produto="${p.id}">Editar</button>
+          <label class="interruptor" title="${p.disponivel ? 'Desativar produto' : 'Ativar produto'}">
+            <input type="checkbox" data-toggle-disponivel="${p.id}" ${p.disponivel ? 'checked' : ''}>
+            <span class="interruptor__trilho"></span>
+          </label>
+          <button class="botao-perigo" data-excluir-produto="${p.id}">Excluir</button>
+        </div>
+      </div>
+      <div class="item-admin__descricao-painel oculto" data-descricao-painel="${p.id}">
+        ${p.descricao ? escaparHtmlAdmin(p.descricao) : 'Sem descricao cadastrada.'}
+      </div>
+    `).join('');
+
+    lista.querySelectorAll('[data-editar-produto]').forEach(b => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        abrirModalProdutoAdmin(b.getAttribute('data-editar-produto'));
+      });
+    });
+    lista.querySelectorAll('[data-excluir-produto]').forEach(b => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        excluirProduto(b.getAttribute('data-excluir-produto'));
+      });
+    });
+    lista.querySelectorAll('[data-toggle-disponivel]').forEach(input => {
+      input.addEventListener('click', (e) => e.stopPropagation());
+      input.addEventListener('change', () => {
+        alternarDisponibilidadeProduto(input.getAttribute('data-toggle-disponivel'), input.checked);
+      });
+    });
+    lista.querySelectorAll('.item-admin[data-produto-expandir]').forEach(item => {
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('button, label.interruptor, .drag-handle')) return;
+        const id = item.getAttribute('data-produto-expandir');
+        const painel = lista.querySelector(`[data-descricao-painel="${id}"]`);
+        if (painel) painel.classList.toggle('oculto');
+      });
+    });
+
+    configurarDragDropProdutos(lista);
   }
 
-  const ordenados = [...ESTADO.produtos].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  renderizarProdutosDesativadosAdmin();
+}
 
-  lista.innerHTML = ordenados.map(p => `
-    <div class="item-admin item-admin--drag ${!p.disponivel ? 'item-admin--indisponivel' : ''}"
-         draggable="true" data-produto-drag-id="${p.id}">
-      <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
-      <img class="item-admin__imagem" src="${p.foto_url || ''}" alt="">
-      <div class="item-admin__info">
-        <div class="item-admin__titulo">${escaparHtmlAdmin(p.nome)} ${!p.disponivel ? '(indisponivel)' : ''}</div>
-        <div class="item-admin__subtitulo">${p.categoria_nome || 'Sem categoria'} - ${formatarMoedaAdmin(p.preco)}</div>
+function renderizarProdutosDesativadosAdmin() {
+  const lista = document.getElementById('lista-desativados-admin');
+  const mensagemVazia = document.getElementById('mensagem-sem-desativados');
+  const desativados = ESTADO.produtos.filter(p => !p.disponivel);
+  document.getElementById('contador-desativados').textContent = `(${desativados.length})`;
+
+  if (desativados.length === 0) {
+    lista.innerHTML = '';
+    mensagemVazia.classList.remove('oculto');
+    return;
+  }
+  mensagemVazia.classList.add('oculto');
+
+  lista.innerHTML = desativados.map(p => `
+    <div class="produtos-sidebar__item">
+      <img src="${p.foto_url || ''}" alt="">
+      <div class="produtos-sidebar__item-info">
+        <div class="produtos-sidebar__item-nome">${escaparHtmlAdmin(p.nome)}</div>
+        <div class="produtos-sidebar__item-sub">${p.categoria_nome || 'Sem categoria'} - ${formatarMoedaAdmin(p.preco)}${p.estoque !== null && p.estoque !== undefined ? `<br>Qtd. restante: ${p.estoque}` : ''}</div>
       </div>
-      <div class="item-admin__acoes">
-        <button data-editar-produto="${p.id}">Editar</button>
-        <button class="botao-perigo" data-excluir-produto="${p.id}">Excluir</button>
-      </div>
+      <label class="interruptor" title="Ativar produto">
+        <input type="checkbox" data-toggle-disponivel="${p.id}">
+        <span class="interruptor__trilho"></span>
+      </label>
     </div>
   `).join('');
 
-  lista.querySelectorAll('[data-editar-produto]').forEach(b => {
-    b.addEventListener('click', () => abrirModalProdutoAdmin(b.getAttribute('data-editar-produto')));
+  lista.querySelectorAll('[data-toggle-disponivel]').forEach(input => {
+    input.addEventListener('change', () => {
+      alternarDisponibilidadeProduto(input.getAttribute('data-toggle-disponivel'), input.checked);
+    });
   });
-  lista.querySelectorAll('[data-excluir-produto]').forEach(b => {
-    b.addEventListener('click', () => excluirProduto(b.getAttribute('data-excluir-produto')));
-  });
+}
 
-  configurarDragDropProdutos(lista);
+async function alternarDisponibilidadeProduto(id, disponivel) {
+  try {
+    const fd = new FormData();
+    fd.append('disponivel', disponivel);
+    await apiAtualizarProduto(id, fd);
+    await carregarTudo();
+    renderizarProdutosAdmin();
+    mostrarToast(disponivel ? 'Produto ativado.' : 'Produto desativado.');
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+    renderizarProdutosAdmin();
+  }
 }
 
 function configurarDragDropProdutos(lista) {
@@ -892,22 +968,37 @@ function configurarDragDropProdutos(lista) {
 }
 
 let EVENTOS_PRODUTOS_CONFIGURADOS = false;
+let PRODUTO_MODO_PAGINA = false;
+
 function configurarEventosProdutos() {
   if (EVENTOS_PRODUTOS_CONFIGURADOS) return;
   EVENTOS_PRODUTOS_CONFIGURADOS = true;
 
-  document.getElementById('botao-novo-produto').addEventListener('click', () => abrirModalProdutoAdmin(null));
+  document.getElementById('botao-novo-produto').addEventListener('click', () => abrirModalProdutoAdmin(null, false));
+  document.getElementById('botao-nova-pagina').addEventListener('click', () => abrirModalProdutoAdmin(null, true));
+
+  document.getElementById('botao-concluir-pagina').addEventListener('click', () => {
+    PRODUTO_MODO_PAGINA = false;
+    fecharModaisAdmin();
+  });
+
+  document.getElementById('botao-ler-codigo-barras').addEventListener('click', abrirLeitorCodigoBarras);
+  document.querySelectorAll('[data-fechar-leitor-codigo-barras]').forEach(el => {
+    el.addEventListener('click', fecharLeitorCodigoBarras);
+  });
 
   document.getElementById('form-produto').addEventListener('submit', async (evento) => {
     evento.preventDefault();
     const id = document.getElementById('produto-id').value;
+    const categoriaSelecionada = document.getElementById('produto-categoria').value;
     const formData = new FormData();
-    formData.append('categoria_id', document.getElementById('produto-categoria').value);
+    formData.append('categoria_id', categoriaSelecionada);
     formData.append('nome', document.getElementById('produto-nome').value.trim());
     formData.append('codigo', document.getElementById('produto-codigo').value.trim());
     formData.append('descricao', document.getElementById('produto-descricao').value.trim());
     formData.append('preco', document.getElementById('produto-preco').value);
     formData.append('preco_promocional', document.getElementById('produto-preco-promo').value || '');
+    formData.append('estoque', document.getElementById('produto-estoque').value || '');
     formData.append('disponivel', document.getElementById('produto-disponivel').checked);
     const arquivo = document.getElementById('produto-foto').files[0];
     if (arquivo) formData.append('imagem', arquivo);
@@ -918,30 +1009,102 @@ function configurarEventosProdutos() {
       } else {
         await apiCriarProduto(formData);
       }
-      fecharModaisAdmin();
       await carregarTudo();
       renderizarProdutosAdmin();
       preencherSelectProdutosPromocao();
       mostrarToast('Produto salvo com sucesso!');
+
+      if (PRODUTO_MODO_PAGINA && !id) {
+        // Modo pagina: mantem o modal aberto, na mesma categoria, pronto para o proximo produto
+        abrirModalProdutoAdmin(null, true, categoriaSelecionada);
+      } else {
+        fecharModaisAdmin();
+      }
     } catch (erro) {
       mostrarToast(erro.message, true);
     }
   });
 }
 
-function abrirModalProdutoAdmin(id) {
+function abrirModalProdutoAdmin(id, modoPagina = false, categoriaPreSelecionada = '') {
   const produto = id ? ESTADO.produtos.find(p => p.id === id) : null;
+  PRODUTO_MODO_PAGINA = modoPagina;
   document.getElementById('titulo-modal-produto').textContent = produto ? 'Editar produto' : 'Novo produto';
   document.getElementById('produto-id').value = id || '';
-  document.getElementById('produto-categoria').value = produto?.categoria_id || '';
+  document.getElementById('produto-categoria').value = produto?.categoria_id || categoriaPreSelecionada || '';
   document.getElementById('produto-nome').value = produto?.nome || '';
   document.getElementById('produto-codigo').value = produto?.codigo || '';
   document.getElementById('produto-descricao').value = produto?.descricao || '';
   document.getElementById('produto-preco').value = produto?.preco || '';
   document.getElementById('produto-preco-promo').value = produto?.preco_promocional || '';
+  document.getElementById('produto-estoque').value = (produto && produto.estoque !== null && produto.estoque !== undefined) ? produto.estoque : '';
   document.getElementById('produto-disponivel').checked = produto ? produto.disponivel : true;
   document.getElementById('produto-foto').value = '';
+  document.getElementById('aviso-modo-pagina').classList.toggle('oculto', !modoPagina);
+  document.getElementById('botao-concluir-pagina').classList.toggle('oculto', !modoPagina);
   document.getElementById('modal-produto-admin').classList.remove('oculto');
+  document.getElementById('produto-nome').focus();
+}
+
+// =============================================
+// LEITOR DE CODIGO DE BARRAS (camera)
+// =============================================
+let LEITOR_CODIGO_BARRAS = null;
+
+async function abrirLeitorCodigoBarras() {
+  const modal = document.getElementById('modal-leitor-codigo-barras');
+  const erroEl = document.getElementById('leitor-codigo-barras-erro');
+  erroEl.classList.add('oculto');
+  modal.classList.remove('oculto');
+
+  if (typeof ZXingBrowser === 'undefined' && typeof ZXing === 'undefined') {
+    erroEl.textContent = 'Nao foi possivel carregar o leitor de codigo de barras. Verifique sua conexao com a internet.';
+    erroEl.classList.remove('oculto');
+    return;
+  }
+
+  try {
+    const Leitor = (window.ZXingBrowser && window.ZXingBrowser.BrowserMultiFormatReader) || window.ZXing.BrowserMultiFormatReader;
+    LEITOR_CODIGO_BARRAS = new Leitor();
+    const videoEl = document.getElementById('video-leitor-codigo-barras');
+
+    LEITOR_CODIGO_BARRAS.decodeFromConstraints(
+      { video: { facingMode: 'environment' } },
+      videoEl,
+      (resultado, erro) => {
+        if (resultado) {
+          processarCodigoBarrasLido(resultado.getText());
+        }
+      }
+    );
+  } catch (erro) {
+    erroEl.textContent = 'Nao foi possivel acessar a camera. Verifique as permissoes do navegador.';
+    erroEl.classList.remove('oculto');
+  }
+}
+
+function fecharLeitorCodigoBarras() {
+  if (LEITOR_CODIGO_BARRAS) {
+    try { LEITOR_CODIGO_BARRAS.reset(); } catch (e) { /* ignora */ }
+    LEITOR_CODIGO_BARRAS = null;
+  }
+  document.getElementById('modal-leitor-codigo-barras').classList.add('oculto');
+}
+
+function processarCodigoBarrasLido(codigo) {
+  fecharLeitorCodigoBarras();
+
+  const produtoExistente = ESTADO.produtos.find(p => p.codigo && p.codigo === codigo);
+  if (produtoExistente) {
+    const editar = confirm(`Ja existe um produto cadastrado com este codigo de barras: "${produtoExistente.nome}". Deseja abrir esse produto para editar?`);
+    if (editar) {
+      abrirModalProdutoAdmin(produtoExistente.id);
+      return;
+    }
+  }
+
+  document.getElementById('produto-codigo').value = codigo;
+  mostrarToast('Codigo de barras lido: ' + codigo);
 }
 
 async function excluirProduto(id) {
@@ -1551,6 +1714,7 @@ document.querySelectorAll('[data-fechar-modal-admin]').forEach(el => {
 
 function fecharModaisAdmin() {
   document.querySelectorAll('.modal-admin').forEach(m => m.classList.add('oculto'));
+  PRODUTO_MODO_PAGINA = false;
 }
 
 function formatarMoedaAdmin(valor) {
