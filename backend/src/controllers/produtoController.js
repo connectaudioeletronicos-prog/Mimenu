@@ -23,7 +23,7 @@ async function listar(req, res) {
 
 async function criar(req, res) {
   try {
-    const { categoria_id, codigo, nome, descricao, preco, preco_promocional, ordem } = req.body;
+    const { categoria_id, codigo, nome, descricao, preco, preco_promocional, ordem, estoque } = req.body;
 
     if (!nome || nome.trim() === '') {
       return res.status(400).json({ erro: 'O nome do produto e obrigatorio.' });
@@ -39,8 +39,8 @@ async function criar(req, res) {
 
     const resultado = await query(
       `INSERT INTO produtos
-        (estabelecimento_id, categoria_id, codigo, nome, descricao, preco, preco_promocional, foto_url, ordem)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        (estabelecimento_id, categoria_id, codigo, nome, descricao, preco, preco_promocional, foto_url, ordem, estoque)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [
         req.estabelecimentoId,
         categoria_id || null,
@@ -50,7 +50,8 @@ async function criar(req, res) {
         parseFloat(preco),
         preco_promocional ? parseFloat(preco_promocional) : null,
         fotoUrl,
-        ordem || 0
+        ordem || 0,
+        estoque !== undefined && estoque !== '' ? parseInt(estoque, 10) : null
       ]
     );
 
@@ -64,7 +65,7 @@ async function criar(req, res) {
 async function atualizar(req, res) {
   try {
     const { id } = req.params;
-    const { categoria_id, codigo, nome, descricao, preco, preco_promocional, ordem, disponivel } = req.body;
+    const { categoria_id, codigo, nome, descricao, preco, preco_promocional, ordem, disponivel, estoque } = req.body;
 
     const verificacao = await query(
       'SELECT id, foto_url FROM produtos WHERE id = $1 AND estabelecimento_id = $2',
@@ -89,13 +90,16 @@ async function atualizar(req, res) {
         preco_promocional = $6,
         foto_url = $7,
         ordem = COALESCE($8, ordem),
-        disponivel = COALESCE($9, disponivel)
-       WHERE id = $10 RETURNING *`,
+        disponivel = COALESCE($9, disponivel),
+        estoque = $10
+       WHERE id = $11 RETURNING *`,
       [
         categoria_id, codigo, nome, descricao,
         preco !== undefined ? parseFloat(preco) : undefined,
         preco_promocional !== undefined ? (preco_promocional ? parseFloat(preco_promocional) : null) : verificacao.rows[0].preco_promocional,
-        fotoUrl, ordem, disponivel, id
+        fotoUrl, ordem, disponivel,
+        estoque !== undefined ? (estoque !== '' ? parseInt(estoque, 10) : null) : verificacao.rows[0].estoque,
+        id
       ]
     );
 
