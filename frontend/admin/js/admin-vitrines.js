@@ -118,7 +118,13 @@ function configurarEventosCarrosseis() {
       ESTADO.carrosseis = await apiListarCarrosseis();
       renderizarCarrosseisAdmin();
       mostrarToast('Carrossel salvo com sucesso!');
-      renderizarImagensCarrosselModal();
+      if (id) {
+        document.getElementById('modal-carrossel').classList.add('oculto');
+      } else {
+        // Carrossel recem-criado: mantem o modal aberto pra permitir
+        // adicionar as fotos na hora, sem precisar reabrir "Gerenciar".
+        renderizarImagensCarrosselModal();
+      }
     } catch (erro) {
       mostrarToast(erro.message, true);
     }
