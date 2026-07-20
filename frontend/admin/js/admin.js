@@ -575,66 +575,84 @@ let dragSrcCategoriaId = null;
 // igualmente. Padrao para QUALQUER lista reordenavel do painel.
 // Uso: configurarArrastarSoltar(container, '.item', 'data-algo-id', (novaOrdemIds) => {...})
 // ===================================================================
+let ARRASTAR_ITEM = null;
+let ARRASTAR_CONTAINER = null;
+let ARRASTAR_INICIO_Y = 0;
+let ARRASTAR_LISTENERS_GLOBAIS_PRONTOS = false;
+
 function configurarArrastarSoltar(container, seletorItem, atributoId, aoSoltar) {
   if (!container) return;
-  let itemArrastado = null;
-  let deslocamentoInicialY = 0;
+  // Guarda os dados de quem chamou direto no elemento -- assim, mesmo que
+  // essa funcao seja chamada de novo a cada vez que a lista e re-renderizada,
+  // nao precisamos recriar os escutadores globais (document.addEventListener)
+  // toda vez, o que evitava perder o evento de soltar o dedo no meio do caminho.
+  container._seletorItemArrastar = seletorItem;
+  container._atributoIdArrastar = atributoId;
+  container._aoSoltarArrastar = aoSoltar;
 
   container.querySelectorAll(seletorItem).forEach(item => {
     const alca = item.querySelector('.drag-handle');
     if (!alca) return;
     alca.style.touchAction = 'none';
     alca.onpointerdown = (evento) => {
-      itemArrastado = item;
-      deslocamentoInicialY = evento.clientY;
+      ARRASTAR_ITEM = item;
+      ARRASTAR_CONTAINER = container;
+      ARRASTAR_INICIO_Y = evento.clientY;
       item.classList.add('sendo-arrastado');
-      try { alca.setPointerCapture(evento.pointerId); } catch (e) { /* alguns navegadores antigos nao suportam, ok ignorar */ }
+      try { alca.setPointerCapture(evento.pointerId); } catch (e) { /* alguns navegadores nao suportam, tudo bem ignorar */ }
       evento.preventDefault();
     };
   });
 
-  if (container._removerListenersArrastar) {
-    container._removerListenersArrastar();
-  }
+  if (ARRASTAR_LISTENERS_GLOBAIS_PRONTOS) return;
+  ARRASTAR_LISTENERS_GLOBAIS_PRONTOS = true;
 
-  const aoMover = (evento) => {
-    if (!itemArrastado) return;
-    // Efeito visual: o item acompanha o dedo verticalmente, pra ficar
-    // claro que o arrastar esta funcionando.
-    itemArrastado.style.transform = `translateY(${evento.clientY - deslocamentoInicialY}px)`;
+  document.addEventListener('pointermove', (evento) => {
+    if (!ARRASTAR_ITEM || !ARRASTAR_CONTAINER) return;
+    ARRASTAR_ITEM.style.transform = `translateY(${evento.clientY - ARRASTAR_INICIO_Y}px)`;
 
+    const seletor = ARRASTAR_CONTAINER._seletorItemArrastar;
     const elemento = document.elementFromPoint(evento.clientX, evento.clientY);
-    const itemSobre = elemento && elemento.closest(seletorItem);
-    if (!itemSobre || itemSobre === itemArrastado || itemSobre.parentElement !== container) return;
+    const itemSobre = elemento && elemento.closest(seletor);
+    if (!itemSobre || itemSobre === ARRASTAR_ITEM || itemSobre.parentElement !== ARRASTAR_CONTAINER) return;
+
     const retangulo = itemSobre.getBoundingClientRect();
     const meio = retangulo.top + retangulo.height / 2;
     if (evento.clientY < meio) {
-      container.insertBefore(itemArrastado, itemSobre);
+      ARRASTAR_CONTAINER.insertBefore(ARRASTAR_ITEM, itemSobre);
     } else {
-      container.insertBefore(itemArrastado, itemSobre.nextSibling);
+      ARRASTAR_CONTAINER.insertBefore(ARRASTAR_ITEM, itemSobre.nextSibling);
     }
-    deslocamentoInicialY = evento.clientY;
-    itemArrastado.style.transform = '';
+    ARRASTAR_INICIO_Y = evento.clientY;
+    ARRASTAR_ITEM.style.transform = '';
+  });
+
+  const finalizarArraste = async () => {
+    if (!ARRASTAR_ITEM || !ARRASTAR_CONTAINER) return;
+    const item = ARRASTAR_ITEM;
+    const cont = ARRASTAR_CONTAINER;
+    item.classList.remove('sendo-arrastado');
+    item.style.transform = '';
+
+    const seletor = cont._seletorItemArrastar;
+    const atributo = cont._atributoIdArrastar;
+    const callback = cont._aoSoltarArrastar;
+    ARRASTAR_ITEM = null;
+    ARRASTAR_CONTAINER = null;
+    if (!callback) return;
+
+    const novaOrdem = Array.from(cont.querySelectorAll(seletor)).map(el => el.getAttribute(atributo));
+    try {
+      await callback(novaOrdem);
+      alert('Nova ordem salva com sucesso!');
+    } catch (erro) {
+      console.error('Erro ao salvar nova ordem:', erro);
+      alert('ERRO ao salvar a nova ordem: ' + ((erro && erro.message) || 'motivo desconhecido'));
+    }
   };
 
-  const aoFinalizar = () => {
-    if (!itemArrastado) return;
-    itemArrastado.classList.remove('sendo-arrastado');
-    itemArrastado.style.transform = '';
-    const novaOrdem = Array.from(container.querySelectorAll(seletorItem)).map(el => el.getAttribute(atributoId));
-    itemArrastado = null;
-    aoSoltar(novaOrdem);
-  };
-
-  document.addEventListener('pointermove', aoMover);
-  document.addEventListener('pointerup', aoFinalizar);
-  document.addEventListener('pointercancel', aoFinalizar);
-
-  container._removerListenersArrastar = () => {
-    document.removeEventListener('pointermove', aoMover);
-    document.removeEventListener('pointerup', aoFinalizar);
-    document.removeEventListener('pointercancel', aoFinalizar);
-  };
+  document.addEventListener('pointerup', finalizarArraste);
+  document.addEventListener('pointercancel', finalizarArraste);
 }
 
 function renderizarCategoriasAdmin() {
