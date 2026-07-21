@@ -122,6 +122,64 @@ if (formCadastro) {
 }
 
 // -------------------------------------------------------------
+// Login/cadastro com Google
+// -------------------------------------------------------------
+function iniciarLoginGoogle(botaoId, mensagemErroId) {
+  const botao = document.getElementById(botaoId);
+  if (!botao) return;
+
+  botao.addEventListener('click', () => {
+    if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+      return mostrarErro(mensagemErroId, 'Ainda carregando o Google. Aguarde um instante e tente de novo.');
+    }
+    esconderErro(mensagemErroId);
+
+    const textoOriginal = botao.innerHTML;
+    botao.disabled = true;
+    botao.innerHTML = 'Conectando...';
+
+    const restaurarBotao = () => {
+      botao.disabled = false;
+      botao.innerHTML = textoOriginal;
+    };
+
+    const clienteCodigo = google.accounts.oauth2.initCodeClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: 'openid email profile',
+      ux_mode: 'popup',
+      callback: async (resposta) => {
+        if (!resposta || !resposta.code) {
+          restaurarBotao();
+          return mostrarErro(mensagemErroId, 'Nao foi possivel conectar com o Google.');
+        }
+        try {
+          const r = await fetch(`${API_BASE_URL}/clientes/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: resposta.code })
+          });
+          const dados = await r.json();
+          if (!r.ok) {
+            throw new Error(dados.erro || 'Nao foi possivel entrar com o Google.');
+          }
+          salvarSessaoCliente(dados.token, dados.conta);
+          window.location.href = 'index.html';
+        } catch (erro) {
+          mostrarErro(mensagemErroId, erro.message);
+          restaurarBotao();
+        }
+      },
+      error_callback: () => restaurarBotao()
+    });
+
+    clienteCodigo.requestCode();
+  });
+}
+
+iniciarLoginGoogle('botao-google-login', 'erro-login');
+iniciarLoginGoogle('botao-google-cadastro', 'erro-etapa-1');
+
+// -------------------------------------------------------------
 // Pagina de login
 // -------------------------------------------------------------
 const formLogin = document.getElementById('form-login-cliente');
