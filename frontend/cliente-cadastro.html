@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Criar conta - Palatos</title>
+<link rel="stylesheet" href="css/cliente-auth.css">
+</head>
+<body>
+  <div class="auth-caixa">
+    <div class="auth-lado">
+      <div class="auth-logo">
+        <span class="auth-logo__texto">pal<span class="auth-logo__destaque">a</span>tos</span>
+        <div class="auth-logo__slogan">— MAIS SABOR. MAIS PEDIDOS. —</div>
+      </div>
+    </div>
+
+    <div class="auth-conteudo">
+      <div class="auth-passos">
+        <div class="auth-passo">
+          <span class="auth-passo__bolha auth-passo__bolha--ativa" data-passo-bolha="1">1</span>
+          <span class="auth-passo__legenda">Criar conta</span>
+        </div>
+        <div class="auth-passo__linha"></div>
+        <div class="auth-passo">
+          <span class="auth-passo__bolha" data-passo-bolha="2">2</span>
+          <span class="auth-passo__legenda">Dados pessoais</span>
+        </div>
+      </div>
+
+      <form id="form-cadastro-cliente" novalidate>
+        <div id="etapa-1" class="auth-etapa">
+          <h1><strong>Criar</strong> sua conta</h1>
+          <p class="auth-sub">É rápido, fácil e gratuito! Crie sua conta e aproveite o melhor do <strong>Palatos</strong>.</p>
+
+          <label class="campo-auth">
+            <input type="text" id="cad-nome" placeholder="Nome" required>
+          </label>
+          <label class="campo-auth">
+            <input type="text" id="cad-sobrenome" placeholder="Sobrenome" required>
+          </label>
+          <label class="campo-auth">
+            <input type="email" id="cad-email" placeholder="E-mail" required>
+          </label>
+          <label class="campo-auth">
+            <input type="password" id="cad-senha" placeholder="Senha (minimo 6 caracteres)" minlength="6" required>
+          </label>
+
+          <p id="erro-etapa-1" class="auth-erro oculto"></p>
+
+          <button type="button" id="botao-avancar" class="auth-botao-principal">Avançar</button>
+
+          <p class="auth-rodape">Já tem uma conta? <a href="cliente-login.html">Entrar</a></p>
+        </div>
+
+        <div id="etapa-2" class="auth-etapa oculto">
+          <h1><strong>Dados</strong> pessoais</h1>
+          <p class="auth-sub">Precisamos de algumas informações para finalizar seu cadastro e garantir uma experiência <strong>personalizada</strong>.</p>
+
+          <label class="campo-auth">
+            <input type="text" id="cad-cpf" placeholder="CPF (000.000.000-00)" required>
+          </label>
+
+          <div class="campo-auth-linha">
+            <label class="campo-auth" style="flex:1;">
+              <input type="text" id="cad-cep" placeholder="CEP (00000-000)" required>
+            </label>
+            <button type="button" id="botao-buscar-cep" class="auth-botao-secundario">Buscar CEP</button>
+          </div>
+
+          <label class="campo-auth">
+            <input type="text" id="cad-logradouro" placeholder="Rua, Avenida, Travessa..." required>
+          </label>
+
+          <div class="campo-auth-linha">
+            <label class="campo-auth" style="flex:1;">
+              <input type="text" id="cad-numero" placeholder="Número" required>
+            </label>
+            <label class="campo-auth" style="flex:1;">
+              <input type="text" id="cad-bairro" placeholder="Bairro" required>
+            </label>
+          </div>
+
+          <div class="campo-auth-linha">
+            <label class="campo-auth" style="flex:1;">
+              <input type="text" id="cad-cidade" placeholder="Cidade" required>
+            </label>
+            <label class="campo-auth" style="flex:1;">
+              <select id="cad-uf" required>
+                <option value="">Estado</option>
+                <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option>
+                <option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option>
+                <option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option>
+                <option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+                <option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option>
+                <option>SE</option><option>TO</option>
+              </select>
+            </label>
+          </div>
+
+          <p id="erro-etapa-2" class="auth-erro oculto"></p>
+
+          <button type="submit" id="botao-finalizar" class="auth-botao-principal">🔒 Finalizar cadastro</button>
+          <button type="button" id="botao-voltar" class="auth-botao-texto">← Voltar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/cliente-auth.js"></script>
+</body>
+</html>
