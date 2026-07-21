@@ -244,14 +244,12 @@
       <section id="aba-categorias" class="aba oculto">
         <div class="aba__cabecalho">
           <h2 class="aba__titulo">Categorias <span id="contador-categorias" class="aba__contador"></span></h2>
-          <button id="botao-nova-categoria" class="botao-secundario">+ Nova categoria</button>
+          <div class="aba__cabecalho-acoes">
+            <button id="botao-nova-categoria" class="botao-secundario">+ Nova categoria</button>
+            <button id="botao-ver-categorias-desativadas" class="botao-secundario" title="Ver categorias desativadas">Desativadas <span id="contador-categorias-desativadas" class="aba__contador"></span></button>
+          </div>
         </div>
         <div id="lista-categorias-admin" class="lista-itens-admin"></div>
-
-        <button id="botao-alternar-categorias-desativadas" class="botao-mostrar-desativados">
-          Categorias desativadas <span id="contador-categorias-desativadas" class="aba__contador"></span> ▾
-        </button>
-        <div id="bloco-categorias-desativadas" class="lista-itens-admin oculto"></div>
       </section>
 
       <section id="aba-produtos" class="aba oculto">
@@ -284,44 +282,40 @@
       <section id="aba-promocoes" class="aba oculto">
         <div class="aba__cabecalho">
           <h2 class="aba__titulo">Promocoes <span id="contador-promocoes" class="aba__contador"></span></h2>
-          <button id="botao-nova-promocao" class="botao-secundario">+ Nova promocao</button>
+          <div class="aba__cabecalho-acoes">
+            <button id="botao-nova-promocao" class="botao-secundario">+ Nova promocao</button>
+            <button id="botao-ver-promocoes-desativadas" class="botao-secundario" title="Ver promocoes desativadas">Desativadas <span id="contador-promocoes-desativadas" class="aba__contador"></span></button>
+          </div>
         </div>
         <div id="lista-promocoes-admin" class="lista-itens-admin"></div>
-
-        <button id="botao-alternar-promocoes-desativadas" class="botao-mostrar-desativados">
-          Promocoes desativadas <span id="contador-promocoes-desativadas" class="aba__contador"></span> ▾
-        </button>
-        <div id="bloco-promocoes-desativadas" class="lista-itens-admin oculto"></div>
       </section>
 
       <section id="aba-vitrines" class="aba oculto">
         <div class="aba__cabecalho">
           <h2 class="aba__titulo">Carrosséis extras</h2>
-          <button id="botao-novo-carrossel" class="botao-secundario">+ Novo carrossel</button>
+          <div class="aba__cabecalho-acoes">
+            <button id="botao-novo-carrossel" class="botao-secundario">+ Novo carrossel</button>
+            <button id="botao-ver-carrosseis-desativados" class="botao-secundario" title="Ver carrosseis desativados">Desativados <span id="contador-carrosseis-desativados" class="aba__contador"></span></button>
+          </div>
         </div>
         <p class="aba__descricao">
           Além do banner principal, você pode criar um ou dois carrosséis extras com quantas fotos quiser,
           e escolher em qual parte da página cada um aparece. Ficam desativados até você ativar.
         </p>
         <div id="lista-carrosseis-admin" class="lista-itens-admin"></div>
-        <button id="botao-alternar-carrosseis-desativados" class="botao-mostrar-desativados">
-          Carrosséis desativados <span id="contador-carrosseis-desativados" class="aba__contador"></span> ▾
-        </button>
-        <div id="bloco-carrosseis-desativados" class="lista-itens-admin oculto"></div>
 
         <div class="aba__cabecalho" style="margin-top:32px;">
           <h2 class="aba__titulo">Vitrines</h2>
-          <button id="botao-nova-vitrine" class="botao-secundario">+ Nova vitrine</button>
+          <div class="aba__cabecalho-acoes">
+            <button id="botao-nova-vitrine" class="botao-secundario">+ Nova vitrine</button>
+            <button id="botao-ver-vitrines-desativadas" class="botao-secundario" title="Ver vitrines desativadas">Desativadas <span id="contador-vitrines-desativadas" class="aba__contador"></span></button>
+          </div>
         </div>
         <p class="aba__descricao">
           Vitrine é um bloco com uma imagem grande (retrato, de 1350x1800 até 2000x2000px) e uma caixa de texto.
           Também posicionável e desativada por padrão até você ativar.
         </p>
         <div id="lista-vitrines-admin" class="lista-itens-admin"></div>
-        <button id="botao-alternar-vitrines-desativadas" class="botao-mostrar-desativados">
-          Vitrines desativadas <span id="contador-vitrines-desativadas" class="aba__contador"></span> ▾
-        </button>
-        <div id="bloco-vitrines-desativadas" class="lista-itens-admin oculto"></div>
 
         <div class="aba__cabecalho" style="margin-top:32px;">
           <h2 class="aba__titulo">Caixas de texto</h2>
@@ -797,6 +791,15 @@
         <p class="campo-dica">Imagem paisagem, ideal 750x330px.</p>
         <button type="submit" class="botao-primario">Salvar promocao</button>
       </form>
+    </div>
+  </div>
+
+  <div id="modal-desativados" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-desativados">Desativados</h3>
+      <div id="lista-desativados-modal" class="lista-itens-admin"></div>
     </div>
   </div>
 
