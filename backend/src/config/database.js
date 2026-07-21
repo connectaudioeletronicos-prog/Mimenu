@@ -88,6 +88,50 @@ async function sincronizarSchema() {
   } catch (error) {
     console.error('Aviso: nao foi possivel sincronizar colunas de funcionarios:', error.message);
   }
+
+  try {
+    await pool.query(`ALTER TABLE produtos ADD COLUMN IF NOT EXISTS estoque INTEGER;`);
+    console.log('Schema sincronizado: coluna estoque em produtos atualizada.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar estoque em produtos:', error.message);
+  }
+
+  try {
+    await pool.query(`ALTER TABLE categorias ADD COLUMN IF NOT EXISTS descricao TEXT;`);
+    console.log('Schema sincronizado: coluna descricao em categorias atualizada.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar descricao em categorias:', error.message);
+  }
+
+  // Conta do aplicativo do cliente (diferente da tabela "clientes", que e
+  // um registro simples por estabelecimento criado a cada pedido). Esta e
+  // a conta de verdade, com login/senha, valida em qualquer loja Palatos.
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS contas_clientes (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        nome VARCHAR(100) NOT NULL,
+        sobrenome VARCHAR(100) NOT NULL,
+        email VARCHAR(150) NOT NULL UNIQUE,
+        senha_hash TEXT NOT NULL,
+        cpf VARCHAR(14) UNIQUE,
+        cep VARCHAR(9),
+        logradouro TEXT,
+        numero VARCHAR(20),
+        bairro VARCHAR(100),
+        cidade VARCHAR(100),
+        uf CHAR(2),
+        reset_token VARCHAR(255),
+        reset_token_expira TIMESTAMP,
+        criado_em TIMESTAMP DEFAULT NOW(),
+        atualizado_em TIMESTAMP DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_contas_clientes_email ON contas_clientes(email);
+    `);
+    console.log('Schema sincronizado: tabela contas_clientes verificada.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar contas_clientes:', error.message);
+  }
 }
 
 module.exports = { pool, query, sincronizarSchema };
