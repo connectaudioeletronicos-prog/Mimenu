@@ -675,12 +675,17 @@ function renderizarCategoriasAdmin() {
     configurarItensCategoria(lista);
     configurarDragDropCategorias(lista);
   }
+}
 
-  const blocoDesativadas = document.getElementById('bloco-categorias-desativadas');
-  blocoDesativadas.innerHTML = desativadas.length === 0
+function abrirModalCategoriasDesativadas() {
+  const desativadas = ESTADO.categorias.filter(c => c.ativo === false);
+  document.getElementById('titulo-modal-desativados').textContent = 'Categorias desativadas';
+  const conteudo = document.getElementById('lista-desativados-modal');
+  conteudo.innerHTML = desativadas.length === 0
     ? '<div class="lista-vazia">Nenhuma categoria desativada.</div>'
     : montarItensCategoria(desativadas);
-  configurarItensCategoria(blocoDesativadas);
+  configurarItensCategoria(conteudo);
+  document.getElementById('modal-desativados').classList.remove('oculto');
 }
 
 function montarItensCategoria(categorias) {
@@ -742,6 +747,10 @@ async function alternarAtivoCategoria(id, ativo) {
     await apiAtualizarCategoria(id, fd);
     await carregarTudo();
     renderizarCategoriasAdmin();
+    if (!document.getElementById('modal-desativados').classList.contains('oculto') &&
+        document.getElementById('titulo-modal-desativados').textContent === 'Categorias desativadas') {
+      abrirModalCategoriasDesativadas();
+    }
     mostrarToast(ativo ? 'Categoria ativada.' : 'Categoria desativada.');
   } catch (erro) {
     mostrarToast(erro.message, true);
@@ -804,9 +813,7 @@ function configurarEventosCategorias() {
   EVENTOS_CATEGORIAS_CONFIGURADOS = true;
 
   document.getElementById('botao-nova-categoria')?.addEventListener('click', () => abrirModalCategoria(null));
-  document.getElementById('botao-alternar-categorias-desativadas')?.addEventListener('click', () => {
-    document.getElementById('bloco-categorias-desativadas').classList.toggle('oculto');
-  });
+  document.getElementById('botao-ver-categorias-desativadas')?.addEventListener('click', abrirModalCategoriasDesativadas);
 
   document.getElementById('form-categoria').addEventListener('submit', async (evento) => {
     evento.preventDefault();
@@ -1277,12 +1284,17 @@ function renderizarPromocoesAdmin() {
     configurarItensPromocao(lista);
     configurarDragDropPromocoes(lista);
   }
+}
 
-  const blocoDesativadas = document.getElementById('bloco-promocoes-desativadas');
-  blocoDesativadas.innerHTML = desativadas.length === 0
+function abrirModalPromocoesDesativadas() {
+  const desativadas = ESTADO.promocoes.filter(p => p.ativo === false);
+  document.getElementById('titulo-modal-desativados').textContent = 'Promocoes desativadas';
+  const conteudo = document.getElementById('lista-desativados-modal');
+  conteudo.innerHTML = desativadas.length === 0
     ? '<div class="lista-vazia">Nenhuma promocao desativada.</div>'
     : montarItensPromocao(desativadas);
-  configurarItensPromocao(blocoDesativadas);
+  configurarItensPromocao(conteudo);
+  document.getElementById('modal-desativados').classList.remove('oculto');
 }
 
 function montarItensPromocao(promocoes) {
@@ -1346,6 +1358,10 @@ async function alternarAtivoPromocao(id, ativo) {
     await apiAtualizarPromocao(id, fd);
     await carregarTudo();
     renderizarPromocoesAdmin();
+    if (!document.getElementById('modal-desativados').classList.contains('oculto') &&
+        document.getElementById('titulo-modal-desativados').textContent === 'Promocoes desativadas') {
+      abrirModalPromocoesDesativadas();
+    }
     mostrarToast(ativo ? 'Promocao ativada.' : 'Promocao desativada.');
   } catch (erro) {
     mostrarToast(erro.message, true);
@@ -1408,6 +1424,7 @@ function configurarEventosPromocoes() {
   EVENTOS_PROMOCOES_CONFIGURADOS = true;
 
   document.getElementById('botao-nova-promocao').addEventListener('click', () => abrirModalPromocao(null));
+  document.getElementById('botao-ver-promocoes-desativadas')?.addEventListener('click', abrirModalPromocoesDesativadas);
 
   document.getElementById('form-promocao').addEventListener('submit', async (evento) => {
     evento.preventDefault();
