@@ -978,3 +978,29 @@
     max-height: none;
   }
 }
+
+/* Caixa de texto livre (aviso/promocao em texto) */
+.caixa-texto-extra {
+  max-width: 640px;
+  margin: 20px auto;
+  padding: 16px 20px;
+  border-radius: var(--raio-borda);
+  background: var(--cor-fundo-alternativo);
+  box-shadow: var(--sombra-card);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.caixa-texto-extra__titulo {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--cor-secundaria);
+  margin-bottom: 6px;
+}
+
+.caixa-texto-extra__corpo {
+  font-size: 0.9rem;
+  color: var(--cor-texto);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
