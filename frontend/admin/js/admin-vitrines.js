@@ -50,7 +50,6 @@ let CARROSSEL_ABERTO_ID = null;
 // ---------------------------------------------------------------
 function renderizarCarrosseisAdmin() {
   const lista = document.getElementById('lista-carrosseis-admin');
-  const blocoDesativados = document.getElementById('bloco-carrosseis-desativados');
   if (!lista) return;
 
   const todos = ESTADO.carrosseis || [];
@@ -64,13 +63,17 @@ function renderizarCarrosseisAdmin() {
     ? '<div class="lista-vazia">Nenhum carrossel ativo.</div>'
     : montarItensCarrossel(ativos);
   configurarItensCarrossel(lista);
+}
 
-  if (blocoDesativados) {
-    blocoDesativados.innerHTML = desativados.length === 0
-      ? '<div class="lista-vazia">Nenhum carrossel desativado.</div>'
-      : montarItensCarrossel(desativados);
-    configurarItensCarrossel(blocoDesativados);
-  }
+function abrirModalCarrosseisDesativados() {
+  const desativados = (ESTADO.carrosseis || []).filter(c => !c.ativo);
+  document.getElementById('titulo-modal-desativados').textContent = 'Carrosséis desativados';
+  const conteudo = document.getElementById('lista-desativados-modal');
+  conteudo.innerHTML = desativados.length === 0
+    ? '<div class="lista-vazia">Nenhum carrossel desativado.</div>'
+    : montarItensCarrossel(desativados);
+  configurarItensCarrossel(conteudo);
+  document.getElementById('modal-desativados').classList.remove('oculto');
 }
 
 function montarItensCarrossel(carrosseis) {
@@ -123,6 +126,10 @@ async function alternarAtivoCarrossel(id, ativo) {
     await apiAtualizarCarrossel(id, { ativo });
     ESTADO.carrosseis = await apiListarCarrosseis();
     renderizarCarrosseisAdmin();
+    if (!document.getElementById('modal-desativados').classList.contains('oculto') &&
+        document.getElementById('titulo-modal-desativados').textContent === 'Carrosséis desativados') {
+      abrirModalCarrosseisDesativados();
+    }
     mostrarToast(ativo ? 'Carrossel ativado.' : 'Carrossel desativado.');
   } catch (erro) {
     mostrarToast(erro.message, true);
@@ -135,9 +142,7 @@ function configurarEventosCarrosseis() {
   window.EVENTOS_CARROSSEIS_CONFIGURADOS = true;
 
   document.getElementById('botao-novo-carrossel').addEventListener('click', () => abrirModalCarrossel(null));
-  document.getElementById('botao-alternar-carrosseis-desativados')?.addEventListener('click', () => {
-    document.getElementById('bloco-carrosseis-desativados').classList.toggle('oculto');
-  });
+  document.getElementById('botao-ver-carrosseis-desativados')?.addEventListener('click', abrirModalCarrosseisDesativados);
 
   document.getElementById('form-carrossel').addEventListener('submit', async (evento) => {
     evento.preventDefault();
@@ -269,7 +274,6 @@ async function excluirCarrossel(id) {
 // ---------------------------------------------------------------
 function renderizarVitrinesAdmin() {
   const lista = document.getElementById('lista-vitrines-admin');
-  const blocoDesativadas = document.getElementById('bloco-vitrines-desativadas');
   if (!lista) return;
 
   const todas = ESTADO.vitrines || [];
@@ -283,13 +287,17 @@ function renderizarVitrinesAdmin() {
     ? '<div class="lista-vazia">Nenhuma vitrine ativa.</div>'
     : montarItensVitrine(ativas);
   configurarItensVitrine(lista);
+}
 
-  if (blocoDesativadas) {
-    blocoDesativadas.innerHTML = desativadas.length === 0
-      ? '<div class="lista-vazia">Nenhuma vitrine desativada.</div>'
-      : montarItensVitrine(desativadas);
-    configurarItensVitrine(blocoDesativadas);
-  }
+function abrirModalVitrinesDesativadas() {
+  const desativadas = (ESTADO.vitrines || []).filter(v => !v.ativo);
+  document.getElementById('titulo-modal-desativados').textContent = 'Vitrines desativadas';
+  const conteudo = document.getElementById('lista-desativados-modal');
+  conteudo.innerHTML = desativadas.length === 0
+    ? '<div class="lista-vazia">Nenhuma vitrine desativada.</div>'
+    : montarItensVitrine(desativadas);
+  configurarItensVitrine(conteudo);
+  document.getElementById('modal-desativados').classList.remove('oculto');
 }
 
 function montarItensVitrine(vitrines) {
@@ -347,6 +355,10 @@ async function alternarAtivoVitrine(id, ativo) {
     await apiAtualizarVitrine(id, fd);
     ESTADO.vitrines = await apiListarVitrines();
     renderizarVitrinesAdmin();
+    if (!document.getElementById('modal-desativados').classList.contains('oculto') &&
+        document.getElementById('titulo-modal-desativados').textContent === 'Vitrines desativadas') {
+      abrirModalVitrinesDesativadas();
+    }
     mostrarToast(ativo ? 'Vitrine ativada.' : 'Vitrine desativada.');
   } catch (erro) {
     mostrarToast(erro.message, true);
@@ -359,9 +371,7 @@ function configurarEventosVitrines() {
   window.EVENTOS_VITRINES_CONFIGURADOS = true;
 
   document.getElementById('botao-nova-vitrine').addEventListener('click', () => abrirModalVitrine(null));
-  document.getElementById('botao-alternar-vitrines-desativadas')?.addEventListener('click', () => {
-    document.getElementById('bloco-vitrines-desativadas').classList.toggle('oculto');
-  });
+  document.getElementById('botao-ver-vitrines-desativadas')?.addEventListener('click', abrirModalVitrinesDesativadas);
 
   const textoCampo = document.getElementById('vitrine-texto');
   const contador = document.getElementById('vitrine-texto-contador');
