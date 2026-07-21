@@ -20,6 +20,10 @@ function obterSlugDaURL() {
   return null;
 }
 
+// ID de cliente OAuth do Google (publico, usado so pelo navegador para
+// abrir a janela de login do Google - nao e um segredo).
+const GOOGLE_CLIENT_ID = '903108778717-t74g7vt3o16fkh86pkcvv8ompc15i925.apps.googleusercontent.com';
+
 const SLUG_ESTABELECIMENTO = obterSlugDaURL();
 const DOMINIO_ATUAL = window.location.hostname;
 
