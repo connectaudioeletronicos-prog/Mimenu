@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entrar - Palatos</title>
+<link rel="stylesheet" href="css/cliente-auth.css">
+</head>
+<body>
+  <div class="auth-caixa auth-caixa--login">
+    <div class="auth-conteudo auth-conteudo--login">
+      <div class="auth-logo auth-logo--centro">
+        <span class="auth-logo__texto">pal<span class="auth-logo__destaque">a</span>tos</span>
+        <div class="auth-logo__slogan">— MAIS SABOR. MAIS PEDIDOS. —</div>
+      </div>
+
+      <h1 class="auth-titulo-centro"><strong>Bem-vindo</strong> de volta!</h1>
+      <p class="auth-sub auth-sub--centro">Faça login para continuar e aproveitar o melhor do <strong>Palatos</strong>.</p>
+
+      <form id="form-login-cliente" novalidate>
+        <label class="campo-auth">
+          <input type="text" id="login-identificador" placeholder="E-mail" required>
+        </label>
+        <label class="campo-auth">
+          <input type="password" id="login-senha" placeholder="Senha" required>
+        </label>
+
+        <p class="auth-esqueci"><a href="#" id="link-esqueci-senha">Esqueceu sua senha?</a></p>
+
+        <p id="erro-login" class="auth-erro oculto"></p>
+
+        <button type="submit" class="auth-botao-principal">→ Entrar</button>
+      </form>
+
+      <p class="auth-rodape">Ainda não tem uma conta? <a href="cliente-cadastro.html">Criar conta</a></p>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/cliente-auth.js"></script>
+</body>
+</html>
