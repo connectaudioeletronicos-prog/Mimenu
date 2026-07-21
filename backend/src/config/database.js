@@ -132,6 +132,19 @@ async function sincronizarSchema() {
   } catch (error) {
     console.error('Aviso: nao foi possivel sincronizar contas_clientes:', error.message);
   }
+
+  // Permite login com Google na conta do cliente: guarda o ID unico do
+  // Google (sub) e libera a senha para ser opcional (quem entra so pelo
+  // Google nunca chega a definir uma senha nossa).
+  try {
+    await pool.query(`
+      ALTER TABLE contas_clientes ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE;
+      ALTER TABLE contas_clientes ALTER COLUMN senha_hash DROP NOT NULL;
+    `);
+    console.log('Schema sincronizado: login com Google em contas_clientes atualizado.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar login Google em contas_clientes:', error.message);
+  }
 }
 
 module.exports = { pool, query, sincronizarSchema };
