@@ -1,0 +1,273 @@
+/* ===================================================================
+   Autenticacao do cliente (Palatos) - cadastro e login
+   =================================================================== */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #f2f3f5;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.auth-caixa {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+  max-width: 980px;
+  width: 100%;
+  display: flex;
+  overflow: hidden;
+  min-height: 620px;
+}
+
+.auth-lado {
+  flex: 1 1 42%;
+  background: #0d0d0d;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  padding: 32px;
+}
+
+.auth-logo__texto {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.auth-logo__destaque {
+  color: #2ea55f;
+}
+
+.auth-logo__slogan {
+  font-size: 0.65rem;
+  letter-spacing: 1px;
+  color: #e8873e;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.auth-conteudo {
+  flex: 1 1 58%;
+  padding: 48px 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.auth-passos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.auth-passo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.auth-passo__bolha {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e5e5e5;
+  color: #888;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.auth-passo__bolha--ativa {
+  background: #1B7A3E;
+  color: #fff;
+}
+
+.auth-passo__legenda {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 600;
+}
+
+.auth-passo__linha {
+  width: 80px;
+  height: 2px;
+  background: #e5e5e5;
+  margin-bottom: 20px;
+}
+
+h1 {
+  font-size: 1.7rem;
+  margin: 0 0 8px;
+  color: #1a1a1a;
+}
+
+h1 strong {
+  color: #1B7A3E;
+}
+
+.auth-sub {
+  color: #666;
+  font-size: 0.92rem;
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.auth-sub strong {
+  color: #1B7A3E;
+}
+
+.campo-auth {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.campo-auth input,
+.campo-auth select {
+  width: 100%;
+  padding: 13px 16px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.campo-auth input:focus,
+.campo-auth select:focus {
+  outline: none;
+  border-color: #1B7A3E;
+}
+
+.campo-auth-linha {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.auth-botao-principal {
+  width: 100%;
+  padding: 14px;
+  background: #1B7A3E;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.auth-botao-principal:hover {
+  background: #15602f;
+}
+
+.auth-botao-secundario {
+  padding: 13px 18px;
+  background: #fff;
+  color: #1B7A3E;
+  border: 1px solid #1B7A3E;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.auth-botao-texto {
+  width: 100%;
+  background: none;
+  border: none;
+  color: #1B7A3E;
+  font-weight: 600;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.auth-rodape {
+  text-align: center;
+  font-size: 0.88rem;
+  color: #666;
+  margin-top: 18px;
+}
+
+.auth-rodape a,
+.auth-esqueci a {
+  color: #1B7A3E;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-esqueci {
+  text-align: right;
+  font-size: 0.82rem;
+  margin: -6px 0 14px;
+}
+
+.auth-erro {
+  background: #fde2e2;
+  color: #b00020;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+}
+
+.oculto { display: none !important; }
+
+/* Tela de login: card central, sem painel lateral */
+.auth-caixa--login {
+  max-width: 460px;
+  min-height: auto;
+}
+
+.auth-conteudo--login {
+  flex: 1 1 100%;
+  padding: 48px 40px;
+}
+
+.auth-logo--centro {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-logo--centro .auth-logo__texto {
+  color: #1a1a1a;
+  font-size: 2.2rem;
+}
+
+.auth-titulo-centro {
+  text-align: center;
+}
+
+.auth-sub--centro {
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .auth-caixa {
+    flex-direction: column;
+    min-height: auto;
+  }
+  .auth-lado {
+    flex: none;
+    padding: 24px;
+    justify-content: center;
+  }
+  .auth-logo__texto { font-size: 1.5rem; }
+  .auth-conteudo {
+    padding: 32px 24px;
+  }
+  .campo-auth-linha {
+    flex-direction: column;
+  }
+}
