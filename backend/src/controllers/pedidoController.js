@@ -7,8 +7,11 @@ async function criarPedido(req, res) {
     const { slug } = req.params;
     const {
       cliente_nome, cliente_telefone, cliente_endereco, cliente_cep,
-      observacoes, forma_pagamento, taxa_entrega, itens
+      observacoes, forma_pagamento, taxa_entrega, gorjeta, tipo_pedido, itens
     } = req.body;
+
+    const tipoPedidoFinal = tipo_pedido === 'retirada' ? 'retirada' : 'entrega';
+    const ehRetirada = tipoPedidoFinal === 'retirada';
 
     if (!cliente_nome || !cliente_telefone || !itens || itens.length === 0) {
       return res.status(400).json({ erro: 'Dados incompletos para criar pedido.' });
@@ -24,20 +27,24 @@ async function criarPedido(req, res) {
       return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
     }
 
-    if (!cliente_endereco || cliente_endereco.trim().length < 5) {
-      return res.status(400).json({ erro: 'Informe o endereco de entrega.' });
+    // Endereco e CEP so sao obrigatorios para pedido por entrega. Na
+    // retirada, o cliente busca o pedido pronto no proprio estabelecimento.
+    if (!ehRetirada) {
+      if (!cliente_endereco || cliente_endereco.trim().length < 5) {
+        return res.status(400).json({ erro: 'Informe o endereco de entrega.' });
+      }
+
+      if (!validarFormatoCep(cliente_cep)) {
+        return res.status(400).json({ erro: 'CEP invalido. Use o formato 99999-999.' });
+      }
+
+      const validacaoCep = await validarCepViaCep(cliente_cep);
+      if (!validacaoCep.valido) {
+        return res.status(400).json({ erro: 'CEP nao encontrado. Verifique o CEP informado.' });
+      }
     }
 
-    if (!validarFormatoCep(cliente_cep)) {
-      return res.status(400).json({ erro: 'CEP invalido. Use o formato 99999-999.' });
-    }
-
-    const validacaoCep = await validarCepViaCep(cliente_cep);
-    if (!validacaoCep.valido) {
-      return res.status(400).json({ erro: 'CEP nao encontrado. Verifique o CEP informado.' });
-    }
-
-    const estRes = await query('SELECT id, ativo, mp_access_token FROM estabelecimentos WHERE slug = $1', [slug]);
+    const estRes = await query('SELECT id, ativo, mp_access_token, tempo_preparo_min FROM estabelecimentos WHERE slug = $1', [slug]);
     if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
     if (!estRes.rows[0].ativo) return res.status(403).json({ erro: 'Estabelecimento indisponivel.' });
     const estabelecimentoId = estRes.rows[0].id;
@@ -55,12 +62,16 @@ async function criarPedido(req, res) {
       itensValidados.push({ produto_id: produto.id, nome: produto.nome, quantidade: item.quantidade, preco_unitario: preco, observacao: item.observacao || '' });
     }
 
-    const total = subtotal + parseFloat(taxa_entrega || 0);
+    // Retirada nunca tem taxa de entrega, mesmo que o cliente tenha mudado
+    // de ideia depois de calcular uma (o front ja zera, isso e so garantia).
+    const taxaEntregaFinal = ehRetirada ? 0 : parseFloat(taxa_entrega || 0);
+    const gorjetaFinal = parseFloat(gorjeta || 0);
+    const total = subtotal + taxaEntregaFinal + gorjetaFinal;
 
     const pedidoRes = await query(
-      `INSERT INTO pedidos (estabelecimento_id, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes, forma_pagamento, itens, subtotal, taxa_entrega, total, status_pedido, status_pagamento)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'novo','pendente') RETURNING *`,
-      [estabelecimentoId, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes || '', forma_pagamento, JSON.stringify(itensValidados), subtotal, parseFloat(taxa_entrega || 0), total]
+      `INSERT INTO pedidos (estabelecimento_id, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes, forma_pagamento, itens, subtotal, taxa_entrega, gorjeta, total, tipo_pedido, status_pedido, status_pagamento)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'novo','pendente') RETURNING *`,
+      [estabelecimentoId, cliente_nome, cliente_telefone, ehRetirada ? null : cliente_endereco, ehRetirada ? null : cliente_cep, observacoes || '', forma_pagamento, JSON.stringify(itensValidados), subtotal, taxaEntregaFinal, gorjetaFinal, total, tipoPedidoFinal]
     );
     const pedido = pedidoRes.rows[0];
 
@@ -80,7 +91,11 @@ async function criarPedido(req, res) {
       console.warn('Aviso: nao foi possivel salvar cliente automaticamente:', e.message);
     }
 
-    res.status(201).json({ pedido, pagamento: null });
+    res.status(201).json({
+      pedido,
+      pagamento: null,
+      tempo_preparo_min: estRes.rows[0].tempo_preparo_min || 30
+    });
   } catch (error) {
     console.error('Erro ao criar pedido:', error);
     res.status(500).json({ erro: 'Erro interno ao criar pedido.' });
