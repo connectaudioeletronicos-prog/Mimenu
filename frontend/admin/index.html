@@ -88,6 +88,7 @@
       <button class="painel__menu-item" data-aba="produtos">🍽️ Produtos <span class="painel__menu-contador" data-menu-contador="produtos"></span></button>
       <button class="painel__menu-item" data-aba="promocoes">🏷️ Promocoes <span class="painel__menu-contador" data-menu-contador="promocoes"></span></button>
       <button class="painel__menu-item" data-aba="vitrines">🖼️ Carrosseis e Vitrines <span class="painel__menu-contador" data-menu-contador="vitrines"></span></button>
+      <button class="painel__menu-item" data-aba="construtor">🧩 Construtor de página</button>
       <button class="painel__menu-item" data-aba="pedidos">🧾 Pedidos <span class="painel__menu-contador" data-menu-contador="pedidos"></span></button>
       <button class="painel__menu-item" data-aba="caixa-geral">💰 Caixa Geral</button>
       <button class="painel__menu-item" data-aba="pagamento">💳 Pagamento</button>
@@ -326,6 +327,16 @@
           promoções escritas ou qualquer coisa que você queira comunicar. Também posicionável.
         </p>
         <div id="lista-caixas-texto-admin" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-construtor" class="aba oculto">
+        <h2 class="aba__titulo">Construtor de página</h2>
+        <p class="aba__descricao construtor-intro">
+          Arraste os blocos (carrossel, vitrine, texto livre) para reordenar como eles aparecem
+          no cardápio público, em qualquer ponto da página. As faixas cinzas são pontos fixos
+          (cabeçalho, categorias, produtos, rodapé) e não podem ser movidas — os blocos entre elas, sim.
+        </p>
+        <div id="construtor-lista" class="construtor-lista"></div>
       </section>
 
       <section id="aba-pedidos" class="aba oculto">
@@ -834,10 +845,12 @@
   <div id="toast" class="toast oculto"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <script src="../js/config.js"></script>
   <script src="js/admin-api.js?v=20260720d"></script>
   <script src="js/admin.js?v=20260720d"></script>
   <script src="js/admin-vitrines.js?v=20260720d"></script>
   <script src="js/admin-caixatexto.js?v=20260720d"></script>
+  <script src="js/admin-construtor.js?v=20260722a"></script>
 </body>
 </html>
