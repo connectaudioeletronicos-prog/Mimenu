@@ -4,6 +4,14 @@
 > implementado fica registrado aqui, organizado por área, pra não se perder
 > ao longo das conversas. Marque com `[x]` conforme for implementado.
 
+## Bugs conhecidos (reportados 22/07)
+- [ ] Lista de pedidos (cliente e/ou dashboard do lojista) mostra só a data,
+      falta o horário
+- [ ] Dashboard do administrador não mostra o código/ID do pedido
+- [ ] Confirmar se a tela "Minha conta" (Meus dados / Meus pedidos) do
+      cliente precisa ser restilizada — hoje está sem o visual do Palatos
+      (botões sem estilo)
+
 ## Login e marca
 - [ ] Repensar a cor/texto da tagline "MAIS SABOR. MAIS PEDIDOS." — "pedidos"
       fala mais com o lojista do que com o cliente final. Opções sugeridas:
@@ -50,6 +58,18 @@
       no cadastro, com permissões por categoria. Emite QR de cobrança pra
       comanda, vinculado ao caixa. Mostra produtos/categorias/promoções com
       controle de quantidade. Cancelamento de pedido exige senha do gerente
+  - Observação (22/07): "atendente" é só o nome provisório — na prática é
+    qualquer funcionário de mesa/balcão, definido pelo cadastro de
+    funcionários e pelas caixinhas de autorização já existentes.
+  - Cada app auxiliar (funcionário, cozinha, entregador) só se comunica
+    com o dashboard/admin da loja — nunca entre si.
+  - Exceção: o app de mesa/balcão é o único que tem acesso ao código do
+    cliente (lido via QR/código de barras na mesa) e é o responsável
+    exclusivo por aquele atendimento — evita que o cliente faça pedidos
+    através de mais de uma pessoa e complique a comanda depois.
+  - Esse funcionário pode fazer pedidos e cobrança, mas **não pode
+    cancelar** um pedido já gerado — qualquer problema precisa passar
+    pelo gerente.
 - [ ] **App da cozinha:** QR Code gerado pelo admin. Só visualização de
       produtos e descrição (sem valor). Recebe pedidos do admin, marca como
       "pronto" quando finalizado
