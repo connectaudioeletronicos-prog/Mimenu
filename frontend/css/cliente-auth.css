@@ -46,11 +46,35 @@ body {
 }
 
 .auth-logo__slogan {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.65rem;
   letter-spacing: 1px;
-  color: #e8873e;
   font-weight: 700;
   margin-top: 4px;
+}
+
+.auth-logo__slogan--verde {
+  color: #2ea55f;
+}
+
+.auth-logo__slogan--laranja {
+  color: #e8873e;
+}
+
+.auth-logo__slogan-traco {
+  display: inline-block;
+  width: 14px;
+  height: 1px;
+}
+
+.auth-logo__slogan-traco--verde {
+  background: #2ea55f;
+}
+
+.auth-logo__slogan-traco--laranja {
+  background: #e8873e;
 }
 
 .auth-conteudo {
@@ -371,6 +395,10 @@ body::after {
 .auth-logo--centro .auth-logo__texto {
   color: #1a1a1a;
   font-size: 2.2rem;
+}
+
+.auth-logo--centro .auth-logo__slogan {
+  justify-content: center;
 }
 
 .auth-titulo-centro {
