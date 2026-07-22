@@ -107,6 +107,7 @@ async function excluir(req, res) {
 async function adicionarImagem(req, res) {
   try {
     const { id } = req.params;
+    const { produto_id } = req.body;
 
     const verificacao = await query(
       'SELECT id FROM carrosseis WHERE id = $1 AND estabelecimento_id = $2',
@@ -128,9 +129,9 @@ async function adicionarImagem(req, res) {
     const imagemUrl = await uploadImagem(req.file.buffer, req.file.mimetype, 'carrosseis');
 
     const resultado = await query(
-      `INSERT INTO carrossel_imagens (carrossel_id, imagem_url, ordem)
-       VALUES ($1, $2, $3) RETURNING *`,
-      [id, imagemUrl, contagem.rows[0].total]
+      `INSERT INTO carrossel_imagens (carrossel_id, imagem_url, ordem, produto_id)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [id, imagemUrl, contagem.rows[0].total, produto_id || null]
     );
 
     res.status(201).json(resultado.rows[0]);
@@ -143,13 +144,21 @@ async function adicionarImagem(req, res) {
 async function atualizarImagem(req, res) {
   try {
     const { imagemId } = req.params;
-    const { ordem } = req.body;
+    const { ordem, produto_id } = req.body;
+
+    // produto_id pode vir vazio ("") quando o lojista quer desvincular a
+    // imagem do produto - nesse caso gravamos NULL de verdade, em vez de
+    // ignorar a mudanca (por isso nao da pra usar so COALESCE aqui).
+    const produtoIdParaSalvar = produto_id === '' ? null : produto_id;
+    const devesAtualizarProduto = produto_id !== undefined;
 
     const resultado = await query(
-      `UPDATE carrossel_imagens SET ordem = COALESCE($1, ordem)
-       WHERE id = $2 AND carrossel_id IN (SELECT id FROM carrosseis WHERE estabelecimento_id = $3)
+      `UPDATE carrossel_imagens SET
+        ordem = COALESCE($1, ordem),
+        produto_id = CASE WHEN $2 THEN $3::uuid ELSE produto_id END
+       WHERE id = $4 AND carrossel_id IN (SELECT id FROM carrosseis WHERE estabelecimento_id = $5)
        RETURNING *`,
-      [ordem, imagemId, req.estabelecimentoId]
+      [ordem, devesAtualizarProduto, produtoIdParaSalvar, imagemId, req.estabelecimentoId]
     );
 
     if (resultado.rows.length === 0) {
