@@ -35,8 +35,20 @@
       - erro 409 amigável quando o slug já está em uso (antes caía em erro 500 genérico)
       - checagem espelhada client-side em `cadastro.html` (Etapa 1), pra
         avisar antes do lojista preencher a Etapa 2 inteira
-- [ ] Redesign do dashboard do lojista: page-builder arrastável com blocos
-      reordenáveis (carrossel, vitrine, widget de texto livre)
+- [x] Redesign do dashboard do lojista: page-builder arrastável com blocos
+      reordenáveis (carrossel, vitrine, widget de texto livre) — implementado
+      em 22/07/2026 como nova aba "🧩 Construtor de página". Descoberto que
+      carrossel, vitrine E caixa de texto (texto livre) já existiam prontos
+      no backend/banco usando o mesmo sistema de `posicao`/`ordem`
+      (incluindo `apos-categoria:<id>` para intercalar com categorias
+      específicas) — não precisou de tabela nova nem endpoint novo.
+      A nova aba só junta os 3 tipos numa lista única arrastável
+      (SortableJS, com suporte a touch/mobile) que resolve automaticamente
+      qual `posicao`/`ordem` salvar em cada bloco ao arrastar, reaproveitando
+      os endpoints PUT já existentes (`/admin/carrosseis/:id`,
+      `/admin/vitrines/:id`, `/admin/caixas-texto/:id`).
+      Arquivos: `frontend/admin/index.html`, `frontend/admin/js/admin.js`,
+      `frontend/admin/js/admin-construtor.js` (novo), `frontend/admin/css/admin.css`
 
 ## Login e marca
 - [ ] Repensar a cor/texto da tagline "MAIS SABOR. MAIS PEDIDOS." — "pedidos"
@@ -112,4 +124,4 @@
     entregador) só se comunica com o admin — nunca entre si diretamente
 
 ---
-*Última atualização: 22/07/2026 (migration dados_legais confirmada; validação de slug/URL limpa concluída)*
+*Última atualização: 22/07/2026 (migration dados_legais confirmada; validação de slug/URL limpa concluída; construtor de página com drag-and-drop concluído — os 3 itens em aberto foram resolvidos)*
