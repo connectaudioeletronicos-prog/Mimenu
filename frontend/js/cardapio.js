@@ -285,8 +285,9 @@ function criarElementoCarrossel(carrossel) {
   container.innerHTML = `
     <div class="carrossel-extra__trilho">
       ${imagens.map((img, i) => `
-        <div class="carrossel-extra__slide ${i === 0 ? 'ativo' : ''}"
-             style="background-image:url('${escaparAspas(img.imagem_url)}')"></div>
+        <div class="carrossel-extra__slide ${i === 0 ? 'ativo' : ''} ${img.produto_id ? 'carrossel-extra__slide--clicavel' : ''}"
+             style="background-image:url('${escaparAspas(img.imagem_url)}')"
+             ${img.produto_id ? `data-produto-id="${img.produto_id}"` : ''}></div>
       `).join('')}
     </div>
     ${imagens.length > 1 ? `
@@ -295,6 +296,10 @@ function criarElementoCarrossel(carrossel) {
       </div>
     ` : ''}
   `;
+
+  container.querySelectorAll('.carrossel-extra__slide--clicavel').forEach(slide => {
+    slide.addEventListener('click', () => abrirModalProduto(slide.getAttribute('data-produto-id')));
+  });
 
   if (imagens.length > 1) {
     let indiceAtual = 0;
@@ -321,11 +326,14 @@ function criarElementoCarrossel(carrossel) {
 
 function criarElementoVitrine(vitrine) {
   const container = document.createElement('div');
-  container.className = 'vitrine-card';
+  container.className = `vitrine-card ${vitrine.produto_id ? 'vitrine-card--clicavel' : ''}`;
   container.innerHTML = `
     <img class="vitrine-card__imagem" src="${escaparAspas(vitrine.imagem_url)}" alt="">
     ${vitrine.texto ? `<div class="vitrine-card__texto">${escaparHtml(vitrine.texto)}</div>` : ''}
   `;
+  if (vitrine.produto_id) {
+    container.addEventListener('click', () => abrirModalProduto(vitrine.produto_id));
+  }
   return container;
 }
 
@@ -504,7 +512,73 @@ function configurarEventosGlobais() {
   document.getElementById('botao-carrinho').addEventListener('click', abrirModalCarrinho);
   document.getElementById('botao-ir-checkout').addEventListener('click', irParaCheckout);
   document.getElementById('form-checkout').addEventListener('submit', finalizarPedido);
+  configurarEventosTipoPedido();
+  configurarEventosGorjeta();
   inicializarMenuCliente();
+}
+
+let GORJETA_ATUAL = 0;
+
+function configurarEventosTipoPedido() {
+  document.querySelectorAll('input[name="tipo_pedido"]').forEach(radio => {
+    radio.addEventListener('change', atualizarCamposTipoPedido);
+  });
+}
+
+function atualizarCamposTipoPedido() {
+  const tipo = document.querySelector('input[name="tipo_pedido"]:checked').value;
+  const ehRetirada = tipo === 'retirada';
+  const camposEntrega = document.getElementById('checkout-campos-entrega');
+  const camposObrigatorios = camposEntrega.querySelectorAll('input');
+
+  camposEntrega.classList.toggle('oculto', ehRetirada);
+  camposObrigatorios.forEach(campo => { campo.required = !ehRetirada; });
+
+  const tempoPreparo = document.getElementById('checkout-tempo-preparo');
+  const minutos = (DADOS.estabelecimento && DADOS.estabelecimento.tempo_preparo_min) || 30;
+  if (ehRetirada) {
+    tempoPreparo.textContent = `⏱️ Tempo estimado de preparo: ~${minutos} min. Você retira no balcão.`;
+    tempoPreparo.classList.remove('oculto');
+  } else {
+    tempoPreparo.textContent = `⏱️ Tempo estimado de preparo + entrega: ~${minutos + 20} min.`;
+    tempoPreparo.classList.remove('oculto');
+  }
+}
+
+function configurarEventosGorjeta() {
+  document.querySelectorAll('.gorjeta-botao').forEach(botao => {
+    botao.addEventListener('click', () => {
+      document.querySelectorAll('.gorjeta-botao').forEach(b => b.classList.remove('ativo'));
+      botao.classList.add('ativo');
+      const valorCampo = document.getElementById('checkout-gorjeta-valor');
+      const percentual = botao.getAttribute('data-gorjeta-percentual');
+      if (percentual === 'outro') {
+        valorCampo.classList.remove('oculto');
+        valorCampo.value = '';
+        valorCampo.focus();
+        GORJETA_ATUAL = 0;
+      } else {
+        valorCampo.classList.add('oculto');
+        GORJETA_ATUAL = Carrinho.calcularSubtotal() * (parseFloat(percentual) / 100);
+      }
+      atualizarResumoCheckout();
+    });
+  });
+
+  document.getElementById('checkout-gorjeta-valor').addEventListener('input', function () {
+    let numeros = this.value.replace(/\D/g, '');
+    const valor = numeros ? parseInt(numeros, 10) / 100 : 0;
+    this.value = valor > 0 ? formatarMoeda(valor) : '';
+    GORJETA_ATUAL = valor;
+    atualizarResumoCheckout();
+  });
+}
+
+function atualizarResumoCheckout() {
+  const subtotal = Carrinho.calcularSubtotal();
+  document.getElementById('checkout-subtotal').textContent = formatarMoeda(subtotal);
+  document.getElementById('checkout-gorjeta-exibida').textContent = formatarMoeda(GORJETA_ATUAL);
+  document.getElementById('checkout-total').textContent = formatarMoeda(subtotal + GORJETA_ATUAL);
 }
 
 function abrirModalCarrinho() {
@@ -577,7 +651,16 @@ function irParaCheckout() {
 
   document.getElementById('carrinho-etapa-itens').classList.add('oculto');
   document.getElementById('carrinho-etapa-checkout').classList.remove('oculto');
-  document.getElementById('checkout-total').textContent = formatarMoeda(Carrinho.calcularSubtotal());
+
+  // Sempre comeca em "Entrega" e "Sem gorjeta", pra nao herdar escolha de
+  // um pedido anterior por engano.
+  document.querySelector('input[name="tipo_pedido"][value="entrega"]').checked = true;
+  atualizarCamposTipoPedido();
+  GORJETA_ATUAL = 0;
+  document.querySelectorAll('.gorjeta-botao').forEach(b => b.classList.remove('ativo'));
+  document.querySelector('.gorjeta-botao[data-gorjeta-percentual="0"]').classList.add('ativo');
+  document.getElementById('checkout-gorjeta-valor').classList.add('oculto');
+  atualizarResumoCheckout();
 }
 
 function aplicarMascaraTelefone(campo) {
@@ -604,6 +687,9 @@ function aplicarMascaraCep(campo) {
 async function finalizarPedido(evento) {
   evento.preventDefault();
 
+  const tipoPedido = document.querySelector('input[name="tipo_pedido"]:checked').value;
+  const ehRetirada = tipoPedido === 'retirada';
+
   const nome = document.getElementById('checkout-nome').value.trim();
   const telefone = document.getElementById('checkout-telefone').value.trim();
   const rua = document.getElementById('checkout-rua').value.trim();
@@ -622,18 +708,20 @@ async function finalizarPedido(evento) {
     return;
   }
 
-  if (!rua || !numero) {
-    alert('Por favor, informe rua e numero para entrega.');
-    return;
+  if (!ehRetirada) {
+    if (!rua || !numero) {
+      alert('Por favor, informe rua e numero para entrega.');
+      return;
+    }
+
+    const regexCep = /^\d{5}-\d{3}$/;
+    if (!regexCep.test(cep)) {
+      alert('CEP invalido. Use o formato: 99999-999');
+      return;
+    }
   }
 
-  const regexCep = /^\d{5}-\d{3}$/;
-  if (!regexCep.test(cep)) {
-    alert('CEP invalido. Use o formato: 99999-999');
-    return;
-  }
-
-  const endereco = `${rua}, ${numero}`;
+  const endereco = ehRetirada ? '' : `${rua}, ${numero}`;
 
   const botao = document.getElementById('botao-finalizar-pedido');
   botao.disabled = true;
@@ -644,11 +732,13 @@ async function finalizarPedido(evento) {
     const dadosPedido = {
       cliente_nome: nome,
       cliente_telefone: telefone,
-      cliente_endereco: endereco,
-      cliente_cep: cep,
+      cliente_endereco: ehRetirada ? null : endereco,
+      cliente_cep: ehRetirada ? null : cep,
       observacoes: document.getElementById('checkout-observacoes').value.trim(),
       forma_pagamento: formaPagamento,
       taxa_entrega: 0,
+      gorjeta: GORJETA_ATUAL || 0,
+      tipo_pedido: tipoPedido,
       itens: Carrinho.listar().map(item => ({
         produto_id: item.produto_id,
         quantidade: item.quantidade,
@@ -656,7 +746,9 @@ async function finalizarPedido(evento) {
       }))
     };
 
-    salvarDadosCliente({ nome, telefone, rua, numero, cep });
+    if (!ehRetirada) {
+      salvarDadosCliente({ nome, telefone, rua, numero, cep });
+    }
 
     const resultado = await enviarPedido(SLUG_ESTABELECIMENTO, dadosPedido);
     mostrarConfirmacao(resultado, formaPagamento);
@@ -674,6 +766,11 @@ function mostrarConfirmacao(resultado, formaPagamento) {
   document.getElementById('carrinho-etapa-confirmacao').classList.remove('oculto');
   const conteudo = document.getElementById('confirmacao-conteudo');
   const whatsapp = DADOS.estabelecimento.whatsapp;
+  const ehRetirada = resultado.pedido.tipo_pedido === 'retirada';
+  const minutos = resultado.tempo_preparo_min || 30;
+  const textoTempo = ehRetirada
+    ? `Tempo estimado de preparo: ~${minutos} min. Assim que ficar pronto, avisamos por aqui.`
+    : `Tempo estimado de preparo + entrega: ~${minutos + 20} min.`;
 
   if (formaPagamento === 'pix' && resultado.pagamento?.qr_code_base64) {
     conteudo.innerHTML = `
@@ -705,6 +802,7 @@ function mostrarConfirmacao(resultado, formaPagamento) {
         <p style="margin-top:8px;color:var(--cor-texto-claro);">
           ${formaPagamento === 'dinheiro' ? 'Pagamento em dinheiro na entrega.' : ''}
         </p>
+        <p style="margin-top:8px;color:var(--cor-texto-claro);">⏱️ ${textoTempo}</p>
         ${whatsapp ? `
           <a class="botao-primario" style="display:block;text-align:center;text-decoration:none;margin-top:14px;"
              href="https://wa.me/${whatsapp.replace(/\D/g, '')}" target="_blank" rel="noopener">
