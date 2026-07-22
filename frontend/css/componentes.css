@@ -553,6 +553,13 @@
   color: var(--cor-secundaria);
 }
 
+.carrinho-resumo__linha--total {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--cor-borda);
+  font-size: 1.1rem;
+}
+
 #botao-ir-checkout {
   margin-top: 16px;
 }
@@ -606,6 +613,83 @@
   gap: 8px;
   padding: 6px 0;
   font-weight: 500;
+}
+
+.form-checkout__tipo-pedido {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-borda-pequeno);
+  padding: 12px;
+  display: flex;
+  gap: 18px;
+}
+
+.form-checkout__tipo-pedido legend {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding-bottom: 6px;
+}
+
+.checkout-tempo-preparo {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--raio-borda-pequeno);
+  background: var(--cor-fundo-alternativo);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--cor-texto);
+}
+
+#checkout-campos-entrega {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-checkout__gorjeta {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-borda-pequeno);
+  padding: 12px;
+}
+
+.form-checkout__gorjeta legend {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding-bottom: 6px;
+}
+
+.gorjeta-opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gorjeta-botao {
+  flex: 1 1 auto;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-borda-pequeno);
+  background: #fff;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--cor-texto);
+  cursor: pointer;
+}
+
+.gorjeta-botao.ativo {
+  background: var(--cor-botoes);
+  border-color: var(--cor-botoes);
+  color: #fff;
+}
+
+#checkout-gorjeta-valor {
+  margin-top: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-borda-pequeno);
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 0.9rem;
 }
 
 #botao-finalizar-pedido {
@@ -899,6 +983,10 @@
   opacity: 1;
 }
 
+.carrossel-extra__slide--clicavel {
+  cursor: pointer;
+}
+
 .carrossel-extra__pontos {
   position: absolute;
   bottom: 10px;
@@ -935,6 +1023,18 @@
   margin: 20px auto;
   padding: 0 20px;
   box-sizing: border-box;
+}
+
+.vitrine-card--clicavel {
+  cursor: pointer;
+}
+
+.vitrine-card--clicavel .vitrine-card__imagem {
+  transition: transform 0.2s ease;
+}
+
+.vitrine-card--clicavel:hover .vitrine-card__imagem {
+  transform: scale(1.015);
 }
 
 .vitrine-card__imagem {
