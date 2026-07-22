@@ -279,17 +279,16 @@ h1 strong {
 
 .auth-foto--login {
   height: 110px;
-  margin: 24px -40px -48px;
   border-radius: 0 0 20px 20px;
   background-image:
     linear-gradient(0deg, rgba(0,0,0,0.35), rgba(0,0,0,0.05)),
-    url('img/foto-login.jpg');
+    url('../img/foto-login.jpg');
 }
 
 .auth-foto--cadastro {
   background-image:
     linear-gradient(0deg, rgba(0,0,0,0.45), rgba(0,0,0,0.15)),
-    url('img/foto-cadastro.jpg');
+    url('../img/foto-cadastro.jpg');
 }
 
 /* Curvas decorativas verde/laranja nos cantos, no estilo da marca */
@@ -356,6 +355,7 @@ body::after {
 .auth-caixa--login {
   max-width: 460px;
   min-height: auto;
+  flex-direction: column;
 }
 
 .auth-conteudo--login {
