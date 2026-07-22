@@ -1546,6 +1546,7 @@ function renderizarPedidosAdmin(pedidos) {
             ${escaparHtmlAdmin(pedido.cliente_nome)}
             <span class="badge-status badge-status--${pedido.status_pedido}">${STATUS_PEDIDO_LABEL[pedido.status_pedido]}</span>
           </div>
+          <div class="item-admin__subtitulo">Pedido #${pedido.id.substring(0, 8)}</div>
           <div class="item-admin__subtitulo">${itens}</div>
           <div class="item-admin__subtitulo">${data} - ${valorLinha}</div>
           <div class="item-admin__subtitulo">Tel: ${escaparHtmlAdmin(pedido.cliente_telefone)}</div>
