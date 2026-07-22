@@ -26,8 +26,15 @@
       `LEFT JOIN` em `comunicacaoController.js`. Executada no SQL Editor do
       Supabase e confirmada via `information_schema.columns` (23 colunas,
       1:1 com `estabelecimentos`, aceita CPF **ou** CNPJ+razão social)
-- [ ] URLs públicas mais limpas para o cardápio da loja
-      (ex: `palatos.com.br/loja-teste` em vez do formato atual)
+- [x] URLs públicas mais limpas para o cardápio da loja
+      (ex: `palatos.com.br/loja-teste`) — mecanismo já existia de ponta a
+      ponta (`404.html` + `config.js` + geração de link no `authController`),
+      faltava proteção contra colisão de slug. Adicionado em 22/07/2026:
+      - `validarSlug` + `SLUGS_RESERVADOS` em `backend/src/utils/validadores.js`
+      - checagem de formato e de reservados em `authController.js` (cadastrar)
+      - erro 409 amigável quando o slug já está em uso (antes caía em erro 500 genérico)
+      - checagem espelhada client-side em `cadastro.html` (Etapa 1), pra
+        avisar antes do lojista preencher a Etapa 2 inteira
 - [ ] Redesign do dashboard do lojista: page-builder arrastável com blocos
       reordenáveis (carrossel, vitrine, widget de texto livre)
 
@@ -105,4 +112,4 @@
     entregador) só se comunica com o admin — nunca entre si diretamente
 
 ---
-*Última atualização: 22/07/2026 (migration dados_legais confirmada)*
+*Última atualização: 22/07/2026 (migration dados_legais confirmada; validação de slug/URL limpa concluída)*
