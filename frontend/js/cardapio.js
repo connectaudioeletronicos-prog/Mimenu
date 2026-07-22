@@ -1000,9 +1000,10 @@ function renderizarPedidosCliente(pedidos) {
   container.innerHTML = pedidos.map(pedido => `
     <div class="pedido-detalhe" data-pedido-id="${pedido.id}">
       <div class="pedido-detalhe__topo">
-        <span class="pedido-detalhe__data">${new Date(pedido.criado_em).toLocaleDateString('pt-BR')}</span>
+        <span class="pedido-detalhe__data">${new Date(pedido.criado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
         <span class="pedido-detalhe__status">${traduzirStatus(pedido.status_pedido)}</span>
       </div>
+      <div class="pedido-detalhe__codigo">Pedido #${pedido.id.substring(0, 8)}</div>
       <div class="pedido-detalhe__total">${formatarMoeda(pedido.total)}</div>
       <div class="acompanhamento-box oculto" id="acomp-${pedido.id}"></div>
     </div>
