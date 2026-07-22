@@ -9,7 +9,7 @@ const CAMPOS_EDITAVEIS = [
   'nome', 'cor_principal', 'cor_secundaria', 'cor_botoes', 'fonte', 'tema',
   'texto_apresentacao', 'whatsapp', 'telefone', 'endereco', 'instagram',
   'facebook', 'linkedin', 'email_contato', 'horario_funcionamento',
-  'mp_access_token', 'mp_public_key',
+  'mp_access_token', 'mp_public_key', 'tempo_preparo_min',
   'termos_uso', 'politica_privacidade', 'cookies'
 ];
 
@@ -21,7 +21,7 @@ async function buscarPorSlug(req, res) {
       `SELECT id, slug, nome, logo_url, banner_url, cor_principal, cor_secundaria,
               cor_botoes, fonte, tema, texto_apresentacao, whatsapp, telefone,
               endereco, instagram, facebook, linkedin, email_contato,
-              horario_funcionamento, mp_public_key, ativo,
+              horario_funcionamento, mp_public_key, ativo, tempo_preparo_min,
               termos_uso, politica_privacidade, cookies
        FROM estabelecimentos WHERE slug = $1`,
       [slug]
@@ -67,7 +67,7 @@ async function buscarPorSlug(req, res) {
     let carrosselImagens = [];
     if (carrosseisResult.rows.length > 0) {
       const imagensResult = await query(
-        `SELECT carrossel_id, imagem_url, ordem FROM carrossel_imagens
+        `SELECT carrossel_id, imagem_url, ordem, produto_id FROM carrossel_imagens
          WHERE carrossel_id = ANY($1::uuid[]) ORDER BY ordem ASC`,
         [carrosseisResult.rows.map(c => c.id)]
       );
@@ -80,7 +80,7 @@ async function buscarPorSlug(req, res) {
     }));
 
     const vitrinesResult = await query(
-      `SELECT id, imagem_url, texto, posicao, ordem FROM vitrines
+      `SELECT id, imagem_url, texto, posicao, ordem, produto_id FROM vitrines
        WHERE estabelecimento_id = $1 AND ativo = true ORDER BY ordem ASC`,
       [estabelecimento.id]
     );
