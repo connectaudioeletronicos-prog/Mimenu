@@ -5,12 +5,18 @@
 > ao longo das conversas. Marque com `[x]` conforme for implementado.
 
 ## Bugs conhecidos (reportados 22/07)
-- [ ] Lista de pedidos (cliente e/ou dashboard do lojista) mostra só a data,
-      falta o horário
-- [ ] Dashboard do administrador não mostra o código/ID do pedido
-- [ ] Confirmar se a tela "Minha conta" (Meus dados / Meus pedidos) do
-      cliente precisa ser restilizada — hoje está sem o visual do Palatos
-      (botões sem estilo)
+- [x] Lista de pedidos (cliente e/ou dashboard do lojista) mostra só a data,
+      falta o horário — corrigido em `frontend/js/cardapio.js`
+      (`renderizarPedidosCliente` agora usa `toLocaleString` com data+hora)
+- [x] Dashboard do administrador não mostra o código/ID do pedido —
+      adicionado `Pedido #xxxxxxxx` em `renderizarPedidosAdmin`
+      (`frontend/admin/js/admin.js`) e na lista "Meus pedidos" do cliente
+      (`frontend/js/cardapio.js`)
+- [x] Tela "Minha conta" (Meus dados / Meus pedidos) do cliente sem visual —
+      causa raiz: o HTML usava as classes `.tela-cliente*`, mas o CSS só
+      tinha regras para `.menu-cliente*` (nomes nunca bateram, por isso
+      nunca teve estilo nenhum). Adicionado bloco `.tela-cliente*` completo
+      em `frontend/css/componentes.css`
 
 ## Login e marca
 - [ ] Repensar a cor/texto da tagline "MAIS SABOR. MAIS PEDIDOS." — "pedidos"
