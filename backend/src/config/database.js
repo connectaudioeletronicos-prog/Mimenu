@@ -145,6 +145,42 @@ async function sincronizarSchema() {
   } catch (error) {
     console.error('Aviso: nao foi possivel sincronizar login Google em contas_clientes:', error.message);
   }
+
+  // Permite vincular uma imagem do carrossel (ou uma vitrine inteira) a um
+  // produto do cardapio: ao tocar na imagem, o cliente ve direto a pagina
+  // daquele produto. Fica opcional (null = imagem so ilustrativa).
+  try {
+    await pool.query(`
+      ALTER TABLE carrossel_imagens ADD COLUMN IF NOT EXISTS produto_id UUID REFERENCES produtos(id) ON DELETE SET NULL;
+      ALTER TABLE vitrines ADD COLUMN IF NOT EXISTS produto_id UUID REFERENCES produtos(id) ON DELETE SET NULL;
+    `);
+    console.log('Schema sincronizado: vinculo de produto em carrossel/vitrine atualizado.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar vinculo de produto em carrossel/vitrine:', error.message);
+  }
+
+  // Tempo estimado de preparo (minutos), configuravel pelo lojista e
+  // exibido ao cliente tanto na retirada quanto no delivery.
+  try {
+    await pool.query(`
+      ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS tempo_preparo_min INT DEFAULT 30;
+    `);
+    console.log('Schema sincronizado: tempo_preparo_min em estabelecimentos.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar tempo_preparo_min:', error.message);
+  }
+
+  // Pedido para retirar no local usa a coluna tipo_pedido que ja existia
+  // (valor 'retirada', ao lado do 'entrega' que ja era o padrao). Gorjeta
+  // e nova: opcional, informada pelo cliente no fechamento do pedido.
+  try {
+    await pool.query(`
+      ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS gorjeta NUMERIC(10,2) DEFAULT 0;
+    `);
+    console.log('Schema sincronizado: gorjeta em pedidos.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar gorjeta em pedidos:', error.message);
+  }
 }
 
 module.exports = { pool, query, sincronizarSchema };
