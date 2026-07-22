@@ -194,6 +194,17 @@
 
 <script src="../js/config.js"></script>
 <script>
+// Mantido em espelho com backend/src/utils/validadores.js (SLUGS_RESERVADOS).
+// So para dar feedback mais cedo aqui na Etapa 1; a validacao que vale
+// de verdade e sempre a do backend.
+const SLUGS_RESERVADOS = [
+  'admin', 'frontend', 'backend', 'database', 'api',
+  'index', '404', 'cname', 'readme', 'backlog', 'favicon',
+  'cliente-login', 'cliente-cadastro',
+  'politica-privacidade', 'termos-servico',
+  'www', 'mail', 'ftp', 'app', 'static', 'assets'
+];
+
 function normalizarSlug(valor) {
   return valor
     .toLowerCase()
@@ -254,6 +265,14 @@ function avancarParaEtapa2() {
 
   if (!slug || !nome || !email || !senha) {
     resultadoDiv.innerHTML = '<div class="msg erro">Preencha todos os campos.</div>';
+    return;
+  }
+  if (slug.length < 3) {
+    resultadoDiv.innerHTML = '<div class="msg erro">O link da loja precisa ter pelo menos 3 caracteres.</div>';
+    return;
+  }
+  if (SLUGS_RESERVADOS.includes(slug)) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Esse link já é reservado pelo sistema. Escolha outro nome para o link da sua loja.</div>';
     return;
   }
   if (senha.length < 6) {
