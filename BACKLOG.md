@@ -18,6 +18,19 @@
       nunca teve estilo nenhum). Adicionado bloco `.tela-cliente*` completo
       em `frontend/css/componentes.css`
 
+## Cadastro / infraestrutura
+- [x] Confirmar execução da `migration_dados_legais.sql` no Supabase —
+      migration original havia sido perdida; reconstruída em 22/07/2026 a
+      partir do `INSERT INTO dados_legais` já existente em
+      `backend/src/controllers/authController.js` (função `cadastrar`) e do
+      `LEFT JOIN` em `comunicacaoController.js`. Executada no SQL Editor do
+      Supabase e confirmada via `information_schema.columns` (23 colunas,
+      1:1 com `estabelecimentos`, aceita CPF **ou** CNPJ+razão social)
+- [ ] URLs públicas mais limpas para o cardápio da loja
+      (ex: `palatos.com.br/loja-teste` em vez do formato atual)
+- [ ] Redesign do dashboard do lojista: page-builder arrastável com blocos
+      reordenáveis (carrossel, vitrine, widget de texto livre)
+
 ## Login e marca
 - [ ] Repensar a cor/texto da tagline "MAIS SABOR. MAIS PEDIDOS." — "pedidos"
       fala mais com o lojista do que com o cliente final. Opções sugeridas:
@@ -92,4 +105,4 @@
     entregador) só se comunica com o admin — nunca entre si diretamente
 
 ---
-*Última atualização: 22/07/2026*
+*Última atualização: 22/07/2026 (migration dados_legais confirmada)*
