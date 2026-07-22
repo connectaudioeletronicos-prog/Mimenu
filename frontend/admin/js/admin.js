@@ -271,6 +271,7 @@ function aplicarVisibilidadeMenu() {
     produtos: 'gerenciar_cardapio',
     promocoes: 'gerenciar_cardapio',
     vitrines: 'gerenciar_cardapio',
+    construtor: 'gerenciar_cardapio',
     funcionarios: 'gerenciar_funcionarios',
     'caixa-geral': 'ver_caixa_geral'
     // "pedidos" e "senha" ficam sempre visiveis para qualquer sessao logada
@@ -302,6 +303,7 @@ function configurarMenu() {
       if (aba === 'pedidos') carregarPedidos();
       if (aba === 'caixa-geral') carregarCaixaGeral();
       if (aba === 'funcionarios') renderizarFuncionariosAdmin();
+      if (aba === 'construtor') renderizarConstrutorPagina();
     });
   });
 }
