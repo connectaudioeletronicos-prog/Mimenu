@@ -167,21 +167,39 @@
       <div id="carrinho-etapa-checkout" class="carrinho-etapa oculto">
         <h3 class="modal__titulo">Seus dados</h3>
         <form id="form-checkout" class="form-checkout">
+          <fieldset class="form-checkout__tipo-pedido">
+            <legend>Como você quer receber?</legend>
+            <label class="opcao-pagamento">
+              <input type="radio" name="tipo_pedido" value="entrega" checked>
+              <span>🛵 Entrega</span>
+            </label>
+            <label class="opcao-pagamento">
+              <input type="radio" name="tipo_pedido" value="retirada">
+              <span>🏠 Retirar no local</span>
+            </label>
+          </fieldset>
+
+          <p id="checkout-tempo-preparo" class="checkout-tempo-preparo oculto"></p>
+
           <label>Nome completo
             <input type="text" id="checkout-nome" required>
           </label>
           <label>WhatsApp / Telefone
             <input type="tel" id="checkout-telefone" required maxlength="14" placeholder="(11) 999999999">
           </label>
-          <label>Rua / Avenida
-            <input type="text" id="checkout-rua" required placeholder="Rua Osvaldo Cruz">
-          </label>
-          <label>Numero
-            <input type="text" id="checkout-numero" required maxlength="10" placeholder="5210">
-          </label>
-          <label>CEP
-            <input type="text" id="checkout-cep" required maxlength="9" placeholder="99999-999">
-          </label>
+
+          <div id="checkout-campos-entrega">
+            <label>Rua / Avenida
+              <input type="text" id="checkout-rua" required placeholder="Rua Osvaldo Cruz">
+            </label>
+            <label>Numero
+              <input type="text" id="checkout-numero" required maxlength="10" placeholder="5210">
+            </label>
+            <label>CEP
+              <input type="text" id="checkout-cep" required maxlength="9" placeholder="99999-999">
+            </label>
+          </div>
+
           <label>Observacoes do pedido
             <textarea id="checkout-observacoes" maxlength="300" placeholder="Opcional"></textarea>
           </label>
@@ -202,8 +220,27 @@
             </label>
           </fieldset>
 
+          <fieldset class="form-checkout__gorjeta">
+            <legend>Gorjeta (opcional)</legend>
+            <div class="gorjeta-opcoes">
+              <button type="button" class="gorjeta-botao ativo" data-gorjeta-percentual="0">Sem gorjeta</button>
+              <button type="button" class="gorjeta-botao" data-gorjeta-percentual="10">10%</button>
+              <button type="button" class="gorjeta-botao" data-gorjeta-percentual="15">15%</button>
+              <button type="button" class="gorjeta-botao" data-gorjeta-percentual="outro">Outro valor</button>
+            </div>
+            <input type="text" id="checkout-gorjeta-valor" class="oculto" placeholder="R$ 0,00" inputmode="decimal">
+          </fieldset>
+
           <div class="carrinho-resumo">
             <div class="carrinho-resumo__linha">
+              <span>Subtotal</span>
+              <span id="checkout-subtotal">R$ 0,00</span>
+            </div>
+            <div class="carrinho-resumo__linha">
+              <span>Gorjeta</span>
+              <span id="checkout-gorjeta-exibida">R$ 0,00</span>
+            </div>
+            <div class="carrinho-resumo__linha carrinho-resumo__linha--total">
               <span>Total</span>
               <span id="checkout-total">R$ 0,00</span>
             </div>
