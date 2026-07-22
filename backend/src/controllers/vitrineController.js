@@ -23,7 +23,7 @@ async function listar(req, res) {
 
 async function criar(req, res) {
   try {
-    const { nome, texto, posicao, ordem } = req.body;
+    const { nome, texto, posicao, ordem, produto_id } = req.body;
 
     if (!req.file) {
       return res.status(400).json({ erro: 'A imagem da vitrine e obrigatoria.' });
@@ -35,9 +35,9 @@ async function criar(req, res) {
     const imagemUrl = await uploadImagem(req.file.buffer, req.file.mimetype, 'vitrines');
 
     const resultado = await query(
-      `INSERT INTO vitrines (estabelecimento_id, nome, imagem_url, texto, posicao, ordem, ativo)
-       VALUES ($1, $2, $3, $4, $5, $6, false) RETURNING *`,
-      [req.estabelecimentoId, nomeFinal, imagemUrl, textoFinal, posicaoFinal, ordem || 0]
+      `INSERT INTO vitrines (estabelecimento_id, nome, imagem_url, texto, posicao, ordem, ativo, produto_id)
+       VALUES ($1, $2, $3, $4, $5, $6, false, $7) RETURNING *`,
+      [req.estabelecimentoId, nomeFinal, imagemUrl, textoFinal, posicaoFinal, ordem || 0, produto_id || null]
     );
 
     res.status(201).json(resultado.rows[0]);
@@ -50,7 +50,7 @@ async function criar(req, res) {
 async function atualizar(req, res) {
   try {
     const { id } = req.params;
-    const { nome, texto, posicao, ativo, ordem } = req.body;
+    const { nome, texto, posicao, ativo, ordem, produto_id } = req.body;
 
     const verificacao = await query(
       'SELECT id, imagem_url FROM vitrines WHERE id = $1 AND estabelecimento_id = $2',
@@ -69,6 +69,12 @@ async function atualizar(req, res) {
     const textoFinal = texto !== undefined ? texto.slice(0, LIMITE_TEXTO) : undefined;
     const posicaoFinal = posicao !== undefined ? normalizarPosicao(posicao, 'apos-produtos') : undefined;
 
+    // produto_id vazio ("") = lojista desvinculando o produto de propósito;
+    // por isso trata separado do COALESCE (que ignoraria strings vazias
+    // e manteria o vinculo antigo sem querer).
+    const produtoIdParaSalvar = produto_id === '' ? null : produto_id;
+    const devesAtualizarProduto = produto_id !== undefined;
+
     const resultado = await query(
       `UPDATE vitrines SET
         nome = COALESCE($1, nome),
@@ -76,9 +82,10 @@ async function atualizar(req, res) {
         posicao = COALESCE($3, posicao),
         ativo = COALESCE($4, ativo),
         ordem = COALESCE($5, ordem),
-        imagem_url = $6
-       WHERE id = $7 RETURNING *`,
-      [nomeFinal, textoFinal, posicaoFinal, ativo, ordem, imagemUrl, id]
+        imagem_url = $6,
+        produto_id = CASE WHEN $7 THEN $8::uuid ELSE produto_id END
+       WHERE id = $9 RETURNING *`,
+      [nomeFinal, textoFinal, posicaoFinal, ativo, ordem, imagemUrl, devesAtualizarProduto, produtoIdParaSalvar, id]
     );
 
     res.json(resultado.rows[0]);
