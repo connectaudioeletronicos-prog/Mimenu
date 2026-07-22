@@ -750,12 +750,114 @@
   opacity: 0.75;
 }
 
-.menu-cliente__abas { display: flex; gap: 8px; margin-bottom: 12px; }
-.menu-cliente__aba { flex: 1; padding: 8px; border: none; background: #eee; border-radius: 6px; }
-.menu-cliente__aba.ativo { background: var(--cor-principal, #333); color: #fff; }
 .aba-cliente.oculto { display: none; }
 .pedido-cliente-item { border-bottom: 1px solid #eee; padding: 8px 0; display: flex; justify-content: space-between; }
-.menu-cliente__whatsapp { display: block; text-align: center; margin-top: 16px; color: #25D366; }
+
+/* =============================================
+   TELA "MINHA CONTA" DO CLIENTE
+   ============================================= */
+.tela-cliente {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--cor-fundo, #fff);
+  overflow-y: auto;
+  max-width: var(--largura-maxima);
+  margin: 0 auto;
+}
+
+.tela-cliente__cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--cor-borda, #e5e5e5);
+  position: sticky;
+  top: 0;
+  background: var(--cor-fundo, #fff);
+  z-index: 2;
+}
+
+.tela-cliente__voltar {
+  border: none;
+  background: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--cor-texto);
+  padding: 6px 4px;
+}
+
+.tela-cliente__titulo {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--cor-secundaria, #1D3557);
+  margin: 0;
+}
+
+.tela-cliente__abas {
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px 0;
+}
+
+.tela-cliente__aba {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: var(--cor-fundo-alternativo, #f7f7f7);
+  border-radius: var(--raio-borda-pequeno, 8px);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--cor-texto);
+}
+
+.tela-cliente__aba.ativo {
+  background: var(--cor-principal, #E63946);
+  color: #fff;
+}
+
+.tela-cliente__conteudo {
+  padding: 20px;
+}
+
+.tela-cliente__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tela-cliente__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--cor-texto);
+}
+
+.tela-cliente__form input {
+  border: 1px solid var(--cor-borda, #e5e5e5);
+  border-radius: var(--raio-borda-pequeno, 8px);
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.tela-cliente__whatsapp {
+  display: block;
+  text-align: center;
+  margin-top: 16px;
+  color: #25D366;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.pedido-detalhe__codigo {
+  font-size: 0.72rem;
+  color: var(--cor-texto-claro, #6b6b6b);
+  font-weight: 600;
+}
 /* =============================================
    ACOMPANHAMENTO DE PEDIDO
    ============================================= */
