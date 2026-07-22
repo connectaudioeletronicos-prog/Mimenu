@@ -241,6 +241,86 @@ h1 strong {
   flex-shrink: 0;
 }
 
+.auth-logo__icone {
+  height: 52px;
+  display: block;
+  margin: 0 auto;
+}
+
+.auth-logo--centro .auth-logo__icone {
+  height: 96px;
+  margin-bottom: 10px;
+}
+
+.auth-lado .auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-lado .auth-logo__icone {
+  height: 44px;
+  margin: 0;
+}
+
+.auth-logo__bloco {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Faixa com foto na base do card de login. Troque a imagem em
+   frontend/img/foto-login.jpg pela foto real do cardapio - enquanto
+   ela nao existir, aparece um degrade solido no lugar. */
+.auth-foto {
+  background: linear-gradient(135deg, #1a1a1a, #3a2a1a);
+  background-size: cover;
+  background-position: center;
+}
+
+.auth-foto--login {
+  height: 110px;
+  margin: 24px -40px -48px;
+  border-radius: 0 0 20px 20px;
+  background-image:
+    linear-gradient(0deg, rgba(0,0,0,0.35), rgba(0,0,0,0.05)),
+    url('img/foto-login.jpg');
+}
+
+.auth-foto--cadastro {
+  background-image:
+    linear-gradient(0deg, rgba(0,0,0,0.45), rgba(0,0,0,0.15)),
+    url('img/foto-cadastro.jpg');
+}
+
+/* Curvas decorativas verde/laranja nos cantos, no estilo da marca */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  width: 340px;
+  height: 340px;
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+body::before {
+  top: -170px;
+  right: -170px;
+  background: conic-gradient(from 200deg, #1B7A3E, #2ea55f 40%, transparent 55%);
+}
+
+body::after {
+  bottom: -170px;
+  left: -170px;
+  background: conic-gradient(from 20deg, #e8873e, #f2a25c 40%, transparent 55%);
+}
+
+.auth-caixa {
+  position: relative;
+  z-index: 1;
+}
+
 .auth-rodape {
   text-align: center;
   font-size: 0.88rem;
