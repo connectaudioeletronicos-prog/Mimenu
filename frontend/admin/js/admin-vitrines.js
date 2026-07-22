@@ -223,11 +223,19 @@ function renderizarImagensCarrosselModal() {
     <div class="lista-imagens-carrossel__item" data-imagem-id="${img.id}">
       <span class="drag-handle" title="Segure e arraste para reordenar">⠿</span>
       <img src="${img.imagem_url}" alt="">
+      <select class="campo-select" data-produto-imagem="${img.id}" title="Produto vinculado (opcional)">
+        <option value="">Sem produto vinculado</option>
+        ${(ESTADO.produtos || []).map(p => `<option value="${p.id}" ${img.produto_id === p.id ? 'selected' : ''}>${escaparHtmlAdmin(p.nome)}</option>`).join('')}
+      </select>
       <div class="lista-imagens-carrossel__botoes">
         <button type="button" class="botao-perigo" data-remover-imagem="${img.id}">Excluir</button>
       </div>
     </div>
   `).join('');
+
+  area.querySelectorAll('[data-produto-imagem]').forEach(select => {
+    select.addEventListener('change', () => vincularProdutoImagemCarrossel(select.getAttribute('data-produto-imagem'), select.value));
+  });
 
   area.querySelectorAll('[data-remover-imagem]').forEach(b => {
     b.addEventListener('click', () => removerImagemCarrossel(b.getAttribute('data-remover-imagem')));
@@ -243,6 +251,16 @@ function renderizarImagensCarrosselModal() {
       mostrarToast(erro.message, true);
     }
   });
+}
+
+async function vincularProdutoImagemCarrossel(imagemId, produtoId) {
+  try {
+    await apiAtualizarImagemCarrossel(imagemId, { produto_id: produtoId });
+    ESTADO.carrosseis = await apiListarCarrosseis();
+    mostrarToast('Produto vinculado atualizado.');
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
 }
 
 async function removerImagemCarrossel(imagemId) {
@@ -366,6 +384,14 @@ async function alternarAtivoVitrine(id, ativo) {
   }
 }
 
+function preencherSelectProdutoVitrine(valorAtual) {
+  const select = document.getElementById('vitrine-produto');
+  if (!select) return;
+  select.innerHTML = '<option value="">Nenhum — imagem só ilustrativa</option>' +
+    (ESTADO.produtos || []).map(p => `<option value="${p.id}">${escaparHtmlAdmin(p.nome)}</option>`).join('');
+  select.value = valorAtual || '';
+}
+
 function configurarEventosVitrines() {
   if (window.EVENTOS_VITRINES_CONFIGURADOS) return;
   window.EVENTOS_VITRINES_CONFIGURADOS = true;
@@ -392,6 +418,7 @@ function configurarEventosVitrines() {
     formData.append('nome', document.getElementById('vitrine-nome').value.trim() || 'Vitrine');
     formData.append('texto', document.getElementById('vitrine-texto').value.trim());
     formData.append('posicao', document.getElementById('vitrine-posicao').value);
+    formData.append('produto_id', document.getElementById('vitrine-produto').value);
     formData.append('ativo', document.getElementById('vitrine-ativo').checked);
     const arquivo = document.getElementById('vitrine-imagem').files[0];
     if (arquivo) formData.append('imagem', arquivo);
@@ -425,6 +452,7 @@ function abrirModalVitrine(id) {
   document.getElementById('vitrine-texto').value = vitrine?.texto || '';
   document.getElementById('vitrine-texto-contador').textContent = `${(vitrine?.texto || '').length}/300`;
   preencherSelectPosicao('vitrine-posicao', vitrine?.posicao || 'apos-produtos');
+  preencherSelectProdutoVitrine(vitrine?.produto_id);
   document.getElementById('vitrine-ativo').checked = !!vitrine?.ativo;
   document.getElementById('vitrine-imagem').value = '';
   document.getElementById('preview-vitrine-imagem').src = vitrine?.imagem_url || '';
