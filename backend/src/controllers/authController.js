@@ -8,6 +8,7 @@ const { query } = require('../config/database');
 const { enviarEmailRecuperacaoSenha } = require('../utils/email');
 const { gerarQRCodeBase64 } = require('../utils/qrcode');
 const { uploadDocumentoPrivado } = require('../utils/storage');
+const { validarSlug, slugReservado } = require('../utils/validadores');
 
 async function login(req, res) {
   try {
@@ -108,6 +109,14 @@ async function cadastrar(req, res) {
     }
     if (!slug || !nome || !email || !senha) {
       return res.status(400).json({ erro: 'Slug, nome, email e senha sao obrigatorios.' });
+    }
+    if (!validarSlug(slug)) {
+      return res.status(400).json({
+        erro: 'O link da loja deve ter entre 3 e 60 caracteres, usando apenas letras minusculas, numeros e hifens (ex.: meu-restaurante).'
+      });
+    }
+    if (slugReservado(slug)) {
+      return res.status(400).json({ erro: 'Esse link ja e reservado pelo sistema. Escolha outro nome para o link da sua loja.' });
     }
     if (senha.length < 6) {
       return res.status(400).json({ erro: 'A senha deve ter pelo menos 6 caracteres.' });
@@ -253,6 +262,11 @@ async function cadastrar(req, res) {
     });
 
   } catch (error) {
+    // 23505 = unique_violation no Postgres. Se for o slug (link da loja)
+    // que ja existe, devolve mensagem amigavel em vez do erro generico.
+    if (error.code === '23505' && (error.constraint || '').includes('slug')) {
+      return res.status(409).json({ erro: 'Esse link ja esta em uso por outra loja. Escolha outro nome para o link.' });
+    }
     console.error('Erro ao cadastrar estabelecimento:', error);
     res.status(500).json({ erro: 'Erro interno ao cadastrar estabelecimento.' });
   }
