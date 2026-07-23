@@ -340,11 +340,15 @@
       </section>
 
       <section id="aba-pedidos" class="aba oculto">
-        <h2 class="aba__titulo">Pedidos recebidos</h2>
+        <div class="aba__cabecalho-flex">
+          <h2 class="aba__titulo" style="margin-bottom:0;">Pedidos recebidos</h2>
+          <button type="button" id="botao-novo-pedido-manual" class="botao-primario oculto">+ Novo pedido</button>
+        </div>
         <div class="filtro-pedidos">
           <button class="filtro-pedidos__botao ativo" data-status="">Todos <span class="filtro-pedidos__contador" data-contador="todos"></span></button>
           <button class="filtro-pedidos__botao" data-status="novo">Novos <span class="filtro-pedidos__contador" data-contador="novo"></span></button>
           <button class="filtro-pedidos__botao" data-status="preparando">Preparando <span class="filtro-pedidos__contador" data-contador="preparando"></span></button>
+          <button class="filtro-pedidos__botao" data-status="pronto">Prontos <span class="filtro-pedidos__contador" data-contador="pronto"></span></button>
           <button class="filtro-pedidos__botao" data-status="saiu_entrega">Saiu p/ entrega <span class="filtro-pedidos__contador" data-contador="saiu_entrega"></span></button>
           <button class="filtro-pedidos__botao" data-status="entregue">Entregues <span class="filtro-pedidos__contador" data-contador="entregue"></span></button>
           <button class="filtro-pedidos__botao" data-status="cancelado">Cancelados <span class="filtro-pedidos__contador" data-contador="cancelado"></span></button>
@@ -555,6 +559,27 @@
               </select>
             </div>
 
+            <div class="campo-grupo">
+              <label class="campo-label">Carga horaria (opcional)</label>
+              <div class="carga-horaria-dias" data-carga-dias="func">
+                <label><input type="checkbox" class="func-carga-dia" value="seg"> Seg</label>
+                <label><input type="checkbox" class="func-carga-dia" value="ter"> Ter</label>
+                <label><input type="checkbox" class="func-carga-dia" value="qua"> Qua</label>
+                <label><input type="checkbox" class="func-carga-dia" value="qui"> Qui</label>
+                <label><input type="checkbox" class="func-carga-dia" value="sex"> Sex</label>
+                <label><input type="checkbox" class="func-carga-dia" value="sab"> Sab</label>
+                <label><input type="checkbox" class="func-carga-dia" value="dom"> Dom</label>
+              </div>
+              <div class="campo-linha">
+                <label class="campo-label" style="flex:1;">Entrada
+                  <input type="time" id="func-carga-inicio" class="campo-texto">
+                </label>
+                <label class="campo-label" style="flex:1;">Saida
+                  <input type="time" id="func-carga-fim" class="campo-texto">
+                </label>
+              </div>
+            </div>
+
             <div class="campo-grupo" id="grupo-permissoes-funcionario">
               <label class="campo-label">Permissoes</label>
               <button type="button" class="botao-secundario botao-marcar-todas" data-alvo-permissoes="grupo-permissoes-funcionario" style="margin-bottom:8px;">Marcar todas / Desmarcar todas</button>
@@ -611,6 +636,26 @@
         </select>
       </label>
       <label>
+        <span class="campo-label">Carga horaria (opcional)</span>
+        <div class="carga-horaria-dias" data-carga-dias="edit-func">
+          <label><input type="checkbox" class="edit-func-carga-dia" value="seg"> Seg</label>
+          <label><input type="checkbox" class="edit-func-carga-dia" value="ter"> Ter</label>
+          <label><input type="checkbox" class="edit-func-carga-dia" value="qua"> Qua</label>
+          <label><input type="checkbox" class="edit-func-carga-dia" value="qui"> Qui</label>
+          <label><input type="checkbox" class="edit-func-carga-dia" value="sex"> Sex</label>
+          <label><input type="checkbox" class="edit-func-carga-dia" value="sab"> Sab</label>
+          <label><input type="checkbox" class="edit-func-carga-dia" value="dom"> Dom</label>
+        </div>
+        <div class="campo-linha">
+          <label class="campo-label" style="flex:1;">Entrada
+            <input type="time" id="edit-func-carga-inicio">
+          </label>
+          <label class="campo-label" style="flex:1;">Saida
+            <input type="time" id="edit-func-carga-fim">
+          </label>
+        </div>
+      </label>
+      <label>
         <span class="campo-label">Permissoes</span>
         <button type="button" class="botao-secundario botao-marcar-todas" data-alvo-permissoes="edit-grupo-permissoes" style="margin-bottom:8px;">Marcar todas / Desmarcar todas</button>
         <div id="edit-grupo-permissoes" class="lista-permissoes">
@@ -649,6 +694,41 @@
       <button id="botao-salvar-edicao-funcionario" class="botao-primario">Salvar alteracoes</button>
       <button id="botao-resetar-senha-funcionario" class="botao-secundario">Redefinir senha</button>
       <button id="botao-excluir-funcionario" class="botao-perigo">Excluir funcionario</button>
+    </div>
+  </div>
+
+  <div id="modal-novo-pedido" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+      <h3>Novo pedido (balcao/mesa)</h3>
+      <p style="font-size:0.85rem; color:#777; margin-top:-8px;">
+        Para uso do garcom/atendimento: lance aqui um pedido feito presencialmente. Ele ja entra
+        direto em preparo (a cozinha ve na hora), sem precisar de aceite do administrador.
+      </p>
+
+      <label>Identificacao (nome do cliente ou numero da mesa)
+        <input type="text" id="novo-pedido-cliente" placeholder="Ex: Mesa 4, ou nome do cliente">
+      </label>
+
+      <label class="campo-label">Itens do pedido</label>
+      <div id="novo-pedido-itens-produtos" class="lista-itens-admin" style="max-height:260px; overflow-y:auto;"></div>
+
+      <label>Forma de pagamento
+        <select id="novo-pedido-forma-pagamento">
+          <option value="dinheiro">Dinheiro</option>
+          <option value="pix">Pix</option>
+          <option value="cartao_credito">Cartao de credito</option>
+          <option value="cartao_debito">Cartao de debito</option>
+        </select>
+      </label>
+      <label>Observacoes (opcional)
+        <textarea id="novo-pedido-observacoes" rows="2"></textarea>
+      </label>
+
+      <div id="novo-pedido-total" style="font-weight:700; margin:10px 0;"></div>
+
+      <button id="botao-confirmar-novo-pedido" class="botao-primario">Lancar pedido</button>
     </div>
   </div>
 
