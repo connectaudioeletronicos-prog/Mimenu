@@ -297,3 +297,29 @@ INSERT INTO produtos (estabelecimento_id, categoria_id, nome, descricao, preco, 
 SELECT e.id, c.id, 'Coca-Cola 2L', 'Refrigerante Coca-Cola garrafa 2 litros', 12.00, 'BEB001'
 FROM estabelecimentos e JOIN categorias c ON c.estabelecimento_id = e.id AND c.nome = 'Bebidas'
 WHERE e.slug = 'fj-pizzaria';
+
+-- ===================================================================
+-- MIGRACAO: app separado do entregador (checkin diario por QR Code +
+-- fluxo de oferta/aceite de entrega, em vez de atribuicao automatica
+-- direta). Rode este bloco em bancos que ja existiam antes dessa versao.
+-- ===================================================================
+
+-- QR Code diario do estabelecimento: o entregador precisa ler esse QR
+-- (exibido fisicamente na loja) para "bater ponto" e entrar na fila do
+-- dia. Token novo e gerado automaticamente a cada dia, na primeira vez
+-- que alguem pedir o QR.
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS qrcode_entregador_token VARCHAR(64);
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS qrcode_entregador_data DATE;
+
+-- Data do ultimo checkin valido do entregador (comparado com a data de
+-- hoje -- so entra na fila de atribuicao quem bateu o ponto no dia).
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS ultimo_checkin_data DATE;
+
+-- Status do convite de entrega feito a um entregador especifico:
+-- NULL = nenhum convite em aberto; 'pendente' = oferecido, aguardando
+-- aceite/recusa; 'aceito' = aceitou (nesse momento status_pedido vira
+-- 'saiu_entrega'). Ao recusar, o pedido volta com entregador_id/
+-- status_convite_entrega zerados e o funcionario que recusou entra em
+-- "entregadores_recusaram", pra nao ser oferecido de novo nesse mesmo pedido.
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS status_convite_entrega VARCHAR(20);
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS entregadores_recusaram JSONB DEFAULT '[]';
