@@ -1,7 +1,9 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { query } = require('../config/database');
 const { validarTelefone, validarCPF } = require('../utils/validadores');
+const { gerarQRCodeBase64 } = require('../utils/qrcode');
 
 // As 9 permissoes possiveis (caixinhas). O cargo NAO define o que o
 // funcionario pode fazer -- serve so para limitar quantos de cada
@@ -409,8 +411,84 @@ async function excluir(req, res) {
   }
 }
 
+// ===================================================================
+// Checkin diario do entregador via QR Code
+// ===================================================================
+
+// Gera (ou reaproveita, se ja foi gerado hoje) o token do QR Code do dia
+// pra esse estabelecimento. E esse QR que fica exposto fisicamente na loja
+// (impresso, ou numa tela) pro entregador ler com a camera do celular ao
+// chegar, confirmando presenca antes de entrar na fila de entregas do dia.
+async function obterQrcodeDoDia(req, res) {
+  try {
+    const atual = await query(
+      'SELECT qrcode_entregador_token, qrcode_entregador_data FROM estabelecimentos WHERE id = $1',
+      [req.estabelecimentoId]
+    );
+    let token = atual.rows[0]?.qrcode_entregador_token;
+    const dataAtual = atual.rows[0]?.qrcode_entregador_data;
+    const jaEhDeHoje = dataAtual && new Date(dataAtual).toDateString() === new Date().toDateString();
+
+    if (!token || !jaEhDeHoje) {
+      token = crypto.randomBytes(16).toString('hex');
+      await query(
+        'UPDATE estabelecimentos SET qrcode_entregador_token = $1, qrcode_entregador_data = CURRENT_DATE WHERE id = $2',
+        [token, req.estabelecimentoId]
+      );
+    }
+
+    // O conteudo do QR e so o token (o app do entregador le e manda pro
+    // endpoint de checkin -- nao precisa ser um link).
+    const qrcodeBase64 = await gerarQRCodeBase64(token);
+    res.json({ qrcode_base64: qrcodeBase64, valido_ate: 'fim do dia' });
+  } catch (error) {
+    console.error('Erro ao gerar QR Code do dia:', error);
+    res.status(500).json({ erro: 'Erro ao gerar QR Code do dia.' });
+  }
+}
+
+// O entregador le o QR do dia (com a camera, no proprio app) e manda o
+// token lido pra ca. Confirma presenca no dia e libera ele pra entrar na
+// fila de ofertas de entrega.
+async function checkinEntregador(req, res) {
+  try {
+    if (req.cargo !== 'entregador') {
+      return res.status(403).json({ erro: 'Checkin disponivel apenas para entregadores.' });
+    }
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ erro: 'Informe o codigo lido do QR.' });
+
+    const est = await query(
+      'SELECT qrcode_entregador_token, qrcode_entregador_data FROM estabelecimentos WHERE id = $1',
+      [req.estabelecimentoId]
+    );
+    const tokenValido = est.rows[0]?.qrcode_entregador_token;
+    const dataValida = est.rows[0]?.qrcode_entregador_data;
+    const ehDeHoje = dataValida && new Date(dataValida).toDateString() === new Date().toDateString();
+
+    if (!ehDeHoje || !tokenValido || tokenValido !== token) {
+      return res.status(400).json({ erro: 'QR Code invalido ou vencido. Peca o QR do dia atualizado na loja.' });
+    }
+
+    await query(
+      'UPDATE funcionarios SET ultimo_checkin_data = CURRENT_DATE, disponivel_entrega = true, ultima_fila_em = COALESCE(ultima_fila_em, NOW()) WHERE id = $1',
+      [req.funcionarioId]
+    );
+
+    // Ao bater o ponto, ja tenta puxar algum pedido "pronto" esperando fila.
+    const { tentarOfertarPedidosPendentes } = require('./pedidoController');
+    await tentarOfertarPedidosPendentes(req.estabelecimentoId);
+
+    res.json({ mensagem: 'Checkin realizado. Voce esta na fila de entregas de hoje.' });
+  } catch (error) {
+    console.error('Erro no checkin do entregador:', error);
+    res.status(500).json({ erro: 'Erro ao fazer checkin.' });
+  }
+}
+
 module.exports = {
   loginFuncionario, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir,
   listarEquipeOperacional, alternarDisponibilidadeEntregador,
+  obterQrcodeDoDia, checkinEntregador,
   registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS
 };
