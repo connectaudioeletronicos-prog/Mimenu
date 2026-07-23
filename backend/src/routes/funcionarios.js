@@ -16,6 +16,15 @@ router.put('/:id', exigirPermissao('editar_funcionarios'), funcionarioController
 router.put('/:id/cadastro-completo', exigirCargoAdministrativo, funcionarioController.atualizarCadastroCompleto);
 router.delete('/:id', exigirPermissao('gerenciar_funcionarios'), funcionarioController.excluir);
 
+// Equipe operacional (aba "Equipe"): cozinha, entregadores (com fila de
+// atribuicao automatica) e atendimento.
+router.get('/equipe', exigirPermissao('gerenciar_funcionarios'), funcionarioController.listarEquipeOperacional);
+
+// Disponibilidade do entregador pra fila de atribuicao automatica: o
+// controller ja verifica se e o proprio entregador ou quem tem a
+// permissao 'gerenciar_funcionarios', entao nao ha checagem de permissao aqui.
+router.put('/:id/disponibilidade', funcionarioController.alternarDisponibilidadeEntregador);
+
 // Trocar senha: cada funcionario pode trocar a propria (verificado dentro do
 // controller); para trocar a de outro, precisa da permissao 'editar_funcionarios'.
 router.put('/:id/senha', (req, res, next) => {
