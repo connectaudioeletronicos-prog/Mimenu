@@ -22,6 +22,20 @@ const PERMISSOES_VALIDAS = [
 const CARGOS_VALIDOS = ['administrador', 'gerente', 'caixa', 'garcom', 'colaborador', 'cozinha', 'entregador'];
 const LIMITES_POR_CARGO = { administrador: 1, gerente: 1, caixa: 5 }; // garcom/colaborador/cozinha/entregador: sem limite
 
+// Carga horaria (opcional): { dias: ['seg','ter',...], inicio: 'HH:MM', fim: 'HH:MM' }.
+// Um unico turno por funcionario e o suficiente pro que foi pedido; se um
+// dia precisar de mais de um turno no futuro, isso vira um array de turnos.
+const DIAS_SEMANA_VALIDOS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+function sanitizarCargaHoraria(carga) {
+  if (!carga || typeof carga !== 'object' || Array.isArray(carga)) return {};
+  const horaValida = (h) => typeof h === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(h);
+  const dias = Array.isArray(carga.dias) ? [...new Set(carga.dias.filter(d => DIAS_SEMANA_VALIDOS.includes(d)))] : [];
+  const inicio = horaValida(carga.inicio) ? carga.inicio : null;
+  const fim = horaValida(carga.fim) ? carga.fim : null;
+  if (dias.length === 0 && !inicio && !fim) return {};
+  return { dias, inicio, fim };
+}
+
 function sanitizarPermissoes(permissoes) {
   if (!Array.isArray(permissoes)) return [];
   return permissoes.filter(p => PERMISSOES_VALIDAS.includes(p));
@@ -81,7 +95,7 @@ async function loginFuncionario(req, res) {
 async function listar(req, res) {
   try {
     const resultado = await query(
-      `SELECT id, nome, email, username, telefone, celular, data_nascimento, rg, cpf, cargo, permissoes, ativo, ordem, criado_em
+      `SELECT id, nome, email, username, telefone, celular, data_nascimento, rg, cpf, cargo, permissoes, ativo, ordem, carga_horaria, criado_em
        FROM funcionarios WHERE estabelecimento_id = $1 ORDER BY ordem ASC, criado_em ASC`,
       [req.estabelecimentoId]
     );
@@ -94,7 +108,7 @@ async function listar(req, res) {
 // Criar funcionario
 async function criar(req, res) {
   try {
-    const { nome, email, username, senha, cargo, permissoes, telefone } = req.body;
+    const { nome, email, username, senha, cargo, permissoes, telefone, carga_horaria } = req.body;
 
     if (!nome || !email || !senha || !cargo) {
       return res.status(400).json({ erro: 'Nome, email, senha e categoria sao obrigatorios.' });
@@ -122,9 +136,9 @@ async function criar(req, res) {
     const proximaOrdem = parseInt(contagemTotal.rows[0].count);
 
     const resultado = await query(
-      `INSERT INTO funcionarios (estabelecimento_id, nome, email, username, telefone, senha_hash, cargo, permissoes, ordem)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem`,
-      [req.estabelecimentoId, nome, email, username || null, telefone || null, senhaHash, cargo, JSON.stringify(permissoesFinais), proximaOrdem]
+      `INSERT INTO funcionarios (estabelecimento_id, nome, email, username, telefone, senha_hash, cargo, permissoes, ordem, carga_horaria)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem, carga_horaria`,
+      [req.estabelecimentoId, nome, email, username || null, telefone || null, senhaHash, cargo, JSON.stringify(permissoesFinais), proximaOrdem, JSON.stringify(sanitizarCargaHoraria(carga_horaria))]
     );
 
     const novo = resultado.rows[0];
@@ -142,7 +156,7 @@ async function criar(req, res) {
 async function atualizar(req, res) {
   try {
     const { id } = req.params;
-    const { nome, email, username, cargo, ativo, permissoes, ordem, telefone } = req.body;
+    const { nome, email, username, cargo, ativo, permissoes, ordem, telefone, carga_horaria } = req.body;
 
     if (cargo && !CARGOS_VALIDOS.includes(cargo)) return res.status(400).json({ erro: 'Categoria invalida.' });
     if (telefone && !validarTelefone(telefone)) {
@@ -156,6 +170,7 @@ async function atualizar(req, res) {
     const permissoesFinais = cargoFinal === 'administrador'
       ? PERMISSOES_VALIDAS
       : (permissoes !== undefined ? sanitizarPermissoes(permissoes) : undefined);
+    const cargaHorariaFinal = carga_horaria !== undefined ? sanitizarCargaHoraria(carga_horaria) : undefined;
 
     const resultado = await query(
       `UPDATE funcionarios SET nome = COALESCE($1, nome), email = COALESCE($2, email),
@@ -164,9 +179,10 @@ async function atualizar(req, res) {
        permissoes = COALESCE($6, permissoes),
        ordem = COALESCE($7, ordem),
        telefone = COALESCE($8, telefone),
+       carga_horaria = COALESCE($9, carga_horaria),
        atualizado_em = NOW()
-       WHERE id = $9 AND estabelecimento_id = $10 RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem`,
-      [nome, email, username, cargo, ativo, permissoesFinais !== undefined ? JSON.stringify(permissoesFinais) : null, ordem, telefone, id, req.estabelecimentoId]
+       WHERE id = $10 AND estabelecimento_id = $11 RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem, carga_horaria`,
+      [nome, email, username, cargo, ativo, permissoesFinais !== undefined ? JSON.stringify(permissoesFinais) : null, ordem, telefone, cargaHorariaFinal !== undefined ? JSON.stringify(cargaHorariaFinal) : null, id, req.estabelecimentoId]
     );
 
     await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'ATUALIZAR_FUNCIONARIO', 'funcionarios', id, anterior.rows[0], resultado.rows[0], req.ip);
