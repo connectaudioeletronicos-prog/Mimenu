@@ -1,3 +1,14 @@
+// Captura qualquer erro nao tratado (incluindo dentro de Promises) e ao
+// menos deixa no console (F12) -- sem isso, um erro dentro de uma funcao
+// async sem try/catch proprio falha em silencio pro usuario, sem deixar
+// nenhuma pista de diagnostico.
+window.addEventListener('error', (evento) => {
+  console.error('Erro nao tratado no painel:', evento.error || evento.message);
+});
+window.addEventListener('unhandledrejection', (evento) => {
+  console.error('Promise rejeitada sem tratamento no painel:', evento.reason);
+});
+
 let ESTADO = {
   estabelecimento: null,
   categorias: [],
@@ -19,14 +30,20 @@ const DIAS_SEMANA_ADMIN = [
 document.addEventListener('DOMContentLoaded', iniciarAdmin);
 
 function iniciarAdmin() {
-  configurarLogin();
-  configurarLoginFuncionario();
-  configurarMenu();
-  configurarBotoesOlho();
-  configurarEsqueciSenha();
-  configurarTrocarSenha();
-  configurarFuncionarios();
-  if (obterToken()) mostrarPainel();
+  try {
+    configurarLogin();
+    configurarLoginFuncionario();
+    configurarMenu();
+    configurarBotoesOlho();
+    configurarEsqueciSenha();
+    configurarTrocarSenha();
+    configurarFuncionarios();
+    if (obterToken()) mostrarPainel();
+  } catch (erro) {
+    // Se algo aqui quebrar, ao menos fica registrado no console (F12) em
+    // vez de travar a pagina inteira em silencio sem nenhuma pista.
+    console.error('Erro ao iniciar o painel administrativo:', erro);
+  }
 }
 
 // =============================================
@@ -301,6 +318,7 @@ async function mostrarPainel() {
     aplicarVisibilidadeMenu();
     iniciarMonitoramentoPedidos();
   } catch (erro) {
+    console.error('Erro ao carregar o painel:', erro);
     mostrarToast(erro.message, true);
   }
 }
@@ -387,12 +405,12 @@ function aplicarVisibilidadeMenu() {
     document.querySelector(`.painel__menu-item[data-aba="${primeiraVisivel}"]`).click();
   }
 
-  document.getElementById('botao-novo-pedido-manual').classList.toggle('oculto', !temPermissao('criar_pedidos'));
+  document.getElementById('botao-novo-pedido-manual')?.classList.toggle('oculto', !temPermissao('criar_pedidos'));
 }
 
 function configurarMenu() {
-  document.getElementById('botao-novo-pedido-manual').addEventListener('click', abrirModalNovoPedido);
-  document.getElementById('botao-confirmar-novo-pedido').addEventListener('click', confirmarNovoPedidoManual);
+  document.getElementById('botao-novo-pedido-manual')?.addEventListener('click', abrirModalNovoPedido);
+  document.getElementById('botao-confirmar-novo-pedido')?.addEventListener('click', confirmarNovoPedidoManual);
 
   document.querySelectorAll('.painel__menu-item[data-aba]').forEach(botao => {
     botao.addEventListener('click', () => {
@@ -1900,13 +1918,13 @@ let dragSrcFuncionarioId = null;
 // VISTA "EQUIPE" (conteudo principal da aba) x "CADASTRO" (subpagina fixa)
 // =============================================
 function mostrarVistaEquipe() {
-  document.getElementById('funcionarios-vista-equipe').classList.remove('oculto');
-  document.getElementById('funcionarios-vista-cadastro').classList.add('oculto');
+  document.getElementById('funcionarios-vista-equipe')?.classList.remove('oculto');
+  document.getElementById('funcionarios-vista-cadastro')?.classList.add('oculto');
 }
 
 function mostrarVistaCadastroFuncionarios() {
-  document.getElementById('funcionarios-vista-equipe').classList.add('oculto');
-  document.getElementById('funcionarios-vista-cadastro').classList.remove('oculto');
+  document.getElementById('funcionarios-vista-equipe')?.classList.add('oculto');
+  document.getElementById('funcionarios-vista-cadastro')?.classList.remove('oculto');
 }
 
 async function carregarEquipeOperacional() {
@@ -2130,8 +2148,8 @@ function configurarFuncionarios() {
   alternarCaixasAdministrador('func-cargo', 'grupo-permissoes-funcionario');
   alternarCaixasAdministrador('edit-func-cargo', 'edit-grupo-permissoes');
 
-  document.getElementById('botao-abrir-cadastro-funcionarios').addEventListener('click', mostrarVistaCadastroFuncionarios);
-  document.getElementById('botao-voltar-equipe').addEventListener('click', () => {
+  document.getElementById('botao-abrir-cadastro-funcionarios')?.addEventListener('click', mostrarVistaCadastroFuncionarios);
+  document.getElementById('botao-voltar-equipe')?.addEventListener('click', () => {
     mostrarVistaEquipe();
     carregarEquipeOperacional();
   });
@@ -2339,26 +2357,4 @@ function montarPaletaCores() {
 
 // ===================================================================
 // Preview ao vivo da fonte escolhida na aba Aparencia
-// ===================================================================
-let FONTE_PREVIEW_CONFIGURADA = false;
-
-function configurarPreviewFonte() {
-  if (FONTE_PREVIEW_CONFIGURADA) return;
-  FONTE_PREVIEW_CONFIGURADA = true;
-
-  const select = document.getElementById('campo-fonte');
-  const preview = document.getElementById('fonte-preview');
-
-  function atualizar() {
-    const fonte = select.value || 'Poppins';
-    preview.style.fontFamily = `'${fonte}', sans-serif`;
-    if (FONTES_GOOGLE_ADMIN[fonte] && !document.getElementById(`fonte-link-${fonte}`)) {
-      const link = document.createElement('link');
-      link.id = `fonte-link-${fonte}`;
-      link.rel = 'stylesheet';
-      link.href = `https://fonts.googleapis.com/css2?family=${FONTES_GOOGLE_ADMIN[fonte]}&display=swap`;
-      document.head.appendChild(link);
-    }
-  }
-
-  select.addEventLi
+// 
