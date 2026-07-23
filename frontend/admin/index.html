@@ -456,66 +456,128 @@
       </section>
 
       <section id="aba-funcionarios" class="aba oculto">
-        <h2 class="aba__titulo">Funcionarios</h2>
 
-        <h3 class="aba__subtitulo" style="margin-top:0; border-top:none; padding-top:0;">Cadastrar novo funcionario</h3>
-        <form id="form-novo-funcionario">
-          <div class="campo-grupo">
-            <label class="campo-label">Nome completo</label>
-            <input type="text" id="func-nome" class="campo-texto" required>
+        <!-- ============================================================
+             VISTA 1 (conteudo principal da aba): EQUIPE
+             Visao operacional por funcao: cozinha, entregadores (fila por
+             ordem de chegada) e atendimento. O cadastro/edicao completo dos
+             funcionarios continua existindo, mas vira uma subpagina fixa
+             (nao flutuante), acessada pelo botao no canto superior direito.
+        ============================================================= -->
+        <div id="funcionarios-vista-equipe">
+          <div class="aba__cabecalho-flex">
+            <h2 class="aba__titulo" style="margin-bottom:0;">Equipe</h2>
+            <button type="button" id="botao-abrir-cadastro-funcionarios" class="botao-secundario botao-config-equipe">⚙️ Cadastro de funcionarios</button>
           </div>
-          <div class="campo-grupo">
-            <label class="campo-label">E-mail</label>
-            <input type="email" id="func-email" class="campo-texto" required>
-          </div>
-          <div class="campo-grupo">
-            <label class="campo-label">Usuario (opcional, alternativa ao e-mail para login)</label>
-            <input type="text" id="func-username" class="campo-texto">
-          </div>
-          <div class="campo-grupo">
-            <label class="campo-label">Telefone</label>
-            <input type="text" id="func-telefone" class="campo-texto" placeholder="(00) 000000000">
-          </div>
-          <div class="campo-grupo">
-            <label class="campo-label">Senha</label>
-            <div class="campo-senha-wrapper">
-              <input type="password" id="func-senha" class="campo-texto" required minlength="6">
-              <button type="button" class="botao-olho" data-alvo-senha="func-senha" aria-label="Mostrar senha">👁</button>
+          <p class="aba__descricao">Visao operacional da equipe. O cadastro, as permissoes e a edicao de cada funcionario continuam na tela de "Cadastro de funcionarios".</p>
+
+          <div class="equipe-grid">
+            <div class="equipe-secao" data-secao-cargo="cozinha">
+              <div class="equipe-secao__cabecalho">
+                <span class="equipe-secao__icone">🍳</span>
+                <div>
+                  <div class="equipe-secao__titulo">Cozinha</div>
+                  <div class="equipe-secao__subtitulo">Recebe os pedidos aceitos e marca como pronto</div>
+                </div>
+              </div>
+              <div id="lista-equipe-cozinha" class="lista-itens-admin"></div>
+            </div>
+
+            <div class="equipe-secao" data-secao-cargo="entregador">
+              <div class="equipe-secao__cabecalho">
+                <span class="equipe-secao__icone">🛵</span>
+                <div>
+                  <div class="equipe-secao__titulo">Entregadores</div>
+                  <div class="equipe-secao__subtitulo">Atribuicao automatica sempre por ordem de chegada</div>
+                </div>
+              </div>
+              <div id="lista-equipe-entregadores" class="lista-itens-admin"></div>
+            </div>
+
+            <div class="equipe-secao" data-secao-cargo="atendimento">
+              <div class="equipe-secao__cabecalho">
+                <span class="equipe-secao__icone">🧑‍💼</span>
+                <div>
+                  <div class="equipe-secao__titulo">Atendimento</div>
+                  <div class="equipe-secao__subtitulo">Garcom, caixa e colaboradores</div>
+                </div>
+              </div>
+              <div id="lista-equipe-atendimento" class="lista-itens-admin"></div>
             </div>
           </div>
-          <div class="campo-grupo">
-            <label class="campo-label">Categoria (define so o limite de quantidade)</label>
-            <select id="func-cargo" class="campo-texto">
-              <option value="administrador">Administrador (max. 1) - acesso total</option>
-              <option value="gerente">Gerente (max. 1)</option>
-              <option value="caixa">Caixa (max. 5)</option>
-              <option value="garcom">Garcom (sem limite)</option>
-              <option value="colaborador">Colaborador (sem limite)</option>
-            </select>
-          </div>
+        </div>
 
-          <div class="campo-grupo" id="grupo-permissoes-funcionario">
-            <label class="campo-label">Permissoes</label>
-            <button type="button" class="botao-secundario botao-marcar-todas" data-alvo-permissoes="grupo-permissoes-funcionario" style="margin-bottom:8px;">Marcar todas / Desmarcar todas</button>
-            <div class="lista-permissoes">
-              <label class="permissao-item"><input type="checkbox" value="gerenciar_funcionarios"> Gerenciar funcionarios (cadastrar/descadastrar)</label>
-              <label class="permissao-item"><input type="checkbox" value="editar_funcionarios"> Editar dados / trocar senha de funcionarios</label>
-              <label class="permissao-item"><input type="checkbox" value="gerenciar_cardapio"> Gerenciar produtos, categorias e promocoes (com precos)</label>
-              <label class="permissao-item"><input type="checkbox" value="criar_pedidos"> Criar pedidos</label>
-              <label class="permissao-item"><input type="checkbox" value="cancelar_pedidos"> Cancelar pedidos</label>
-              <label class="permissao-item"><input type="checkbox" value="mudar_status_pedidos"> Mudar status do pedido (preparo/entrega)</label>
-              <label class="permissao-item"><input type="checkbox" value="ver_valores_concluidos"> Ver valores de pedidos concluidos/cancelados</label>
-              <label class="permissao-item"><input type="checkbox" value="corrigir_valores_concluidos"> Corrigir valores de pedidos concluidos</label>
-              <label class="permissao-item"><input type="checkbox" value="gerenciar_conta"> Gerenciar configuracoes da conta (pagamento, dados, paginas legais)</label>
-              <label class="permissao-item"><input type="checkbox" value="ver_caixa_geral"> Ver caixa geral (valores das entregas concluidas)</label>
+        <!-- ============================================================
+             VISTA 2 (subpagina fixa, nao flutuante): CADASTRO DE FUNCIONARIOS
+             Conteudo que antes era a aba inteira. Some/aparece no lugar da
+             vista de Equipe (mesma area, sem modal/overlay).
+        ============================================================= -->
+        <div id="funcionarios-vista-cadastro" class="oculto">
+          <button type="button" id="botao-voltar-equipe" class="botao-secundario botao-voltar-equipe">← Voltar para Equipe</button>
+
+          <h2 class="aba__titulo">Cadastro de funcionarios</h2>
+
+          <h3 class="aba__subtitulo" style="margin-top:0; border-top:none; padding-top:0;">Cadastrar novo funcionario</h3>
+          <form id="form-novo-funcionario">
+            <div class="campo-grupo">
+              <label class="campo-label">Nome completo</label>
+              <input type="text" id="func-nome" class="campo-texto" required>
             </div>
-          </div>
+            <div class="campo-grupo">
+              <label class="campo-label">E-mail</label>
+              <input type="email" id="func-email" class="campo-texto" required>
+            </div>
+            <div class="campo-grupo">
+              <label class="campo-label">Usuario (opcional, alternativa ao e-mail para login)</label>
+              <input type="text" id="func-username" class="campo-texto">
+            </div>
+            <div class="campo-grupo">
+              <label class="campo-label">Telefone</label>
+              <input type="text" id="func-telefone" class="campo-texto" placeholder="(00) 000000000">
+            </div>
+            <div class="campo-grupo">
+              <label class="campo-label">Senha</label>
+              <div class="campo-senha-wrapper">
+                <input type="password" id="func-senha" class="campo-texto" required minlength="6">
+                <button type="button" class="botao-olho" data-alvo-senha="func-senha" aria-label="Mostrar senha">👁</button>
+              </div>
+            </div>
+            <div class="campo-grupo">
+              <label class="campo-label">Categoria (define so o limite de quantidade)</label>
+              <select id="func-cargo" class="campo-texto">
+                <option value="administrador">Administrador (max. 1) - acesso total</option>
+                <option value="gerente">Gerente (max. 1)</option>
+                <option value="caixa">Caixa (max. 5)</option>
+                <option value="garcom">Garcom (sem limite)</option>
+                <option value="colaborador">Colaborador (sem limite)</option>
+                <option value="cozinha">Cozinha (sem limite)</option>
+                <option value="entregador">Entregador (sem limite)</option>
+              </select>
+            </div>
 
-          <button type="submit" class="botao-primario">Cadastrar funcionario</button>
-        </form>
+            <div class="campo-grupo" id="grupo-permissoes-funcionario">
+              <label class="campo-label">Permissoes</label>
+              <button type="button" class="botao-secundario botao-marcar-todas" data-alvo-permissoes="grupo-permissoes-funcionario" style="margin-bottom:8px;">Marcar todas / Desmarcar todas</button>
+              <div class="lista-permissoes">
+                <label class="permissao-item"><input type="checkbox" value="gerenciar_funcionarios"> Gerenciar funcionarios (cadastrar/descadastrar)</label>
+                <label class="permissao-item"><input type="checkbox" value="editar_funcionarios"> Editar dados / trocar senha de funcionarios</label>
+                <label class="permissao-item"><input type="checkbox" value="gerenciar_cardapio"> Gerenciar produtos, categorias e promocoes (com precos)</label>
+                <label class="permissao-item"><input type="checkbox" value="criar_pedidos"> Criar pedidos</label>
+                <label class="permissao-item"><input type="checkbox" value="cancelar_pedidos"> Cancelar pedidos</label>
+                <label class="permissao-item"><input type="checkbox" value="mudar_status_pedidos"> Mudar status do pedido (preparo/entrega)</label>
+                <label class="permissao-item"><input type="checkbox" value="ver_valores_concluidos"> Ver valores de pedidos concluidos/cancelados</label>
+                <label class="permissao-item"><input type="checkbox" value="corrigir_valores_concluidos"> Corrigir valores de pedidos concluidos</label>
+                <label class="permissao-item"><input type="checkbox" value="gerenciar_conta"> Gerenciar configuracoes da conta (pagamento, dados, paginas legais)</label>
+                <label class="permissao-item"><input type="checkbox" value="ver_caixa_geral"> Ver caixa geral (valores das entregas concluidas)</label>
+              </div>
+            </div>
 
-        <h3 class="aba__subtitulo">Funcionarios cadastrados</h3>
-        <div id="lista-funcionarios-admin" class="lista-itens-admin"></div>
+            <button type="submit" class="botao-primario">Cadastrar funcionario</button>
+          </form>
+
+          <h3 class="aba__subtitulo">Funcionarios cadastrados</h3>
+          <div id="lista-funcionarios-admin" class="lista-itens-admin"></div>
+        </div>
       </section>
 
     </main>
@@ -544,6 +606,8 @@
           <option value="caixa">Caixa (max. 5)</option>
           <option value="garcom">Garcom (sem limite)</option>
           <option value="colaborador">Colaborador (sem limite)</option>
+          <option value="cozinha">Cozinha (sem limite)</option>
+          <option value="entregador">Entregador (sem limite)</option>
         </select>
       </label>
       <label>
