@@ -374,6 +374,22 @@ input, textarea, select { font-family: inherit; }
   align-items: flex-end;
 }
 
+.carga-horaria-dias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 8px 0 12px;
+  font-size: 0.82rem;
+}
+
+.carga-horaria-dias label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
 .aba__subtitulo {
   font-size: 1.05rem;
   font-weight: 700;
