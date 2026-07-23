@@ -1037,11 +1037,12 @@ function renderizarTimeline(box, statusAtual) {
   const passos = [
     { status: 'novo', icone: '📋', titulo: 'Pedido recebido', desc: 'Seu pedido foi recebido pelo estabelecimento.' },
     { status: 'preparando', icone: '🍳', titulo: 'Em preparo', desc: 'Seu pedido esta sendo preparado.' },
+    { status: 'pronto', icone: '🔔', titulo: 'Pronto', desc: 'Seu pedido esta pronto e logo sai para entrega!' },
     { status: 'saiu_entrega', icone: '🛵', titulo: 'Saiu para entrega', desc: 'Seu pedido esta a caminho!' },
     { status: 'entregue', icone: '✅', titulo: 'Entregue', desc: 'Pedido entregue. Bom apetite!' }
   ];
 
-  const ordem = ['novo', 'preparando', 'saiu_entrega', 'entregue'];
+  const ordem = ['novo', 'preparando', 'pronto', 'saiu_entrega', 'entregue'];
   const indiceAtual = ordem.indexOf(statusAtual);
 
   box.innerHTML = `
@@ -1063,12 +1064,13 @@ function renderizarTimeline(box, statusAtual) {
       }).join('')}
     </div>
     ${statusAtual !== 'entregue' && statusAtual !== 'cancelado'
-      ? '<div class="acompanhamento-atualizando">Atualizando automaticamente a cada 30 segundos...</div>'
+      ? '<div class="acompanhamento-atualizando">Atualizando automaticamente a cada 15 segundos...</div>'
       : ''}
   `;
 }
 
 function iniciarAcompanhamento(pedidoId, box) {
+  let ultimoStatusConhecido = null;
   INTERVALO_ACOMPANHAMENTO = setInterval(async () => {
     try {
       const status = await consultarStatusPedido(SLUG_ESTABELECIMENTO, pedidoId);
@@ -1077,12 +1079,33 @@ function iniciarAcompanhamento(pedidoId, box) {
       const statusSpan = card.querySelector('.pedido-detalhe__status');
       if (statusSpan) statusSpan.textContent = traduzirStatus(status.status_pedido);
       renderizarTimeline(box, status.status_pedido);
+
+      // Avisa o cliente assim que a cozinha marcar o pedido como pronto.
+      if (status.status_pedido === 'pronto' && ultimoStatusConhecido !== 'pronto') {
+        avisarClientePedidoPronto();
+      }
+      ultimoStatusConhecido = status.status_pedido;
+
       if (status.status_pedido === 'entregue' || status.status_pedido === 'cancelado') {
         clearInterval(INTERVALO_ACOMPANHAMENTO);
         INTERVALO_ACOMPANHAMENTO = null;
       }
     } catch (erro) {}
-  }, 30000);
+  }, 15000);
+}
+
+// Aviso best-effort de "pedido pronto": usa a Notification API do navegador
+// quando disponivel/permitida. Se nao houver permissao, nao interrompe o
+// fluxo -- o cliente ja ve a mudanca no acompanhamento na tela.
+function avisarClientePedidoPronto() {
+  try {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      new Notification('Seu pedido esta pronto! 🔔', { body: 'Logo ele sai para entrega.' });
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+  } catch (erro) {}
 }
 
 function traduzirStatus(status) {
