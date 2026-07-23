@@ -128,14 +128,33 @@ async function listarPedidosAdmin(req, res) {
     const { status } = req.query;
     let sql = `SELECT * FROM pedidos WHERE estabelecimento_id = $1`;
     const params = [req.estabelecimentoId];
-    if (status) { sql += ` AND status_pedido = $2`; params.push(status); }
+
+    // Cada extensao (cozinha, entregador) so enxerga o que precisa:
+    // - cozinha: so os pedidos ja aceitos (preparando) e os que ela mesma
+    //   acabou de marcar como pronto, sem valores (so produto/descricao).
+    // - entregador: so os pedidos atribuidos a ele.
+    if (req.cargo === 'cozinha') {
+      params.push(['preparando', 'pronto']);
+      sql += ` AND status_pedido = ANY($${params.length}::text[])`;
+    } else if (req.cargo === 'entregador') {
+      params.push(req.funcionarioId);
+      sql += ` AND entregador_id = $${params.length}`;
+    }
+
+    if (status) { params.push(status); sql += ` AND status_pedido = $${params.length}`; }
     sql += ` ORDER BY criado_em DESC LIMIT 100`;
     const resultado = await query(sql, params);
 
     const podeVerValoresConcluidos = req.cargo === 'proprietario' || (req.permissoes || []).includes('ver_valores_concluidos');
     const finalizados = ['entregue', 'cancelado'];
+    const ehCozinha = req.cargo === 'cozinha';
 
     const pedidos = resultado.rows.map(p => {
+      // App da cozinha: so visualizacao de produtos/descricao, sem valor
+      // e sem dados de cobranca/contato do cliente.
+      if (ehCozinha) {
+        return { ...p, subtotal: null, total: null, taxa_entrega: null, gorjeta: null, forma_pagamento: null, cliente_telefone: null, cliente_endereco: null };
+      }
       if (!podeVerValoresConcluidos && finalizados.includes(p.status_pedido)) {
         return { ...p, subtotal: null, total: null, taxa_entrega: null, itens: null };
       }
@@ -159,7 +178,7 @@ async function contarPedidosAdmin(req, res) {
       [req.estabelecimentoId]
     );
 
-    const contagem = { todos: 0, novo: 0, preparando: 0, saiu_entrega: 0, entregue: 0, cancelado: 0 };
+    const contagem = { todos: 0, novo: 0, preparando: 0, pronto: 0, saiu_entrega: 0, entregue: 0, cancelado: 0 };
     resultado.rows.forEach(linha => {
       contagem[linha.status_pedido] = linha.total;
       contagem.todos += linha.total;
@@ -171,12 +190,32 @@ async function contarPedidosAdmin(req, res) {
   }
 }
 
+// Escolhe o proximo entregador da fila pra um pedido que acabou de ser
+// confirmado como pronto pelo administrador. Regra absoluta: sempre
+// respeita a ordem de chegada (quem esta ha mais tempo esperando/disponivel
+// entra primeiro). Fica de fora da fila quem estiver inativo, indisponivel
+// ou ja estiver com uma entrega em andamento (saiu_entrega).
+async function atribuirProximoEntregador(estabelecimentoId) {
+  const resultado = await query(
+    `SELECT f.id, f.nome
+     FROM funcionarios f
+     WHERE f.estabelecimento_id = $1 AND f.cargo = 'entregador' AND f.ativo = true AND f.disponivel_entrega = true
+       AND NOT EXISTS (
+         SELECT 1 FROM pedidos p WHERE p.entregador_id = f.id AND p.status_pedido = 'saiu_entrega'
+       )
+     ORDER BY f.ultima_fila_em ASC NULLS FIRST, f.criado_em ASC
+     LIMIT 1`,
+    [estabelecimentoId]
+  );
+  return resultado.rows[0] || null;
+}
+
 async function atualizarStatusPedido(req, res) {
   try {
     const { id } = req.params;
     const { status_pedido } = req.body;
 
-    const statusValidos = ['novo', 'preparando', 'saiu_entrega', 'entregue', 'cancelado'];
+    const statusValidos = ['novo', 'preparando', 'pronto', 'saiu_entrega', 'entregue', 'cancelado'];
     if (!statusValidos.includes(status_pedido)) return res.status(400).json({ erro: 'Status invalido.' });
 
     const temPermissao = (chave) => req.cargo === 'proprietario' || (req.permissoes || []).includes(chave);
@@ -188,7 +227,7 @@ async function atualizarStatusPedido(req, res) {
       return res.status(403).json({ erro: 'Voce nao tem permissao para mudar o status do pedido.' });
     }
 
-    const pedidoAtual = await query('SELECT status_pedido FROM pedidos WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
+    const pedidoAtual = await query('SELECT status_pedido, entregador_id FROM pedidos WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
     if (pedidoAtual.rows.length === 0) return res.status(404).json({ erro: 'Pedido nao encontrado.' });
 
     const statusFinal = ['entregue', 'cancelado'];
@@ -196,24 +235,78 @@ async function atualizarStatusPedido(req, res) {
       return res.status(400).json({ erro: 'Pedidos finalizados ou cancelados nao podem ser alterados.' });
     }
 
+    // Regra geral: cada extensao (cozinha, entregador) so se comunica com o
+    // administrador -- aqui, isso significa que cada uma so pode dar
+    // exatamente o proximo passo que e da sua responsabilidade, mesmo que
+    // tenha a permissao 'mudar_status_pedidos' marcada.
+    if (req.cargo === 'cozinha') {
+      if (status_pedido !== 'pronto') {
+        return res.status(403).json({ erro: 'A cozinha so pode marcar o pedido como pronto.' });
+      }
+      if (pedidoAtual.rows[0].status_pedido !== 'preparando') {
+        return res.status(400).json({ erro: 'Esse pedido ainda nao esta em preparo.' });
+      }
+    }
+
+    if (req.cargo === 'entregador') {
+      if (status_pedido !== 'entregue') {
+        return res.status(403).json({ erro: 'O entregador so pode marcar a entrega como concluida.' });
+      }
+      if (pedidoAtual.rows[0].entregador_id !== req.funcionarioId) {
+        return res.status(403).json({ erro: 'Esse pedido nao esta atribuido a voce.' });
+      }
+    }
+
     // Impede voltar para um status anterior: o pedido so pode avancar na
-    // sequencia (novo -> preparando -> saiu_entrega -> entregue), ou ser
-    // cancelado a qualquer momento antes de ser entregue.
-    const ORDEM_STATUS = ['novo', 'preparando', 'saiu_entrega', 'entregue'];
+    // sequencia (novo -> preparando -> pronto -> saiu_entrega -> entregue),
+    // ou ser cancelado a qualquer momento antes de ser entregue.
+    const ORDEM_STATUS = ['novo', 'preparando', 'pronto', 'saiu_entrega', 'entregue'];
     if (status_pedido !== 'cancelado') {
       const indiceAtual = ORDEM_STATUS.indexOf(pedidoAtual.rows[0].status_pedido);
       const indiceNovo = ORDEM_STATUS.indexOf(status_pedido);
       if (indiceNovo <= indiceAtual) {
         return res.status(400).json({ erro: 'Nao e possivel voltar um pedido para um status anterior.' });
       }
+      if (indiceNovo > indiceAtual + 1) {
+        return res.status(400).json({ erro: 'Nao e possivel pular etapas do pedido.' });
+      }
     }
 
-    const resultado = await query(
-      'UPDATE pedidos SET status_pedido = $1 WHERE id = $2 AND estabelecimento_id = $3 RETURNING *',
-      [status_pedido, id, req.estabelecimentoId]
-    );
-    res.json(resultado.rows[0]);
+    // Confirmar que o pedido esta pronto (pronto -> saiu_entrega) exige um
+    // entregador disponivel, ja que a atribuicao e sempre automatica e
+    // sempre respeita a ordem de chegada. Sem entregador livre, o pedido
+    // fica em "pronto" ate que algum fique disponivel.
+    if (status_pedido === 'saiu_entrega') {
+      const entregador = await atribuirProximoEntregador(req.estabelecimentoId);
+      if (!entregador) {
+        return res.status(409).json({ erro: 'Nenhum entregador disponivel no momento. O pedido continua como "pronto" ate que um entregador fique livre.' });
+      }
+      await query(
+        'UPDATE pedidos SET status_pedido = $1, entregador_id = $2, entregador_nome = $3, horario_saiu_entrega = NOW() WHERE id = $4 AND estabelecimento_id = $5',
+        [status_pedido, entregador.id, entregador.nome, id, req.estabelecimentoId]
+      );
+    } else if (status_pedido === 'pronto') {
+      await query(
+        'UPDATE pedidos SET status_pedido = $1, horario_pronto = NOW() WHERE id = $2 AND estabelecimento_id = $3',
+        [status_pedido, id, req.estabelecimentoId]
+      );
+    } else {
+      await query('UPDATE pedidos SET status_pedido = $1 WHERE id = $2 AND estabelecimento_id = $3', [status_pedido, id, req.estabelecimentoId]);
+    }
+
+    // Entrega concluida: soma no contador do entregador e o manda pro fim
+    // da fila (proxima atribuicao respeita quem esta ha mais tempo esperando).
+    if (status_pedido === 'entregue' && pedidoAtual.rows[0].entregador_id) {
+      await query(
+        'UPDATE funcionarios SET total_entregas = total_entregas + 1, ultima_fila_em = NOW() WHERE id = $1',
+        [pedidoAtual.rows[0].entregador_id]
+      );
+    }
+
+    const final = await query('SELECT * FROM pedidos WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
+    res.json(final.rows[0]);
   } catch (error) {
+    console.error('Erro ao atualizar status do pedido:', error);
     res.status(500).json({ erro: 'Erro ao atualizar status.' });
   }
 }
