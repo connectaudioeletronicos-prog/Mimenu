@@ -197,6 +197,18 @@ async function sincronizarSchema() {
     console.error('Aviso: nao foi possivel sincronizar colunas de entregadores em funcionarios:', error.message);
   }
 
+  // Carga horaria (opcional) de cada funcionario: dias da semana + horario
+  // de entrada/saida. Guardado como JSONB pra nao precisar de tabela nova
+  // pra um unico turno por funcionario.
+  try {
+    await pool.query(`
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS carga_horaria JSONB DEFAULT '{}';
+    `);
+    console.log('Schema sincronizado: carga_horaria em funcionarios.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar carga_horaria em funcionarios:', error.message);
+  }
+
   // Pedido saiu para entrega -> atribuido automaticamente ao proximo
   // entregador da fila (por ordem de chegada). Guarda quem ficou responsavel
   // e os horarios de "pronto" e "saiu para entrega" pra rastreio/relatorios.
