@@ -1,265 +1,98 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cardapio Digital</title>
-  <meta name="description" content="Cardapio digital online">
-
-  <link rel="icon" id="favicon" href="">
-
-  <link rel="stylesheet" href="css/variaveis.css">
-  <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/componentes.css?v=20260720c">
-  <link rel="stylesheet" href="css/temas/classico.css" id="tema-css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>App do Entregador</title>
+<link rel="stylesheet" href="entregador.css">
 </head>
 <body>
 
-  <div id="tela-carregando" class="tela-carregando">
-    <div class="spinner"></div>
-  </div>
+  <!-- ===================== TELA: LOGIN ===================== -->
+  <section id="tela-login" class="tela">
+    <div class="cartao">
+      <h1>Entrar como entregador</h1>
+      <p class="ajuda">Peça o "slug" da loja para o seu gestor, se não souber.</p>
+      <form id="form-login">
+        <label>Slug da loja</label>
+        <input type="text" id="login-slug" required autocomplete="off">
 
-  <div id="tela-erro" class="tela-erro oculto">
-    <div class="tela-erro__conteudo">
-      <h1>Cardapio nao encontrado</h1>
-      <p id="tela-erro__mensagem">Verifique o endereco e tente novamente.</p>
+        <label>Login (e-mail ou usuário)</label>
+        <input type="text" id="login-usuario" required autocomplete="username">
+
+        <label>Senha</label>
+        <input type="password" id="login-senha" required autocomplete="current-password">
+
+        <button type="submit" class="botao botao-principal">Entrar</button>
+        <p id="login-erro" class="erro oculto"></p>
+      </form>
     </div>
-  </div>
+  </section>
 
-  <div id="tela-cliente" class="tela-cliente oculto">
-    <div class="tela-cliente__cabecalho">
-      <button class="tela-cliente__voltar" id="botao-fechar-cliente">← Voltar</button>
-      <h2 class="tela-cliente__titulo">Minha conta</h2>
-    </div>
-
-    <div class="tela-cliente__abas">
-      <button class="tela-cliente__aba ativo" data-aba-cliente="dados">Meus dados</button>
-      <button class="tela-cliente__aba" data-aba-cliente="pedidos">Meus pedidos</button>
-    </div>
-
-    <div class="tela-cliente__conteudo">
-      <div id="aba-cliente-dados" class="aba-cliente">
-        <form id="form-dados-cliente" class="tela-cliente__form">
-          <label>Nome completo
-            <input type="text" id="dados-nome">
-          </label>
-          <label>WhatsApp / Telefone
-            <input type="tel" id="dados-telefone" maxlength="14" placeholder="(11) 999999999">
-          </label>
-          <label>Rua / Avenida
-            <input type="text" id="dados-rua" placeholder="Rua Osvaldo Cruz">
-          </label>
-          <label>Numero
-            <input type="text" id="dados-numero" maxlength="10" placeholder="5210">
-          </label>
-          <label>CEP
-            <input type="text" id="dados-cep" maxlength="9" placeholder="99999-999">
-          </label>
-          <button type="submit" class="botao-primario">Salvar dados</button>
-        </form>
-        <a id="link-whatsapp-menu" class="tela-cliente__whatsapp" href="#" target="_blank" rel="noopener">💬 Falar no WhatsApp</a>
+  <!-- ===================== TELA: CHECKIN (QR DO DIA) ===================== -->
+  <section id="tela-checkin" class="tela oculto">
+    <div class="cartao">
+      <h1>Bater o ponto de hoje</h1>
+      <p class="ajuda">Aponte a câmera para o QR Code exibido na loja para entrar na fila de entregas de hoje.</p>
+      <div id="leitor-qr-container">
+        <video id="video-qr" playsinline></video>
       </div>
-
-      <div id="aba-cliente-pedidos" class="aba-cliente oculto">
-        <div id="lista-pedidos-cliente"></div>
-      </div>
+      <p id="checkin-status" class="ajuda"></p>
+      <p id="checkin-erro" class="erro oculto"></p>
+      <button id="botao-sair-checkin" class="botao botao-secundario">Sair</button>
     </div>
-  </div>
+  </section>
 
-  <div id="app" class="oculto">
+  <!-- ===================== TELA: AGUARDANDO PEDIDO ===================== -->
+  <section id="tela-aguardando" class="tela oculto">
+    <div class="cartao cartao-centro">
+      <div class="spinner"></div>
+      <h2>Você está na fila</h2>
+      <p class="ajuda">Assim que um pedido ficar pronto e for sua vez, você vai receber a oferta aqui.</p>
+      <button id="botao-sair-aguardando" class="botao botao-secundario">Sair</button>
+    </div>
+  </section>
 
-    <div class="slot-dinamico" id="slot-topo"></div>
-
-    <header class="topo">
-      <div class="topo__banner" id="topo-banner"></div>
-      <div class="topo__identidade">
-        <img id="logo-estabelecimento" class="topo__logo" src="" alt="Logo">
-        <h1 id="nome-estabelecimento" class="topo__nome"></h1>
+  <!-- ===================== TELA: OFERTA DE ENTREGA (ACEITAR/RECUSAR) ===================== -->
+  <section id="tela-oferta" class="tela oculto">
+    <div class="cartao">
+      <h2>Nova entrega disponível!</h2>
+      <div class="detalhes-pedido">
+        <p><strong>Cliente:</strong> <span id="oferta-cliente"></span></p>
+        <p><strong>Endereço:</strong> <span id="oferta-endereco"></span></p>
+        <p><strong>Telefone:</strong> <span id="oferta-telefone"></span></p>
+        <p><strong>Total:</strong> <span id="oferta-total"></span></p>
+        <p><strong>Pagamento:</strong> <span id="oferta-pagamento"></span></p>
       </div>
-    </header>
-
-    <div class="slot-dinamico" id="slot-apos-cabecalho"></div>
-
-    <button id="botao-menu-cliente" class="menu-cliente__botao" aria-label="Minha conta">👤</button>
-
-    <section class="apresentacao">
-      <p id="texto-apresentacao" class="apresentacao__texto"></p>
-      <div id="status-funcionamento" class="apresentacao__status"></div>
-    </section>
-
-    <section id="secao-promocoes" class="promocoes oculto">
-      <h2 class="secao-titulo">Promocoes</h2>
-      <div id="lista-promocoes" class="promocoes__lista"></div>
-    </section>
-
-    <section class="categorias">
-      <h2 class="secao-titulo">Categorias</h2>
-      <div id="lista-categorias" class="categorias__lista"></div>
-    </section>
-
-    <div class="slot-dinamico" id="slot-apos-categorias"></div>
-
-    <section class="produtos" id="secao-produtos">
-    </section>
-
-    <div class="slot-dinamico" id="slot-apos-produtos"></div>
-
-    <div class="slot-dinamico" id="slot-antes-rodape"></div>
-
-    <footer class="rodape">
-      <h3 class="rodape__titulo">Contato</h3>
-      <div id="rodape-info" class="rodape__info"></div>
-      <div id="rodape-redes" class="rodape__redes"></div>
-    </footer>
-
-    <button id="botao-carrinho" class="botao-carrinho oculto" aria-label="Ver carrinho">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="9" cy="21" r="1"></circle>
-        <circle cx="20" cy="21" r="1"></circle>
-        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-      </svg>
-      <span id="contador-carrinho" class="botao-carrinho__contador">0</span>
-    </button>
-  </div>
-
-  <div id="modal-produto" class="modal oculto">
-    <div class="modal__fundo" data-fechar-modal></div>
-    <div class="modal__caixa">
-      <button class="modal__fechar" data-fechar-modal aria-label="Fechar">&times;</button>
-      <img id="produto-modal-foto" class="modal__foto" src="" alt="">
-      <div class="modal__corpo">
-        <span id="produto-modal-codigo" class="modal__codigo"></span>
-        <h3 id="produto-modal-nome" class="modal__nome"></h3>
-        <p id="produto-modal-descricao" class="modal__descricao"></p>
-        <div class="modal__preco-linha">
-          <span id="produto-modal-preco" class="modal__preco"></span>
-          <span id="produto-modal-preco-original" class="modal__preco-original"></span>
-        </div>
-        <div class="modal__quantidade">
-          <button id="produto-modal-menos" aria-label="Diminuir quantidade">−</button>
-          <span id="produto-modal-qtd">1</span>
-          <button id="produto-modal-mais" aria-label="Aumentar quantidade">+</button>
-        </div>
-        <textarea id="produto-modal-obs" class="modal__observacao" placeholder="Alguma observacao? (opcional)" maxlength="300"></textarea>
-        <button id="produto-modal-adicionar" class="botao-primario">Adicionar ao carrinho</button>
+      <div class="botoes-linha">
+        <button id="botao-recusar" class="botao botao-recusar">Recusar</button>
+        <button id="botao-aceitar" class="botao botao-principal">Aceitar entrega</button>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div id="modal-carrinho" class="modal oculto">
-    <div class="modal__fundo" data-fechar-modal></div>
-    <div class="modal__caixa modal__caixa--carrinho">
-      <button class="modal__fechar" data-fechar-modal aria-label="Fechar">&times;</button>
-
-      <div id="carrinho-etapa-itens" class="carrinho-etapa">
-        <h3 class="modal__titulo">Seu carrinho</h3>
-        <div id="carrinho-lista" class="carrinho-lista"></div>
-        <div id="carrinho-vazio" class="carrinho-vazio oculto">Seu carrinho esta vazio.</div>
-        <div class="carrinho-resumo">
-          <div class="carrinho-resumo__linha">
-            <span>Subtotal</span>
-            <span id="carrinho-subtotal">R$ 0,00</span>
-          </div>
-        </div>
-        <button id="botao-ir-checkout" class="botao-primario">Continuar</button>
+  <!-- ===================== TELA: ENTREGA EM ANDAMENTO ===================== -->
+  <section id="tela-em-andamento" class="tela oculto">
+    <div class="cartao">
+      <h2>Entrega em andamento</h2>
+      <div class="detalhes-pedido">
+        <p><strong>Cliente:</strong> <span id="andamento-cliente"></span></p>
+        <p><strong>Endereço:</strong> <span id="andamento-endereco"></span></p>
+        <p><strong>Telefone:</strong> <span id="andamento-telefone"></span></p>
+        <p><strong>Total:</strong> <span id="andamento-total"></span></p>
+        <p><strong>Pagamento:</strong> <span id="andamento-pagamento"></span></p>
       </div>
-
-      <div id="carrinho-etapa-checkout" class="carrinho-etapa oculto">
-        <h3 class="modal__titulo">Seus dados</h3>
-        <form id="form-checkout" class="form-checkout">
-          <fieldset class="form-checkout__tipo-pedido">
-            <legend>Como você quer receber?</legend>
-            <label class="opcao-pagamento">
-              <input type="radio" name="tipo_pedido" value="entrega" checked>
-              <span>🛵 Entrega</span>
-            </label>
-            <label class="opcao-pagamento">
-              <input type="radio" name="tipo_pedido" value="retirada">
-              <span>🏠 Retirar no local</span>
-            </label>
-          </fieldset>
-
-          <p id="checkout-tempo-preparo" class="checkout-tempo-preparo oculto"></p>
-
-          <label>Nome completo
-            <input type="text" id="checkout-nome" required>
-          </label>
-          <label>WhatsApp / Telefone
-            <input type="tel" id="checkout-telefone" required maxlength="14" placeholder="(11) 999999999">
-          </label>
-
-          <div id="checkout-campos-entrega">
-            <label>Rua / Avenida
-              <input type="text" id="checkout-rua" required placeholder="Rua Osvaldo Cruz">
-            </label>
-            <label>Numero
-              <input type="text" id="checkout-numero" required maxlength="10" placeholder="5210">
-            </label>
-            <label>CEP
-              <input type="text" id="checkout-cep" required maxlength="9" placeholder="99999-999">
-            </label>
-          </div>
-
-          <label>Observacoes do pedido
-            <textarea id="checkout-observacoes" maxlength="300" placeholder="Opcional"></textarea>
-          </label>
-
-          <fieldset class="form-checkout__pagamento">
-            <legend>Forma de pagamento</legend>
-            <label class="opcao-pagamento">
-              <input type="radio" name="pagamento" value="pix" checked>
-              <span>Pix</span>
-            </label>
-            <label class="opcao-pagamento">
-              <input type="radio" name="pagamento" value="cartao">
-              <span>Cartao (online)</span>
-            </label>
-            <label class="opcao-pagamento">
-              <input type="radio" name="pagamento" value="dinheiro">
-              <span>Dinheiro na entrega</span>
-            </label>
-          </fieldset>
-
-          <fieldset class="form-checkout__gorjeta">
-            <legend>Gorjeta (opcional)</legend>
-            <div class="gorjeta-opcoes">
-              <button type="button" class="gorjeta-botao ativo" data-gorjeta-percentual="0">Sem gorjeta</button>
-              <button type="button" class="gorjeta-botao" data-gorjeta-percentual="10">10%</button>
-              <button type="button" class="gorjeta-botao" data-gorjeta-percentual="15">15%</button>
-              <button type="button" class="gorjeta-botao" data-gorjeta-percentual="outro">Outro valor</button>
-            </div>
-            <input type="text" id="checkout-gorjeta-valor" class="oculto" placeholder="R$ 0,00" inputmode="decimal">
-          </fieldset>
-
-          <div class="carrinho-resumo">
-            <div class="carrinho-resumo__linha">
-              <span>Subtotal</span>
-              <span id="checkout-subtotal">R$ 0,00</span>
-            </div>
-            <div class="carrinho-resumo__linha">
-              <span>Gorjeta</span>
-              <span id="checkout-gorjeta-exibida">R$ 0,00</span>
-            </div>
-            <div class="carrinho-resumo__linha carrinho-resumo__linha--total">
-              <span>Total</span>
-              <span id="checkout-total">R$ 0,00</span>
-            </div>
-          </div>
-
-          <button type="submit" id="botao-finalizar-pedido" class="botao-primario">Finalizar pedido</button>
-        </form>
+      <div class="mapa-placeholder">
+        <span>📍 Acompanhamento por GPS em breve</span>
       </div>
-
-      <div id="carrinho-etapa-confirmacao" class="carrinho-etapa oculto">
-        <h3 class="modal__titulo">Pedido recebido!</h3>
-        <div id="confirmacao-conteudo"></div>
-      </div>
+      <button id="botao-encerrar" class="botao botao-principal">Encerrar entrega</button>
     </div>
-  </div>
+  </section>
 
-  <script src="js/config.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/carrinho.js"></script>
-  <script src="js/cardapio.js?v=20260720c"></script>
+  <div id="toast" class="toast oculto"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+  <script src="../js/config.js"></script>
+  <script src="entregador.js"></script>
 </body>
 </html>
