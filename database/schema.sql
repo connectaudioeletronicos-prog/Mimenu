@@ -1,216 +1,297 @@
-// ===================================================================
-// Configuracao da conexao com o banco PostgreSQL (Supabase)
-// ===================================================================
-const { Pool } = require('pg');
-require('dotenv').config();
+-- ===================================================================
+-- SCHEMA DO BANCO DE DADOS - CARDAPIO DIGITAL MULTI-TENANT
+-- PostgreSQL (Supabase)
+-- ===================================================================
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+CREATE TABLE estabelecimentos (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    slug VARCHAR(100) UNIQUE NOT NULL,
+    nome VARCHAR(150) NOT NULL,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    senha_hash VARCHAR(255) NOT NULL,
+    logo_url TEXT,
+    banner_url TEXT,
+    cor_principal VARCHAR(7) DEFAULT '#E63946',
+    cor_secundaria VARCHAR(7) DEFAULT '#1D3557',
+    cor_botoes VARCHAR(7) DEFAULT '#2A9D8F',
+    fonte VARCHAR(50) DEFAULT 'Poppins',
+    tema VARCHAR(30) DEFAULT 'classico',
+    texto_apresentacao TEXT,
+    whatsapp VARCHAR(20),
+    telefone VARCHAR(20),
+    endereco TEXT,
+    instagram VARCHAR(150),
+    facebook VARCHAR(150),
+    linkedin VARCHAR(255),
+    email_contato VARCHAR(150),
+    termos_uso TEXT,
+    politica_privacidade TEXT,
+    cookies TEXT,
+    horario_funcionamento JSONB DEFAULT '{}',
+    dominio_proprio VARCHAR(150) UNIQUE,
+    mp_access_token TEXT,
+    mp_public_key TEXT,
+    ativo BOOLEAN DEFAULT true,
+    plano VARCHAR(30) DEFAULT 'gratuito',
+    criado_em TIMESTAMP DEFAULT NOW(),
+    atualizado_em TIMESTAMP DEFAULT NOW()
+);
 
-pool.on('error', (err) => {
-  console.error('Erro inesperado na conexao com o banco:', err);
-});
+CREATE INDEX idx_estabelecimentos_slug ON estabelecimentos(slug);
+CREATE INDEX idx_estabelecimentos_dominio ON estabelecimentos(dominio_proprio);
 
-async function query(text, params) {
-  try {
-    const result = await pool.query(text, params);
-    return result;
-  } catch (error) {
-    console.error('Erro ao executar query:', error.message);
-    throw error;
-  }
-}
+CREATE TABLE categorias (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    nome VARCHAR(100) NOT NULL,
+    icone_url TEXT,
+    ordem INTEGER DEFAULT 0,
+    ativo BOOLEAN DEFAULT true,
+    criado_em TIMESTAMP DEFAULT NOW()
+);
 
-// Garante que a constraint funcionarios_cargo_check no banco esteja sempre
-// alinhada com a lista CARGOS_VALIDOS usada no codigo (funcionarioController.js).
-// Roda automaticamente a cada start do servidor -- e idempotente, entao pode
-// rodar quantas vezes for preciso sem problema.
-async function sincronizarSchema() {
-  try {
-    await pool.query(`
-      ALTER TABLE funcionarios DROP CONSTRAINT IF EXISTS funcionarios_cargo_check;
-      ALTER TABLE funcionarios ADD CONSTRAINT funcionarios_cargo_check
-        CHECK (cargo IN ('administrador', 'gerente', 'caixa', 'garcom', 'colaborador', 'cozinha', 'entregador'));
-    `);
-    console.log('Schema sincronizado: constraint funcionarios_cargo_check atualizada.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar funcionarios_cargo_check:', error.message);
-  }
+CREATE INDEX idx_categorias_estabelecimento ON categorias(estabelecimento_id);
 
-  // Permite posicionar carrosseis/vitrines logo apos uma categoria especifica
-  // (formato "apos-categoria:<uuid>"), alem dos pontos fixos de sempre.
-  // A coluna precisa ser maior pra caber esse formato, e a constraint antiga
-  // (se existir) precisa ser removida, senao o INSERT/UPDATE e recusado.
-  try {
-    await pool.query(`
-      ALTER TABLE carrosseis ALTER COLUMN posicao TYPE VARCHAR(80);
-      ALTER TABLE carrosseis DROP CONSTRAINT IF EXISTS carrosseis_posicao_check;
-    `);
-    console.log('Schema sincronizado: coluna/constraint de posicao em carrosseis atualizada.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar posicao em carrosseis:', error.message);
-  }
+CREATE TABLE produtos (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    categoria_id UUID REFERENCES categorias(id) ON DELETE SET NULL,
+    codigo VARCHAR(50),
+    nome VARCHAR(150) NOT NULL,
+    descricao TEXT,
+    preco NUMERIC(10,2) NOT NULL,
+    preco_promocional NUMERIC(10,2),
+    foto_url TEXT,
+    disponivel BOOLEAN DEFAULT true,
+    ordem INTEGER DEFAULT 0,
+    criado_em TIMESTAMP DEFAULT NOW(),
+    atualizado_em TIMESTAMP DEFAULT NOW()
+);
 
-  try {
-    await pool.query(`
-      ALTER TABLE vitrines ALTER COLUMN posicao TYPE VARCHAR(80);
-      ALTER TABLE vitrines DROP CONSTRAINT IF EXISTS vitrines_posicao_check;
-    `);
-    console.log('Schema sincronizado: coluna/constraint de posicao em vitrines atualizada.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar posicao em vitrines:', error.message);
-  }
+CREATE INDEX idx_produtos_estabelecimento ON produtos(estabelecimento_id);
+CREATE INDEX idx_produtos_categoria ON produtos(categoria_id);
 
-  try {
-    await pool.query(`
-      ALTER TABLE caixas_texto ALTER COLUMN posicao TYPE VARCHAR(80);
-      ALTER TABLE caixas_texto DROP CONSTRAINT IF EXISTS caixas_texto_posicao_check;
-    `);
-    console.log('Schema sincronizado: coluna/constraint de posicao em caixas_texto atualizada.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar posicao em caixas_texto:', error.message);
-  }
+CREATE TABLE promocoes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    titulo VARCHAR(150) NOT NULL,
+    descricao TEXT,
+    imagem_url TEXT,
+    produto_id UUID REFERENCES produtos(id) ON DELETE SET NULL,
+    ativo BOOLEAN DEFAULT true,
+    data_inicio TIMESTAMP,
+    data_fim TIMESTAMP,
+    criado_em TIMESTAMP DEFAULT NOW()
+);
 
-  // Campos extras do cadastro de funcionario: telefone (rapido, no cadastro
-  // inicial) e o cadastro completo opcional (celular, nascimento, RG, CPF),
-  // preenchivel so por proprietario/administrador.
-  try {
-    await pool.query(`
-      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS telefone VARCHAR(20);
-      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS celular VARCHAR(20);
-      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS data_nascimento DATE;
-      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS rg VARCHAR(20);
-      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS cpf VARCHAR(14);
-    `);
-    console.log('Schema sincronizado: colunas de cadastro completo em funcionarios atualizadas.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar colunas de funcionarios:', error.message);
-  }
+CREATE INDEX idx_promocoes_estabelecimento ON promocoes(estabelecimento_id);
 
-  try {
-    await pool.query(`ALTER TABLE produtos ADD COLUMN IF NOT EXISTS estoque INTEGER;`);
-    console.log('Schema sincronizado: coluna estoque em produtos atualizada.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar estoque em produtos:', error.message);
-  }
+CREATE TABLE pedidos (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    cliente_nome VARCHAR(150) NOT NULL,
+    cliente_telefone VARCHAR(20) NOT NULL,
+    cliente_endereco TEXT,
+    itens JSONB NOT NULL,
+    subtotal NUMERIC(10,2) NOT NULL,
+    taxa_entrega NUMERIC(10,2) DEFAULT 0,
+    gorjeta NUMERIC(10,2) DEFAULT 0,
+    total NUMERIC(10,2) NOT NULL,
+    forma_pagamento VARCHAR(30) NOT NULL,
+    status_pagamento VARCHAR(30) DEFAULT 'pendente',
+    mp_payment_id VARCHAR(100),
+    -- Fluxo: novo -> preparando (admin aceita, vai pra cozinha) -> pronto
+    -- (cozinha finalizou) -> saiu_entrega (admin confirma, sistema atribui
+    -- automaticamente ao proximo entregador da fila) -> entregue.
+    status_pedido VARCHAR(30) DEFAULT 'novo',
+    -- Hoje so existe pedido por entrega. Essa coluna ja deixa o caminho
+    -- pronto para quando o pedido de balcao for criado (Caixa Geral).
+    tipo_pedido VARCHAR(20) DEFAULT 'entrega',
+    observacoes TEXT,
+    entregador_id UUID,
+    entregador_nome VARCHAR(150),
+    horario_pronto TIMESTAMP,
+    horario_saiu_entrega TIMESTAMP,
+    criado_em TIMESTAMP DEFAULT NOW(),
+    atualizado_em TIMESTAMP DEFAULT NOW()
+);
 
-  try {
-    await pool.query(`ALTER TABLE categorias ADD COLUMN IF NOT EXISTS descricao TEXT;`);
-    console.log('Schema sincronizado: coluna descricao em categorias atualizada.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar descricao em categorias:', error.message);
-  }
+CREATE INDEX idx_pedidos_estabelecimento ON pedidos(estabelecimento_id);
+CREATE INDEX idx_pedidos_status ON pedidos(status_pedido);
+CREATE INDEX idx_pedidos_mp_payment ON pedidos(mp_payment_id);
+CREATE INDEX idx_pedidos_tipo ON pedidos(tipo_pedido);
 
-  // Conta do aplicativo do cliente (diferente da tabela "clientes", que e
-  // um registro simples por estabelecimento criado a cada pedido). Esta e
-  // a conta de verdade, com login/senha, valida em qualquer loja Palatos.
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS contas_clientes (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        nome VARCHAR(100) NOT NULL,
-        sobrenome VARCHAR(100) NOT NULL,
-        email VARCHAR(150) NOT NULL UNIQUE,
-        senha_hash TEXT NOT NULL,
-        cpf VARCHAR(14) UNIQUE,
-        cep VARCHAR(9),
-        logradouro TEXT,
-        numero VARCHAR(20),
-        bairro VARCHAR(100),
-        cidade VARCHAR(100),
-        uf CHAR(2),
-        reset_token VARCHAR(255),
-        reset_token_expira TIMESTAMP,
-        criado_em TIMESTAMP DEFAULT NOW(),
-        atualizado_em TIMESTAMP DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS idx_contas_clientes_email ON contas_clientes(email);
-    `);
-    console.log('Schema sincronizado: tabela contas_clientes verificada.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar contas_clientes:', error.message);
-  }
+-- ===================================================================
+-- Clientes (cadastro automatico ao fazer pedido + tela "Meus dados")
+-- ===================================================================
+CREATE TABLE clientes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    nome VARCHAR(150) NOT NULL,
+    telefone VARCHAR(20) NOT NULL,
+    endereco TEXT,
+    cep VARCHAR(9),
+    email VARCHAR(150),
+    criado_em TIMESTAMP DEFAULT NOW(),
+    atualizado_em TIMESTAMP DEFAULT NOW(),
+    UNIQUE (estabelecimento_id, telefone)
+);
 
-  // Permite login com Google na conta do cliente: guarda o ID unico do
-  // Google (sub) e libera a senha para ser opcional (quem entra so pelo
-  // Google nunca chega a definir uma senha nossa).
-  try {
-    await pool.query(`
-      ALTER TABLE contas_clientes ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE;
-      ALTER TABLE contas_clientes ALTER COLUMN senha_hash DROP NOT NULL;
-    `);
-    console.log('Schema sincronizado: login com Google em contas_clientes atualizado.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar login Google em contas_clientes:', error.message);
-  }
+CREATE INDEX idx_clientes_estabelecimento ON clientes(estabelecimento_id);
 
-  // Permite vincular uma imagem do carrossel (ou uma vitrine inteira) a um
-  // produto do cardapio: ao tocar na imagem, o cliente ve direto a pagina
-  // daquele produto. Fica opcional (null = imagem so ilustrativa).
-  try {
-    await pool.query(`
-      ALTER TABLE carrossel_imagens ADD COLUMN IF NOT EXISTS produto_id UUID REFERENCES produtos(id) ON DELETE SET NULL;
-      ALTER TABLE vitrines ADD COLUMN IF NOT EXISTS produto_id UUID REFERENCES produtos(id) ON DELETE SET NULL;
-    `);
-    console.log('Schema sincronizado: vinculo de produto em carrossel/vitrine atualizado.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar vinculo de produto em carrossel/vitrine:', error.message);
-  }
+-- ===================================================================
+-- Funcionarios (login proprio, cargo, permissoes)
+-- ===================================================================
+CREATE TABLE funcionarios (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    nome VARCHAR(150) NOT NULL,
+    email VARCHAR(150) NOT NULL,
+    username VARCHAR(100),
+    senha_hash VARCHAR(255) NOT NULL,
+    -- cargos: administrador, gerente, caixa, garcom, colaborador, cozinha, entregador
+    cargo VARCHAR(30) NOT NULL,
+    permissoes JSONB DEFAULT '[]',
+    ativo BOOLEAN DEFAULT true,
+    ordem INT DEFAULT 0,
+    -- Usadas so por cargo = 'entregador': controla a fila de atribuicao
+    -- automatica de pedidos (sempre por ordem de chegada) e o contador de
+    -- entregas realizadas.
+    disponivel_entrega BOOLEAN DEFAULT true,
+    ultima_fila_em TIMESTAMP DEFAULT NOW(),
+    total_entregas INT DEFAULT 0,
+    criado_em TIMESTAMP DEFAULT NOW(),
+    atualizado_em TIMESTAMP DEFAULT NOW(),
+    UNIQUE (estabelecimento_id, email),
+    UNIQUE (estabelecimento_id, username)
+);
 
-  // Tempo estimado de preparo (minutos), configuravel pelo lojista e
-  // exibido ao cliente tanto na retirada quanto no delivery.
-  try {
-    await pool.query(`
-      ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS tempo_preparo_min INT DEFAULT 30;
-    `);
-    console.log('Schema sincronizado: tempo_preparo_min em estabelecimentos.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar tempo_preparo_min:', error.message);
-  }
+CREATE INDEX idx_funcionarios_estabelecimento ON funcionarios(estabelecimento_id);
 
-  // Pedido para retirar no local usa a coluna tipo_pedido que ja existia
-  // (valor 'retirada', ao lado do 'entrega' que ja era o padrao). Gorjeta
-  // e nova: opcional, informada pelo cliente no fechamento do pedido.
-  try {
-    await pool.query(`
-      ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS gorjeta NUMERIC(10,2) DEFAULT 0;
-    `);
-    console.log('Schema sincronizado: gorjeta em pedidos.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar gorjeta em pedidos:', error.message);
-  }
+-- So agora a tabela funcionarios existe, entao o vinculo do entregador
+-- atribuido automaticamente ao pedido pode ser criado.
+ALTER TABLE pedidos ADD CONSTRAINT pedidos_entregador_id_fkey
+  FOREIGN KEY (entregador_id) REFERENCES funcionarios(id) ON DELETE SET NULL;
 
-  // Equipe operacional (cozinha/entregador) + fila de entrega automatica.
-  // disponivel_entrega/ultima_fila_em/total_entregas so tem sentido pra
-  // cargo = 'entregador', mas ficam disponiveis na tabela toda por
-  // simplicidade (mesmo padrao ja usado pros campos de cadastro completo).
-  try {
-    await pool.query(`
-      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS disponivel_entrega BOOLEAN DEFAULT true;
-      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS ultima_fila_em TIMESTAMP DEFAULT NOW();
-      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS total_entregas INT DEFAULT 0;
-    `);
-    console.log('Schema sincronizado: colunas de fila/disponibilidade de entregadores em funcionarios.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar colunas de entregadores em funcionarios:', error.message);
-  }
+-- ===================================================================
+-- Auditoria (trilha de quem fez o que)
+-- ===================================================================
+CREATE TABLE auditoria (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    funcionario_id UUID,
+    funcionario_nome VARCHAR(150),
+    acao VARCHAR(100) NOT NULL,
+    tabela_afetada VARCHAR(100),
+    registro_id UUID,
+    dados_anteriores JSONB,
+    dados_novos JSONB,
+    ip VARCHAR(60),
+    criado_em TIMESTAMP DEFAULT NOW()
+);
 
-  // Pedido saiu para entrega -> atribuido automaticamente ao proximo
-  // entregador da fila (por ordem de chegada). Guarda quem ficou responsavel
-  // e os horarios de "pronto" e "saiu para entrega" pra rastreio/relatorios.
-  try {
-    await pool.query(`
-      ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS entregador_id UUID REFERENCES funcionarios(id) ON DELETE SET NULL;
-      ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS entregador_nome VARCHAR(150);
-      ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS horario_pronto TIMESTAMP;
-      ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS horario_saiu_entrega TIMESTAMP;
-    `);
-    console.log('Schema sincronizado: colunas de entregador/horarios em pedidos.');
-  } catch (error) {
-    console.error('Aviso: nao foi possivel sincronizar colunas de entrega em pedidos:', error.message);
-  }
-}
+CREATE INDEX idx_auditoria_estabelecimento ON auditoria(estabelecimento_id);
 
-module.exports = { pool, query, sincronizarSchema };
+-- ===================================================================
+-- Carrosseis extras (banners adicionais, fotos ilimitadas, posicionaveis)
+-- ===================================================================
+CREATE TABLE carrosseis (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    nome VARCHAR(100) DEFAULT 'Carrossel',
+    posicao VARCHAR(30) NOT NULL DEFAULT 'apos-cabecalho',
+    ordem INT DEFAULT 0,
+    ativo BOOLEAN DEFAULT false,
+    criado_em TIMESTAMP DEFAULT NOW(),
+    atualizado_em TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_carrosseis_estabelecimento ON carrosseis(estabelecimento_id);
+
+CREATE TABLE carrossel_imagens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    carrossel_id UUID NOT NULL REFERENCES carrosseis(id) ON DELETE CASCADE,
+    imagem_url TEXT NOT NULL,
+    ordem INT DEFAULT 0,
+    criado_em TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_carrossel_imagens_carrossel ON carrossel_imagens(carrossel_id);
+
+-- ===================================================================
+-- Vitrines (imagem grande + caixa de texto, posicionavel)
+-- ===================================================================
+CREATE TABLE vitrines (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+    imagem_url TEXT NOT NULL,
+    texto VARCHAR(300),
+    posicao VARCHAR(30) NOT NULL DEFAULT 'apos-produtos',
+    ordem INT DEFAULT 0,
+    ativo BOOLEAN DEFAULT false,
+    criado_em TIMESTAMP DEFAULT NOW(),
+    atualizado_em TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_vitrines_estabelecimento ON vitrines(estabelecimento_id);
+
+CREATE OR REPLACE FUNCTION atualizar_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.atualizado_em = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_estabelecimentos_update
+    BEFORE UPDATE ON estabelecimentos
+    FOR EACH ROW EXECUTE FUNCTION atualizar_timestamp();
+
+CREATE TRIGGER trg_produtos_update
+    BEFORE UPDATE ON produtos
+    FOR EACH ROW EXECUTE FUNCTION atualizar_timestamp();
+
+CREATE TRIGGER trg_pedidos_update
+    BEFORE UPDATE ON pedidos
+    FOR EACH ROW EXECUTE FUNCTION atualizar_timestamp();
+
+INSERT INTO estabelecimentos (
+    slug, nome, email, senha_hash,
+    cor_principal, cor_secundaria, cor_botoes, fonte, tema,
+    texto_apresentacao, whatsapp, telefone, endereco, instagram,
+    horario_funcionamento
+) VALUES (
+    'fj-pizzaria',
+    'FJ Pizzaria e Esfiharia',
+    'contato@fjpizzaria.com.br',
+    '$2b$10$EpRnTzVlqHNP6E0jJa.cZ.0z40Lcz9N3w2qiqcjEYZ7G5kxXTAaUe',
+    '#E63946', '#1D3557', '#F77F00', 'Poppins', 'classico',
+    'As melhores pizzas e esfihas da regiao, feitas com ingredientes frescos e muito carinho!',
+    '5511999999999', '1133334444',
+    'Rua das Pizzas, 123 - Sao Paulo, SP',
+    '@fjpizzaria',
+    '{"seg": "18:00-23:00", "ter": "18:00-23:00", "qua": "18:00-23:00", "qui": "18:00-23:00", "sex": "18:00-00:00", "sab": "18:00-00:00", "dom": "fechado"}'
+);
+
+INSERT INTO categorias (estabelecimento_id, nome, ordem)
+SELECT id, 'Pizzas', 1 FROM estabelecimentos WHERE slug = 'fj-pizzaria';
+INSERT INTO categorias (estabelecimento_id, nome, ordem)
+SELECT id, 'Esfihas', 2 FROM estabelecimentos WHERE slug = 'fj-pizzaria';
+INSERT INTO categorias (estabelecimento_id, nome, ordem)
+SELECT id, 'Bebidas', 3 FROM estabelecimentos WHERE slug = 'fj-pizzaria';
+
+INSERT INTO produtos (estabelecimento_id, categoria_id, nome, descricao, preco, codigo)
+SELECT e.id, c.id, 'Pizza Margherita', 'Molho de tomate, mussarela, manjericao fresco e azeite', 45.90, 'PZ001'
+FROM estabelecimentos e JOIN categorias c ON c.estabelecimento_id = e.id AND c.nome = 'Pizzas'
+WHERE e.slug = 'fj-pizzaria';
+
+INSERT INTO produtos (estabelecimento_id, categoria_id, nome, descricao, preco, codigo)
+SELECT e.id, c.id, 'Esfiha de Carne', 'Esfiha aberta de carne moida temperada', 6.50, 'ES001'
+FROM estabelecimentos e JOIN categorias c ON c.estabelecimento_id = e.id AND c.nome = 'Esfihas'
+WHERE e.slug = 'fj-pizzaria';
+
+INSERT INTO produtos (estabelecimento_id, categoria_id, nome, descricao, preco, codigo)
+SELECT e.id, c.id, 'Coca-Cola 2L', 'Refrigerante Coca-Cola garrafa 2 litros', 12.00, 'BEB001'
+FROM estabelecimentos e JOIN categorias c ON c.estabelecimento_id = e.id AND c.nome = 'Bebidas'
+WHERE e.slug = 'fj-pizzaria';
