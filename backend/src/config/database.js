@@ -1,400 +1,216 @@
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const { query } = require('../config/database');
-const { validarTelefone, validarCPF } = require('../utils/validadores');
+// ===================================================================
+// Configuracao da conexao com o banco PostgreSQL (Supabase)
+// ===================================================================
+const { Pool } = require('pg');
+require('dotenv').config();
 
-// As 9 permissoes possiveis (caixinhas). O cargo NAO define o que o
-// funcionario pode fazer -- serve so para limitar quantos de cada
-// categoria podem existir. Quem manda de verdade e esse array.
-const PERMISSOES_VALIDAS = [
-  'gerenciar_funcionarios',       // cadastrar/descadastrar funcionarios
-  'editar_funcionarios',          // editar dados / trocar senha de outros funcionarios
-  'gerenciar_cardapio',           // produtos, categorias, promocoes (incl. precos)
-  'criar_pedidos',
-  'cancelar_pedidos',
-  'mudar_status_pedidos',
-  'ver_valores_concluidos',       // ver valores de pedidos entregues/cancelados
-  'corrigir_valores_concluidos',  // alterar valores de pedidos ja concluidos
-  'gerenciar_conta',              // configuracoes de conta/pagamento/paginas legais
-  'ver_caixa_geral'               // ver o caixa geral (valores das entregas concluidas)
-];
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
-const CARGOS_VALIDOS = ['administrador', 'gerente', 'caixa', 'garcom', 'colaborador', 'cozinha', 'entregador'];
-const LIMITES_POR_CARGO = { administrador: 1, gerente: 1, caixa: 5 }; // garcom/colaborador/cozinha/entregador: sem limite
+pool.on('error', (err) => {
+  console.error('Erro inesperado na conexao com o banco:', err);
+});
 
-function sanitizarPermissoes(permissoes) {
-  if (!Array.isArray(permissoes)) return [];
-  return permissoes.filter(p => PERMISSOES_VALIDAS.includes(p));
-}
-
-// Login de funcionario
-async function loginFuncionario(req, res) {
+async function query(text, params) {
   try {
-    const { login, senha, slug } = req.body;
-    if (!login || !senha || !slug) {
-      return res.status(400).json({ erro: 'Login, senha e slug sao obrigatorios.' });
-    }
-
-    const estRes = await query('SELECT id, nome FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
-    if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
-    const estabelecimentoId = estRes.rows[0].id;
-    const estabelecimentoNome = estRes.rows[0].nome;
-
-    const resultado = await query(
-      `SELECT id, nome, email, username, senha_hash, cargo, permissoes, ativo
-       FROM funcionarios
-       WHERE estabelecimento_id = $1 AND (email = $2 OR username = $2)`,
-      [estabelecimentoId, login]
-    );
-
-    if (resultado.rows.length === 0) return res.status(401).json({ erro: 'Login ou senha invalidos.' });
-    const funcionario = resultado.rows[0];
-    if (!funcionario.ativo) return res.status(403).json({ erro: 'Funcionario desativado.' });
-
-    const senhaCorreta = await bcrypt.compare(senha, funcionario.senha_hash);
-    if (!senhaCorreta) return res.status(401).json({ erro: 'Login ou senha invalidos.' });
-
-    const permissoes = funcionario.cargo === 'administrador' ? PERMISSOES_VALIDAS : (funcionario.permissoes || []);
-
-    const token = jwt.sign(
-      { funcionarioId: funcionario.id, estabelecimentoId, cargo: funcionario.cargo, permissoes, slug },
-      process.env.JWT_SECRET,
-      { expiresIn: '8h' }
-    );
-
-    await registrarAuditoria(estabelecimentoId, funcionario.id, funcionario.nome, 'LOGIN', 'funcionarios', funcionario.id, null, null, req.ip);
-
-    res.json({
-      token,
-      funcionario: {
-        id: funcionario.id, nome: funcionario.nome, cargo: funcionario.cargo, permissoes, slug,
-        estabelecimentoNome
-      }
-    });
+    const result = await pool.query(text, params);
+    return result;
   } catch (error) {
-    console.error('Erro no login funcionario:', error);
-    res.status(500).json({ erro: 'Erro interno ao processar login.' });
+    console.error('Erro ao executar query:', error.message);
+    throw error;
   }
 }
 
-// Listar funcionarios
-async function listar(req, res) {
+// Garante que a constraint funcionarios_cargo_check no banco esteja sempre
+// alinhada com a lista CARGOS_VALIDOS usada no codigo (funcionarioController.js).
+// Roda automaticamente a cada start do servidor -- e idempotente, entao pode
+// rodar quantas vezes for preciso sem problema.
+async function sincronizarSchema() {
   try {
-    const resultado = await query(
-      `SELECT id, nome, email, username, telefone, celular, data_nascimento, rg, cpf, cargo, permissoes, ativo, ordem, criado_em
-       FROM funcionarios WHERE estabelecimento_id = $1 ORDER BY ordem ASC, criado_em ASC`,
-      [req.estabelecimentoId]
-    );
-    res.json(resultado.rows);
+    await pool.query(`
+      ALTER TABLE funcionarios DROP CONSTRAINT IF EXISTS funcionarios_cargo_check;
+      ALTER TABLE funcionarios ADD CONSTRAINT funcionarios_cargo_check
+        CHECK (cargo IN ('administrador', 'gerente', 'caixa', 'garcom', 'colaborador', 'cozinha', 'entregador'));
+    `);
+    console.log('Schema sincronizado: constraint funcionarios_cargo_check atualizada.');
   } catch (error) {
-    res.status(500).json({ erro: 'Erro ao listar funcionarios.' });
+    console.error('Aviso: nao foi possivel sincronizar funcionarios_cargo_check:', error.message);
   }
-}
 
-// Criar funcionario
-async function criar(req, res) {
+  // Permite posicionar carrosseis/vitrines logo apos uma categoria especifica
+  // (formato "apos-categoria:<uuid>"), alem dos pontos fixos de sempre.
+  // A coluna precisa ser maior pra caber esse formato, e a constraint antiga
+  // (se existir) precisa ser removida, senao o INSERT/UPDATE e recusado.
   try {
-    const { nome, email, username, senha, cargo, permissoes, telefone } = req.body;
+    await pool.query(`
+      ALTER TABLE carrosseis ALTER COLUMN posicao TYPE VARCHAR(80);
+      ALTER TABLE carrosseis DROP CONSTRAINT IF EXISTS carrosseis_posicao_check;
+    `);
+    console.log('Schema sincronizado: coluna/constraint de posicao em carrosseis atualizada.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar posicao em carrosseis:', error.message);
+  }
 
-    if (!nome || !email || !senha || !cargo) {
-      return res.status(400).json({ erro: 'Nome, email, senha e categoria sao obrigatorios.' });
-    }
-    if (!CARGOS_VALIDOS.includes(cargo)) return res.status(400).json({ erro: 'Categoria invalida.' });
-    if (telefone && !validarTelefone(telefone)) {
-      return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
-    }
+  try {
+    await pool.query(`
+      ALTER TABLE vitrines ALTER COLUMN posicao TYPE VARCHAR(80);
+      ALTER TABLE vitrines DROP CONSTRAINT IF EXISTS vitrines_posicao_check;
+    `);
+    console.log('Schema sincronizado: coluna/constraint de posicao em vitrines atualizada.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar posicao em vitrines:', error.message);
+  }
 
-    const limite = LIMITES_POR_CARGO[cargo];
-    if (limite) {
-      const count = await query(
-        `SELECT COUNT(*) FROM funcionarios WHERE estabelecimento_id = $1 AND cargo = $2 AND ativo = true`,
-        [req.estabelecimentoId, cargo]
+  try {
+    await pool.query(`
+      ALTER TABLE caixas_texto ALTER COLUMN posicao TYPE VARCHAR(80);
+      ALTER TABLE caixas_texto DROP CONSTRAINT IF EXISTS caixas_texto_posicao_check;
+    `);
+    console.log('Schema sincronizado: coluna/constraint de posicao em caixas_texto atualizada.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar posicao em caixas_texto:', error.message);
+  }
+
+  // Campos extras do cadastro de funcionario: telefone (rapido, no cadastro
+  // inicial) e o cadastro completo opcional (celular, nascimento, RG, CPF),
+  // preenchivel so por proprietario/administrador.
+  try {
+    await pool.query(`
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS telefone VARCHAR(20);
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS celular VARCHAR(20);
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS data_nascimento DATE;
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS rg VARCHAR(20);
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS cpf VARCHAR(14);
+    `);
+    console.log('Schema sincronizado: colunas de cadastro completo em funcionarios atualizadas.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar colunas de funcionarios:', error.message);
+  }
+
+  try {
+    await pool.query(`ALTER TABLE produtos ADD COLUMN IF NOT EXISTS estoque INTEGER;`);
+    console.log('Schema sincronizado: coluna estoque em produtos atualizada.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar estoque em produtos:', error.message);
+  }
+
+  try {
+    await pool.query(`ALTER TABLE categorias ADD COLUMN IF NOT EXISTS descricao TEXT;`);
+    console.log('Schema sincronizado: coluna descricao em categorias atualizada.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar descricao em categorias:', error.message);
+  }
+
+  // Conta do aplicativo do cliente (diferente da tabela "clientes", que e
+  // um registro simples por estabelecimento criado a cada pedido). Esta e
+  // a conta de verdade, com login/senha, valida em qualquer loja Palatos.
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS contas_clientes (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        nome VARCHAR(100) NOT NULL,
+        sobrenome VARCHAR(100) NOT NULL,
+        email VARCHAR(150) NOT NULL UNIQUE,
+        senha_hash TEXT NOT NULL,
+        cpf VARCHAR(14) UNIQUE,
+        cep VARCHAR(9),
+        logradouro TEXT,
+        numero VARCHAR(20),
+        bairro VARCHAR(100),
+        cidade VARCHAR(100),
+        uf CHAR(2),
+        reset_token VARCHAR(255),
+        reset_token_expira TIMESTAMP,
+        criado_em TIMESTAMP DEFAULT NOW(),
+        atualizado_em TIMESTAMP DEFAULT NOW()
       );
-      if (parseInt(count.rows[0].count) >= limite) {
-        return res.status(400).json({ erro: `Limite de ${limite} para essa categoria ja foi atingido.` });
-      }
-    }
-
-    const permissoesFinais = cargo === 'administrador' ? PERMISSOES_VALIDAS : sanitizarPermissoes(permissoes);
-    const senhaHash = await bcrypt.hash(senha, 10);
-
-    const contagemTotal = await query('SELECT COUNT(*) FROM funcionarios WHERE estabelecimento_id = $1', [req.estabelecimentoId]);
-    const proximaOrdem = parseInt(contagemTotal.rows[0].count);
-
-    const resultado = await query(
-      `INSERT INTO funcionarios (estabelecimento_id, nome, email, username, telefone, senha_hash, cargo, permissoes, ordem)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem`,
-      [req.estabelecimentoId, nome, email, username || null, telefone || null, senhaHash, cargo, JSON.stringify(permissoesFinais), proximaOrdem]
-    );
-
-    const novo = resultado.rows[0];
-    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'CRIAR_FUNCIONARIO', 'funcionarios', novo.id, null, { nome, email, cargo, permissoes: permissoesFinais }, req.ip);
-
-    res.status(201).json(novo);
+      CREATE INDEX IF NOT EXISTS idx_contas_clientes_email ON contas_clientes(email);
+    `);
+    console.log('Schema sincronizado: tabela contas_clientes verificada.');
   } catch (error) {
-    if (error.code === '23505') return res.status(409).json({ erro: 'Email ou username ja cadastrado.' });
-    console.error('Erro ao criar funcionario:', error);
-    res.status(500).json({ erro: 'Erro ao criar funcionario.', detalhe: error.message, codigo: error.code });
+    console.error('Aviso: nao foi possivel sincronizar contas_clientes:', error.message);
   }
-}
 
-// Atualizar funcionario (dados, categoria, permissoes, ativo/inativo)
-async function atualizar(req, res) {
+  // Permite login com Google na conta do cliente: guarda o ID unico do
+  // Google (sub) e libera a senha para ser opcional (quem entra so pelo
+  // Google nunca chega a definir uma senha nossa).
   try {
-    const { id } = req.params;
-    const { nome, email, username, cargo, ativo, permissoes, ordem, telefone } = req.body;
-
-    if (cargo && !CARGOS_VALIDOS.includes(cargo)) return res.status(400).json({ erro: 'Categoria invalida.' });
-    if (telefone && !validarTelefone(telefone)) {
-      return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
-    }
-
-    const anterior = await query('SELECT * FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    if (anterior.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
-
-    const cargoFinal = cargo || anterior.rows[0].cargo;
-    const permissoesFinais = cargoFinal === 'administrador'
-      ? PERMISSOES_VALIDAS
-      : (permissoes !== undefined ? sanitizarPermissoes(permissoes) : undefined);
-
-    const resultado = await query(
-      `UPDATE funcionarios SET nome = COALESCE($1, nome), email = COALESCE($2, email),
-       username = COALESCE($3, username), cargo = COALESCE($4, cargo),
-       ativo = COALESCE($5, ativo),
-       permissoes = COALESCE($6, permissoes),
-       ordem = COALESCE($7, ordem),
-       telefone = COALESCE($8, telefone),
-       atualizado_em = NOW()
-       WHERE id = $9 AND estabelecimento_id = $10 RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem`,
-      [nome, email, username, cargo, ativo, permissoesFinais !== undefined ? JSON.stringify(permissoesFinais) : null, ordem, telefone, id, req.estabelecimentoId]
-    );
-
-    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'ATUALIZAR_FUNCIONARIO', 'funcionarios', id, anterior.rows[0], resultado.rows[0], req.ip);
-
-    res.json(resultado.rows[0]);
+    await pool.query(`
+      ALTER TABLE contas_clientes ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE;
+      ALTER TABLE contas_clientes ALTER COLUMN senha_hash DROP NOT NULL;
+    `);
+    console.log('Schema sincronizado: login com Google em contas_clientes atualizado.');
   } catch (error) {
-    console.error('Erro ao atualizar funcionario:', error);
-    res.status(500).json({ erro: 'Erro ao atualizar funcionario.' });
+    console.error('Aviso: nao foi possivel sincronizar login Google em contas_clientes:', error.message);
   }
-}
 
-// Cadastro completo (opcional) do funcionario: nome ja existe, aqui e so o
-// complemento -- data de nascimento, RG, CPF, celular (obrigatorio) e
-// telefone fixo (opcional). Restrito a proprietario/administrador na ROTA
-// (exigirCargoAdministrativo), nao so por permissao, ja que sao dados
-// pessoais sensiveis do funcionario.
-async function atualizarCadastroCompleto(req, res) {
+  // Permite vincular uma imagem do carrossel (ou uma vitrine inteira) a um
+  // produto do cardapio: ao tocar na imagem, o cliente ve direto a pagina
+  // daquele produto. Fica opcional (null = imagem so ilustrativa).
   try {
-    const { id } = req.params;
-    const { data_nascimento, rg, cpf, celular, telefone } = req.body;
-
-    if (!celular || !validarTelefone(celular)) {
-      return res.status(400).json({ erro: 'Celular e obrigatorio. Use o formato (DDD) 000000000.' });
-    }
-    if (telefone && !validarTelefone(telefone)) {
-      return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
-    }
-    if (cpf && !validarCPF(cpf)) {
-      return res.status(400).json({ erro: 'CPF invalido. Use o formato 000.000.000-00.' });
-    }
-
-    const anterior = await query('SELECT id FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    if (anterior.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
-
-    const resultado = await query(
-      `UPDATE funcionarios SET
-        data_nascimento = COALESCE($1, data_nascimento),
-        rg = COALESCE($2, rg),
-        cpf = COALESCE($3, cpf),
-        celular = $4,
-        telefone = COALESCE($5, telefone),
-        atualizado_em = NOW()
-       WHERE id = $6 AND estabelecimento_id = $7
-       RETURNING id, nome, email, telefone, celular, data_nascimento, rg, cpf`,
-      [data_nascimento || null, rg || null, cpf || null, celular, telefone || null, id, req.estabelecimentoId]
-    );
-
-    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'ATUALIZAR_CADASTRO_COMPLETO_FUNCIONARIO', 'funcionarios', id, null, { preenchido: true }, req.ip);
-
-    res.json(resultado.rows[0]);
+    await pool.query(`
+      ALTER TABLE carrossel_imagens ADD COLUMN IF NOT EXISTS produto_id UUID REFERENCES produtos(id) ON DELETE SET NULL;
+      ALTER TABLE vitrines ADD COLUMN IF NOT EXISTS produto_id UUID REFERENCES produtos(id) ON DELETE SET NULL;
+    `);
+    console.log('Schema sincronizado: vinculo de produto em carrossel/vitrine atualizado.');
   } catch (error) {
-    console.error('Erro ao atualizar cadastro completo do funcionario:', error);
-    res.status(500).json({ erro: 'Erro ao atualizar cadastro completo.' });
+    console.error('Aviso: nao foi possivel sincronizar vinculo de produto em carrossel/vitrine:', error.message);
   }
-}
 
-// Trocar senha (funcionario troca a propria sempre; para trocar a de outro, a rota exige a permissao 'editar_funcionarios')
-async function trocarSenha(req, res) {
+  // Tempo estimado de preparo (minutos), configuravel pelo lojista e
+  // exibido ao cliente tanto na retirada quanto no delivery.
   try {
-    const { id } = req.params;
-    const { senhaAtual, novaSenha } = req.body;
-
-    if (!novaSenha || novaSenha.length < 6) return res.status(400).json({ erro: 'Nova senha deve ter pelo menos 6 caracteres.' });
-
-    const resultado = await query('SELECT senha_hash FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
-
-    const trocandoAPropria = req.funcionarioId && req.funcionarioId === id;
-
-    // Trocando a propria senha: precisa confirmar a senha atual.
-    // Trocando a de outro (via permissao editar_funcionarios): nao precisa saber a senha antiga.
-    if (trocandoAPropria) {
-      if (!senhaAtual) return res.status(400).json({ erro: 'Senha atual obrigatoria.' });
-      const correta = await bcrypt.compare(senhaAtual, resultado.rows[0].senha_hash);
-      if (!correta) return res.status(401).json({ erro: 'Senha atual incorreta.' });
-    }
-
-    const novoHash = await bcrypt.hash(novaSenha, 10);
-    await query('UPDATE funcionarios SET senha_hash = $1, atualizado_em = NOW() WHERE id = $2', [novoHash, id]);
-
-    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'TROCAR_SENHA_FUNCIONARIO', 'funcionarios', id, null, null, req.ip);
-
-    res.json({ mensagem: 'Senha alterada com sucesso.' });
+    await pool.query(`
+      ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS tempo_preparo_min INT DEFAULT 30;
+    `);
+    console.log('Schema sincronizado: tempo_preparo_min em estabelecimentos.');
   } catch (error) {
-    console.error('Erro ao trocar senha:', error);
-    res.status(500).json({ erro: 'Erro ao trocar senha.' });
+    console.error('Aviso: nao foi possivel sincronizar tempo_preparo_min:', error.message);
   }
-}
 
-// Lista a equipe agrupada por funcao operacional, pra aba "Equipe" do
-// dashboard: cozinha, entregadores (com posicao na fila de atribuicao
-// automatica) e atendimento (garcom/caixa/colaborador).
-async function listarEquipeOperacional(req, res) {
+  // Pedido para retirar no local usa a coluna tipo_pedido que ja existia
+  // (valor 'retirada', ao lado do 'entrega' que ja era o padrao). Gorjeta
+  // e nova: opcional, informada pelo cliente no fechamento do pedido.
   try {
-    const resultado = await query(
-      `SELECT f.id, f.nome, f.email, f.cargo, f.ativo, f.disponivel_entrega,
-              f.total_entregas, f.ultima_fila_em,
-              EXISTS (
-                SELECT 1 FROM pedidos p
-                WHERE p.entregador_id = f.id AND p.status_pedido = 'saiu_entrega'
-              ) AS em_entrega
-       FROM funcionarios f
-       WHERE f.estabelecimento_id = $1
-         AND f.cargo IN ('cozinha', 'entregador', 'garcom', 'caixa', 'colaborador')
-       ORDER BY f.cargo, f.ultima_fila_em ASC NULLS FIRST, f.criado_em ASC`,
-      [req.estabelecimentoId]
-    );
-
-    const cozinha = resultado.rows.filter(f => f.cargo === 'cozinha');
-    const atendimento = resultado.rows.filter(f => ['garcom', 'caixa', 'colaborador'].includes(f.cargo));
-
-    // So entram na numeracao da fila os entregadores ativos, disponiveis e
-    // que nao estejam com uma entrega em andamento agora.
-    let posicao = 0;
-    const entregadores = resultado.rows
-      .filter(f => f.cargo === 'entregador')
-      .map(f => {
-        let posicaoFila = null;
-        if (f.ativo && f.disponivel_entrega && !f.em_entrega) {
-          posicao += 1;
-          posicaoFila = posicao;
-        }
-        return { ...f, posicao_fila: posicaoFila };
-      });
-
-    res.json({ cozinha, entregadores, atendimento });
+    await pool.query(`
+      ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS gorjeta NUMERIC(10,2) DEFAULT 0;
+    `);
+    console.log('Schema sincronizado: gorjeta em pedidos.');
   } catch (error) {
-    console.error('Erro ao listar equipe operacional:', error);
-    res.status(500).json({ erro: 'Erro ao listar equipe operacional.' });
+    console.error('Aviso: nao foi possivel sincronizar gorjeta em pedidos:', error.message);
   }
-}
 
-// Liga/desliga a disponibilidade de um entregador pra fila de atribuicao
-// automatica. O proprio entregador pode alternar a propria disponibilidade;
-// pra alternar a de outro, precisa da permissao 'gerenciar_funcionarios'.
-// Ao voltar a ficar disponivel, ele entra no fim da fila (ultima_fila_em =
-// agora), respeitando a regra de sempre seguir a ordem de chegada.
-async function alternarDisponibilidadeEntregador(req, res) {
+  // Equipe operacional (cozinha/entregador) + fila de entrega automatica.
+  // disponivel_entrega/ultima_fila_em/total_entregas so tem sentido pra
+  // cargo = 'entregador', mas ficam disponiveis na tabela toda por
+  // simplicidade (mesmo padrao ja usado pros campos de cadastro completo).
   try {
-    const { id } = req.params;
-    const { disponivel_entrega } = req.body;
-
-    const podeGerenciarOutro = req.cargo === 'proprietario' || req.cargo === 'administrador' ||
-      (req.permissoes || []).includes('gerenciar_funcionarios');
-    const ehOProprio = req.funcionarioId && req.funcionarioId === id;
-    if (!ehOProprio && !podeGerenciarOutro) {
-      return res.status(403).json({ erro: 'Voce nao tem permissao para alterar a disponibilidade desse entregador.' });
-    }
-
-    const alvo = await query('SELECT cargo, disponivel_entrega FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    if (alvo.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
-    if (alvo.rows[0].cargo !== 'entregador') return res.status(400).json({ erro: 'Esse funcionario nao e um entregador.' });
-
-    const novoValor = !!disponivel_entrega;
-    const voltandoADisponibilizar = novoValor === true && alvo.rows[0].disponivel_entrega === false;
-
-    const resultado = await query(
-      `UPDATE funcionarios SET
-        disponivel_entrega = $1,
-        ultima_fila_em = CASE WHEN $2 THEN NOW() ELSE ultima_fila_em END,
-        atualizado_em = NOW()
-       WHERE id = $3 AND estabelecimento_id = $4
-       RETURNING id, nome, disponivel_entrega`,
-      [novoValor, voltandoADisponibilizar, id, req.estabelecimentoId]
-    );
-
-    res.json(resultado.rows[0]);
+    await pool.query(`
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS disponivel_entrega BOOLEAN DEFAULT true;
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS ultima_fila_em TIMESTAMP DEFAULT NOW();
+      ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS total_entregas INT DEFAULT 0;
+    `);
+    console.log('Schema sincronizado: colunas de fila/disponibilidade de entregadores em funcionarios.');
   } catch (error) {
-    console.error('Erro ao alternar disponibilidade do entregador:', error);
-    res.status(500).json({ erro: 'Erro ao alternar disponibilidade do entregador.' });
+    console.error('Aviso: nao foi possivel sincronizar colunas de entregadores em funcionarios:', error.message);
   }
-}
 
-// Registrar auditoria
-async function registrarAuditoria(estabelecimentoId, funcionarioId, funcionarioNome, acao, tabela, registroId, dadosAnteriores, dadosNovos, ip) {
+  // Pedido saiu para entrega -> atribuido automaticamente ao proximo
+  // entregador da fila (por ordem de chegada). Guarda quem ficou responsavel
+  // e os horarios de "pronto" e "saiu para entrega" pra rastreio/relatorios.
   try {
-    await query(
-      `INSERT INTO auditoria (estabelecimento_id, funcionario_id, funcionario_nome, acao, tabela_afetada, registro_id, dados_anteriores, dados_novos, ip)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [estabelecimentoId, funcionarioId || null, funcionarioNome || null, acao, tabela || null, registroId || null,
-       dadosAnteriores ? JSON.stringify(dadosAnteriores) : null,
-       dadosNovos ? JSON.stringify(dadosNovos) : null, ip || null]
-    );
-  } catch (e) {
-    console.error('Erro ao registrar auditoria:', e);
-  }
-}
-
-// Exclui definitivamente um funcionario. Exige a senha de quem esta fazendo a
-// exclusao (proprietario ou funcionario administrador) como confirmacao.
-async function excluir(req, res) {
-  try {
-    const { id } = req.params;
-    const { senhaConfirmacao } = req.body;
-
-    if (!senhaConfirmacao) {
-      return res.status(400).json({ erro: 'Informe sua senha para confirmar a exclusao.' });
-    }
-
-    let hashParaConferir;
-    if (req.funcionarioId) {
-      const quem = await query('SELECT senha_hash FROM funcionarios WHERE id = $1', [req.funcionarioId]);
-      if (quem.rows.length === 0) return res.status(401).json({ erro: 'Sessao invalida.' });
-      hashParaConferir = quem.rows[0].senha_hash;
-    } else {
-      const quem = await query('SELECT senha_hash FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
-      hashParaConferir = quem.rows[0].senha_hash;
-    }
-
-    const senhaCorreta = await bcrypt.compare(senhaConfirmacao, hashParaConferir);
-    if (!senhaCorreta) return res.status(401).json({ erro: 'Senha incorreta.' });
-
-    const anterior = await query('SELECT * FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    if (anterior.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
-
-    await query('DELETE FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-
-    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'EXCLUIR_FUNCIONARIO', 'funcionarios', id, anterior.rows[0], null, req.ip);
-
-    res.json({ mensagem: 'Funcionario excluido com sucesso.' });
+    await pool.query(`
+      ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS entregador_id UUID REFERENCES funcionarios(id) ON DELETE SET NULL;
+      ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS entregador_nome VARCHAR(150);
+      ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS horario_pronto TIMESTAMP;
+      ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS horario_saiu_entrega TIMESTAMP;
+    `);
+    console.log('Schema sincronizado: colunas de entregador/horarios em pedidos.');
   } catch (error) {
-    console.error('Erro ao excluir funcionario:', error);
-    res.status(500).json({ erro: 'Erro interno ao excluir funcionario.', detalhe: error.message, codigo: error.code });
+    console.error('Aviso: nao foi possivel sincronizar colunas de entrega em pedidos:', error.message);
   }
 }
 
-module.exports = {
-  loginFuncionario, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir,
-  listarEquipeOperacional, alternarDisponibilidadeEntregador,
-  registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS
-};
+module.exports = { pool, query, sincronizarSchema };
