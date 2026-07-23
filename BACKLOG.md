@@ -17,6 +17,12 @@
       tinha regras para `.menu-cliente*` (nomes nunca bateram, por isso
       nunca teve estilo nenhum). Adicionado bloco `.tela-cliente*` completo
       em `frontend/css/componentes.css`
+- [x] Arrastar/reordenar funcionário na aba Equipe/Cadastro não funcionava —
+      causa raiz: a lista de funcionários usava uma implementação própria
+      via `pointerdown`/`pointermove` (diferente e não testada), enquanto
+      categorias/produtos/promoções usam drag-and-drop HTML5 nativo
+      (`draggable` + `dragstart`/`dragover`/`drop`). Trocado para o mesmo
+      padrão nativo já comprovado — 22/07
 
 ## Cadastro / infraestrutura
 - [x] Confirmar execução da `migration_dados_legais.sql` no Supabase —
@@ -94,6 +100,12 @@
 - [x] Campainha ao receber pedido novo e bipe ao cozinha marcar pronto, no
       dashboard do administrador (Web Audio, sem depender de arquivo de
       áudio) — 22/07
+- [x] Carga horária (opcional) no cadastro de funcionário: dias da semana +
+      horário de entrada/saída — 22/07
+- [x] "+ Novo pedido" na aba Pedidos: qualquer funcionário com a permissão
+      "Criar pedidos" (ex: garçom) já lança um pedido de balcão/mesa
+      escolhendo produtos do cardápio — entra direto como "preparando"
+      (pula o aceite do admin, já que quem lançou já "aceitou" na hora) — 22/07
 - [ ] Páginas separadas para atendimento "Mesa" e "Delivery", permitindo
       marcar pedidos por tipo
 - [ ] Cupons de desconto:
@@ -111,22 +123,19 @@
     estiver ativa; se a loja fechar, manter por até 2 meses
 
 ## Apps auxiliares (via QR Code, sem app nativo por enquanto)
-- [ ] **App do funcionário (comanda):** QR Code único gerado por funcionário
-      no cadastro, com permissões por categoria. Emite QR de cobrança pra
-      comanda, vinculado ao caixa. Mostra produtos/categorias/promoções com
-      controle de quantidade. Cancelamento de pedido exige senha do gerente
-  - Observação (22/07): "atendente" é só o nome provisório — na prática é
-    qualquer funcionário de mesa/balcão, definido pelo cadastro de
-    funcionários e pelas caixinhas de autorização já existentes.
-  - Cada app auxiliar (funcionário, cozinha, entregador) só se comunica
-    com o dashboard/admin da loja — nunca entre si.
-  - Exceção: o app de mesa/balcão é o único que tem acesso ao código do
-    cliente (lido via QR/código de barras na mesa) e é o responsável
-    exclusivo por aquele atendimento — evita que o cliente faça pedidos
-    através de mais de uma pessoa e complique a comanda depois.
-  - Esse funcionário pode fazer pedidos e cobrança, mas **não pode
-    cancelar** um pedido já gerado — qualquer problema precisa passar
-    pelo gerente.
+- [x]/[ ] **App do funcionário/garçom (comanda):** por enquanto funciona
+      *dentro do próprio dashboard* — quem tem a permissão "Criar pedidos"
+      já lança pedido de balcão/mesa pelo botão "+ Novo pedido" na aba
+      Pedidos, escolhendo produtos do cardápio (preço sempre recalculado no
+      servidor). Cancelamento continua exigindo a permissão separada
+      "Cancelar pedidos" (senha do gerente/admin), então dá pra restringir
+      o garçom a só criar, nunca cancelar — 22/07. Ainda faltam:
+  - QR Code único por funcionário gerado no cadastro (hoje o acesso é por
+    login normal de funcionário)
+  - Emissão de QR de cobrança pra comanda, vinculado ao caixa
+  - Ainda não existe conceito de "mesa"/comanda numerada com histórico
+    próprio — cada pedido de balcão hoje é avulso (identificado só pelo
+    nome/mesa digitado na hora)
 - [x]/[ ] **App da cozinha:** por enquanto funciona *dentro do próprio
       dashboard* — funcionário com cargo "Cozinha" só vê pedidos em preparo,
       sem valores, com botão único "Marcar como pronto" (22/07). Ainda falta:
@@ -147,7 +156,7 @@
     entregador) só se comunica com o admin — nunca entre si diretamente
 
 ---
-*Última atualização: 22/07/2026 (Equipe: aba Funcionarios reestruturada com
-vista operacional por função + fluxo completo de status do pedido com
-campainha/bipe no dashboard + fila automática de entregadores por ordem de
-chegada + notificação de "pronto" pro cliente)*
+*Última atualização: 22/07/2026 (drag-and-drop de funcionários corrigido;
+carga horária adicionada ao cadastro; "+ Novo pedido" manual ativa o app do
+garçom/atendimento dentro do próprio dashboard; app do entregador e da
+cozinha já testáveis pelo login normal de funcionário)*
