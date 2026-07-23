@@ -2311,6 +2311,16 @@ function abrirModalEditarFuncionario(id) {
   document.getElementById('modal-editar-funcionario').classList.remove('oculto');
 }
 
+document.getElementById('botao-ver-qrcode-entregador')?.addEventListener('click', async () => {
+  try {
+    const resultado = await apiObterQrcodeEntregador();
+    document.getElementById('imagem-qrcode-entregador').src = resultado.qrcode_base64;
+    document.getElementById('modal-qrcode-entregador').classList.remove('oculto');
+  } catch (erro) {
+    mostrarToast(erro.message || 'Erro ao gerar o QR Code do dia.', true);
+  }
+});
+
 document.querySelectorAll('[data-fechar-modal-admin]').forEach(el => {
   el.addEventListener('click', fecharModaisAdmin);
 });
@@ -2344,17 +2354,4 @@ function montarPaletaCores() {
     container.innerHTML = PALETA_CORES_PADRAO.map(hex => `
       <button type="button" class="paleta-cores__swatch" style="background:${hex}" data-hex="${hex}" title="${hex}"></button>
     `).join('');
-    container.querySelectorAll('.paleta-cores__swatch').forEach(botao => {
-      botao.addEventListener('click', () => {
-        const input = document.getElementById(alvoId);
-        input.value = botao.getAttribute('data-hex');
-        input.dispatchEvent(new Event('input'));
-        input.dispatchEvent(new Event('change'));
-      });
-    });
-  });
-}
-
-// ===================================================================
-// Preview ao vivo da fonte escolhida na aba Aparencia
-// 
+    container.querySelectorAll('.paleta-cores__swatc
