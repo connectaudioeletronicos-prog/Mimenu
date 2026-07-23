@@ -29,6 +29,101 @@ function iniciarAdmin() {
   if (obterToken()) mostrarPainel();
 }
 
+// =============================================
+// AVISOS SONOROS DO DASHBOARD
+// Campainha: toca quando um pedido novo chega.
+// Bip: toca quando a cozinha marca um pedido como pronto.
+// Gerados via Web Audio API (nao depende de nenhum arquivo de audio).
+// =============================================
+let AUDIO_CTX_DASHBOARD = null;
+
+function obterAudioCtxDashboard() {
+  if (!AUDIO_CTX_DASHBOARD) {
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) return null;
+    AUDIO_CTX_DASHBOARD = new AudioCtor();
+  }
+  if (AUDIO_CTX_DASHBOARD.state === 'suspended') AUDIO_CTX_DASHBOARD.resume();
+  return AUDIO_CTX_DASHBOARD;
+}
+
+// A maioria dos navegadores so libera audio depois de uma interacao do
+// usuario. Esse listener "destrava" o contexto de audio no primeiro clique
+// em qualquer lugar do painel, pra os avisos sonoros ja funcionarem depois.
+document.addEventListener('click', () => { try { obterAudioCtxDashboard(); } catch (e) {} }, { once: true });
+
+function tocarTomDashboard(frequencia, duracaoMs, tipoOnda, volume, atrasoSegundos) {
+  const ctx = obterAudioCtxDashboard();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const ganho = ctx.createGain();
+  osc.type = tipoOnda || 'sine';
+  osc.frequency.value = frequencia;
+  ganho.gain.value = volume;
+  osc.connect(ganho).connect(ctx.destination);
+  const inicio = ctx.currentTime + (atrasoSegundos || 0);
+  osc.start(inicio);
+  ganho.gain.exponentialRampToValueAtTime(0.001, inicio + duracaoMs / 1000);
+  osc.stop(inicio + duracaoMs / 1000 + 0.02);
+}
+
+// Campainha (pedido novo recebido): dois tons, tipo "ding-dong".
+function tocarCampainhaPedidoNovo() {
+  tocarTomDashboard(880, 260, 'sine', 0.45, 0);
+  tocarTomDashboard(659, 340, 'sine', 0.45, 0.3);
+}
+
+// Bip (cozinha marcou o pedido como pronto): tres bips curtos e agudos.
+function tocarBipPedidoPronto() {
+  tocarTomDashboard(1046, 120, 'square', 0.35, 0);
+  tocarTomDashboard(1046, 120, 'square', 0.35, 0.18);
+  tocarTomDashboard(1046, 160, 'square', 0.35, 0.36);
+}
+
+// =============================================
+// MONITORAMENTO DE PEDIDOS (poll) -- dispara os avisos sonoros acima
+// assim que detecta um pedido novo ou um pedido marcado como pronto.
+// =============================================
+let INTERVALO_MONITORAMENTO_PEDIDOS = null;
+let PRIMEIRA_VERIFICACAO_PEDIDOS = true;
+const PEDIDOS_NOVOS_ALERTADOS = new Set();
+const PEDIDOS_PRONTOS_ALERTADOS = new Set();
+
+function iniciarMonitoramentoPedidos() {
+  if (INTERVALO_MONITORAMENTO_PEDIDOS) return;
+  verificarNovidadesPedidos();
+  INTERVALO_MONITORAMENTO_PEDIDOS = setInterval(verificarNovidadesPedidos, 15000);
+}
+
+async function verificarNovidadesPedidos() {
+  try {
+    const pedidos = await apiListarPedidos('');
+    let tocarCampainha = false;
+    let tocarBip = false;
+
+    pedidos.forEach(pedido => {
+      if (pedido.status_pedido === 'novo' && !PEDIDOS_NOVOS_ALERTADOS.has(pedido.id)) {
+        PEDIDOS_NOVOS_ALERTADOS.add(pedido.id);
+        if (!PRIMEIRA_VERIFICACAO_PEDIDOS) tocarCampainha = true;
+      }
+      if (pedido.status_pedido === 'pronto' && !PEDIDOS_PRONTOS_ALERTADOS.has(pedido.id)) {
+        PEDIDOS_PRONTOS_ALERTADOS.add(pedido.id);
+        if (!PRIMEIRA_VERIFICACAO_PEDIDOS) tocarBip = true;
+      }
+    });
+
+    if (tocarCampainha) tocarCampainhaPedidoNovo();
+    if (tocarBip) tocarBipPedidoPronto();
+    PRIMEIRA_VERIFICACAO_PEDIDOS = false;
+
+    atualizarContagemPedidos();
+    const abaPedidos = document.getElementById('aba-pedidos');
+    if (abaPedidos && !abaPedidos.classList.contains('oculto')) carregarPedidos();
+  } catch (erro) {
+    // Silencioso: uma falha pontual no monitoramento nao deve incomodar o usuario.
+  }
+}
+
 function sessaoAtual() {
   return obterEstabelecimentoSessao() || {};
 }
@@ -204,6 +299,7 @@ async function mostrarPainel() {
     document.getElementById('menu-nome-funcionario').textContent = ehFuncionario() ? (s.nome || '') : '';
     document.getElementById('menu-link-publico').textContent = s.slug ? `/${s.slug}` : '';
     aplicarVisibilidadeMenu();
+    iniciarMonitoramentoPedidos();
   } catch (erro) {
     mostrarToast(erro.message, true);
   }
@@ -302,7 +398,11 @@ function configurarMenu() {
       document.getElementById(`aba-${aba}`).classList.remove('oculto');
       if (aba === 'pedidos') carregarPedidos();
       if (aba === 'caixa-geral') carregarCaixaGeral();
-      if (aba === 'funcionarios') renderizarFuncionariosAdmin();
+      if (aba === 'funcionarios') {
+        mostrarVistaEquipe();
+        renderizarFuncionariosAdmin();
+        carregarEquipeOperacional();
+      }
       if (aba === 'construtor') renderizarConstrutorPagina();
     });
   });
@@ -1522,9 +1622,52 @@ async function atualizarContagemPedidos() {
 }
 
 const STATUS_PEDIDO_LABEL = {
-  novo: 'Novo', preparando: 'Preparando', saiu_entrega: 'Saiu para entrega',
+  novo: 'Novo', preparando: 'Preparando', pronto: 'Pronto', saiu_entrega: 'Saiu para entrega',
   entregue: 'Entregue', cancelado: 'Cancelado'
 };
+
+// Cada status so avanca pro proximo passo especifico do fluxo (nunca um
+// dropdown livre): aceitar -> preparar; cozinha marca pronto; admin
+// confirma e o sistema ja atribui ao proximo entregador da fila; entregador
+// marca como entregue. Cozinha e entregador so recebem o botao do proprio
+// passo, mesmo que tenham a permissao geral de mudar status.
+function construirAcoesStatusPedido(pedido) {
+  const s = sessaoAtual();
+
+  if (s.cargo === 'cozinha') {
+    if (pedido.status_pedido === 'preparando') {
+      return `<button type="button" class="botao-primario" data-marcar-pronto="${pedido.id}">Marcar como pronto</button>`;
+    }
+    return '';
+  }
+
+  if (s.cargo === 'entregador') {
+    if (pedido.status_pedido === 'saiu_entrega' && pedido.entregador_id === s.funcionarioId) {
+      return `<button type="button" class="botao-primario" data-marcar-entregue="${pedido.id}">Marcar como entregue</button>`;
+    }
+    return '';
+  }
+
+  if (!temPermissao('mudar_status_pedidos') && !temPermissao('cancelar_pedidos')) return '';
+
+  const PROXIMO_PASSO = {
+    novo: ['preparando', 'Aceitar pedido (enviar p/ cozinha)'],
+    preparando: ['pronto', 'Marcar como pronto'],
+    pronto: ['saiu_entrega', 'Confirmar pronto (envia p/ proximo entregador)'],
+    saiu_entrega: ['entregue', 'Marcar como entregue']
+  };
+
+  let html = '';
+  const passo = PROXIMO_PASSO[pedido.status_pedido];
+  if (passo && temPermissao('mudar_status_pedidos')) {
+    const [novoStatus, rotulo] = passo;
+    html += `<button type="button" class="botao-primario" data-mudar-status="${pedido.id}" data-novo-status="${novoStatus}">${rotulo}</button>`;
+  }
+  if (!['entregue', 'cancelado'].includes(pedido.status_pedido) && temPermissao('cancelar_pedidos')) {
+    html += ` <button type="button" class="botao-secundario" data-cancelar-pedido="${pedido.id}">Cancelar</button>`;
+  }
+  return html;
+}
 
 function renderizarPedidosAdmin(pedidos) {
   const lista = document.getElementById('lista-pedidos-admin');
@@ -1538,9 +1681,13 @@ function renderizarPedidosAdmin(pedidos) {
       ? pedido.itens.map(i => `${i.quantidade}x ${escaparHtmlAdmin(i.nome)}`).join(', ')
       : 'Itens nao disponiveis';
     const valorLinha = pedido.total === null
-      ? 'Valor oculto (sem permissao)'
+      ? 'Valor oculto'
       : `${formatarMoedaAdmin(pedido.total)} - ${pedido.forma_pagamento.toUpperCase()} (${pedido.status_pagamento})`;
     const data = new Date(pedido.criado_em).toLocaleString('pt-BR');
+    const linhaEntregador = pedido.entregador_nome
+      ? `<div class="item-admin__subtitulo">Entregador: ${escaparHtmlAdmin(pedido.entregador_nome)}</div>` : '';
+    const linhaTelefone = pedido.cliente_telefone
+      ? `<div class="item-admin__subtitulo">Tel: ${escaparHtmlAdmin(pedido.cliente_telefone)}</div>` : '';
     return `
       <div class="item-admin" style="align-items: flex-start;">
         <div class="item-admin__info">
@@ -1551,30 +1698,40 @@ function renderizarPedidosAdmin(pedidos) {
           <div class="item-admin__subtitulo">Pedido #${pedido.id.substring(0, 8)}</div>
           <div class="item-admin__subtitulo">${itens}</div>
           <div class="item-admin__subtitulo">${data} - ${valorLinha}</div>
-          <div class="item-admin__subtitulo">Tel: ${escaparHtmlAdmin(pedido.cliente_telefone)}</div>
+          ${linhaTelefone}
+          ${linhaEntregador}
         </div>
-        <select class="campo-select" style="width:auto;" data-mudar-status="${pedido.id}">
-          ${Object.entries(STATUS_PEDIDO_LABEL)
-            .filter(([valor]) => valor !== 'cancelado' || temPermissao('cancelar_pedidos'))
-            .map(([valor, label]) =>
-              `<option value="${valor}" ${pedido.status_pedido === valor ? 'selected' : ''}>${label}</option>`
-            ).join('')}
-        </select>
+        <div class="acoes-status-pedido">${construirAcoesStatusPedido(pedido)}</div>
       </div>
     `;
   }).join('');
 
-  lista.querySelectorAll('[data-mudar-status]').forEach(select => {
-    select.addEventListener('change', async () => {
-      try {
-        await apiAtualizarStatusPedido(select.getAttribute('data-mudar-status'), select.value);
-        mostrarToast('Status do pedido atualizado.');
-        carregarPedidos();
-      } catch (erro) {
-        mostrarToast(erro.message, true);
-      }
+  lista.querySelectorAll('[data-mudar-status]').forEach(botao => {
+    botao.addEventListener('click', () => executarMudancaStatusPedido(botao.getAttribute('data-mudar-status'), botao.getAttribute('data-novo-status')));
+  });
+  lista.querySelectorAll('[data-marcar-pronto]').forEach(botao => {
+    botao.addEventListener('click', () => executarMudancaStatusPedido(botao.getAttribute('data-marcar-pronto'), 'pronto'));
+  });
+  lista.querySelectorAll('[data-marcar-entregue]').forEach(botao => {
+    botao.addEventListener('click', () => executarMudancaStatusPedido(botao.getAttribute('data-marcar-entregue'), 'entregue'));
+  });
+  lista.querySelectorAll('[data-cancelar-pedido]').forEach(botao => {
+    botao.addEventListener('click', () => {
+      if (!confirm('Cancelar este pedido?')) return;
+      executarMudancaStatusPedido(botao.getAttribute('data-cancelar-pedido'), 'cancelado');
     });
   });
+}
+
+async function executarMudancaStatusPedido(id, novoStatus) {
+  try {
+    await apiAtualizarStatusPedido(id, novoStatus);
+    mostrarToast('Status do pedido atualizado.');
+    carregarPedidos();
+    if (novoStatus === 'pronto' || novoStatus === 'preparando') carregarEquipeOperacional();
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
 }
 
 // =============================================
@@ -1648,10 +1805,92 @@ function renderizarCaixaGeral(dados) {
 // =============================================
 const NOMES_CARGO = {
   proprietario: 'Proprietario', administrador: 'Administrador', gerente: 'Gerente', caixa: 'Caixa',
-  garcom: 'Garcom', colaborador: 'Colaborador'
+  garcom: 'Garcom', colaborador: 'Colaborador', cozinha: 'Cozinha', entregador: 'Entregador'
 };
 
 let dragSrcFuncionarioId = null;
+
+// =============================================
+// VISTA "EQUIPE" (conteudo principal da aba) x "CADASTRO" (subpagina fixa)
+// =============================================
+function mostrarVistaEquipe() {
+  document.getElementById('funcionarios-vista-equipe').classList.remove('oculto');
+  document.getElementById('funcionarios-vista-cadastro').classList.add('oculto');
+}
+
+function mostrarVistaCadastroFuncionarios() {
+  document.getElementById('funcionarios-vista-equipe').classList.add('oculto');
+  document.getElementById('funcionarios-vista-cadastro').classList.remove('oculto');
+}
+
+async function carregarEquipeOperacional() {
+  try {
+    const equipe = await apiListarEquipeOperacional();
+    renderizarEquipeOperacional(equipe);
+  } catch (erro) {
+    // Silencioso: se falhar, a vista de equipe so fica vazia (o cadastro
+    // completo continua funcionando normalmente na subpagina).
+  }
+}
+
+function renderizarEquipeOperacional(equipe) {
+  renderizarListaEquipe('lista-equipe-cozinha', equipe.cozinha, 'cozinha');
+  renderizarListaEquipe('lista-equipe-entregadores', equipe.entregadores, 'entregador');
+  renderizarListaEquipe('lista-equipe-atendimento', equipe.atendimento, 'atendimento');
+}
+
+function renderizarListaEquipe(idLista, itens, tipo) {
+  const lista = document.getElementById(idLista);
+  if (!lista) return;
+
+  if (!itens || itens.length === 0) {
+    lista.innerHTML = '<div class="lista-vazia">Nenhum funcionario nessa funcao ainda.</div>';
+    return;
+  }
+
+  lista.innerHTML = itens.map(f => {
+    let extra = '';
+    if (tipo === 'entregador') {
+      const situacao = !f.ativo ? 'Inativo'
+        : f.em_entrega ? 'Em entrega'
+        : !f.disponivel_entrega ? 'Indisponivel'
+        : `Fila #${f.posicao_fila}`;
+      extra = `
+        <div style="margin-top:6px;">
+          <span class="badge-fila">${situacao}</span>
+          <span class="item-admin__subtitulo">${f.total_entregas || 0} entregas realizadas</span>
+        </div>
+        <label class="interruptor-disponibilidade">
+          <input type="checkbox" data-toggle-disponibilidade="${f.id}" ${f.disponivel_entrega ? 'checked' : ''} ${!f.ativo ? 'disabled' : ''}>
+          Disponivel para novas entregas
+        </label>
+      `;
+    }
+    return `
+      <div class="item-admin">
+        <div class="item-admin__info">
+          <div class="item-admin__titulo">${escaparHtmlAdmin(f.nome)} ${!f.ativo ? '(inativo)' : ''}</div>
+          <div class="item-admin__subtitulo">${escaparHtmlAdmin(f.email)}</div>
+          ${extra}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  lista.querySelectorAll('[data-toggle-disponibilidade]').forEach(caixa => {
+    caixa.addEventListener('change', async () => {
+      const id = caixa.getAttribute('data-toggle-disponibilidade');
+      try {
+        await apiAlternarDisponibilidadeEntregador(id, caixa.checked);
+        mostrarToast('Disponibilidade atualizada.');
+        carregarEquipeOperacional();
+      } catch (erro) {
+        mostrarToast(erro.message, true);
+        caixa.checked = !caixa.checked;
+      }
+    });
+  });
+}
 
 function renderizarFuncionariosAdmin() {
   const lista = document.getElementById('lista-funcionarios-admin');
@@ -1780,6 +2019,26 @@ function configurarFuncionarios() {
 
   alternarCaixasAdministrador('func-cargo', 'grupo-permissoes-funcionario');
   alternarCaixasAdministrador('edit-func-cargo', 'edit-grupo-permissoes');
+
+  document.getElementById('botao-abrir-cadastro-funcionarios').addEventListener('click', mostrarVistaCadastroFuncionarios);
+  document.getElementById('botao-voltar-equipe').addEventListener('click', () => {
+    mostrarVistaEquipe();
+    carregarEquipeOperacional();
+  });
+
+  // Cozinha e entregador so conseguem operar o fluxo de pedidos se
+  // tiverem a permissao "mudar_status_pedidos". Ja deixa marcada por
+  // padrao (o administrador ainda pode desmarcar antes de cadastrar).
+  const autoMarcarMudarStatus = (idCargo, idGrupoPermissoes) => {
+    document.getElementById(idCargo).addEventListener('change', function () {
+      if (this.value === 'cozinha' || this.value === 'entregador') {
+        const caixa = document.querySelector(`#${idGrupoPermissoes} input[value="mudar_status_pedidos"]`);
+        if (caixa) caixa.checked = true;
+      }
+    });
+  };
+  autoMarcarMudarStatus('func-cargo', 'grupo-permissoes-funcionario');
+  autoMarcarMudarStatus('edit-func-cargo', 'edit-grupo-permissoes');
 
   aplicarMascaraTelefoneAdmin(document.getElementById('func-telefone'));
   aplicarMascaraTelefoneAdmin(document.getElementById('edit-func-telefone'));
