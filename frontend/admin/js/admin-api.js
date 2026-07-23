@@ -161,6 +161,7 @@ async function apiLoginFuncionario(slug, login, senha) {
   return dados;
 }
 
+const apiObterQrcodeEntregador = () => chamarApiFuncionarios('/qrcode-entregador');
 const apiListarFuncionarios = () => chamarApiFuncionarios('/');
 const apiCriarFuncionario = (dados) => chamarApiFuncionarios('/', { method: 'POST', body: dados });
 const apiAtualizarFuncionario = (id, dados) => chamarApiFuncionarios(`/${id}`, { method: 'PUT', body: dados });
