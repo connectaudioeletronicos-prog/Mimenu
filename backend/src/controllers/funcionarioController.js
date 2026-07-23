@@ -19,8 +19,8 @@ const PERMISSOES_VALIDAS = [
   'ver_caixa_geral'               // ver o caixa geral (valores das entregas concluidas)
 ];
 
-const CARGOS_VALIDOS = ['administrador', 'gerente', 'caixa', 'garcom', 'colaborador'];
-const LIMITES_POR_CARGO = { administrador: 1, gerente: 1, caixa: 5 }; // garcom/colaborador: sem limite
+const CARGOS_VALIDOS = ['administrador', 'gerente', 'caixa', 'garcom', 'colaborador', 'cozinha', 'entregador'];
+const LIMITES_POR_CARGO = { administrador: 1, gerente: 1, caixa: 5 }; // garcom/colaborador/cozinha/entregador: sem limite
 
 function sanitizarPermissoes(permissoes) {
   if (!Array.isArray(permissoes)) return [];
@@ -256,6 +256,90 @@ async function trocarSenha(req, res) {
   }
 }
 
+// Lista a equipe agrupada por funcao operacional, pra aba "Equipe" do
+// dashboard: cozinha, entregadores (com posicao na fila de atribuicao
+// automatica) e atendimento (garcom/caixa/colaborador).
+async function listarEquipeOperacional(req, res) {
+  try {
+    const resultado = await query(
+      `SELECT f.id, f.nome, f.email, f.cargo, f.ativo, f.disponivel_entrega,
+              f.total_entregas, f.ultima_fila_em,
+              EXISTS (
+                SELECT 1 FROM pedidos p
+                WHERE p.entregador_id = f.id AND p.status_pedido = 'saiu_entrega'
+              ) AS em_entrega
+       FROM funcionarios f
+       WHERE f.estabelecimento_id = $1
+         AND f.cargo IN ('cozinha', 'entregador', 'garcom', 'caixa', 'colaborador')
+       ORDER BY f.cargo, f.ultima_fila_em ASC NULLS FIRST, f.criado_em ASC`,
+      [req.estabelecimentoId]
+    );
+
+    const cozinha = resultado.rows.filter(f => f.cargo === 'cozinha');
+    const atendimento = resultado.rows.filter(f => ['garcom', 'caixa', 'colaborador'].includes(f.cargo));
+
+    // So entram na numeracao da fila os entregadores ativos, disponiveis e
+    // que nao estejam com uma entrega em andamento agora.
+    let posicao = 0;
+    const entregadores = resultado.rows
+      .filter(f => f.cargo === 'entregador')
+      .map(f => {
+        let posicaoFila = null;
+        if (f.ativo && f.disponivel_entrega && !f.em_entrega) {
+          posicao += 1;
+          posicaoFila = posicao;
+        }
+        return { ...f, posicao_fila: posicaoFila };
+      });
+
+    res.json({ cozinha, entregadores, atendimento });
+  } catch (error) {
+    console.error('Erro ao listar equipe operacional:', error);
+    res.status(500).json({ erro: 'Erro ao listar equipe operacional.' });
+  }
+}
+
+// Liga/desliga a disponibilidade de um entregador pra fila de atribuicao
+// automatica. O proprio entregador pode alternar a propria disponibilidade;
+// pra alternar a de outro, precisa da permissao 'gerenciar_funcionarios'.
+// Ao voltar a ficar disponivel, ele entra no fim da fila (ultima_fila_em =
+// agora), respeitando a regra de sempre seguir a ordem de chegada.
+async function alternarDisponibilidadeEntregador(req, res) {
+  try {
+    const { id } = req.params;
+    const { disponivel_entrega } = req.body;
+
+    const podeGerenciarOutro = req.cargo === 'proprietario' || req.cargo === 'administrador' ||
+      (req.permissoes || []).includes('gerenciar_funcionarios');
+    const ehOProprio = req.funcionarioId && req.funcionarioId === id;
+    if (!ehOProprio && !podeGerenciarOutro) {
+      return res.status(403).json({ erro: 'Voce nao tem permissao para alterar a disponibilidade desse entregador.' });
+    }
+
+    const alvo = await query('SELECT cargo, disponivel_entrega FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
+    if (alvo.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
+    if (alvo.rows[0].cargo !== 'entregador') return res.status(400).json({ erro: 'Esse funcionario nao e um entregador.' });
+
+    const novoValor = !!disponivel_entrega;
+    const voltandoADisponibilizar = novoValor === true && alvo.rows[0].disponivel_entrega === false;
+
+    const resultado = await query(
+      `UPDATE funcionarios SET
+        disponivel_entrega = $1,
+        ultima_fila_em = CASE WHEN $2 THEN NOW() ELSE ultima_fila_em END,
+        atualizado_em = NOW()
+       WHERE id = $3 AND estabelecimento_id = $4
+       RETURNING id, nome, disponivel_entrega`,
+      [novoValor, voltandoADisponibilizar, id, req.estabelecimentoId]
+    );
+
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao alternar disponibilidade do entregador:', error);
+    res.status(500).json({ erro: 'Erro ao alternar disponibilidade do entregador.' });
+  }
+}
+
 // Registrar auditoria
 async function registrarAuditoria(estabelecimentoId, funcionarioId, funcionarioNome, acao, tabela, registroId, dadosAnteriores, dadosNovos, ip) {
   try {
@@ -309,4 +393,8 @@ async function excluir(req, res) {
   }
 }
 
-module.exports = { loginFuncionario, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir, registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS };
+module.exports = {
+  loginFuncionario, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir,
+  listarEquipeOperacional, alternarDisponibilidadeEntregador,
+  registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS
+};
