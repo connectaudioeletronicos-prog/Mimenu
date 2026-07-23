@@ -161,6 +161,8 @@ CREATE TABLE funcionarios (
     disponivel_entrega BOOLEAN DEFAULT true,
     ultima_fila_em TIMESTAMP DEFAULT NOW(),
     total_entregas INT DEFAULT 0,
+    -- Carga horaria (opcional): { dias: ['seg','ter',...], inicio: 'HH:MM', fim: 'HH:MM' }
+    carga_horaria JSONB DEFAULT '{}',
     criado_em TIMESTAMP DEFAULT NOW(),
     atualizado_em TIMESTAMP DEFAULT NOW(),
     UNIQUE (estabelecimento_id, email),
