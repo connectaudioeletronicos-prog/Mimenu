@@ -167,6 +167,8 @@ const apiAtualizarFuncionario = (id, dados) => chamarApiFuncionarios(`/${id}`, {
 const apiAtualizarCadastroCompletoFuncionario = (id, dados) => chamarApiFuncionarios(`/${id}/cadastro-completo`, { method: 'PUT', body: dados });
 const apiTrocarSenhaFuncionario = (id, dados) => chamarApiFuncionarios(`/${id}/senha`, { method: 'PUT', body: dados });
 const apiExcluirFuncionario = (id, senhaConfirmacao) => chamarApiFuncionarios(`/${id}`, { method: 'DELETE', body: { senhaConfirmacao } });
+const apiListarEquipeOperacional = () => chamarApiFuncionarios('/equipe');
+const apiAlternarDisponibilidadeEntregador = (id, disponivel_entrega) => chamarApiFuncionarios(`/${id}/disponibilidade`, { method: 'PUT', body: { disponivel_entrega } });
 
 const apiCorrigirValoresPedido = (id, dados) => chamarApiAdmin(`/pedidos/${id}/valores`, { method: 'PUT', body: dados });
 
