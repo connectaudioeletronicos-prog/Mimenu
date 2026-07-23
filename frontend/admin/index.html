@@ -492,8 +492,9 @@
                 <span class="equipe-secao__icone">🛵</span>
                 <div>
                   <div class="equipe-secao__titulo">Entregadores</div>
-                  <div class="equipe-secao__subtitulo">Atribuicao automatica sempre por ordem de chegada</div>
+                  <div class="equipe-secao__subtitulo">Oferta de entrega por ordem de chegada, um por vez. Usam o app proprio do entregador (nao esse painel).</div>
                 </div>
+                <button type="button" id="botao-ver-qrcode-entregador" class="botao-secundario">📱 QR Code do dia</button>
               </div>
               <div id="lista-equipe-entregadores" class="lista-itens-admin"></div>
             </div>
@@ -606,6 +607,16 @@
       </section>
 
     </main>
+  </div>
+
+  <div id="modal-qrcode-entregador" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa" style="text-align:center;">
+      <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+      <h3>QR Code do dia - Entregadores</h3>
+      <p class="aba__descricao">Exiba (ou imprima) esse QR Code na loja. O entregador aponta a câmera do app dele pra confirmar presença e entrar na fila de hoje. Ele muda automaticamente todo dia.</p>
+      <img id="imagem-qrcode-entregador" src="" alt="QR Code do dia" style="max-width:280px; width:100%; margin:10px auto;">
+    </div>
   </div>
 
   <div id="modal-editar-funcionario" class="modal-admin oculto">
