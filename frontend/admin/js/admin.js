@@ -386,9 +386,14 @@ function aplicarVisibilidadeMenu() {
   if (!abaAtivaAtual && primeiraVisivel) {
     document.querySelector(`.painel__menu-item[data-aba="${primeiraVisivel}"]`).click();
   }
+
+  document.getElementById('botao-novo-pedido-manual').classList.toggle('oculto', !temPermissao('criar_pedidos'));
 }
 
 function configurarMenu() {
+  document.getElementById('botao-novo-pedido-manual').addEventListener('click', abrirModalNovoPedido);
+  document.getElementById('botao-confirmar-novo-pedido').addEventListener('click', confirmarNovoPedidoManual);
+
   document.querySelectorAll('.painel__menu-item[data-aba]').forEach(botao => {
     botao.addEventListener('click', () => {
       document.querySelectorAll('.painel__menu-item[data-aba]').forEach(b => b.classList.remove('ativo'));
@@ -1686,8 +1691,10 @@ function renderizarPedidosAdmin(pedidos) {
     const data = new Date(pedido.criado_em).toLocaleString('pt-BR');
     const linhaEntregador = pedido.entregador_nome
       ? `<div class="item-admin__subtitulo">Entregador: ${escaparHtmlAdmin(pedido.entregador_nome)}</div>` : '';
-    const linhaTelefone = pedido.cliente_telefone
+    const linhaTelefone = pedido.cliente_telefone && pedido.tipo_pedido !== 'balcao'
       ? `<div class="item-admin__subtitulo">Tel: ${escaparHtmlAdmin(pedido.cliente_telefone)}</div>` : '';
+    const linhaTipo = pedido.tipo_pedido === 'balcao'
+      ? '<div class="item-admin__subtitulo">🧾 Balcao/Mesa</div>' : '';
     return `
       <div class="item-admin" style="align-items: flex-start;">
         <div class="item-admin__info">
@@ -1699,6 +1706,7 @@ function renderizarPedidosAdmin(pedidos) {
           <div class="item-admin__subtitulo">${itens}</div>
           <div class="item-admin__subtitulo">${data} - ${valorLinha}</div>
           ${linhaTelefone}
+          ${linhaTipo}
           ${linhaEntregador}
         </div>
         <div class="acoes-status-pedido">${construirAcoesStatusPedido(pedido)}</div>
@@ -1731,6 +1739,84 @@ async function executarMudancaStatusPedido(id, novoStatus) {
     if (novoStatus === 'pronto' || novoStatus === 'preparando') carregarEquipeOperacional();
   } catch (erro) {
     mostrarToast(erro.message, true);
+  }
+}
+
+// =============================================
+// NOVO PEDIDO MANUAL (balcao/mesa) -- uso do garcom/atendimento.
+// =============================================
+function abrirModalNovoPedido() {
+  document.getElementById('novo-pedido-cliente').value = '';
+  document.getElementById('novo-pedido-observacoes').value = '';
+  document.getElementById('novo-pedido-forma-pagamento').value = 'dinheiro';
+
+  const disponiveis = (ESTADO.produtos || []).filter(p => p.disponivel);
+  const lista = document.getElementById('novo-pedido-itens-produtos');
+
+  if (disponiveis.length === 0) {
+    lista.innerHTML = '<div class="lista-vazia">Nenhum produto disponivel. Cadastre produtos na aba Produtos.</div>';
+  } else {
+    lista.innerHTML = disponiveis.map(p => {
+      const preco = p.preco_promocional && parseFloat(p.preco_promocional) < parseFloat(p.preco)
+        ? parseFloat(p.preco_promocional) : parseFloat(p.preco);
+      return `
+        <div class="item-admin">
+          <div class="item-admin__info">
+            <div class="item-admin__titulo">${escaparHtmlAdmin(p.nome)}</div>
+            <div class="item-admin__subtitulo">${formatarMoedaAdmin(preco)}</div>
+          </div>
+          <input type="number" min="0" value="0" style="width:64px;" class="campo-texto"
+                 data-novo-pedido-qtd="${p.id}" data-novo-pedido-preco="${preco}">
+        </div>
+      `;
+    }).join('');
+
+    lista.querySelectorAll('[data-novo-pedido-qtd]').forEach(input => {
+      input.addEventListener('input', atualizarTotalNovoPedido);
+    });
+  }
+
+  atualizarTotalNovoPedido();
+  document.getElementById('modal-novo-pedido').classList.remove('oculto');
+}
+
+function atualizarTotalNovoPedido() {
+  let total = 0;
+  document.querySelectorAll('[data-novo-pedido-qtd]').forEach(input => {
+    const qtd = parseInt(input.value, 10) || 0;
+    const preco = parseFloat(input.getAttribute('data-novo-pedido-preco')) || 0;
+    total += qtd * preco;
+  });
+  document.getElementById('novo-pedido-total').textContent = `Total: ${formatarMoedaAdmin(total)}`;
+}
+
+async function confirmarNovoPedidoManual() {
+  const clienteNome = document.getElementById('novo-pedido-cliente').value.trim();
+  if (!clienteNome) { mostrarToast('Informe o nome do cliente ou a mesa.', true); return; }
+
+  const itens = [];
+  document.querySelectorAll('[data-novo-pedido-qtd]').forEach(input => {
+    const quantidade = parseInt(input.value, 10) || 0;
+    if (quantidade > 0) itens.push({ produto_id: input.getAttribute('data-novo-pedido-qtd'), quantidade });
+  });
+  if (itens.length === 0) { mostrarToast('Adicione pelo menos um item ao pedido.', true); return; }
+
+  const botao = document.getElementById('botao-confirmar-novo-pedido');
+  botao.disabled = true;
+  try {
+    await apiCriarPedidoManual({
+      cliente_nome: clienteNome,
+      itens,
+      forma_pagamento: document.getElementById('novo-pedido-forma-pagamento').value,
+      observacoes: document.getElementById('novo-pedido-observacoes').value.trim() || null
+    });
+    fecharModaisAdmin();
+    mostrarToast('Pedido lancado! Ja esta em preparo.');
+    carregarPedidos();
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  } finally {
+    botao.disabled = false;
   }
 }
 
@@ -1892,6 +1978,29 @@ function renderizarListaEquipe(idLista, itens, tipo) {
   });
 }
 
+function coletarCargaHorariaMarcada(prefixoClasse, idInicio, idFim) {
+  const dias = Array.from(document.querySelectorAll(`.${prefixoClasse}-carga-dia:checked`)).map(cb => cb.value);
+  const inicio = document.getElementById(idInicio).value || null;
+  const fim = document.getElementById(idFim).value || null;
+  return { dias, inicio, fim };
+}
+
+function preencherCargaHorariaMarcada(prefixoClasse, idInicio, idFim, carga) {
+  const dias = (carga && carga.dias) || [];
+  document.querySelectorAll(`.${prefixoClasse}-carga-dia`).forEach(cb => { cb.checked = dias.includes(cb.value); });
+  document.getElementById(idInicio).value = (carga && carga.inicio) || '';
+  document.getElementById(idFim).value = (carga && carga.fim) || '';
+}
+
+const NOMES_DIA_SEMANA = { dom: 'Dom', seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sab' };
+function formatarCargaHoraria(carga) {
+  if (!carga || !carga.dias || carga.dias.length === 0) return '';
+  const ORDEM_DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+  const dias = ORDEM_DIAS.filter(d => carga.dias.includes(d)).map(d => NOMES_DIA_SEMANA[d]).join(', ');
+  const horario = carga.inicio && carga.fim ? ` ${carga.inicio}–${carga.fim}` : '';
+  return `${dias}${horario}`;
+}
+
 function renderizarFuncionariosAdmin() {
   const lista = document.getElementById('lista-funcionarios-admin');
   if (!ESTADO.funcionarios || ESTADO.funcionarios.length === 0) {
@@ -1901,18 +2010,22 @@ function renderizarFuncionariosAdmin() {
 
   const ordenados = [...ESTADO.funcionarios].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 
-  lista.innerHTML = ordenados.map(f => `
-    <div class="item-admin" data-funcionario-drag-id="${f.id}">
+  lista.innerHTML = ordenados.map(f => {
+    const cargaFormatada = formatarCargaHoraria(f.carga_horaria);
+    return `
+    <div class="item-admin item-admin--drag" draggable="true" data-funcionario-drag-id="${f.id}">
       <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
       <div class="item-admin__info">
         <div class="item-admin__titulo">${escaparHtmlAdmin(f.nome)} ${!f.ativo ? '(inativo)' : ''}</div>
         <div class="item-admin__subtitulo">${NOMES_CARGO[f.cargo] || f.cargo} - ${escaparHtmlAdmin(f.email)}</div>
+        ${cargaFormatada ? `<div class="item-admin__subtitulo">🕒 ${cargaFormatada}</div>` : ''}
       </div>
       <div class="item-admin__acoes">
         <button data-editar-funcionario="${f.id}">Editar</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   lista.querySelectorAll('[data-editar-funcionario]').forEach(b => {
     b.addEventListener('click', () => abrirModalEditarFuncionario(b.getAttribute('data-editar-funcionario')));
@@ -1922,50 +2035,47 @@ function renderizarFuncionariosAdmin() {
 }
 
 function configurarDragDropFuncionarios(lista) {
-  lista.querySelectorAll('.item-admin[data-funcionario-drag-id] .drag-handle').forEach(handle => {
-    handle.addEventListener('pointerdown', (evento) => {
-      evento.preventDefault();
-      const item = handle.closest('.item-admin[data-funcionario-drag-id]');
-      const indiceOrigem = Array.from(lista.children).indexOf(item);
-      item.classList.add('sendo-arrastado');
+  lista.querySelectorAll('.item-admin--drag[data-funcionario-drag-id]').forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+      dragSrcFuncionarioId = item.getAttribute('data-funcionario-drag-id');
+      item.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    item.addEventListener('dragend', () => {
+      item.style.opacity = '1';
+      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
+    });
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      lista.querySelectorAll('.item-admin--drag').forEach(i => i.classList.remove('drag-over'));
+      item.classList.add('drag-over');
+    });
+    item.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const targetId = item.getAttribute('data-funcionario-drag-id');
+      if (dragSrcFuncionarioId === targetId) return;
 
-      const aoMover = (ev) => {
-        const elementoAlvo = document.elementFromPoint(ev.clientX, ev.clientY);
-        const itemAlvo = elementoAlvo ? elementoAlvo.closest('.item-admin[data-funcionario-drag-id]') : null;
-        if (itemAlvo && itemAlvo !== item) {
-          const indiceAlvo = Array.from(lista.children).indexOf(itemAlvo);
-          const indiceAtual = Array.from(lista.children).indexOf(item);
-          if (indiceAlvo < indiceAtual) lista.insertBefore(item, itemAlvo);
-          else lista.insertBefore(item, itemAlvo.nextSibling);
-        }
-      };
+      const ordenados = [...ESTADO.funcionarios].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+      const indiceSrc = ordenados.findIndex(f => f.id === dragSrcFuncionarioId);
+      const indiceTarget = ordenados.findIndex(f => f.id === targetId);
+      if (indiceSrc === -1 || indiceTarget === -1) return;
 
-      const aoSoltar = async () => {
-        document.removeEventListener('pointermove', aoMover);
-        document.removeEventListener('pointerup', aoSoltar);
-        item.classList.remove('sendo-arrastado');
+      const reordenados = [...ordenados];
+      const [movido] = reordenados.splice(indiceSrc, 1);
+      reordenados.splice(indiceTarget, 0, movido);
 
-        const novaOrdemIds = Array.from(lista.children).map(el => el.getAttribute('data-funcionario-drag-id'));
-        const indiceFinal = novaOrdemIds.indexOf(item.getAttribute('data-funcionario-drag-id'));
-        if (indiceFinal === indiceOrigem) return;
-
-        try {
-          await Promise.all(novaOrdemIds.map((id, i) => {
-            const f = ESTADO.funcionarios.find(x => x.id === id);
-            if (f && f.ordem !== i) return apiAtualizarFuncionario(id, { ordem: i });
-          }).filter(Boolean));
-          ESTADO.funcionarios = await apiListarFuncionarios();
-          renderizarFuncionariosAdmin();
-          mostrarToast('Ordem atualizada!');
-        } catch (erro) {
-          mostrarToast(erro.message || 'Erro ao reordenar funcionarios.', true);
-          ESTADO.funcionarios = await apiListarFuncionarios();
-          renderizarFuncionariosAdmin();
-        }
-      };
-
-      document.addEventListener('pointermove', aoMover);
-      document.addEventListener('pointerup', aoSoltar);
+      try {
+        await Promise.all(reordenados.map((f, i) => {
+          if (f.ordem !== i) return apiAtualizarFuncionario(f.id, { ordem: i });
+        }).filter(Boolean));
+        ESTADO.funcionarios = await apiListarFuncionarios();
+        renderizarFuncionariosAdmin();
+        mostrarToast('Ordem atualizada!');
+      } catch (erro) {
+        mostrarToast(erro.message || 'Erro ao reordenar funcionarios.', true);
+        ESTADO.funcionarios = await apiListarFuncionarios();
+        renderizarFuncionariosAdmin();
+      }
     });
   });
 }
@@ -2066,7 +2176,8 @@ function configurarFuncionarios() {
         telefone: document.getElementById('func-telefone').value.trim() || null,
         senha: document.getElementById('func-senha').value,
         cargo: document.getElementById('func-cargo').value,
-        permissoes: coletarPermissoesMarcadas('grupo-permissoes-funcionario')
+        permissoes: coletarPermissoesMarcadas('grupo-permissoes-funcionario'),
+        carga_horaria: coletarCargaHorariaMarcada('func', 'func-carga-inicio', 'func-carga-fim')
       });
       evento.target.reset();
       ESTADO.funcionarios = await apiListarFuncionarios();
@@ -2088,7 +2199,8 @@ function configurarFuncionarios() {
         telefone: document.getElementById('edit-func-telefone').value.trim() || null,
         cargo: document.getElementById('edit-func-cargo').value,
         ativo: document.getElementById('edit-func-ativo').checked,
-        permissoes: coletarPermissoesMarcadas('edit-grupo-permissoes')
+        permissoes: coletarPermissoesMarcadas('edit-grupo-permissoes'),
+        carga_horaria: coletarCargaHorariaMarcada('edit-func', 'edit-func-carga-inicio', 'edit-func-carga-fim')
       });
       ESTADO.funcionarios = await apiListarFuncionarios();
       renderizarFuncionariosAdmin();
@@ -2157,6 +2269,7 @@ function abrirModalEditarFuncionario(id) {
   document.getElementById('edit-func-telefone').value = f.telefone || '';
   document.getElementById('edit-func-cargo').value = f.cargo;
   document.getElementById('edit-func-ativo').checked = f.ativo;
+  preencherCargaHorariaMarcada('edit-func', 'edit-func-carga-inicio', 'edit-func-carga-fim', f.carga_horaria);
 
   const grupo = document.getElementById('edit-grupo-permissoes');
   grupo.querySelectorAll('input[type="checkbox"]').forEach(cb => {
@@ -2248,22 +2361,4 @@ function configurarPreviewFonte() {
     }
   }
 
-  select.addEventListener('change', atualizar);
-  atualizar();
-}
-
-const FONTES_GOOGLE_ADMIN = {
-  'Poppins': 'Poppins:wght@400;600;700;800',
-  'Playfair Display': 'Playfair+Display:wght@500;700;800',
-  'Roboto': 'Roboto:wght@400;500;700;900',
-  'Montserrat': 'Montserrat:wght@400;600;700;800',
-  'Lato': 'Lato:wght@400;700;900',
-  'Inter': 'Inter:wght@400;500;600;700;800',
-  'Nunito': 'Nunito:wght@400;600;700;800',
-  'Quicksand': 'Quicksand:wght@400;600;700',
-  'Raleway': 'Raleway:wght@400;600;700;800',
-  'Work Sans': 'Work+Sans:wght@400;500;600;700',
-  'DM Sans': 'DM+Sans:wght@400;500;700',
-  'Merriweather': 'Merriweather:wght@400;700;900',
-  'Oswald': 'Oswald:wght@400;500;600;700'
-};
+  select.addEventLi
