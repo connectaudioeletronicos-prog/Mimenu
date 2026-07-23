@@ -20,6 +20,16 @@ const pedidoController = require('../controllers/pedidoController');
 
 router.use(autenticar);
 
+// O entregador nao usa mais o painel administrativo -- ele tem o proprio
+// app, mais simples (login -> checkin por QR -> aceitar/recusar/encerrar
+// entrega), nas rotas /funcionarios/entregas/*.
+router.use((req, res, next) => {
+  if (req.cargo === 'entregador') {
+    return res.status(403).json({ erro: 'Entregadores usam o app proprio de entregas, nao o painel administrativo.' });
+  }
+  next();
+});
+
 // Configuracoes da conta (dados, pagamento, paginas legais)
 router.get('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimentoController.buscarMeuEstabelecimento);
 router.put('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimentoController.atualizarConfiguracoes);
