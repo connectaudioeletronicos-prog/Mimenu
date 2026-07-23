@@ -190,24 +190,71 @@ async function contarPedidosAdmin(req, res) {
   }
 }
 
-// Escolhe o proximo entregador da fila pra um pedido que acabou de ser
-// confirmado como pronto pelo administrador. Regra absoluta: sempre
-// respeita a ordem de chegada (quem esta ha mais tempo esperando/disponivel
-// entra primeiro). Fica de fora da fila quem estiver inativo, indisponivel
-// ou ja estiver com uma entrega em andamento (saiu_entrega).
-async function atribuirProximoEntregador(estabelecimentoId) {
+// Escolhe o proximo entregador da fila pra OFERECER um pedido que acabou de
+// ficar pronto (ou que teve a oferta recusada por outro entregador). Regra
+// absoluta: sempre respeita a ordem de chegada (quem esta ha mais tempo
+// esperando/disponivel entra primeiro), um de cada vez. Fica de fora da fila
+// quem: estiver inativo, indisponivel, ja estiver com uma entrega em
+// andamento, nao tiver batido o ponto (QR) hoje, ou ja tiver recusado esse
+// mesmo pedido especificamente.
+async function proximoEntregadorElegivel(estabelecimentoId, jaRecusaram) {
+  const idsRecusaram = Array.isArray(jaRecusaram) ? jaRecusaram : [];
   const resultado = await query(
     `SELECT f.id, f.nome
      FROM funcionarios f
      WHERE f.estabelecimento_id = $1 AND f.cargo = 'entregador' AND f.ativo = true AND f.disponivel_entrega = true
+       AND f.ultimo_checkin_data = CURRENT_DATE
+       AND NOT (f.id::text = ANY($2::text[]))
        AND NOT EXISTS (
          SELECT 1 FROM pedidos p WHERE p.entregador_id = f.id AND p.status_pedido = 'saiu_entrega'
        )
      ORDER BY f.ultima_fila_em ASC NULLS FIRST, f.criado_em ASC
      LIMIT 1`,
-    [estabelecimentoId]
+    [estabelecimentoId, idsRecusaram]
   );
   return resultado.rows[0] || null;
+}
+
+// Tenta oferecer o pedido (que ja esta "pronto", sem entregador confirmado)
+// ao proximo entregador elegivel. Chamado: (1) assim que o pedido fica
+// pronto; (2) quando um entregador recusa (oferece pro proximo); (3) quando
+// um entregador bate o ponto ou fica disponivel de novo (pode "puxar" um
+// pedido que estava esperando fila vazia).
+async function tentarOfertarPedido(estabelecimentoId, pedidoId) {
+  const pedidoRes = await query(
+    `SELECT id, entregadores_recusaram FROM pedidos
+     WHERE id = $1 AND estabelecimento_id = $2 AND status_pedido = 'pronto' AND status_convite_entrega IS NULL`,
+    [pedidoId, estabelecimentoId]
+  );
+  if (pedidoRes.rows.length === 0) return null;
+
+  const entregador = await proximoEntregadorElegivel(estabelecimentoId, pedidoRes.rows[0].entregadores_recusaram || []);
+  if (!entregador) return null;
+
+  const atualizado = await query(
+    `UPDATE pedidos SET entregador_id = $1, entregador_nome = $2, status_convite_entrega = 'pendente'
+     WHERE id = $3 AND estabelecimento_id = $4 AND status_pedido = 'pronto' AND status_convite_entrega IS NULL
+     RETURNING *`,
+    [entregador.id, entregador.nome, pedidoId, estabelecimentoId]
+  );
+  return atualizado.rows[0] || null;
+}
+
+// Varre todos os pedidos "pronto" sem convite em aberto de um estabelecimento
+// e tenta ofertar cada um. Usado quando um entregador bate o ponto ou volta
+// a ficar disponivel, pra nao deixar pedido parado esperando so por causa
+// da ordem em que os eventos aconteceram.
+async function tentarOfertarPedidosPendentes(estabelecimentoId) {
+  const pendentes = await query(
+    `SELECT id FROM pedidos WHERE estabelecimento_id = $1 AND status_pedido = 'pronto' AND status_convite_entrega IS NULL
+     ORDER BY horario_pronto ASC NULLS LAST, criado_em ASC`,
+    [estabelecimentoId]
+  );
+  for (const p of pendentes.rows) {
+    // eslint-disable-next-line no-await-in-loop
+    const ofertado = await tentarOfertarPedido(estabelecimentoId, p.id);
+    if (!ofertado) break; // sem entregador livre; os proximos tambem nao vao ter
+  }
 }
 
 async function atualizarStatusPedido(req, res) {
@@ -249,12 +296,18 @@ async function atualizarStatusPedido(req, res) {
     }
 
     if (req.cargo === 'entregador') {
-      if (status_pedido !== 'entregue') {
-        return res.status(403).json({ erro: 'O entregador so pode marcar a entrega como concluida.' });
-      }
-      if (pedidoAtual.rows[0].entregador_id !== req.funcionarioId) {
-        return res.status(403).json({ erro: 'Esse pedido nao esta atribuido a voce.' });
-      }
+      // Entregador nao usa mais esse endpoint (ele tem os proprios:
+      // aceitar/recusar/encerrar em /funcionarios/entregas/*).
+      return res.status(403).json({ erro: 'Use a tela de entregas do app do entregador.' });
+    }
+
+    // "saiu_entrega" agora so acontece quando o proprio entregador ACEITA a
+    // oferta (PUT /funcionarios/entregas/:id/aceitar). O admin/cozinha nao
+    // pode mais forcar essa transicao manualmente por aqui.
+    if (status_pedido === 'saiu_entrega') {
+      return res.status(400).json({
+        erro: 'Esse status agora e definido automaticamente quando o entregador aceita a entrega. Marque o pedido como "pronto" que o sistema oferece a fila sozinho.'
+      });
     }
 
     // Impede voltar para um status anterior: o pedido so pode avancar na
@@ -272,35 +325,19 @@ async function atualizarStatusPedido(req, res) {
       }
     }
 
-    // Confirmar que o pedido esta pronto (pronto -> saiu_entrega) exige um
-    // entregador disponivel, ja que a atribuicao e sempre automatica e
-    // sempre respeita a ordem de chegada. Sem entregador livre, o pedido
-    // fica em "pronto" ate que algum fique disponivel.
-    if (status_pedido === 'saiu_entrega') {
-      const entregador = await atribuirProximoEntregador(req.estabelecimentoId);
-      if (!entregador) {
-        return res.status(409).json({ erro: 'Nenhum entregador disponivel no momento. O pedido continua como "pronto" ate que um entregador fique livre.' });
-      }
-      await query(
-        'UPDATE pedidos SET status_pedido = $1, entregador_id = $2, entregador_nome = $3, horario_saiu_entrega = NOW() WHERE id = $4 AND estabelecimento_id = $5',
-        [status_pedido, entregador.id, entregador.nome, id, req.estabelecimentoId]
-      );
-    } else if (status_pedido === 'pronto') {
+    if (status_pedido === 'pronto') {
       await query(
         'UPDATE pedidos SET status_pedido = $1, horario_pronto = NOW() WHERE id = $2 AND estabelecimento_id = $3',
         [status_pedido, id, req.estabelecimentoId]
       );
+      // Assim que fica pronto, ja tenta oferecer pro proximo entregador da
+      // fila (que so aceitando de fato vira "saiu_entrega"). Se ninguem
+      // estiver disponivel agora, o pedido fica esperando em "pronto" e sera
+      // ofertado automaticamente quando algum entregador bater o ponto ou
+      // ficar livre de novo.
+      await tentarOfertarPedido(req.estabelecimentoId, id);
     } else {
       await query('UPDATE pedidos SET status_pedido = $1 WHERE id = $2 AND estabelecimento_id = $3', [status_pedido, id, req.estabelecimentoId]);
-    }
-
-    // Entrega concluida: soma no contador do entregador e o manda pro fim
-    // da fila (proxima atribuicao respeita quem esta ha mais tempo esperando).
-    if (status_pedido === 'entregue' && pedidoAtual.rows[0].entregador_id) {
-      await query(
-        'UPDATE funcionarios SET total_entregas = total_entregas + 1, ultima_fila_em = NOW() WHERE id = $1',
-        [pedidoAtual.rows[0].entregador_id]
-      );
     }
 
     const final = await query('SELECT * FROM pedidos WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
@@ -484,6 +521,118 @@ async function criarPedidoManual(req, res) {
   }
 }
 
+// ===================================================================
+// App do entregador (rotas proprias, fora do painel administrativo).
+// ===================================================================
+
+// Pedido que esta oferecido pra esse entregador agora, aguardando ele
+// aceitar ou recusar. So um por vez (o proximo so e ofertado depois que
+// esse for resolvido).
+async function listarEntregaPendente(req, res) {
+  try {
+    const resultado = await query(
+      `SELECT id, cliente_nome, cliente_telefone, cliente_endereco, total, forma_pagamento, criado_em
+       FROM pedidos
+       WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_convite_entrega = 'pendente'
+       ORDER BY horario_pronto ASC LIMIT 1`,
+      [req.estabelecimentoId, req.funcionarioId]
+    );
+    res.json(resultado.rows[0] || null);
+  } catch (error) {
+    console.error('Erro ao buscar entrega pendente:', error);
+    res.status(500).json({ erro: 'Erro ao buscar entrega pendente.' });
+  }
+}
+
+// Entrega em andamento (ja aceita) desse entregador -- pra tela de
+// "entrega atual" com o botao de encerrar.
+async function entregaAtual(req, res) {
+  try {
+    const resultado = await query(
+      `SELECT * FROM pedidos
+       WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_pedido = 'saiu_entrega'
+       ORDER BY horario_saiu_entrega ASC LIMIT 1`,
+      [req.estabelecimentoId, req.funcionarioId]
+    );
+    res.json(resultado.rows[0] || null);
+  } catch (error) {
+    console.error('Erro ao buscar entrega atual:', error);
+    res.status(500).json({ erro: 'Erro ao buscar entrega atual.' });
+  }
+}
+
+async function aceitarEntrega(req, res) {
+  try {
+    const { id } = req.params;
+    const resultado = await query(
+      `UPDATE pedidos SET status_pedido = 'saiu_entrega', status_convite_entrega = 'aceito', horario_saiu_entrega = NOW()
+       WHERE id = $1 AND estabelecimento_id = $2 AND entregador_id = $3 AND status_convite_entrega = 'pendente'
+       RETURNING *`,
+      [id, req.estabelecimentoId, req.funcionarioId]
+    );
+    if (resultado.rows.length === 0) {
+      return res.status(409).json({ erro: 'Esse convite de entrega ja nao esta mais disponivel.' });
+    }
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao aceitar entrega:', error);
+    res.status(500).json({ erro: 'Erro ao aceitar entrega.' });
+  }
+}
+
+async function recusarEntrega(req, res) {
+  try {
+    const { id } = req.params;
+    const pedido = await query(
+      `UPDATE pedidos SET
+        entregador_id = NULL, entregador_nome = NULL, status_convite_entrega = NULL,
+        entregadores_recusaram = COALESCE(entregadores_recusaram, '[]'::jsonb) || to_jsonb($1::text)
+       WHERE id = $2 AND estabelecimento_id = $3 AND entregador_id = $4 AND status_convite_entrega = 'pendente'
+       RETURNING id`,
+      [req.funcionarioId, id, req.estabelecimentoId, req.funcionarioId]
+    );
+    if (pedido.rows.length === 0) {
+      return res.status(409).json({ erro: 'Esse convite de entrega ja nao esta mais disponivel.' });
+    }
+    await tentarOfertarPedido(req.estabelecimentoId, id);
+    res.json({ mensagem: 'Entrega recusada. Oferecida ao proximo entregador da fila.' });
+  } catch (error) {
+    console.error('Erro ao recusar entrega:', error);
+    res.status(500).json({ erro: 'Erro ao recusar entrega.' });
+  }
+}
+
+async function encerrarEntrega(req, res) {
+  try {
+    const { id } = req.params;
+    const resultado = await query(
+      `UPDATE pedidos SET status_pedido = 'entregue'
+       WHERE id = $1 AND estabelecimento_id = $2 AND entregador_id = $3 AND status_pedido = 'saiu_entrega'
+       RETURNING *`,
+      [id, req.estabelecimentoId, req.funcionarioId]
+    );
+    if (resultado.rows.length === 0) {
+      return res.status(409).json({ erro: 'Essa entrega nao esta mais em andamento.' });
+    }
+
+    // Volta pro fim da fila (proxima oferta respeita ordem de chegada) e
+    // conta a entrega concluida.
+    await query(
+      'UPDATE funcionarios SET total_entregas = total_entregas + 1, ultima_fila_em = NOW() WHERE id = $1',
+      [req.funcionarioId]
+    );
+
+    // Ao ficar livre de novo, ja tenta puxar algum pedido "pronto" que
+    // estivesse esperando fila vazia.
+    await tentarOfertarPedidosPendentes(req.estabelecimentoId);
+
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao encerrar entrega:', error);
+    res.status(500).json({ erro: 'Erro ao encerrar entrega.' });
+  }
+}
+
 module.exports = {
   criarPedido,
   criarPedidoManual,
@@ -494,5 +643,11 @@ module.exports = {
   atualizarStatusPedido,
   corrigirValoresPedido,
   listarPedidosCliente,
-  obterCaixaGeral
+  obterCaixaGeral,
+  tentarOfertarPedidosPendentes,
+  listarEntregaPendente,
+  entregaAtual,
+  aceitarEntrega,
+  recusarEntrega,
+  encerrarEntrega
 };
