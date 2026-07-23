@@ -64,10 +64,11 @@
       finalização do pedido (não no agendamento)
 - [ ] Reserva de mesa (só para lojas com atendimento local): cliente solicita,
       cai no dashboard da loja, admin confirma mesa/quantidade/horário
-- [ ] Notificação pro cliente quando a cozinha marcar o pedido como pronto
-      (delivery)
+- [x] Notificação pro cliente quando a cozinha marcar o pedido como pronto
+      (delivery) — status "pronto" entra na timeline do acompanhamento do
+      cliente + notificação do navegador (best-effort) em 22/07
 - [ ] Rastreamento por GPS do entregador dentro do app do cliente
-- [ ] Opção de gorjeta no fechamento do pedido
+- [x] Opção de gorjeta no fechamento do pedido
 
 ## Promoções
 - [ ] Duração opcional (data/hora início → data/hora fim). Ao expirar, a
@@ -75,6 +76,24 @@
       podendo ser reativada no futuro
 
 ## Dashboard do lojista
+- [x] Aba "Funcionarios" virou aba "Equipe" (visão operacional por função:
+      Cozinha / Entregadores / Atendimento) + botão "⚙️ Cadastro de
+      funcionarios" no canto superior direito, abrindo o cadastro completo
+      como subpágina fixa (não modal/flutuante) — 22/07
+- [x] Cargos "Cozinha" e "Entregador" adicionados ao cadastro de
+      funcionários — 22/07
+- [x] Fluxo completo de status do pedido: novo → preparando (admin aceita,
+      informa o cliente) → pronto (cozinha marca, soa bip no dashboard e
+      avisa o cliente) → saiu_entrega (admin confirma, sistema atribui
+      automaticamente ao próximo entregador da fila) → entregue. Cada etapa
+      só avança pra próxima (sem pular ou voltar) — 22/07
+- [x] Fila de entregadores por ordem de chegada (regra absoluta): atribuição
+      automática sempre pro entregador disponível há mais tempo esperando;
+      ao concluir uma entrega ele volta pro fim da fila. Toggle de
+      disponibilidade na aba Equipe — 22/07
+- [x] Campainha ao receber pedido novo e bipe ao cozinha marcar pronto, no
+      dashboard do administrador (Web Audio, sem depender de arquivo de
+      áudio) — 22/07
 - [ ] Páginas separadas para atendimento "Mesa" e "Delivery", permitindo
       marcar pedidos por tipo
 - [ ] Cupons de desconto:
@@ -108,13 +127,17 @@
   - Esse funcionário pode fazer pedidos e cobrança, mas **não pode
     cancelar** um pedido já gerado — qualquer problema precisa passar
     pelo gerente.
-- [ ] **App da cozinha:** QR Code gerado pelo admin. Só visualização de
-      produtos e descrição (sem valor). Recebe pedidos do admin, marca como
-      "pronto" quando finalizado
-- [ ] **App do entregador:**
-  - Recebe pedido pronto do admin (ou retira e confirma manualmente)
-  - Marca "entregue" ao finalizar
-  - Contador de entregas realizadas
+- [x]/[ ] **App da cozinha:** por enquanto funciona *dentro do próprio
+      dashboard* — funcionário com cargo "Cozinha" só vê pedidos em preparo,
+      sem valores, com botão único "Marcar como pronto" (22/07). Ainda falta:
+      QR Code de acesso dedicado gerado pelo admin (sem precisar de
+      login completo)
+- [x]/[ ] **App do entregador:** por enquanto funciona *dentro do próprio
+      dashboard* — funcionário com cargo "Entregador" só vê os pedidos
+      atribuídos a ele, com botão "Marcar como entregue"; atribuição
+      automática sempre por ordem de chegada; contador de entregas
+      realizadas e toggle de disponibilidade (22/07). Ainda faltam:
+  - QR Code de acesso dedicado gerado pelo admin
   - Bloqueio de 30 min se exceder o tempo estimado sem finalizar
   - Se não encontrar o cliente: retorna pra loja e só pode tentar de novo
     após contato/liberação da loja
@@ -124,4 +147,7 @@
     entregador) só se comunica com o admin — nunca entre si diretamente
 
 ---
-*Última atualização: 22/07/2026 (migration dados_legais confirmada; validação de slug/URL limpa concluída; construtor de página com drag-and-drop concluído — os 3 itens em aberto foram resolvidos)*
+*Última atualização: 22/07/2026 (Equipe: aba Funcionarios reestruturada com
+vista operacional por função + fluxo completo de status do pedido com
+campainha/bipe no dashboard + fila automática de entregadores por ordem de
+chegada + notificação de "pronto" pro cliente)*
