@@ -67,6 +67,9 @@ router.delete('/caixas-texto/:id', exigirPermissao('gerenciar_cardapio'), caixaT
 // concluidos/cancelados sao filtrados dentro do controller conforme permissao).
 router.get('/pedidos', pedidoController.listarPedidosAdmin);
 router.get('/pedidos/contagem', pedidoController.contarPedidosAdmin);
+// Pedido lancado manualmente pelo garcom/atendimento (balcao/mesa) --
+// ja entra direto em preparo, sem precisar do aceite do administrador.
+router.post('/pedidos', exigirPermissao('criar_pedidos'), pedidoController.criarPedidoManual);
 
 // Caixa geral - resumo dos valores das entregas concluidas. So gerente e
 // administrador (ou quem tiver a permissao marcada) tem acesso.
