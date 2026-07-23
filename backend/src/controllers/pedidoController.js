@@ -420,8 +420,73 @@ async function obterCaixaGeral(req, res) {
   }
 }
 
+// Pedido lancado manualmente por quem tem a permissao 'criar_pedidos'
+// (garcom, caixa, colaborador, administrador...) -- pedido feito
+// presencialmente (balcao/mesa), diferente do pedido publico que o
+// cliente faz sozinho pelo cardapio. Como quem esta lancando ja "aceitou"
+// o pedido na hora, ele entra direto como "preparando" (pula o "novo"),
+// indo direto pra cozinha.
+async function criarPedidoManual(req, res) {
+  try {
+    const { cliente_nome, itens, forma_pagamento, observacoes } = req.body;
+
+    if (!cliente_nome || !cliente_nome.trim()) {
+      return res.status(400).json({ erro: 'Informe o nome do cliente ou a identificacao da mesa.' });
+    }
+    if (!Array.isArray(itens) || itens.length === 0) {
+      return res.status(400).json({ erro: 'Adicione pelo menos um item ao pedido.' });
+    }
+    const formasValidas = ['dinheiro', 'pix', 'cartao_credito', 'cartao_debito'];
+    if (!formasValidas.includes(forma_pagamento)) {
+      return res.status(400).json({ erro: 'Forma de pagamento invalida.' });
+    }
+
+    // Preco sempre recalculado a partir do banco (nunca confia no valor
+    // que vier do front), igual ao pedido publico.
+    let subtotal = 0;
+    const itensValidados = [];
+    for (const item of itens) {
+      const quantidade = parseInt(item.quantidade, 10);
+      if (!item.produto_id || !quantidade || quantidade <= 0) {
+        return res.status(400).json({ erro: 'Item de pedido invalido.' });
+      }
+      const prodRes = await query(
+        'SELECT id, nome, preco, preco_promocional, disponivel FROM produtos WHERE id = $1 AND estabelecimento_id = $2',
+        [item.produto_id, req.estabelecimentoId]
+      );
+      if (prodRes.rows.length === 0) return res.status(400).json({ erro: `Produto nao encontrado: ${item.produto_id}` });
+      const produto = prodRes.rows[0];
+      if (!produto.disponivel) return res.status(400).json({ erro: `Produto indisponivel: ${produto.nome}` });
+      const preco = produto.preco_promocional && parseFloat(produto.preco_promocional) < parseFloat(produto.preco)
+        ? parseFloat(produto.preco_promocional) : parseFloat(produto.preco);
+      subtotal += preco * quantidade;
+      itensValidados.push({ produto_id: produto.id, nome: produto.nome, preco, quantidade });
+    }
+
+    const total = subtotal;
+
+    const resultado = await query(
+      `INSERT INTO pedidos (
+        estabelecimento_id, cliente_nome, cliente_telefone, itens, subtotal, taxa_entrega,
+        gorjeta, total, forma_pagamento, status_pagamento, status_pedido, tipo_pedido, observacoes
+      ) VALUES ($1, $2, $3, $4, $5, 0, 0, $6, $7, 'pago', 'preparando', 'balcao', $8)
+      RETURNING *`,
+      [req.estabelecimentoId, cliente_nome.trim(), '(balcao)', JSON.stringify(itensValidados), subtotal, total, forma_pagamento, observacoes || null]
+    );
+
+    const { registrarAuditoria } = require('./funcionarioController');
+    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'CRIAR_PEDIDO_MANUAL', 'pedidos', resultado.rows[0].id, null, resultado.rows[0], req.ip);
+
+    res.status(201).json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao criar pedido manual:', error);
+    res.status(500).json({ erro: 'Erro ao criar pedido.' });
+  }
+}
+
 module.exports = {
   criarPedido,
+  criarPedidoManual,
   consultarStatusPedido,
   webhookMercadoPago,
   listarPedidosAdmin,
