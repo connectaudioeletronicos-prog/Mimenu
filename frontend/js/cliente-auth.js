@@ -6,8 +6,8 @@ const CHAVE_TOKEN_CLIENTE = 'palatos_token_cliente';
 const CHAVE_CONTA_CLIENTE = 'palatos_conta_cliente';
 
 function salvarSessaoCliente(token, conta) {
-  localStorage.setItem(CHAVE_TOKEN_CLIENTE, token);
-  localStorage.setItem(CHAVE_CONTA_CLIENTE, JSON.stringify(conta));
+  sessionStorage.setItem(CHAVE_TOKEN_CLIENTE, token);
+  sessionStorage.setItem(CHAVE_CONTA_CLIENTE, JSON.stringify(conta));
 }
 
 function mostrarErro(id, mensagem) {
