@@ -36,6 +36,7 @@ async function iniciar() {
     montarBlocosDinamicos(DADOS.carrosseis, DADOS.vitrines, DADOS.caixasTexto);
     montarRodape(DADOS.estabelecimento);
     configurarEventosGlobais();
+    configurarReserva();
     document.getElementById('tela-carregando').classList.add('oculto');
     document.getElementById('app').classList.remove('oculto');
   } catch (erro) {
@@ -1118,4 +1119,50 @@ function traduzirStatus(status) {
     cancelado: 'Cancelado'
   };
   return mapa[status] || status;
+}
+
+// Reserva de mesa: recurso opcional (so aparece se a loja tiver ativado em
+// Configuracoes). Botao discreto no canto superior esquerdo -> abre um
+// formulario simples (dia, hora, quantidade de pessoas) -> POST publico.
+function configurarReserva() {
+  const botaoAbrir = document.getElementById('botao-abrir-reserva');
+  const modal = document.getElementById('modal-reserva');
+  const form = document.getElementById('form-reserva');
+  const botaoFechar = document.getElementById('botao-fechar-reserva');
+  const erroEl = document.getElementById('reserva-erro');
+
+  if (!DADOS.estabelecimento.reserva_mesa_ativa) return;
+  botaoAbrir.classList.remove('oculto');
+
+  botaoAbrir.addEventListener('click', () => {
+    erroEl.classList.add('oculto');
+    modal.classList.remove('oculto');
+  });
+  botaoFechar.addEventListener('click', () => modal.classList.add('oculto'));
+
+  form.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    erroEl.classList.add('oculto');
+    const botaoEnviar = form.querySelector('button[type="submit"]');
+    botaoEnviar.disabled = true;
+    try {
+      await criarReserva(SLUG_ESTABELECIMENTO, {
+        cliente_nome: document.getElementById('reserva-nome').value.trim(),
+        cliente_telefone: document.getElementById('reserva-telefone').value.trim(),
+        data_reserva: document.getElementById('reserva-data').value,
+        horario_reserva: document.getElementById('reserva-hora').value,
+        quantidade_pessoas: document.getElementById('reserva-pessoas').value,
+        observacoes: document.getElementById('reserva-observacoes').value.trim() || null
+      });
+      form.reset();
+      document.getElementById('reserva-pessoas').value = 2;
+      modal.classList.add('oculto');
+      alert('Reserva enviada! Aguarde a confirmacao da loja.');
+    } catch (erro) {
+      erroEl.textContent = erro.message;
+      erroEl.classList.remove('oculto');
+    } finally {
+      botaoEnviar.disabled = false;
+    }
+  });
 }
