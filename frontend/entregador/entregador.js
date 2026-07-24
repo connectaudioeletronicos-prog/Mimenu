@@ -164,6 +164,25 @@ function pararCamera() {
 
 document.getElementById('botao-sair-checkin').addEventListener('click', fazerLogout);
 
+document.getElementById('botao-nao-consigo-escanear').addEventListener('click', () => {
+  pararCamera();
+  document.getElementById('checkin-manual').classList.remove('oculto');
+});
+
+document.getElementById('botao-confirmar-codigo-manual').addEventListener('click', async () => {
+  const erroEl = document.getElementById('checkin-erro');
+  const codigo = document.getElementById('checkin-codigo-manual').value.trim();
+  if (!codigo) return;
+  try {
+    const resultado = await chamarApi('/checkin', { method: 'POST', body: { token: codigo } });
+    mostrarToast(resultado.mensagem || 'Checkin realizado!');
+    iniciarAguardandoPedido();
+  } catch (erro) {
+    erroEl.textContent = erro.message;
+    erroEl.classList.remove('oculto');
+  }
+});
+
 // -------------------- Fila de espera + oferta de entrega --------------------
 function iniciarAguardandoPedido() {
   mostrarTela('tela-aguardando');
