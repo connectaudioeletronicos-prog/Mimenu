@@ -440,7 +440,7 @@ async function obterQrcodeDoDia(req, res) {
     // O conteudo do QR e so o token (o app do entregador le e manda pro
     // endpoint de checkin -- nao precisa ser um link).
     const qrcodeBase64 = await gerarQRCodeBase64(token);
-    res.json({ qrcode_base64: qrcodeBase64, valido_ate: 'fim do dia' });
+    res.json({ qrcode_base64: qrcodeBase64, codigo: token, valido_ate: 'fim do dia' });
   } catch (error) {
     console.error('Erro ao gerar QR Code do dia:', error);
     res.status(500).json({ erro: 'Erro ao gerar QR Code do dia.' });
