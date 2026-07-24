@@ -159,6 +159,31 @@ async function sincronizarSchema() {
     console.error('Aviso: nao foi possivel sincronizar telefone em contas_clientes:', error.message);
   }
 
+  // Reserva de mesa: recurso opcional por loja (fica desligado ate o
+  // lojista ativar na aba Configuracoes do painel).
+  try {
+    await pool.query(`
+      ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS reserva_mesa_ativa BOOLEAN DEFAULT false;
+
+      CREATE TABLE IF NOT EXISTS reservas (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        estabelecimento_id UUID NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
+        cliente_nome VARCHAR(150) NOT NULL,
+        cliente_telefone VARCHAR(20) NOT NULL,
+        data_reserva DATE NOT NULL,
+        horario_reserva VARCHAR(5) NOT NULL,
+        quantidade_pessoas INT NOT NULL,
+        observacoes TEXT,
+        status VARCHAR(20) NOT NULL DEFAULT 'pendente',
+        criado_em TIMESTAMP DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_reservas_estabelecimento ON reservas(estabelecimento_id);
+    `);
+    console.log('Schema sincronizado: reserva de mesa (config + tabela reservas) verificada.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar reserva de mesa:', error.message);
+  }
+
   // Permite vincular uma imagem do carrossel (ou uma vitrine inteira) a um
   // produto do cardapio: ao tocar na imagem, o cliente ve direto a pagina
   // daquele produto. Fica opcional (null = imagem so ilustrativa).
