@@ -223,7 +223,8 @@ async function proximoEntregadorElegivel(estabelecimentoId, jaRecusaram) {
 async function tentarOfertarPedido(estabelecimentoId, pedidoId) {
   const pedidoRes = await query(
     `SELECT id, entregadores_recusaram FROM pedidos
-     WHERE id = $1 AND estabelecimento_id = $2 AND status_pedido = 'pronto' AND status_convite_entrega IS NULL`,
+     WHERE id = $1 AND estabelecimento_id = $2 AND status_pedido = 'pronto' AND status_convite_entrega IS NULL
+       AND tipo_pedido = 'entrega'`,
     [pedidoId, estabelecimentoId]
   );
   if (pedidoRes.rows.length === 0) return null;
@@ -247,6 +248,7 @@ async function tentarOfertarPedido(estabelecimentoId, pedidoId) {
 async function tentarOfertarPedidosPendentes(estabelecimentoId) {
   const pendentes = await query(
     `SELECT id FROM pedidos WHERE estabelecimento_id = $1 AND status_pedido = 'pronto' AND status_convite_entrega IS NULL
+       AND tipo_pedido = 'entrega'
      ORDER BY horario_pronto ASC NULLS LAST, criado_em ASC`,
     [estabelecimentoId]
   );
@@ -465,7 +467,7 @@ async function obterCaixaGeral(req, res) {
 // indo direto pra cozinha.
 async function criarPedidoManual(req, res) {
   try {
-    const { cliente_nome, itens, forma_pagamento, observacoes } = req.body;
+    const { cliente_nome, itens, forma_pagamento, observacoes, enviar_entrega } = req.body;
 
     if (!cliente_nome || !cliente_nome.trim()) {
       return res.status(400).json({ erro: 'Informe o nome do cliente ou a identificacao da mesa.' });
@@ -501,14 +503,19 @@ async function criarPedidoManual(req, res) {
     }
 
     const total = subtotal;
+    // Pedido de balcao/mesa nao entra na fila do entregador por padrao (nao
+    // faz sentido pra quem ja esta comendo no local). O "gancho" opcional
+    // enviar_entrega deixa o atendente marcar que esse pedido especifico
+    // precisa ser entregue mesmo assim (ex: veio por WhatsApp).
+    const tipoPedido = enviar_entrega === true ? 'entrega' : 'balcao';
 
     const resultado = await query(
       `INSERT INTO pedidos (
         estabelecimento_id, cliente_nome, cliente_telefone, itens, subtotal, taxa_entrega,
         gorjeta, total, forma_pagamento, status_pagamento, status_pedido, tipo_pedido, observacoes
-      ) VALUES ($1, $2, $3, $4, $5, 0, 0, $6, $7, 'pago', 'preparando', 'balcao', $8)
+      ) VALUES ($1, $2, $3, $4, $5, 0, 0, $6, $7, 'pago', 'preparando', $8, $9)
       RETURNING *`,
-      [req.estabelecimentoId, cliente_nome.trim(), '(balcao)', JSON.stringify(itensValidados), subtotal, total, forma_pagamento, observacoes || null]
+      [req.estabelecimentoId, cliente_nome.trim(), '(balcao)', JSON.stringify(itensValidados), subtotal, total, forma_pagamento, tipoPedido, observacoes || null]
     );
 
     const { registrarAuditoria } = require('./funcionarioController');
