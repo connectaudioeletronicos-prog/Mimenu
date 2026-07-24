@@ -94,6 +94,8 @@
       <button class="painel__menu-item" data-aba="caixa-geral">💰 Caixa Geral</button>
       <button class="painel__menu-item" data-aba="pagamento">💳 Pagamento</button>
       <button class="painel__menu-item" data-aba="paginas-legais">📄 Paginas legais</button>
+      <button class="painel__menu-item" data-aba="configuracoes">⚙️ Configurações</button>
+      <button class="painel__menu-item oculto" data-aba="reservas" id="menu-item-reservas">📅 Reservas</button>
       <a href="divulgacao.html" class="painel__menu-item">📣 Divulgação (QR Code / Link)</a>
       <button class="painel__menu-item" data-aba="senha">🔒 Senha</button>
       <button class="painel__menu-item" data-aba="funcionarios" id="menu-item-funcionarios">👥 Funcionarios <span class="painel__menu-contador" data-menu-contador="funcionarios"></span></button>
@@ -471,6 +473,21 @@
         </div>
 
         <button id="botao-salvar-paginas-legais" class="botao-primario">Salvar paginas legais</button>
+      </section>
+
+      <section id="aba-configuracoes" class="aba oculto">
+        <h2 class="aba__titulo">Configurações</h2>
+        <p class="aba__descricao">Ligue recursos opcionais da sua loja.</p>
+
+        <label style="display:flex; align-items:center; gap:10px; font-weight:normal; margin-top:10px;">
+          <input type="checkbox" id="config-reserva-mesa-ativa" style="width:auto;">
+          Ativar reserva de mesa (aparece um menu "Reserva" no app do cliente)
+        </label>
+      </section>
+
+      <section id="aba-reservas" class="aba oculto">
+        <h2 class="aba__titulo">Reservas de mesa</h2>
+        <div id="lista-reservas-admin" class="lista-itens-admin"></div>
       </section>
 
       <section id="aba-senha" class="aba oculto">
