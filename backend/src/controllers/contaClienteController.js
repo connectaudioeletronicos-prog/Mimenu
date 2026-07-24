@@ -9,12 +9,15 @@ const { query } = require('../config/database');
 async function cadastrar(req, res) {
   try {
     const {
-      nome, sobrenome, email, senha,
+      nome, sobrenome, email, telefone, senha,
       cpf, cep, logradouro, numero, bairro, cidade, uf
     } = req.body;
 
-    if (!nome || !sobrenome || !email || !senha) {
-      return res.status(400).json({ erro: 'Nome, sobrenome, e-mail e senha sao obrigatorios.' });
+    if (!nome || !sobrenome || !senha) {
+      return res.status(400).json({ erro: 'Nome, sobrenome e senha sao obrigatorios.' });
+    }
+    if (!email && !telefone) {
+      return res.status(400).json({ erro: 'Informe pelo menos um e-mail ou telefone para contato.' });
     }
     if (senha.length < 6) {
       return res.status(400).json({ erro: 'A senha deve ter pelo menos 6 caracteres.' });
@@ -28,22 +31,25 @@ async function cadastrar(req, res) {
       return res.status(400).json({ erro: 'Preencha todos os dados de endereco.' });
     }
 
+    const emailLimpo = email ? email.toLowerCase().trim() : null;
+    const telefoneLimpo = telefone ? telefone.replace(/\D/g, '') : null;
+
     const existente = await query(
-      'SELECT id FROM contas_clientes WHERE email = $1 OR cpf = $2',
-      [email.toLowerCase().trim(), cpfLimpo]
+      'SELECT id FROM contas_clientes WHERE cpf = $1 OR (email IS NOT NULL AND email = $2) OR (telefone IS NOT NULL AND telefone = $3)',
+      [cpfLimpo, emailLimpo, telefoneLimpo]
     );
     if (existente.rows.length > 0) {
-      return res.status(409).json({ erro: 'Ja existe uma conta com esse e-mail ou CPF.' });
+      return res.status(409).json({ erro: 'Ja existe uma conta com esse e-mail, telefone ou CPF.' });
     }
 
     const senhaHash = await bcrypt.hash(senha, 10);
 
     const resultado = await query(
       `INSERT INTO contas_clientes
-        (nome, sobrenome, email, senha_hash, cpf, cep, logradouro, numero, bairro, cidade, uf)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id, nome, sobrenome, email`,
+        (nome, sobrenome, email, telefone, senha_hash, cpf, cep, logradouro, numero, bairro, cidade, uf)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, nome, sobrenome, email, telefone`,
       [
-        nome.trim(), sobrenome.trim(), email.toLowerCase().trim(), senhaHash,
+        nome.trim(), sobrenome.trim(), emailLimpo, telefoneLimpo, senhaHash,
         cpfLimpo, cep, logradouro.trim(), numero.trim(), bairro.trim(), cidade.trim(), uf.toUpperCase()
       ]
     );
@@ -69,21 +75,24 @@ async function login(req, res) {
   try {
     const { email, senha } = req.body;
     if (!email || !senha) {
-      return res.status(400).json({ erro: 'E-mail e senha sao obrigatorios.' });
+      return res.status(400).json({ erro: 'E-mail/telefone e senha sao obrigatorios.' });
     }
+    const identificador = email.toLowerCase().trim();
+    const identificadorTelefone = identificador.replace(/\D/g, '');
 
     const resultado = await query(
-      'SELECT id, nome, sobrenome, email, senha_hash FROM contas_clientes WHERE email = $1',
-      [email.toLowerCase().trim()]
+      `SELECT id, nome, sobrenome, email, senha_hash FROM contas_clientes
+       WHERE email = $1 OR (telefone IS NOT NULL AND telefone = $2)`,
+      [identificador, identificadorTelefone]
     );
     if (resultado.rows.length === 0) {
-      return res.status(401).json({ erro: 'E-mail ou senha invalidos.' });
+      return res.status(401).json({ erro: 'E-mail/telefone ou senha invalidos.' });
     }
 
     const conta = resultado.rows[0];
     const senhaCorreta = await bcrypt.compare(senha, conta.senha_hash);
     if (!senhaCorreta) {
-      return res.status(401).json({ erro: 'E-mail ou senha invalidos.' });
+      return res.status(401).json({ erro: 'E-mail/telefone ou senha invalidos.' });
     }
 
     const token = jwt.sign(
