@@ -43,6 +43,15 @@ function sanitizarPermissoes(permissoes) {
   return permissoes.filter(p => PERMISSOES_VALIDAS.includes(p));
 }
 
+function gerarTokenSessao(funcionario, estabelecimentoId, slug) {
+  const permissoes = funcionario.cargo === 'administrador' ? PERMISSOES_VALIDAS : (funcionario.permissoes || []);
+  return jwt.sign(
+    { funcionarioId: funcionario.id, estabelecimentoId, cargo: funcionario.cargo, permissoes, slug },
+    process.env.JWT_SECRET,
+    { expiresIn: '8h' }
+  );
+}
+
 // Login de funcionario
 async function loginFuncionario(req, res) {
   try {
@@ -71,12 +80,7 @@ async function loginFuncionario(req, res) {
     if (!senhaCorreta) return res.status(401).json({ erro: 'Login ou senha invalidos.' });
 
     const permissoes = funcionario.cargo === 'administrador' ? PERMISSOES_VALIDAS : (funcionario.permissoes || []);
-
-    const token = jwt.sign(
-      { funcionarioId: funcionario.id, estabelecimentoId, cargo: funcionario.cargo, permissoes, slug },
-      process.env.JWT_SECRET,
-      { expiresIn: '8h' }
-    );
+    const token = gerarTokenSessao(funcionario, estabelecimentoId, slug);
 
     await registrarAuditoria(estabelecimentoId, funcionario.id, funcionario.nome, 'LOGIN', 'funcionarios', funcionario.id, null, null, req.ip);
 
@@ -93,11 +97,40 @@ async function loginFuncionario(req, res) {
   }
 }
 
+// Login por link definitivo (so pra facilitar o acesso -- nao substitui o
+// login com senha, que continua funcionando normalmente). O funcionario
+// recebe esse link uma vez, ao ser cadastrado, e pode salvar/favoritar.
+async function acessarPorLink(req, res) {
+  try {
+    const { token } = req.params;
+    const resultado = await query(
+      `SELECT f.id, f.nome, f.cargo, f.permissoes, f.ativo, e.id AS estabelecimento_id, e.slug, e.nome AS estabelecimento_nome
+       FROM funcionarios f JOIN estabelecimentos e ON e.id = f.estabelecimento_id
+       WHERE f.token_acesso = $1`,
+      [token]
+    );
+    if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Link de acesso invalido.' });
+    const f = resultado.rows[0];
+    if (!f.ativo) return res.status(403).json({ erro: 'Funcionario desativado.' });
+
+    const permissoes = f.cargo === 'administrador' ? PERMISSOES_VALIDAS : (f.permissoes || []);
+    const tokenSessao = gerarTokenSessao({ id: f.id, cargo: f.cargo, permissoes }, f.estabelecimento_id, f.slug);
+
+    res.json({
+      token: tokenSessao,
+      funcionario: { id: f.id, nome: f.nome, cargo: f.cargo, permissoes, slug: f.slug, estabelecimentoNome: f.estabelecimento_nome }
+    });
+  } catch (error) {
+    console.error('Erro no acesso por link:', error);
+    res.status(500).json({ erro: 'Erro interno ao processar o acesso.' });
+  }
+}
+
 // Listar funcionarios
 async function listar(req, res) {
   try {
     const resultado = await query(
-      `SELECT id, nome, email, username, telefone, celular, data_nascimento, rg, cpf, cargo, permissoes, ativo, ordem, carga_horaria, criado_em
+      `SELECT id, nome, email, username, telefone, celular, data_nascimento, rg, cpf, cargo, permissoes, ativo, ordem, carga_horaria, token_acesso, criado_em
        FROM funcionarios WHERE estabelecimento_id = $1 ORDER BY ordem ASC, criado_em ASC`,
       [req.estabelecimentoId]
     );
@@ -133,14 +166,15 @@ async function criar(req, res) {
 
     const permissoesFinais = cargo === 'administrador' ? PERMISSOES_VALIDAS : sanitizarPermissoes(permissoes);
     const senhaHash = await bcrypt.hash(senha, 10);
+    const tokenAcesso = crypto.randomBytes(20).toString('hex');
 
     const contagemTotal = await query('SELECT COUNT(*) FROM funcionarios WHERE estabelecimento_id = $1', [req.estabelecimentoId]);
     const proximaOrdem = parseInt(contagemTotal.rows[0].count);
 
     const resultado = await query(
-      `INSERT INTO funcionarios (estabelecimento_id, nome, email, username, telefone, senha_hash, cargo, permissoes, ordem, carga_horaria)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem, carga_horaria`,
-      [req.estabelecimentoId, nome, email, username || null, telefone || null, senhaHash, cargo, JSON.stringify(permissoesFinais), proximaOrdem, JSON.stringify(sanitizarCargaHoraria(carga_horaria))]
+      `INSERT INTO funcionarios (estabelecimento_id, nome, email, username, telefone, senha_hash, cargo, permissoes, ordem, carga_horaria, token_acesso)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem, carga_horaria, token_acesso`,
+      [req.estabelecimentoId, nome, email, username || null, telefone || null, senhaHash, cargo, JSON.stringify(permissoesFinais), proximaOrdem, JSON.stringify(sanitizarCargaHoraria(carga_horaria)), tokenAcesso]
     );
 
     const novo = resultado.rows[0];
@@ -281,7 +315,7 @@ async function listarEquipeOperacional(req, res) {
   try {
     const resultado = await query(
       `SELECT f.id, f.nome, f.email, f.cargo, f.ativo, f.disponivel_entrega,
-              f.total_entregas, f.ultima_fila_em,
+              f.total_entregas, f.ultima_fila_em, f.token_acesso, f.carga_horaria, f.liberado_hora_extra_data,
               EXISTS (
                 SELECT 1 FROM pedidos p
                 WHERE p.entregador_id = f.id AND p.status_pedido = 'saiu_entrega'
@@ -486,9 +520,80 @@ async function checkinEntregador(req, res) {
   }
 }
 
+// ===================================================================
+// Horario de funcionamento do app (carga horaria) + liberacao de hora extra
+// ===================================================================
+
+// true = pode usar o app agora. Sem carga horaria configurada = sem
+// restricao nenhuma (sempre liberado).
+function dentroDoHorario(cargaHoraria) {
+  if (!cargaHoraria || !Array.isArray(cargaHoraria.dias) || cargaHoraria.dias.length === 0 || !cargaHoraria.inicio || !cargaHoraria.fim) {
+    return true;
+  }
+  const agora = new Date();
+  const diaSemana = DIAS_SEMANA_VALIDOS[agora.getDay()];
+  if (!cargaHoraria.dias.includes(diaSemana)) return false;
+  const horaAtual = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`;
+  return horaAtual >= cargaHoraria.inicio && horaAtual <= cargaHoraria.fim;
+}
+
+// Middleware: bloqueia o uso do app fora do horario configurado, a menos
+// que o gestor tenha liberado hora extra pra hoje. So se aplica aos apps
+// proprios de funcionario (entregador etc.), nunca ao painel administrativo.
+async function exigirDentroDoHorario(req, res, next) {
+  try {
+    const resultado = await query(
+      'SELECT carga_horaria, liberado_hora_extra_data FROM funcionarios WHERE id = $1',
+      [req.funcionarioId]
+    );
+    const f = resultado.rows[0];
+    if (!f) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
+
+    const liberadoHoje = f.liberado_hora_extra_data && new Date(f.liberado_hora_extra_data).toDateString() === new Date().toDateString();
+    if (liberadoHoje || dentroDoHorario(f.carga_horaria)) return next();
+
+    return res.status(403).json({ erro: 'Fora do horario de expediente. Peca ao seu gestor pra liberar hora extra se precisar acessar agora.', fora_do_horario: true });
+  } catch (error) {
+    console.error('Erro ao verificar horario do funcionario:', error);
+    res.status(500).json({ erro: 'Erro ao verificar horario.' });
+  }
+}
+
+// Gestor libera hora extra pra um funcionario especifico, valido so hoje.
+async function liberarHoraExtra(req, res) {
+  try {
+    const { id } = req.params;
+    const resultado = await query(
+      `UPDATE funcionarios SET liberado_hora_extra_data = CURRENT_DATE
+       WHERE id = $1 AND estabelecimento_id = $2 RETURNING id`,
+      [id, req.estabelecimentoId]
+    );
+    if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
+    res.json({ mensagem: 'Hora extra liberada para hoje. Reenvie o link/QR de acesso dele se precisar.' });
+  } catch (error) {
+    console.error('Erro ao liberar hora extra:', error);
+    res.status(500).json({ erro: 'Erro ao liberar hora extra.' });
+  }
+}
+
+// Gera um QR Code generico a partir de qualquer texto/link (usado pelo
+// painel pra transformar o link de acesso de um funcionario em QR, por
+// exemplo). Nao guarda nada -- so converte o conteudo recebido em imagem.
+async function gerarQrcodeGenerico(req, res) {
+  try {
+    const { conteudo } = req.body;
+    if (!conteudo || typeof conteudo !== 'string') return res.status(400).json({ erro: 'Informe o conteudo do QR Code.' });
+    const qrcodeBase64 = await gerarQRCodeBase64(conteudo);
+    res.json({ qrcode_base64: qrcodeBase64 });
+  } catch (error) {
+    console.error('Erro ao gerar QR Code generico:', error);
+    res.status(500).json({ erro: 'Erro ao gerar QR Code.' });
+  }
+}
+
 module.exports = {
-  loginFuncionario, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir,
+  loginFuncionario, acessarPorLink, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir,
   listarEquipeOperacional, alternarDisponibilidadeEntregador,
-  obterQrcodeDoDia, checkinEntregador,
+  obterQrcodeDoDia, checkinEntregador, exigirDentroDoHorario, liberarHoraExtra, gerarQrcodeGenerico,
   registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS
 };
