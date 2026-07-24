@@ -97,6 +97,9 @@ const apiBuscarEstabelecimento = () => chamarApiAdmin('/estabelecimento');
 const apiAtualizarEstabelecimento = (dados) => chamarApiAdmin('/estabelecimento', { method: 'PUT', body: dados });
 const apiUploadLogo = (formData) => chamarApiAdmin('/estabelecimento/logo', { method: 'POST', body: formData, isFormData: true });
 const apiUploadBanner = (formData) => chamarApiAdmin('/estabelecimento/banner', { method: 'POST', body: formData, isFormData: true });
+const apiAlternarReservaMesa = (ativo) => chamarApiAdmin('/configuracoes/reserva-mesa', { method: 'PUT', body: { ativo } });
+const apiListarReservas = () => chamarApiAdmin('/reservas');
+const apiAtualizarStatusReserva = (id, status) => chamarApiAdmin(`/reservas/${id}/status`, { method: 'PUT', body: { status } });
 
 const apiListarCategorias = () => chamarApiAdmin('/categorias');
 const apiCriarCategoria = (formData) => chamarApiAdmin('/categorias', { method: 'POST', body: formData, isFormData: true });
