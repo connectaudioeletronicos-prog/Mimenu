@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>App do Entregador</title>
+<link rel="stylesheet" href="entregador.css">
+</head>
+<body>
+
+  <!-- ===================== TELA: LOGIN ===================== -->
+  <section id="tela-login" class="tela">
+    <div class="cartao">
+      <h1>Entrar como entregador</h1>
+      <p class="ajuda">Peça o "slug" da loja para o seu gestor, se não souber.</p>
+      <form id="form-login">
+        <label>Slug da loja</label>
+        <input type="text" id="login-slug" required autocomplete="off">
+
+        <label>Login (e-mail ou usuário)</label>
+        <input type="text" id="login-usuario" required autocomplete="username">
+
+        <label>Senha</label>
+        <input type="password" id="login-senha" required autocomplete="current-password">
+
+        <button type="submit" class="botao botao-principal">Entrar</button>
+        <p id="login-erro" class="erro oculto"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===================== TELA: CHECKIN (QR DO DIA) ===================== -->
+  <section id="tela-checkin" class="tela oculto">
+    <div class="cartao">
+      <h1>Bater o ponto de hoje</h1>
+      <p class="ajuda">Aponte a câmera para o QR Code exibido na loja para entrar na fila de entregas de hoje.</p>
+      <div id="leitor-qr-container">
+        <video id="video-qr" playsinline></video>
+      </div>
+      <p id="checkin-status" class="ajuda"></p>
+      <p id="checkin-erro" class="erro oculto"></p>
+      <button id="botao-nao-consigo-escanear" class="botao botao-secundario">Não consigo usar a câmera</button>
+      <div id="checkin-manual" class="oculto" style="margin-top:12px;">
+        <label>Peça o código de hoje ao seu gestor</label>
+        <input type="text" id="checkin-codigo-manual" placeholder="Cole ou digite o código aqui">
+        <button id="botao-confirmar-codigo-manual" class="botao botao-principal">Confirmar checkin</button>
+      </div>
+      <button id="botao-sair-checkin" class="botao botao-secundario">Sair</button>
+    </div>
+  </section>
+
+  <!-- ===================== TELA: AGUARDANDO PEDIDO ===================== -->
+  <section id="tela-aguardando" class="tela oculto">
+    <div class="cartao cartao-centro">
+      <div class="spinner"></div>
+      <h2>Você está na fila</h2>
+      <p class="ajuda">Assim que um pedido ficar pronto e for sua vez, você vai receber a oferta aqui.</p>
+      <button id="botao-sair-aguardando" class="botao botao-secundario">Sair</button>
+    </div>
+  </section>
+
+  <!-- ===================== TELA: OFERTA DE ENTREGA (ACEITAR/RECUSAR) ===================== -->
+  <section id="tela-oferta" class="tela oculto">
+    <div class="cartao">
+      <h2>Nova entrega disponível!</h2>
+      <div class="detalhes-pedido">
+        <p><strong>Cliente:</strong> <span id="oferta-cliente"></span></p>
+        <p><strong>Endereço:</strong> <span id="oferta-endereco"></span></p>
+        <p><strong>Telefone:</strong> <span id="oferta-telefone"></span></p>
+        <p><strong>Total:</strong> <span id="oferta-total"></span></p>
+        <p><strong>Pagamento:</strong> <span id="oferta-pagamento"></span></p>
+      </div>
+      <div class="botoes-linha">
+        <button id="botao-recusar" class="botao botao-recusar">Recusar</button>
+        <button id="botao-aceitar" class="botao botao-principal">Aceitar entrega</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TELA: ENTREGA EM ANDAMENTO ===================== -->
+  <section id="tela-em-andamento" class="tela oculto">
+    <div class="cartao">
+      <h2>Entrega em andamento</h2>
+      <div class="detalhes-pedido">
+        <p><strong>Cliente:</strong> <span id="andamento-cliente"></span></p>
+        <p><strong>Endereço:</strong> <span id="andamento-endereco"></span></p>
+        <p><strong>Telefone:</strong> <span id="andamento-telefone"></span></p>
+        <p><strong>Total:</strong> <span id="andamento-total"></span></p>
+        <p><strong>Pagamento:</strong> <span id="andamento-pagamento"></span></p>
+      </div>
+      <div class="mapa-placeholder">
+        <span>📍 Acompanhamento por GPS em breve</span>
+      </div>
+      <button id="botao-encerrar" class="botao botao-principal">Encerrar entrega</button>
+    </div>
+  </section>
+
+  <div id="toast" class="toast oculto"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+  <script src="../js/config.js"></script>
+  <script src="entregador.js"></script>
+</body>
+</html>
