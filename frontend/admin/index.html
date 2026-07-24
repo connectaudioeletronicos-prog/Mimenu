@@ -368,14 +368,20 @@
           <input type="text" id="novo-pedido-cliente" placeholder="Ex: Mesa 4, ou nome do cliente">
         </label>
 
-        <div class="botoes-filtro-atendimento" style="display:flex; gap:8px; margin:12px 0;">
+        <div class="botoes-filtro-atendimento" style="display:flex; gap:8px; margin:12px 0; flex-wrap:wrap;">
           <button type="button" class="botao-secundario ativo" data-filtro-atendimento="todos">Todos</button>
           <button type="button" class="botao-secundario" data-filtro-atendimento="promocoes">Promoções</button>
           <button type="button" class="botao-secundario" data-filtro-atendimento="vitrines">Vitrines</button>
+          <span id="botoes-filtro-categorias-atendimento" style="display:contents;"></span>
         </div>
 
         <label class="campo-label">Itens do pedido</label>
         <div id="novo-pedido-itens-produtos" class="lista-itens-admin" style="max-height:340px; overflow-y:auto;"></div>
+
+        <label style="display:flex; align-items:center; gap:8px; font-weight:normal;">
+          <input type="checkbox" id="novo-pedido-enviar-entrega" style="width:auto;">
+          Enviar para entrega (usar a fila do entregador nesse pedido)
+        </label>
 
         <label>Forma de pagamento
           <select id="novo-pedido-forma-pagamento">
