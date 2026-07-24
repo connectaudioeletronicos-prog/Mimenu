@@ -37,3 +37,14 @@ async function buscarPedidosCliente(slug, telefone) {
   if (!resposta.ok) throw new Error('Erro ao buscar pedidos');
   return resposta.json();
 }
+
+async function criarReserva(slug, dados) {
+  const resposta = await fetch(`${API_BASE_URL}/publico/${encodeURIComponent(slug)}/reservas`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados)
+  });
+  const resultado = await resposta.json();
+  if (!resposta.ok) throw new Error(resultado.erro || 'Nao foi possivel criar a reserva.');
+  return resultado;
+}
