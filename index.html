@@ -31,7 +31,11 @@
       <button class="tela-cliente__voltar" id="botao-fechar-cliente">← Voltar</button>
       <h2 class="tela-cliente__titulo">Minha conta</h2>
     </div>
-    <p style="text-align:center; font-size:13px; margin:-8px 0 8px;">Prefere salvar seus dados numa conta? <a href="cliente-login.html">Entrar</a> ou <a href="cliente-cadastro.html">criar conta</a></p>
+    <p id="cliente-conta-deslogado" style="text-align:center; font-size:13px; margin:-8px 0 8px;">Prefere salvar seus dados numa conta? <a href="cliente-login.html">Entrar</a> ou <a href="cliente-cadastro.html">criar conta</a></p>
+    <div id="cliente-conta-logado" class="oculto" style="text-align:center; font-size:13px; margin:-8px 0 8px;">
+      Ola, <strong id="cliente-conta-nome"></strong> ·
+      <button type="button" id="botao-sair-conta-cliente" style="background:none; border:none; color:#c0392b; text-decoration:underline; cursor:pointer; font-size:13px; padding:0;">Sair</button>
+    </div>
 
     <div class="tela-cliente__abas">
       <button class="tela-cliente__aba ativo" data-aba-cliente="dados">Meus dados</button>
@@ -262,5 +266,31 @@
   <script src="js/api.js"></script>
   <script src="js/carrinho.js"></script>
   <script src="js/cardapio.js?v=20260720c"></script>
+  <script>
+    // Mostra "Ola, {nome}" + Sair quando o cliente tem uma conta logada
+    // (palatos_token_cliente no localStorage), ou o link de Entrar/criar
+    // conta quando nao ha sessao. So exibicao/logout -- o cadastro/login
+    // em si fica nas paginas proprias (cliente-login.html / cliente-cadastro.html).
+    (function () {
+      const token = localStorage.getItem('palatos_token_cliente');
+      const contaBruta = localStorage.getItem('palatos_conta_cliente');
+      if (token && contaBruta) {
+        try {
+          const conta = JSON.parse(contaBruta);
+          document.getElementById('cliente-conta-nome').textContent = conta.nome || 'cliente';
+          document.getElementById('cliente-conta-logado').classList.remove('oculto');
+          document.getElementById('cliente-conta-deslogado').classList.add('oculto');
+        } catch (erro) {
+          localStorage.removeItem('palatos_token_cliente');
+          localStorage.removeItem('palatos_conta_cliente');
+        }
+      }
+      document.getElementById('botao-sair-conta-cliente')?.addEventListener('click', () => {
+        localStorage.removeItem('palatos_token_cliente');
+        localStorage.removeItem('palatos_conta_cliente');
+        window.location.reload();
+      });
+    })();
+  </script>
 </body>
 </html>
