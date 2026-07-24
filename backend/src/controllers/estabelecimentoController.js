@@ -22,7 +22,7 @@ async function buscarPorSlug(req, res) {
               cor_botoes, fonte, tema, texto_apresentacao, whatsapp, telefone,
               endereco, instagram, facebook, linkedin, email_contato,
               horario_funcionamento, mp_public_key, ativo, tempo_preparo_min,
-              termos_uso, politica_privacidade, cookies
+              termos_uso, politica_privacidade, cookies, reserva_mesa_ativa
        FROM estabelecimentos WHERE slug = $1`,
       [slug]
     );
@@ -115,7 +115,7 @@ async function buscarMeuEstabelecimento(req, res) {
               endereco, instagram, facebook, linkedin, email_contato,
               horario_funcionamento, dominio_proprio,
               mp_public_key, plano, criado_em,
-              termos_uso, politica_privacidade, cookies
+              termos_uso, politica_privacidade, cookies, reserva_mesa_ativa
        FROM estabelecimentos WHERE id = $1`,
       [req.estabelecimentoId]
     );
