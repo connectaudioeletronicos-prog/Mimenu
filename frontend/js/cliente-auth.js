@@ -40,10 +40,14 @@ if (formCadastro) {
     const nome = document.getElementById('cad-nome').value.trim();
     const sobrenome = document.getElementById('cad-sobrenome').value.trim();
     const email = document.getElementById('cad-email').value.trim();
+    const telefone = document.getElementById('cad-telefone').value.trim();
     const senha = document.getElementById('cad-senha').value;
 
-    if (!nome || !sobrenome || !email || !senha) {
-      return mostrarErro('erro-etapa-1', 'Preencha todos os campos.');
+    if (!nome || !sobrenome || !senha) {
+      return mostrarErro('erro-etapa-1', 'Preencha nome, sobrenome e senha.');
+    }
+    if (!email && !telefone) {
+      return mostrarErro('erro-etapa-1', 'Informe pelo menos um e-mail ou telefone.');
     }
     if (senha.length < 6) {
       return mostrarErro('erro-etapa-1', 'A senha deve ter pelo menos 6 caracteres.');
@@ -82,7 +86,8 @@ if (formCadastro) {
     const corpo = {
       nome: document.getElementById('cad-nome').value.trim(),
       sobrenome: document.getElementById('cad-sobrenome').value.trim(),
-      email: document.getElementById('cad-email').value.trim(),
+      email: document.getElementById('cad-email').value.trim() || null,
+      telefone: document.getElementById('cad-telefone').value.trim() || null,
       senha: document.getElementById('cad-senha').value,
       cpf: document.getElementById('cad-cpf').value.trim(),
       cep: document.getElementById('cad-cep').value.trim(),
