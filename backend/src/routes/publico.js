@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 
 const estabelecimentoController = require('../controllers/estabelecimentoController');
 const pedidoController = require('../controllers/pedidoController');
+const reservaController = require('../controllers/reservaController');
 
 const limitadorPedidos = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -18,5 +19,6 @@ router.get('/:slug', estabelecimentoController.buscarPorSlug);
 router.post('/:slug/pedidos', limitadorPedidos, pedidoController.criarPedido);
 router.get('/:slug/pedidos/:id/status', pedidoController.consultarStatusPedido);
 router.get('/:slug/pedidos/cliente/:telefone', pedidoController.listarPedidosCliente);
+router.post('/:slug/reservas', limitadorPedidos, reservaController.criar);
 
 module.exports = router;
