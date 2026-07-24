@@ -7,23 +7,32 @@ const { autenticarFuncionario, exigirPermissao, exigirCargoAdministrativo } = re
 
 // Login de funcionario (publico)
 router.post('/login', funcionarioController.loginFuncionario);
+// Login por link definitivo (o mesmo token que o funcionario recebeu ao ser
+// cadastrado -- so pra facilitar o acesso, nao substitui login/senha).
+router.get('/acessar/:token', funcionarioController.acessarPorLink);
 
 router.use(autenticarFuncionario);
+
+// Gestor libera hora extra pra um funcionario (ignora a carga horaria dele
+// so no dia de hoje) e utilitario de QR Code generico pro painel.
+router.put('/:id/liberar-hora-extra', exigirPermissao('gerenciar_funcionarios'), funcionarioController.liberarHoraExtra);
+router.post('/gerar-qrcode', exigirPermissao('gerenciar_funcionarios'), funcionarioController.gerarQrcodeGenerico);
 
 // QR Code diario do entregador: quem gerencia funcionarios busca/exibe o QR
 // (pra imprimir/mostrar na loja); o entregador manda de volta o que leu com
 // a camera pra confirmar presenca e entrar na fila do dia.
 router.get('/qrcode-entregador', exigirPermissao('gerenciar_funcionarios'), funcionarioController.obterQrcodeDoDia);
-router.post('/checkin', funcionarioController.checkinEntregador);
+router.post('/checkin', funcionarioController.exigirDentroDoHorario, funcionarioController.checkinEntregador);
 
 // App do entregador: oferta/aceite/recusa/conclusao da entrega. So o
 // proprio entregador enxerga e mexe nas entregas atribuidas a ele (o
-// controller sempre filtra por req.funcionarioId).
-router.get('/entregas/pendente', pedidoController.listarEntregaPendente);
-router.get('/entregas/atual', pedidoController.entregaAtual);
-router.put('/entregas/:id/aceitar', pedidoController.aceitarEntrega);
-router.put('/entregas/:id/recusar', pedidoController.recusarEntrega);
-router.put('/entregas/:id/encerrar', pedidoController.encerrarEntrega);
+// controller sempre filtra por req.funcionarioId). Fora do horario
+// configurado (sem hora extra liberada pra hoje), essas rotas ficam bloqueadas.
+router.get('/entregas/pendente', funcionarioController.exigirDentroDoHorario, pedidoController.listarEntregaPendente);
+router.get('/entregas/atual', funcionarioController.exigirDentroDoHorario, pedidoController.entregaAtual);
+router.put('/entregas/:id/aceitar', funcionarioController.exigirDentroDoHorario, pedidoController.aceitarEntrega);
+router.put('/entregas/:id/recusar', funcionarioController.exigirDentroDoHorario, pedidoController.recusarEntrega);
+router.put('/entregas/:id/encerrar', funcionarioController.exigirDentroDoHorario, pedidoController.encerrarEntrega);
 
 // Funcionarios
 router.get('/', exigirPermissao('gerenciar_funcionarios'), funcionarioController.listar);
