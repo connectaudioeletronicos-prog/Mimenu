@@ -146,6 +146,19 @@ async function sincronizarSchema() {
     console.error('Aviso: nao foi possivel sincronizar login Google em contas_clientes:', error.message);
   }
 
+  // E-mail agora e opcional no cadastro do cliente (ele pode entrar so com
+  // telefone). Pelo menos um dos dois (email ou telefone) e exigido pela
+  // aplicacao na hora do cadastro/login, nao pelo banco.
+  try {
+    await pool.query(`
+      ALTER TABLE contas_clientes ALTER COLUMN email DROP NOT NULL;
+      ALTER TABLE contas_clientes ADD COLUMN IF NOT EXISTS telefone VARCHAR(20) UNIQUE;
+    `);
+    console.log('Schema sincronizado: email opcional e telefone em contas_clientes atualizado.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar telefone em contas_clientes:', error.message);
+  }
+
   // Permite vincular uma imagem do carrossel (ou uma vitrine inteira) a um
   // produto do cardapio: ao tocar na imagem, o cliente ve direto a pagina
   // daquele produto. Fica opcional (null = imagem so ilustrativa).
