@@ -17,6 +17,7 @@ const carrosselController = require('../controllers/carrosselController');
 const vitrineController = require('../controllers/vitrineController');
 const caixaTextoController = require('../controllers/caixaTextoController');
 const pedidoController = require('../controllers/pedidoController');
+const reservaController = require('../controllers/reservaController');
 
 router.use(autenticar);
 
@@ -35,6 +36,11 @@ router.get('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimen
 router.put('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimentoController.atualizarConfiguracoes);
 router.post('/estabelecimento/logo', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadLogo);
 router.post('/estabelecimento/banner', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadBanner);
+
+// Configuracoes / Reserva de mesa (opcional, liga/desliga por loja)
+router.put('/configuracoes/reserva-mesa', exigirPermissao('gerenciar_conta'), reservaController.alternarReservaAtiva);
+router.get('/reservas', exigirPermissao('gerenciar_conta'), reservaController.listar);
+router.put('/reservas/:id/status', exigirPermissao('gerenciar_conta'), reservaController.atualizarStatus);
 
 // Cardapio (produtos, categorias, promocoes)
 router.get('/categorias', categoriaController.listar);
