@@ -357,6 +357,43 @@
         <div id="lista-pedidos-admin" class="lista-itens-admin"></div>
       </section>
 
+      <section id="aba-atendimento" class="aba oculto">
+        <h2>Atendimento (balcão/mesa)</h2>
+        <p class="aba__descricao">
+          Lance aqui um pedido feito presencialmente (ou por WhatsApp). Ele já entra
+          direto em preparo (a cozinha vê na hora), sem precisar de aceite do administrador.
+        </p>
+
+        <label>Identificação (nome do cliente ou número da mesa)
+          <input type="text" id="novo-pedido-cliente" placeholder="Ex: Mesa 4, ou nome do cliente">
+        </label>
+
+        <div class="botoes-filtro-atendimento" style="display:flex; gap:8px; margin:12px 0;">
+          <button type="button" class="botao-secundario ativo" data-filtro-atendimento="todos">Todos</button>
+          <button type="button" class="botao-secundario" data-filtro-atendimento="promocoes">Promoções</button>
+          <button type="button" class="botao-secundario" data-filtro-atendimento="vitrines">Vitrines</button>
+        </div>
+
+        <label class="campo-label">Itens do pedido</label>
+        <div id="novo-pedido-itens-produtos" class="lista-itens-admin" style="max-height:340px; overflow-y:auto;"></div>
+
+        <label>Forma de pagamento
+          <select id="novo-pedido-forma-pagamento">
+            <option value="dinheiro">Dinheiro</option>
+            <option value="pix">Pix</option>
+            <option value="cartao_credito">Cartao de credito</option>
+            <option value="cartao_debito">Cartao de debito</option>
+          </select>
+        </label>
+        <label>Observacoes (opcional)
+          <textarea id="novo-pedido-observacoes" rows="2"></textarea>
+        </label>
+
+        <div id="novo-pedido-total" style="font-weight:700; margin:10px 0;"></div>
+
+        <button id="botao-confirmar-novo-pedido" class="botao-primario">Lançar pedido</button>
+      </section>
+
       <section id="aba-caixa-geral" class="aba oculto">
         <h2 class="aba__titulo">Caixa Geral</h2>
         <p class="aba__descricao">
@@ -618,7 +655,10 @@
       <p class="aba__descricao">Exiba (ou imprima) esse QR Code na loja. O entregador aponta a câmera do app dele pra confirmar presença e entrar na fila de hoje. Ele muda automaticamente todo dia.</p>
       <img id="imagem-qrcode-entregador" src="" alt="QR Code do dia" style="max-width:280px; width:100%; margin:10px auto;">
       <p class="aba__descricao">Câmera quebrada? O entregador pode digitar esse código no app:</p>
-      <p style="font-family: monospace; font-size: 15px; background:#f7f7f7; padding:8px; border-radius:8px; word-break: break-all;" id="codigo-qrcode-entregador"></p>
+      <p style="font-family: monospace; font-size: 14px; background:#f7f7f7; padding:8px; border-radius:8px; word-break: break-all;">
+        <a id="codigo-qrcode-entregador" href="#" target="_blank" rel="noopener"></a>
+      </p>
+      <button type="button" id="botao-copiar-link-acesso" class="botao-secundario">📋 Copiar link</button>
     </div>
   </div>
 
@@ -710,43 +750,6 @@
       <button id="botao-excluir-funcionario" class="botao-perigo">Excluir funcionario</button>
     </div>
   </div>
-
-      <section id="aba-atendimento" class="aba oculto">
-        <h2>Atendimento (balcão/mesa)</h2>
-        <p class="aba__descricao">
-          Lance aqui um pedido feito presencialmente (ou por WhatsApp). Ele já entra
-          direto em preparo (a cozinha vê na hora), sem precisar de aceite do administrador.
-        </p>
-
-        <label>Identificação (nome do cliente ou número da mesa)
-          <input type="text" id="novo-pedido-cliente" placeholder="Ex: Mesa 4, ou nome do cliente">
-        </label>
-
-        <div class="botoes-filtro-atendimento" style="display:flex; gap:8px; margin:12px 0;">
-          <button type="button" class="botao-secundario ativo" data-filtro-atendimento="todos">Todos</button>
-          <button type="button" class="botao-secundario" data-filtro-atendimento="promocoes">Promoções</button>
-          <button type="button" class="botao-secundario" data-filtro-atendimento="vitrines">Vitrines</button>
-        </div>
-
-        <label class="campo-label">Itens do pedido</label>
-        <div id="novo-pedido-itens-produtos" class="lista-itens-admin" style="max-height:340px; overflow-y:auto;"></div>
-
-        <label>Forma de pagamento
-          <select id="novo-pedido-forma-pagamento">
-            <option value="dinheiro">Dinheiro</option>
-            <option value="pix">Pix</option>
-            <option value="cartao_credito">Cartao de credito</option>
-            <option value="cartao_debito">Cartao de debito</option>
-          </select>
-        </label>
-        <label>Observacoes (opcional)
-          <textarea id="novo-pedido-observacoes" rows="2"></textarea>
-        </label>
-
-        <div id="novo-pedido-total" style="font-weight:700; margin:10px 0;"></div>
-
-        <button id="botao-confirmar-novo-pedido" class="botao-primario">Lançar pedido</button>
-      </section>
 
       <div id="modal-categoria" class="modal-admin oculto">
     <div class="modal-admin__fundo" data-fechar-modal-admin></div>
