@@ -40,8 +40,32 @@ async function chamarApi(caminho, { method = 'GET', body = null } = {}) {
     throw new Error('Sessao expirada. Faca login novamente.');
   }
   const dados = await resposta.json();
+  if (resposta.status === 403 && dados.fora_do_horario) {
+    pararPolling();
+    mostrarTela('tela-fora-horario');
+    throw new Error(dados.erro);
+  }
   if (!resposta.ok) throw new Error(dados.erro || 'Ocorreu um erro ao processar a solicitacao.');
   return dados;
+}
+
+// Login por link definitivo (?acesso=TOKEN na URL) -- so pra facilitar,
+// sem precisar digitar slug/usuario/senha toda vez.
+async function tentarAcessoPorLink() {
+  const parametros = new URLSearchParams(window.location.search);
+  const token = parametros.get('acesso');
+  if (!token) return false;
+  try {
+    const resposta = await fetch(`${API_BASE_URL}/funcionarios/acessar/${token}`);
+    const dados = await resposta.json();
+    if (!resposta.ok) throw new Error(dados.erro || 'Link de acesso invalido.');
+    if (dados.funcionario.cargo !== 'entregador') throw new Error('Esse acesso e so para entregadores.');
+    salvarSessao(dados.token, dados.funcionario);
+    return true;
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+    return false;
+  }
 }
 
 async function apiLogin(slug, login, senha) {
@@ -283,6 +307,7 @@ document.getElementById('botao-encerrar').addEventListener('click', async () => 
 });
 
 document.getElementById('botao-sair-aguardando').addEventListener('click', fazerLogout);
+document.getElementById('botao-sair-fora-horario').addEventListener('click', fazerLogout);
 
 function fazerLogout() {
   pararCamera();
@@ -299,10 +324,17 @@ function iniciarAppLogado() {
   iniciarLeituraQR();
 }
 
-(function iniciar() {
+(async function iniciar() {
   const token = obterToken();
   const dados = obterDados();
   if (token && dados) {
+    iniciarAppLogado();
+    return;
+  }
+  const entrouPorLink = await tentarAcessoPorLink();
+  if (entrouPorLink) {
+    // Limpa o token da URL (evita reenvio acidental / historico do navegador)
+    window.history.replaceState({}, '', window.location.pathname);
     iniciarAppLogado();
   } else {
     mostrarTela('tela-login');
