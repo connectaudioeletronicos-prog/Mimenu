@@ -1,96 +1,77 @@
-// ===================================================================
-// Rotas ADMINISTRATIVAS - todas protegidas por autenticacao JWT
-// Cada estabelecimento so acessa/edita os PROPRIOS dados, garantido
-// pelo middleware "autenticar" (que extrai o ID do token, nao da URL)
-// ===================================================================
-const express = require('express');
-const router = express.Router();
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Palatos — Cardápio digital para o seu restaurante</title>
+<meta name="description" content="Crie o cardápio digital do seu restaurante em poucos minutos com o Palatos.">
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; margin: 0; color: #222; background: #fff; }
+  header { padding: 20px 24px; display: flex; align-items: center; }
+  header .logo { font-size: 22px; font-weight: bold; color: #1D3557; }
+  .hero { padding: 48px 24px; text-align: center; background: linear-gradient(180deg, #f4f4f4, #ffffff); }
+  .hero h1 { font-size: 28px; margin: 0 0 12px; color: #1D3557; }
+  .hero p { font-size: 16px; color: #555; max-width: 480px; margin: 0 auto 28px; }
+  .botoes { display: flex; flex-direction: column; gap: 12px; max-width: 320px; margin: 0 auto; }
+  .botao { display: block; padding: 14px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; }
+  .botao.principal { background: #1D3557; color: white; }
+  .botao.secundario { background: white; color: #1D3557; border: 1px solid #1D3557; }
+  .recursos { padding: 40px 24px; max-width: 720px; margin: 0 auto; }
+  .recursos h2 { font-size: 20px; text-align: center; color: #1D3557; margin-bottom: 24px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+  .item { padding: 16px; border-radius: 10px; background: #f8f9fa; }
+  .item .icone { font-size: 26px; }
+  .item h3 { font-size: 15px; margin: 8px 0 4px; }
+  .item p { font-size: 13px; color: #666; margin: 0; }
+  footer { padding: 24px; text-align: center; font-size: 12px; color: #999; }
+</style>
+</head>
+<body>
+  <header>
+    <span class="logo">🍽️ Palatos</span>
+  </header>
 
-const { autenticar, exigirPermissao } = require('../middlewares/auth');
-const upload = require('../middlewares/upload');
+  <section class="hero">
+    <h1>O cardápio digital do seu restaurante, pronto em minutos</h1>
+    <p>Cardápio online, promoções, QR Code e painel completo pra gerenciar sua loja — tudo em um só lugar.</p>
+    <div class="botoes">
+      <a class="botao principal" href="mailto:palatosoficial@gmail.com?subject=Quero%20cadastrar%20meu%20restaurante%20no%20Palatos">Quero cadastrar meu restaurante</a>
+      <!-- TROQUE 5500000000000 pelo numero de WhatsApp real do Palatos (com DDI 55 + DDD, so numeros) -->
+      <a class="botao secundario" href="https://wa.me/5500000000000?text=Ol%C3%A1!%20Quero%20cadastrar%20meu%20restaurante%20no%20Palatos." target="_blank">Falar no WhatsApp</a>
+    </div>
+  </section>
 
-const estabelecimentoController = require('../controllers/estabelecimentoController');
-const categoriaController = require('../controllers/categoriaController');
-const produtoController = require('../controllers/produtoController');
-const promocaoController = require('../controllers/promocaoController');
-const carrosselController = require('../controllers/carrosselController');
-const vitrineController = require('../controllers/vitrineController');
-const caixaTextoController = require('../controllers/caixaTextoController');
-const pedidoController = require('../controllers/pedidoController');
-const reservaController = require('../controllers/reservaController');
+  <section class="recursos">
+    <h2>O que você tem no Palatos</h2>
+    <div class="grade">
+      <div class="item">
+        <div class="icone">📱</div>
+        <h3>Cardápio online</h3>
+        <p>Seus clientes acessam pelo celular, sem baixar aplicativo.</p>
+      </div>
+      <div class="item">
+        <div class="icone">🔗</div>
+        <h3>QR Code e link próprios</h3>
+        <p>Gere e compartilhe em redes sociais, WhatsApp ou impressos.</p>
+      </div>
+      <div class="item">
+        <div class="icone">🏷️</div>
+        <h3>Promoções</h3>
+        <p>Destaque ofertas e gere links específicos pra cada uma.</p>
+      </div>
+      <div class="item">
+        <div class="icone">⚙️</div>
+        <h3>Painel completo</h3>
+        <p>Gerencie produtos, categorias, pedidos e a aparência da sua loja.</p>
+      </div>
+    </div>
+  </section>
 
-router.use(autenticar);
+  <footer>
+    Palatos — mais sabor na sua vida. © <span id="ano"></span>
+  </footer>
 
-// O entregador nao usa mais o painel administrativo -- ele tem o proprio
-// app, mais simples (login -> checkin por QR -> aceitar/recusar/encerrar
-// entrega), nas rotas /funcionarios/entregas/*.
-router.use((req, res, next) => {
-  if (req.cargo === 'entregador') {
-    return res.status(403).json({ erro: 'Entregadores usam o app proprio de entregas, nao o painel administrativo.' });
-  }
-  next();
-});
-
-// Configuracoes da conta (dados, pagamento, paginas legais)
-router.get('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimentoController.buscarMeuEstabelecimento);
-router.put('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimentoController.atualizarConfiguracoes);
-router.post('/estabelecimento/logo', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadLogo);
-router.post('/estabelecimento/banner', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadBanner);
-
-// Configuracoes / Reserva de mesa (opcional, liga/desliga por loja)
-router.put('/configuracoes/reserva-mesa', exigirPermissao('gerenciar_conta'), reservaController.alternarReservaAtiva);
-router.get('/reservas', exigirPermissao('gerenciar_conta'), reservaController.listar);
-router.put('/reservas/:id/status', exigirPermissao('gerenciar_conta'), reservaController.atualizarStatus);
-
-// Cardapio (produtos, categorias, promocoes)
-router.get('/categorias', categoriaController.listar);
-router.post('/categorias', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), categoriaController.criar);
-router.put('/categorias/:id', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), categoriaController.atualizar);
-router.delete('/categorias/:id', exigirPermissao('gerenciar_cardapio'), categoriaController.excluir);
-
-router.get('/produtos', produtoController.listar);
-router.post('/produtos', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), produtoController.criar);
-router.put('/produtos/:id', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), produtoController.atualizar);
-router.delete('/produtos/:id', exigirPermissao('gerenciar_cardapio'), produtoController.excluir);
-
-router.get('/promocoes', promocaoController.listar);
-router.post('/promocoes', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), promocaoController.criar);
-router.put('/promocoes/:id', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), promocaoController.atualizar);
-router.delete('/promocoes/:id', exigirPermissao('gerenciar_cardapio'), promocaoController.excluir);
-
-// Carrosseis extras (banners adicionais, fotos ilimitadas, posicionaveis)
-router.get('/carrosseis', carrosselController.listar);
-router.post('/carrosseis', exigirPermissao('gerenciar_cardapio'), carrosselController.criar);
-router.put('/carrosseis/:id', exigirPermissao('gerenciar_cardapio'), carrosselController.atualizar);
-router.delete('/carrosseis/:id', exigirPermissao('gerenciar_cardapio'), carrosselController.excluir);
-router.post('/carrosseis/:id/imagens', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), carrosselController.adicionarImagem);
-router.put('/carrosseis/imagens/:imagemId', exigirPermissao('gerenciar_cardapio'), carrosselController.atualizarImagem);
-router.delete('/carrosseis/imagens/:imagemId', exigirPermissao('gerenciar_cardapio'), carrosselController.removerImagem);
-
-// Vitrines (imagem grande + texto, posicionavel)
-router.get('/vitrines', vitrineController.listar);
-router.post('/vitrines', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), vitrineController.criar);
-router.put('/vitrines/:id', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), vitrineController.atualizar);
-router.delete('/vitrines/:id', exigirPermissao('gerenciar_cardapio'), vitrineController.excluir);
-
-// Caixas de texto (titulo + corpo livre, posicionavel)
-router.get('/caixas-texto', caixaTextoController.listar);
-router.post('/caixas-texto', exigirPermissao('gerenciar_cardapio'), caixaTextoController.criar);
-router.put('/caixas-texto/:id', exigirPermissao('gerenciar_cardapio'), caixaTextoController.atualizar);
-router.delete('/caixas-texto/:id', exigirPermissao('gerenciar_cardapio'), caixaTextoController.excluir);
-
-// Pedidos - qualquer funcionario logado pode ver a lista (valores de pedidos
-// concluidos/cancelados sao filtrados dentro do controller conforme permissao).
-router.get('/pedidos', pedidoController.listarPedidosAdmin);
-router.get('/pedidos/contagem', pedidoController.contarPedidosAdmin);
-// Pedido lancado manualmente pelo garcom/atendimento (balcao/mesa) --
-// ja entra direto em preparo, sem precisar do aceite do administrador.
-router.post('/pedidos', exigirPermissao('criar_pedidos'), pedidoController.criarPedidoManual);
-
-// Caixa geral - resumo dos valores das entregas concluidas. So gerente e
-// administrador (ou quem tiver a permissao marcada) tem acesso.
-router.get('/caixa-geral', exigirPermissao('ver_caixa_geral'), pedidoController.obterCaixaGeral);
-router.put('/pedidos/:id/status', pedidoController.atualizarStatusPedido);
-router.put('/pedidos/:id/valores', exigirPermissao('corrigir_valores_concluidos'), pedidoController.corrigirValoresPedido);
-
-module.exports = router;
+<script>document.getElementById('ano').textContent = new Date().getFullYear();</script>
+</body>
+</html>
