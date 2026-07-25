@@ -184,6 +184,20 @@ async function sincronizarSchema() {
     console.error('Aviso: nao foi possivel sincronizar reserva de mesa:', error.message);
   }
 
+  // Pedido agendado: recurso opcional por loja. Se ativo, o cliente pode
+  // agendar um pedido (retirada ou entrega) pra um horario especifico,
+  // inclusive fora do funcionamento normal da loja -- mas so e confirmado
+  // apos pagamento online (sem opcao de pagar na entrega/retirada).
+  try {
+    await pool.query(`
+      ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS pedido_agendado_ativo BOOLEAN DEFAULT false;
+      ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS agendado_para TIMESTAMP;
+    `);
+    console.log('Schema sincronizado: pedido agendado (config + campo agendado_para) verificado.');
+  } catch (error) {
+    console.error('Aviso: nao foi possivel sincronizar pedido agendado:', error.message);
+  }
+
   // Permite vincular uma imagem do carrossel (ou uma vitrine inteira) a um
   // produto do cardapio: ao tocar na imagem, o cliente ve direto a pagina
   // daquele produto. Fica opcional (null = imagem so ilustrativa).
