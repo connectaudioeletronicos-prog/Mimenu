@@ -15,8 +15,39 @@
 </head>
 <body>
 
+  <button id="botao-abrir-reserva" class="botao-reserva-discreto oculto" type="button">☰ Reserva</button>
+
   <div id="tela-carregando" class="tela-carregando">
     <div class="spinner"></div>
+  </div>
+
+  <div id="modal-reserva" class="tela-cliente oculto">
+    <div class="tela-cliente__cabecalho">
+      <button class="tela-cliente__voltar" id="botao-fechar-reserva">← Voltar</button>
+      <h2 class="tela-cliente__titulo">Reservar mesa</h2>
+    </div>
+    <form id="form-reserva" style="padding:16px;">
+      <label>Seu nome
+        <input type="text" id="reserva-nome" required>
+      </label>
+      <label>Telefone
+        <input type="tel" id="reserva-telefone" required>
+      </label>
+      <label>Dia
+        <input type="date" id="reserva-data" required>
+      </label>
+      <label>Horário
+        <input type="time" id="reserva-hora" required>
+      </label>
+      <label>Quantidade de pessoas
+        <input type="number" id="reserva-pessoas" min="1" value="2" required>
+      </label>
+      <label>Observações (opcional)
+        <textarea id="reserva-observacoes" rows="2"></textarea>
+      </label>
+      <p id="reserva-erro" class="oculto" style="color:#c0392b; font-size:13px;"></p>
+      <button type="submit" class="botao-principal" style="width:100%; margin-top:10px;">Confirmar reserva</button>
+    </form>
   </div>
 
   <div id="tela-erro" class="tela-erro oculto">
@@ -30,6 +61,11 @@
     <div class="tela-cliente__cabecalho">
       <button class="tela-cliente__voltar" id="botao-fechar-cliente">← Voltar</button>
       <h2 class="tela-cliente__titulo">Minha conta</h2>
+    </div>
+    <p id="cliente-conta-deslogado" style="text-align:center; font-size:13px; margin:-8px 0 8px;">Prefere salvar seus dados numa conta? <a href="cliente-login.html">Entrar</a> ou <a href="cliente-cadastro.html">criar conta</a></p>
+    <div id="cliente-conta-logado" class="oculto" style="text-align:center; font-size:13px; margin:-8px 0 8px;">
+      Ola, <strong id="cliente-conta-nome"></strong> ·
+      <button type="button" id="botao-sair-conta-cliente" style="background:none; border:none; color:#c0392b; text-decoration:underline; cursor:pointer; font-size:13px; padding:0;">Sair</button>
     </div>
 
     <div class="tela-cliente__abas">
@@ -261,5 +297,31 @@
   <script src="js/api.js"></script>
   <script src="js/carrinho.js"></script>
   <script src="js/cardapio.js?v=20260720c"></script>
+  <script>
+    // Mostra "Ola, {nome}" + Sair quando o cliente tem uma conta logada
+    // (palatos_token_cliente no localStorage), ou o link de Entrar/criar
+    // conta quando nao ha sessao. So exibicao/logout -- o cadastro/login
+    // em si fica nas paginas proprias (cliente-login.html / cliente-cadastro.html).
+    (function () {
+      const token = sessionStorage.getItem('palatos_token_cliente');
+      const contaBruta = sessionStorage.getItem('palatos_conta_cliente');
+      if (token && contaBruta) {
+        try {
+          const conta = JSON.parse(contaBruta);
+          document.getElementById('cliente-conta-nome').textContent = conta.nome || 'cliente';
+          document.getElementById('cliente-conta-logado').classList.remove('oculto');
+          document.getElementById('cliente-conta-deslogado').classList.add('oculto');
+        } catch (erro) {
+          sessionStorage.removeItem('palatos_token_cliente');
+          sessionStorage.removeItem('palatos_conta_cliente');
+        }
+      }
+      document.getElementById('botao-sair-conta-cliente')?.addEventListener('click', () => {
+        sessionStorage.removeItem('palatos_token_cliente');
+        sessionStorage.removeItem('palatos_conta_cliente');
+        window.location.reload();
+      });
+    })();
+  </script>
 </body>
 </html>
