@@ -90,4 +90,3 @@ async function alternarReservaAtiva(req, res) {
 }
 
 module.exports = { criar, listar, atualizarStatus, alternarReservaAtiva };
-t
