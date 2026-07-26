@@ -62,8 +62,14 @@
       <button class="tela-cliente__voltar" id="botao-fechar-cliente">← Voltar</button>
       <h2 class="tela-cliente__titulo">Minha conta</h2>
     </div>
-    <p id="cliente-conta-deslogado" style="text-align:center; font-size:13px; margin:-8px 0 8px;">Prefere salvar seus dados numa conta? <a href="cliente-login.html">Entrar</a> ou <a href="cliente-cadastro.html">criar conta</a></p>
-    <div id="cliente-conta-logado" class="oculto" style="text-align:center; font-size:13px; margin:-8px 0 8px;">
+    <div id="cliente-conta-deslogado" style="margin:0 16px 12px; padding:12px; background:#fff3f4; border:1px solid #f0c8cb; border-radius:10px; text-align:center;">
+      <p style="margin:0 0 8px; font-size:14px; font-weight:600;">Prefere não digitar seus dados toda vez?</p>
+      <div style="display:flex; gap:8px;">
+        <a href="cliente-login.html" class="botao-principal" style="flex:1; text-align:center; text-decoration:none; padding:10px; border-radius:8px; display:block;">Entrar</a>
+        <a href="cliente-cadastro.html" style="flex:1; text-align:center; text-decoration:none; padding:10px; border-radius:8px; border:1px solid var(--cor-principal); color:var(--cor-principal); display:block; font-weight:600;">Criar conta</a>
+      </div>
+    </div>
+    <div id="cliente-conta-logado" class="oculto" style="text-align:center; font-size:13px; margin:0 0 12px;">
       Ola, <strong id="cliente-conta-nome"></strong> ·
       <button type="button" id="botao-sair-conta-cliente" style="background:none; border:none; color:#c0392b; text-decoration:underline; cursor:pointer; font-size:13px; padding:0;">Sair</button>
     </div>
