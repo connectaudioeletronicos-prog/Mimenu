@@ -222,3 +222,68 @@ async function esqueciSenha(req, res) {
 }
 
 module.exports = { cadastrar, login, loginGoogle, esqueciSenha };
+
+// ===================================================================
+// Conta logada: "Meus dados" (ver/editar) -- exige token de cliente valido.
+// ===================================================================
+
+async function autenticarCliente(req, res, next) {
+  try {
+    const cabecalho = req.headers.authorization;
+    if (!cabecalho || !cabecalho.startsWith('Bearer ')) {
+      return res.status(401).json({ erro: 'Faca login para continuar.' });
+    }
+    const payload = jwt.verify(cabecalho.replace('Bearer ', ''), process.env.JWT_SECRET);
+    if (payload.tipo !== 'cliente') return res.status(401).json({ erro: 'Sessao invalida.' });
+    req.contaClienteId = payload.contaClienteId;
+    next();
+  } catch (error) {
+    res.status(401).json({ erro: 'Sessao expirada. Faca login novamente.' });
+  }
+}
+
+async function obterMeusDados(req, res) {
+  try {
+    const resultado = await query(
+      `SELECT id, nome, sobrenome, email, telefone, cpf, cep, logradouro, numero, bairro, cidade, uf
+       FROM contas_clientes WHERE id = $1`,
+      [req.contaClienteId]
+    );
+    if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Conta nao encontrada.' });
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao buscar meus dados:', error);
+    res.status(500).json({ erro: 'Erro ao buscar seus dados.' });
+  }
+}
+
+async function atualizarMeusDados(req, res) {
+  try {
+    const { nome, sobrenome, telefone, cep, logradouro, numero, bairro, cidade, uf } = req.body;
+    if (!nome || !sobrenome) return res.status(400).json({ erro: 'Nome e sobrenome sao obrigatorios.' });
+
+    const resultado = await query(
+      `UPDATE contas_clientes SET
+        nome = $1, sobrenome = $2,
+        telefone = COALESCE($3, telefone), cep = COALESCE($4, cep),
+        logradouro = COALESCE($5, logradouro), numero = COALESCE($6, numero),
+        bairro = COALESCE($7, bairro), cidade = COALESCE($8, cidade), uf = COALESCE($9, uf)
+       WHERE id = $10
+       RETURNING id, nome, sobrenome, email, telefone, cpf, cep, logradouro, numero, bairro, cidade, uf`,
+      [
+        nome.trim(), sobrenome.trim(), (telefone || '').replace(/\D/g, '') || null,
+        cep || null, (logradouro || '').trim() || null, (numero || '').trim() || null,
+        (bairro || '').trim() || null, (cidade || '').trim() || null, uf ? uf.toUpperCase() : null,
+        req.contaClienteId
+      ]
+    );
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao atualizar meus dados:', error);
+    res.status(500).json({ erro: 'Erro ao salvar seus dados.' });
+  }
+}
+
+module.exports.autenticarCliente = autenticarCliente;
+module.exports.obterMeusDados = obterMeusDados;
+module.exports.atualizarMeusDados = atualizarMeusDados;
