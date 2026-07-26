@@ -18,4 +18,7 @@ router.post('/login', limitadorLogin, contaClienteController.login);
 router.post('/google', limitadorLogin, contaClienteController.loginGoogle);
 router.post('/esqueci-senha', limitadorLogin, contaClienteController.esqueciSenha);
 
+router.get('/me', contaClienteController.autenticarCliente, contaClienteController.obterMeusDados);
+router.put('/me', contaClienteController.autenticarCliente, contaClienteController.atualizarMeusDados);
+
 module.exports = router;
