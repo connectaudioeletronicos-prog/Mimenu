@@ -66,10 +66,20 @@
 - [ ] Imagens dos carrosséis e da vitrine devem linkar direto pro produto
 - [ ] Pedido para retirar no local (pickup), com tempo estimado de preparo
       exibido pro cliente (igual ao delivery)
-- [ ] Pedido agendado (data/hora futura), com pagamento no momento da
-      finalização do pedido (não no agendamento)
-- [ ] Reserva de mesa (só para lojas com atendimento local): cliente solicita,
-      cai no dashboard da loja, admin confirma mesa/quantidade/horário
+- [ ] Pedido agendado (data/hora futura) — EM ANDAMENTO 24/07: recurso
+      opcional (toggle em Configurações, some do app do cliente se
+      desligado). Regras definidas: agenda até 24h à frente; intervalo de
+      horários disponíveis configurável pelo lojista no dashboard; só
+      confirma após pagamento online (sem opção de pagar na entrega pra
+      esses pedidos). Já criado no banco: `estabelecimentos.pedido_agendado_ativo`
+      e `pedidos.agendado_para`. Falta: tela de agendamento no cliente
+      (calendário/horário), campo de intervalo no admin, bloqueio de
+      "pagar na entrega" quando for agendado
+- [x] Reserva de mesa (só para lojas com atendimento local) — 24/07:
+      recurso opcional (toggle em Configurações). Cliente vê um menu
+      discreto "Reserva" no cardápio (só se ativado), preenche nome,
+      telefone, dia, hora e quantidade de pessoas. Cai numa aba "Reservas"
+      no dashboard, admin confirma ou cancela.
 - [x] Notificação pro cliente quando a cozinha marcar o pedido como pronto
       (delivery) — status "pronto" entra na timeline do acompanhamento do
       cliente + notificação do navegador (best-effort) em 22/07
@@ -82,6 +92,27 @@
       podendo ser reativada no futuro
 
 ## Dashboard do lojista
+- [ ] **Reorganização do menu lateral (planejada, aguardando implementação) — 24/07**
+      Ordem definida pelo dono do produto, pra aplicar quando formos mexer
+      no menu de novo (juntar Configuração como um grupo/submenu):
+      1. Pedidos
+      2. Atendimento
+      3. Categorias
+      4. Produtos
+      5. Promoções
+      6. Carrosséis e Vitrines
+      7. Construtor de página
+      8. Divulgação (QR Code / Link)
+      9. Funcionários
+      10. **Configuração** (grupo/submenu com):
+          - Aparência
+          - Informações
+          - Agendamento de pedidos
+          - Reserva de mesa
+          - Páginas legais
+          - Caixa
+          - Pagamento
+          - Senha
 - [x] Aba "Funcionarios" virou aba "Equipe" (visão operacional por função:
       Cozinha / Entregadores / Atendimento) + botão "⚙️ Cadastro de
       funcionarios" no canto superior direito, abrindo o cadastro completo
@@ -141,12 +172,14 @@
       sem valores, com botão único "Marcar como pronto" (22/07). Ainda falta:
       QR Code de acesso dedicado gerado pelo admin (sem precisar de
       login completo)
-- [x]/[ ] **App do entregador:** por enquanto funciona *dentro do próprio
-      dashboard* — funcionário com cargo "Entregador" só vê os pedidos
-      atribuídos a ele, com botão "Marcar como entregue"; atribuição
-      automática sempre por ordem de chegada; contador de entregas
-      realizadas e toggle de disponibilidade (22/07). Ainda faltam:
-  - QR Code de acesso dedicado gerado pelo admin
+- [x]/[x] **App do entregador:** app próprio e separado do dashboard
+      administrativo — 23-24/07: login (slug + usuário + senha), checkin
+      diário por QR Code (com fallback de código manual pra câmera
+      quebrada), fila por ordem de chegada com oferta/aceite/recusa (não
+      atribuição automática direta), botão "Encerrar entrega". Também
+      ganhou: link de acesso definitivo por funcionário (facilita login,
+      não substitui senha) e liberação pontual de hora extra (ignora a
+      carga horária configurada só no dia liberado). Ainda faltam:
   - Bloqueio de 30 min se exceder o tempo estimado sem finalizar
   - Se não encontrar o cliente: retorna pra loja e só pode tentar de novo
     após contato/liberação da loja
