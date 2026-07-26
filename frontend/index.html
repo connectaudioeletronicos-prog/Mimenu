@@ -74,36 +74,38 @@
       <button type="button" id="botao-sair-conta-cliente" style="background:none; border:none; color:#c0392b; text-decoration:underline; cursor:pointer; font-size:13px; padding:0;">Sair</button>
     </div>
 
-    <div class="tela-cliente__abas">
-      <button class="tela-cliente__aba ativo" data-aba-cliente="dados">Meus dados</button>
-      <button class="tela-cliente__aba" data-aba-cliente="pedidos">Meus pedidos</button>
-    </div>
-
-    <div class="tela-cliente__conteudo">
-      <div id="aba-cliente-dados" class="aba-cliente">
-        <form id="form-dados-cliente" class="tela-cliente__form">
-          <label>Nome completo
-            <input type="text" id="dados-nome">
-          </label>
-          <label>WhatsApp / Telefone
-            <input type="tel" id="dados-telefone" maxlength="14" placeholder="(11) 999999999">
-          </label>
-          <label>Rua / Avenida
-            <input type="text" id="dados-rua" placeholder="Rua Osvaldo Cruz">
-          </label>
-          <label>Numero
-            <input type="text" id="dados-numero" maxlength="10" placeholder="5210">
-          </label>
-          <label>CEP
-            <input type="text" id="dados-cep" maxlength="9" placeholder="99999-999">
-          </label>
-          <button type="submit" class="botao-primario">Salvar dados</button>
-        </form>
-        <a id="link-whatsapp-menu" class="tela-cliente__whatsapp" href="#" target="_blank" rel="noopener">💬 Falar no WhatsApp</a>
+    <div id="cliente-conta-area" class="oculto">
+      <div class="tela-cliente__abas">
+        <button class="tela-cliente__aba ativo" data-aba-cliente="dados">Meus dados</button>
+        <button class="tela-cliente__aba" data-aba-cliente="pedidos">Meus pedidos</button>
       </div>
 
-      <div id="aba-cliente-pedidos" class="aba-cliente oculto">
-        <div id="lista-pedidos-cliente"></div>
+      <div class="tela-cliente__conteudo">
+        <div id="aba-cliente-dados" class="aba-cliente">
+          <form id="form-dados-cliente" class="tela-cliente__form">
+            <label>Nome completo
+              <input type="text" id="dados-nome">
+            </label>
+            <label>WhatsApp / Telefone
+              <input type="tel" id="dados-telefone" maxlength="14" placeholder="(11) 999999999">
+            </label>
+            <label>Rua / Avenida
+              <input type="text" id="dados-rua" placeholder="Rua Osvaldo Cruz">
+            </label>
+            <label>Numero
+              <input type="text" id="dados-numero" maxlength="10" placeholder="5210">
+            </label>
+            <label>CEP
+              <input type="text" id="dados-cep" maxlength="9" placeholder="99999-999">
+            </label>
+            <button type="submit" class="botao-primario">Salvar dados</button>
+          </form>
+          <a id="link-whatsapp-menu" class="tela-cliente__whatsapp" href="#" target="_blank" rel="noopener">💬 Falar no WhatsApp</a>
+        </div>
+
+        <div id="aba-cliente-pedidos" class="aba-cliente oculto">
+          <div id="lista-pedidos-cliente"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -311,22 +313,78 @@
     (function () {
       const token = sessionStorage.getItem('palatos_token_cliente');
       const contaBruta = sessionStorage.getItem('palatos_conta_cliente');
+      const areaConta = document.getElementById('cliente-conta-area');
+
       if (token && contaBruta) {
         try {
           const conta = JSON.parse(contaBruta);
           document.getElementById('cliente-conta-nome').textContent = conta.nome || 'cliente';
           document.getElementById('cliente-conta-logado').classList.remove('oculto');
           document.getElementById('cliente-conta-deslogado').classList.add('oculto');
+          areaConta.classList.remove('oculto');
+          carregarMeusDadosDaConta(token);
         } catch (erro) {
           sessionStorage.removeItem('palatos_token_cliente');
           sessionStorage.removeItem('palatos_conta_cliente');
         }
       }
+      // Sem login: "Meus dados"/"Meus pedidos" ficam escondidos -- dados
+      // pessoais e pedidos so aparecem pra quem estiver autenticado (pra
+      // alguem que pegue/roube o celular nao conseguir ver nem pedir em
+      // nome de outra pessoa).
+
       document.getElementById('botao-sair-conta-cliente')?.addEventListener('click', () => {
         sessionStorage.removeItem('palatos_token_cliente');
         sessionStorage.removeItem('palatos_conta_cliente');
         window.location.reload();
       });
+
+      async function carregarMeusDadosDaConta(token) {
+        try {
+          const resposta = await fetch(`${API_BASE_URL}/clientes/auth/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!resposta.ok) throw new Error('Sessao expirada.');
+          const dados = await resposta.json();
+          document.getElementById('dados-nome').value = `${dados.nome || ''} ${dados.sobrenome || ''}`.trim();
+          document.getElementById('dados-telefone').value = dados.telefone || '';
+          document.getElementById('dados-rua').value = dados.logradouro || '';
+          document.getElementById('dados-numero').value = dados.numero || '';
+          document.getElementById('dados-cep').value = dados.cep || '';
+        } catch (erro) {
+          sessionStorage.removeItem('palatos_token_cliente');
+          sessionStorage.removeItem('palatos_conta_cliente');
+          window.location.reload();
+        }
+      }
+
+      document.getElementById('form-dados-cliente')?.addEventListener('submit', async (evento) => {
+        const tokenAtual = sessionStorage.getItem('palatos_token_cliente');
+        if (!tokenAtual) return; // formulario de convidado (sem conta) continua no fluxo antigo, tratado em cardapio.js
+
+        evento.preventDefault();
+        evento.stopImmediatePropagation();
+        const partesNome = document.getElementById('dados-nome').value.trim().split(' ');
+        const nome = partesNome.shift() || '';
+        const sobrenome = partesNome.join(' ') || '-';
+        try {
+          const resposta = await fetch(`${API_BASE_URL}/clientes/auth/me`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenAtual}` },
+            body: JSON.stringify({
+              nome, sobrenome,
+              telefone: document.getElementById('dados-telefone').value.trim(),
+              logradouro: document.getElementById('dados-rua').value.trim(),
+              numero: document.getElementById('dados-numero').value.trim(),
+              cep: document.getElementById('dados-cep').value.trim()
+            })
+          });
+          if (!resposta.ok) throw new Error();
+          alert('Dados atualizados!');
+        } catch (erro) {
+          alert('Nao foi possivel salvar seus dados. Tente novamente.');
+        }
+      }, true); // capture: roda antes do listener antigo em cardapio.js
     })();
   </script>
 </body>
