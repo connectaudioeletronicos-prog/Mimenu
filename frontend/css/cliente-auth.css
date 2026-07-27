@@ -427,3 +427,126 @@ body::after {
     flex-direction: column;
   }
 }
+
+/* ===================================================================
+   Ajustes 2026-07: fundo novo no desktop, logo maior no desktop,
+   correcao do espaco em branco no mobile e layout responsivo
+   exclusivo da tela de login (logo grande centralizada + foto no
+   rodape no mobile, duas colunas iguais ao cadastro no desktop).
+   =================================================================== */
+
+/* Corrige o "espaco em branco" no mobile: 100vh soma a barra de
+   endereco do navegador e empurra o card pra baixo da tela. Usamos
+   100dvh (viewport dinamico) e so centralizamos com flex a partir do
+   desktop, onde o card tem tamanho fixo. */
+body {
+  min-height: 100dvh;
+}
+
+@media (min-width: 861px) {
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: #f2f3f5 url('../img/fundo-fitas.jpg') center center / cover no-repeat;
+  }
+
+  /* A nova imagem de fundo ja tem as fitas decorativas desenhadas;
+     removemos os circulos antigos so no desktop pra nao duplicar. */
+  body::before,
+  body::after {
+    content: none;
+  }
+}
+
+/* Logo maior apenas no desktop (painel lateral escuro, usado no
+   login e no cadastro) */
+@media (min-width: 861px) {
+  .auth-lado .auth-logo__icone {
+    height: 88px;
+  }
+  .auth-lado .auth-logo__texto {
+    font-size: 2.6rem;
+  }
+  .auth-lado .auth-logo__slogan {
+    font-size: 0.8rem;
+    gap: 8px;
+  }
+  .auth-lado .auth-logo__slogan-traco {
+    width: 20px;
+  }
+
+  /* No desktop o painel lateral do login ocupa a coluna inteira
+     (como no cadastro); a altura de 110px era so para a tarja fina
+     do mobile antigo. */
+  .auth-lado.auth-foto--login {
+    height: auto;
+  }
+}
+
+/* Logo grande centralizada da tela de login (versao mobile) */
+.auth-logo--centro .auth-logo__icone {
+  height: 130px;
+  margin-bottom: 12px;
+}
+
+.auth-logo--centro .auth-logo__texto {
+  font-size: 2.5rem;
+}
+
+/* --------------------------------------------------------------
+   Estrutura responsiva exclusiva da tela de login:
+   - Mobile: card unico, logo grande centralizada, foto no rodape.
+   - Desktop: duas colunas, igual ao cadastro (regra padrao acima).
+   -------------------------------------------------------------- */
+
+.auth-lado--somente-desktop { display: none; }
+.auth-lado--somente-mobile { display: block; }
+.auth-logo--somente-mobile { display: block; }
+
+.auth-titulo-centro-mobile,
+.auth-sub-centro-mobile {
+  text-align: center;
+}
+
+@media (min-width: 861px) {
+  .auth-lado--somente-desktop { display: flex; }
+  .auth-lado--somente-mobile { display: none; }
+  .auth-logo--somente-mobile { display: none; }
+
+  .auth-titulo-centro-mobile,
+  .auth-sub-centro-mobile {
+    text-align: left;
+  }
+}
+
+@media (max-width: 860px) {
+  .auth-caixa--login-responsivo {
+    max-width: none;
+    width: 100%;
+    min-height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+    position: relative;
+  }
+
+  .auth-conteudo--login-responsivo {
+    padding: 40px 24px 260px;
+    justify-content: flex-start;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Faixa de foto decorativa no rodape do mobile, atras dos cantos
+     arredondados do card (efeito de "janela" como no mockup). */
+  .auth-foto-mobile-login {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 220px;
+    border-radius: 40px 40px 0 0;
+    z-index: 0;
+  }
+}
