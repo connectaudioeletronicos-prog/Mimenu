@@ -119,18 +119,31 @@ async function loginGoogle(req, res) {
     }
 
     // ---------------------------------------------------------------
+    // As credenciais do Google as vezes sao coladas com lixo junto
+    // (http:// na frente, barra no final, espaco, aspas) ao serem
+    // copiadas de outro lugar. Isso limpa automaticamente antes de
+    // usar, pra um erro de copia/cola no painel do Render nao quebrar
+    // o login.
+    // ---------------------------------------------------------------
+    function limparCredencialGoogle(valor) {
+      return (valor || '')
+        .trim()
+        .replace(/^["']|["']$/g, '')
+        .replace(/^https?:\/\//i, '')
+        .replace(/\/+$/, '');
+    }
+
+    const googleClientId = limparCredencialGoogle(process.env.GOOGLE_CLIENT_ID);
+    const googleClientSecret = limparCredencialGoogle(process.env.GOOGLE_CLIENT_SECRET);
+
     // DIAGNOSTICO TEMPORARIO - nao imprime o valor real, so confirma
     // se a variavel chegou no processo e como ela esta formatada.
     // Remover depois que o login com Google estiver funcionando.
-    // ---------------------------------------------------------------
-    const idBruto = process.env.GOOGLE_CLIENT_ID || '';
-    const secretBruto = process.env.GOOGLE_CLIENT_SECRET || '';
-    console.log('[DIAGNOSTICO GOOGLE] client_id definido?', idBruto.length > 0);
-    console.log('[DIAGNOSTICO GOOGLE] client_id tamanho:', idBruto.length);
-    console.log('[DIAGNOSTICO GOOGLE] client_id inicio/fim:', JSON.stringify(idBruto.slice(0, 12)), '...', JSON.stringify(idBruto.slice(-12)));
-    console.log('[DIAGNOSTICO GOOGLE] client_secret definido?', secretBruto.length > 0);
-    console.log('[DIAGNOSTICO GOOGLE] client_secret tamanho:', secretBruto.length);
-    console.log('[DIAGNOSTICO GOOGLE] client_secret inicio:', JSON.stringify(secretBruto.slice(0, 6)));
+    console.log('[DIAGNOSTICO GOOGLE] client_id definido?', googleClientId.length > 0);
+    console.log('[DIAGNOSTICO GOOGLE] client_id tamanho (limpo):', googleClientId.length);
+    console.log('[DIAGNOSTICO GOOGLE] client_id inicio/fim (limpo):', JSON.stringify(googleClientId.slice(0, 12)), '...', JSON.stringify(googleClientId.slice(-12)));
+    console.log('[DIAGNOSTICO GOOGLE] client_secret definido?', googleClientSecret.length > 0);
+    console.log('[DIAGNOSTICO GOOGLE] client_secret tamanho (limpo):', googleClientSecret.length);
 
     // Troca o codigo de autorizacao (recebido do botao "Continuar com
     // Google" no navegador) pelos tokens reais, direto com o Google.
@@ -139,8 +152,8 @@ async function loginGoogle(req, res) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         code,
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        client_id: googleClientId,
+        client_secret: googleClientSecret,
         redirect_uri: 'postmessage',
         grant_type: 'authorization_code'
       })
