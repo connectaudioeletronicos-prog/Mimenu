@@ -19,11 +19,27 @@ function salvarSessaoCliente(token, conta) {
 // -------------------------------------------------------------
 function irParaCardapioDaLoja() {
   if (typeof SLUG_ESTABELECIMENTO !== 'undefined' && SLUG_ESTABELECIMENTO) {
-    window.location.href = `/${SLUG_ESTABELECIMENTO}/index.html`;
+    window.location.href = `index.html?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}`;
   } else {
     window.location.href = 'index.html';
   }
 }
+
+// -------------------------------------------------------------
+// O link "Criar conta" (na tela de login) e o link "Entrar" (na
+// tela de cadastro) tambem sao relativos e simples - se a loja foi
+// aberta com ?slug=xxx na URL, um <a href="cliente-cadastro.html">
+// sem esse parametro faz a proxima pagina perder de vista qual loja
+// e essa. Aqui a gente repassa a query string atual (ex.: ?slug=xxx)
+// para esses dois links assim que a pagina carrega.
+// -------------------------------------------------------------
+(function repassarQueryStringNosLinksCruzados() {
+  const queryAtual = window.location.search;
+  if (!queryAtual) return;
+  document.querySelectorAll('a[href="cliente-cadastro.html"], a[href="cliente-login.html"]').forEach((link) => {
+    link.href = link.getAttribute('href') + queryAtual;
+  });
+})();
 
 function mostrarErro(id, mensagem) {
   const el = document.getElementById(id);
