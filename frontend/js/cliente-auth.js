@@ -10,6 +10,21 @@ function salvarSessaoCliente(token, conta) {
   sessionStorage.setItem(CHAVE_CONTA_CLIENTE, JSON.stringify(conta));
 }
 
+// -------------------------------------------------------------
+// Depois do login/cadastro, precisamos voltar para o cardapio da
+// MESMA loja (ex.: /fr), e nao para a raiz do site. Um redirect
+// relativo simples ("index.html") quebra isso quando a URL nao
+// termina com barra, porque o navegador apaga o slug da loja do
+// caminho. Aqui montamos a URL certa a partir do slug atual.
+// -------------------------------------------------------------
+function irParaCardapioDaLoja() {
+  if (typeof SLUG_ESTABELECIMENTO !== 'undefined' && SLUG_ESTABELECIMENTO) {
+    window.location.href = `/${SLUG_ESTABELECIMENTO}/index.html`;
+  } else {
+    window.location.href = 'index.html';
+  }
+}
+
 function mostrarErro(id, mensagem) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -117,7 +132,7 @@ if (formCadastro) {
         throw new Error(dados.erro || 'Nao foi possivel concluir o cadastro.');
       }
       salvarSessaoCliente(dados.token, dados.conta);
-      window.location.href = 'index.html';
+      irParaCardapioDaLoja();
     } catch (erro) {
       mostrarErro('erro-etapa-2', erro.message);
       botao.disabled = false;
@@ -168,7 +183,7 @@ function iniciarLoginGoogle(botaoId, mensagemErroId) {
             throw new Error(dados.erro || 'Nao foi possivel entrar com o Google.');
           }
           salvarSessaoCliente(dados.token, dados.conta);
-          window.location.href = 'index.html';
+          irParaCardapioDaLoja();
         } catch (erro) {
           mostrarErro(mensagemErroId, erro.message);
           restaurarBotao();
@@ -211,7 +226,7 @@ if (formLogin) {
         throw new Error(dados.erro || 'Nao foi possivel entrar.');
       }
       salvarSessaoCliente(dados.token, dados.conta);
-      window.location.href = 'index.html';
+      irParaCardapioDaLoja();
     } catch (erro) {
       mostrarErro('erro-login', erro.message);
     }
