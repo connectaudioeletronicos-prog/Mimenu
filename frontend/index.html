@@ -68,8 +68,8 @@
     <div id="cliente-conta-deslogado" style="margin:0 16px 12px; padding:12px; background:#fff3f4; border:1px solid #f0c8cb; border-radius:10px; text-align:center;">
       <p style="margin:0 0 8px; font-size:14px; font-weight:600;">Prefere não digitar seus dados toda vez?</p>
       <div style="display:flex; gap:8px;">
-        <a href="cliente-login.html" class="botao-principal" style="flex:1; text-align:center; text-decoration:none; padding:10px; border-radius:8px; display:block;">Entrar</a>
-        <a href="cliente-cadastro.html" style="flex:1; text-align:center; text-decoration:none; padding:10px; border-radius:8px; border:1px solid var(--cor-principal); color:var(--cor-principal); display:block; font-weight:600;">Criar conta</a>
+        <a href="cliente-login.html" id="link-cliente-entrar" class="botao-principal" style="flex:1; text-align:center; text-decoration:none; padding:10px; border-radius:8px; display:block;">Entrar</a>
+        <a href="cliente-cadastro.html" id="link-cliente-criar-conta" style="flex:1; text-align:center; text-decoration:none; padding:10px; border-radius:8px; border:1px solid var(--cor-principal); color:var(--cor-principal); display:block; font-weight:600;">Criar conta</a>
       </div>
     </div>
     <div id="cliente-conta-logado" class="oculto" style="text-align:center; font-size:13px; margin:0 0 12px;">
@@ -314,6 +314,18 @@
     // conta quando nao ha sessao. So exibicao/logout -- o cadastro/login
     // em si fica nas paginas proprias (cliente-login.html / cliente-cadastro.html).
     (function () {
+      // Os links de Entrar/Criar conta sao relativos e sozinhos NAO
+      // carregam qual loja e essa. Sem isso, ao entrar em
+      // cliente-login.html a pagina nao sabe de qual estabelecimento
+      // se trata (mesmo bug do redirect pos-login, agora na ida).
+      if (typeof SLUG_ESTABELECIMENTO !== 'undefined' && SLUG_ESTABELECIMENTO) {
+        const linkEntrar = document.getElementById('link-cliente-entrar');
+        const linkCriarConta = document.getElementById('link-cliente-criar-conta');
+        const slugCodificado = encodeURIComponent(SLUG_ESTABELECIMENTO);
+        if (linkEntrar) linkEntrar.href = `cliente-login.html?slug=${slugCodificado}`;
+        if (linkCriarConta) linkCriarConta.href = `cliente-cadastro.html?slug=${slugCodificado}`;
+      }
+
       const token = sessionStorage.getItem('palatos_token_cliente');
       const contaBruta = sessionStorage.getItem('palatos_conta_cliente');
       const areaConta = document.getElementById('cliente-conta-area');
