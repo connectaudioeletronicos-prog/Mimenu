@@ -1,303 +1,137 @@
-// ===================================================================
-// Controller de autenticacao - conta do cliente (aplicativo do cliente)
-// ===================================================================
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
 const { query } = require('../config/database');
+const { registrarAuditoria } = require('./funcionarioController');
 
-async function cadastrar(req, res) {
+// Listar clientes do estabelecimento
+async function listar(req, res) {
   try {
-    const {
-      nome, sobrenome, email, telefone, senha,
-      cpf, cep, logradouro, numero, bairro, cidade, uf
-    } = req.body;
+    const { busca } = req.query;
+    let sql = `SELECT id, nome, telefone, endereco, email, criado_em
+               FROM clientes WHERE estabelecimento_id = $1`;
+    const params = [req.estabelecimentoId];
 
-    if (!nome || !sobrenome || !senha) {
-      return res.status(400).json({ erro: 'Nome, sobrenome e senha sao obrigatorios.' });
-    }
-    if (!email && !telefone) {
-      return res.status(400).json({ erro: 'Informe pelo menos um e-mail ou telefone para contato.' });
-    }
-    if (senha.length < 6) {
-      return res.status(400).json({ erro: 'A senha deve ter pelo menos 6 caracteres.' });
+    if (busca) {
+      sql += ` AND (nome ILIKE $2 OR telefone ILIKE $2)`;
+      params.push(`%${busca}%`);
     }
 
-    const cpfLimpo = (cpf || '').replace(/\D/g, '');
-    if (!cpfLimpo || cpfLimpo.length !== 11) {
-      return res.status(400).json({ erro: 'Informe um CPF valido.' });
-    }
-    if (!cep || !logradouro || !numero || !bairro || !cidade || !uf) {
-      return res.status(400).json({ erro: 'Preencha todos os dados de endereco.' });
-    }
-
-    const emailLimpo = email ? email.toLowerCase().trim() : null;
-    const telefoneLimpo = telefone ? telefone.replace(/\D/g, '') : null;
-
-    const existente = await query(
-      'SELECT id FROM contas_clientes WHERE cpf = $1 OR (email IS NOT NULL AND email = $2) OR (telefone IS NOT NULL AND telefone = $3)',
-      [cpfLimpo, emailLimpo, telefoneLimpo]
-    );
-    if (existente.rows.length > 0) {
-      return res.status(409).json({ erro: 'Ja existe uma conta com esse e-mail, telefone ou CPF.' });
-    }
-
-    const senhaHash = await bcrypt.hash(senha, 10);
-
-    const resultado = await query(
-      `INSERT INTO contas_clientes
-        (nome, sobrenome, email, telefone, senha_hash, cpf, cep, logradouro, numero, bairro, cidade, uf)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, nome, sobrenome, email, telefone`,
-      [
-        nome.trim(), sobrenome.trim(), emailLimpo, telefoneLimpo, senhaHash,
-        cpfLimpo, cep, logradouro.trim(), numero.trim(), bairro.trim(), cidade.trim(), uf.toUpperCase()
-      ]
-    );
-    const conta = resultado.rows[0];
-
-    const token = jwt.sign(
-      { contaClienteId: conta.id, tipo: 'cliente' },
-      process.env.JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-
-    res.status(201).json({
-      token,
-      conta: { id: conta.id, nome: conta.nome, sobrenome: conta.sobrenome, email: conta.email }
-    });
+    sql += ` ORDER BY nome ASC`;
+    const resultado = await query(sql, params);
+    res.json(resultado.rows);
   } catch (error) {
-    console.error('Erro ao cadastrar conta de cliente:', error);
-    res.status(500).json({ erro: 'Erro interno ao criar a conta.' });
+    console.error('Erro ao listar clientes:', error);
+    res.status(500).json({ erro: 'Erro ao listar clientes.' });
   }
 }
 
-async function login(req, res) {
+// Buscar cliente por telefone
+async function buscarPorTelefone(req, res) {
   try {
-    const { email, senha } = req.body;
-    if (!email || !senha) {
-      return res.status(400).json({ erro: 'E-mail/telefone e senha sao obrigatorios.' });
-    }
-    const identificador = email.toLowerCase().trim();
-    const identificadorTelefone = identificador.replace(/\D/g, '');
+    const { telefone } = req.params;
+    const telefoneLimpo = telefone.replace(/\D/g, '');
 
     const resultado = await query(
-      `SELECT id, nome, sobrenome, email, senha_hash FROM contas_clientes
-       WHERE email = $1 OR (telefone IS NOT NULL AND telefone = $2)`,
-      [identificador, identificadorTelefone]
-    );
-    if (resultado.rows.length === 0) {
-      return res.status(401).json({ erro: 'E-mail/telefone ou senha invalidos.' });
-    }
-
-    const conta = resultado.rows[0];
-    const senhaCorreta = await bcrypt.compare(senha, conta.senha_hash);
-    if (!senhaCorreta) {
-      return res.status(401).json({ erro: 'E-mail/telefone ou senha invalidos.' });
-    }
-
-    const token = jwt.sign(
-      { contaClienteId: conta.id, tipo: 'cliente' },
-      process.env.JWT_SECRET,
-      { expiresIn: '30d' }
+      `SELECT id, nome, telefone, endereco, email, criado_em
+       FROM clientes
+       WHERE estabelecimento_id = $1
+         AND regexp_replace(telefone, '\\D', '', 'g') = $2`,
+      [req.estabelecimentoId, telefoneLimpo]
     );
 
-    res.json({
-      token,
-      conta: { id: conta.id, nome: conta.nome, sobrenome: conta.sobrenome, email: conta.email }
-    });
+    if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Cliente nao encontrado.' });
+    res.json(resultado.rows[0]);
   } catch (error) {
-    console.error('Erro no login de cliente:', error);
-    res.status(500).json({ erro: 'Erro interno ao processar login.' });
+    res.status(500).json({ erro: 'Erro ao buscar cliente.' });
   }
 }
 
-async function loginGoogle(req, res) {
+// Criar ou atualizar cliente (upsert por telefone)
+async function criarOuAtualizar(req, res) {
   try {
-    const { code } = req.body;
-    if (!code) {
-      return res.status(400).json({ erro: 'Codigo de autorizacao do Google ausente.' });
+    const { nome, telefone, endereco, email } = req.body;
+
+    if (!nome || !telefone) {
+      return res.status(400).json({ erro: 'Nome e telefone sao obrigatorios.' });
     }
 
-    // ---------------------------------------------------------------
-    // DIAGNOSTICO TEMPORARIO - nao imprime o valor real, so confirma
-    // se a variavel chegou no processo e como ela esta formatada.
-    // Remover depois que o login com Google estiver funcionando.
-    // ---------------------------------------------------------------
-    const idBruto = process.env.GOOGLE_CLIENT_ID || '';
-    const secretBruto = process.env.GOOGLE_CLIENT_SECRET || '';
-    console.log('[DIAGNOSTICO GOOGLE] client_id definido?', idBruto.length > 0);
-    console.log('[DIAGNOSTICO GOOGLE] client_id tamanho:', idBruto.length);
-    console.log('[DIAGNOSTICO GOOGLE] client_id inicio/fim:', JSON.stringify(idBruto.slice(0, 12)), '...', JSON.stringify(idBruto.slice(-12)));
-    console.log('[DIAGNOSTICO GOOGLE] client_secret definido?', secretBruto.length > 0);
-    console.log('[DIAGNOSTICO GOOGLE] client_secret tamanho:', secretBruto.length);
-    console.log('[DIAGNOSTICO GOOGLE] client_secret inicio:', JSON.stringify(secretBruto.slice(0, 6)));
-
-    // Troca o codigo de autorizacao (recebido do botao "Continuar com
-    // Google" no navegador) pelos tokens reais, direto com o Google.
-    const respostaToken = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        code,
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: 'postmessage',
-        grant_type: 'authorization_code'
-      })
-    });
-    const dadosToken = await respostaToken.json();
-
-    if (!respostaToken.ok || !dadosToken.id_token) {
-      console.error('Erro ao trocar codigo do Google:', dadosToken);
-      return res.status(401).json({ erro: 'Nao foi possivel validar o login com o Google.' });
-    }
-
-    // O id_token e um JWT emitido pelo Google. Como acabamos de troca-lo
-    // diretamente com o Google usando nosso client_secret, o conteudo ja
-    // e confiavel - so precisamos ler o payload (segunda parte do JWT).
-    const payloadBase64 = dadosToken.id_token.split('.')[1];
-    const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
-
-    const googleId = payload.sub;
-    const email = (payload.email || '').toLowerCase().trim();
-    const nome = payload.given_name || payload.name || 'Cliente';
-    const sobrenome = payload.family_name || '';
-
-    if (!email) {
-      return res.status(400).json({ erro: 'Sua conta Google precisa ter um e-mail publico para continuar.' });
-    }
-
-    // Busca por google_id (quem ja logou assim antes) ou por e-mail
-    // (permite vincular ao login do Google uma conta ja existente).
     const resultado = await query(
-      'SELECT id, nome, sobrenome, email FROM contas_clientes WHERE google_id = $1 OR email = $2',
-      [googleId, email]
+      `INSERT INTO clientes (estabelecimento_id, nome, telefone, endereco, email)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (estabelecimento_id, telefone)
+       DO UPDATE SET nome = EXCLUDED.nome,
+                     endereco = COALESCE(EXCLUDED.endereco, clientes.endereco),
+                     email = COALESCE(EXCLUDED.email, clientes.email),
+                     atualizado_em = NOW()
+       RETURNING *`,
+      [req.estabelecimentoId, nome, telefone, endereco || null, email || null]
     );
 
-    let conta;
-    if (resultado.rows.length > 0) {
-      conta = resultado.rows[0];
-      await query('UPDATE contas_clientes SET google_id = $1 WHERE id = $2', [googleId, conta.id]);
-    } else {
-      const novaConta = await query(
-        `INSERT INTO contas_clientes (nome, sobrenome, email, google_id)
-         VALUES ($1, $2, $3, $4) RETURNING id, nome, sobrenome, email`,
-        [nome.trim(), (sobrenome || '').trim(), email, googleId]
+    const cliente = resultado.rows[0];
+
+    if (req.funcionarioId) {
+      await registrarAuditoria(
+        req.estabelecimentoId, req.funcionarioId, req.funcionarioNome,
+        'CRIAR_OU_ATUALIZAR_CLIENTE', 'clientes', cliente.id,
+        null, { nome, telefone, endereco, email }, req.ip
       );
-      conta = novaConta.rows[0];
     }
 
-    const token = jwt.sign(
-      { contaClienteId: conta.id, tipo: 'cliente' },
-      process.env.JWT_SECRET,
-      { expiresIn: '30d' }
+    res.status(201).json(cliente);
+  } catch (error) {
+    console.error('Erro ao criar/atualizar cliente:', error);
+    res.status(500).json({ erro: 'Erro ao salvar cliente.' });
+  }
+}
+
+// Atualizar cliente (admin, gerente ou atendente)
+async function atualizar(req, res) {
+  try {
+    const { id } = req.params;
+    const { nome, telefone, endereco, email } = req.body;
+
+    const anterior = await query(
+      'SELECT * FROM clientes WHERE id = $1 AND estabelecimento_id = $2',
+      [id, req.estabelecimentoId]
     );
-
-    res.json({
-      token,
-      conta: { id: conta.id, nome: conta.nome, sobrenome: conta.sobrenome, email: conta.email }
-    });
-  } catch (error) {
-    console.error('Erro no login com Google:', error);
-    res.status(500).json({ erro: 'Erro interno ao processar login com Google.' });
-  }
-}
-
-async function esqueciSenha(req, res) {
-  const respostaGenerica = { mensagem: 'Se esse e-mail estiver cadastrado, enviamos um link de recuperacao.' };
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ erro: 'Informe o e-mail.' });
-
-    const resultado = await query('SELECT id, nome, email FROM contas_clientes WHERE email = $1', [email.toLowerCase().trim()]);
-    if (resultado.rows.length === 0) {
-      return res.json(respostaGenerica);
-    }
-
-    const conta = resultado.rows[0];
-    const tokenBruto = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(tokenBruto).digest('hex');
-    const expira = new Date(Date.now() + 60 * 60 * 1000);
-
-    await query(
-      'UPDATE contas_clientes SET reset_token = $1, reset_token_expira = $2 WHERE id = $3',
-      [tokenHash, expira, conta.id]
-    );
-
-    // TODO: reaproveitar utils/email.js para mandar esse link por e-mail
-    // (mesmo servico ja usado em authController -> enviarEmailRecuperacaoSenha)
-    console.log(`[cliente] link de recuperacao de senha para ${conta.email}: token=${tokenBruto}`);
-
-    res.json(respostaGenerica);
-  } catch (error) {
-    console.error('Erro ao solicitar recuperacao de senha do cliente:', error);
-    res.json(respostaGenerica);
-  }
-}
-
-module.exports = { cadastrar, login, loginGoogle, esqueciSenha };
-
-// ===================================================================
-// Conta logada: "Meus dados" (ver/editar) -- exige token de cliente valido.
-// ===================================================================
-
-async function autenticarCliente(req, res, next) {
-  try {
-    const cabecalho = req.headers.authorization;
-    if (!cabecalho || !cabecalho.startsWith('Bearer ')) {
-      return res.status(401).json({ erro: 'Faca login para continuar.' });
-    }
-    const payload = jwt.verify(cabecalho.replace('Bearer ', ''), process.env.JWT_SECRET);
-    if (payload.tipo !== 'cliente') return res.status(401).json({ erro: 'Sessao invalida.' });
-    req.contaClienteId = payload.contaClienteId;
-    next();
-  } catch (error) {
-    res.status(401).json({ erro: 'Sessao expirada. Faca login novamente.' });
-  }
-}
-
-async function obterMeusDados(req, res) {
-  try {
-    const resultado = await query(
-      `SELECT id, nome, sobrenome, email, telefone, cpf, cep, logradouro, numero, bairro, cidade, uf
-       FROM contas_clientes WHERE id = $1`,
-      [req.contaClienteId]
-    );
-    if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Conta nao encontrada.' });
-    res.json(resultado.rows[0]);
-  } catch (error) {
-    console.error('Erro ao buscar meus dados:', error);
-    res.status(500).json({ erro: 'Erro ao buscar seus dados.' });
-  }
-}
-
-async function atualizarMeusDados(req, res) {
-  try {
-    const { nome, sobrenome, telefone, cep, logradouro, numero, bairro, cidade, uf } = req.body;
-    if (!nome || !sobrenome) return res.status(400).json({ erro: 'Nome e sobrenome sao obrigatorios.' });
+    if (anterior.rows.length === 0) return res.status(404).json({ erro: 'Cliente nao encontrado.' });
 
     const resultado = await query(
-      `UPDATE contas_clientes SET
-        nome = $1, sobrenome = $2,
-        telefone = COALESCE($3, telefone), cep = COALESCE($4, cep),
-        logradouro = COALESCE($5, logradouro), numero = COALESCE($6, numero),
-        bairro = COALESCE($7, bairro), cidade = COALESCE($8, cidade), uf = COALESCE($9, uf)
-       WHERE id = $10
-       RETURNING id, nome, sobrenome, email, telefone, cpf, cep, logradouro, numero, bairro, cidade, uf`,
-      [
-        nome.trim(), sobrenome.trim(), (telefone || '').replace(/\D/g, '') || null,
-        cep || null, (logradouro || '').trim() || null, (numero || '').trim() || null,
-        (bairro || '').trim() || null, (cidade || '').trim() || null, uf ? uf.toUpperCase() : null,
-        req.contaClienteId
-      ]
+      `UPDATE clientes SET
+         nome = COALESCE($1, nome),
+         telefone = COALESCE($2, telefone),
+         endereco = COALESCE($3, endereco),
+         email = COALESCE($4, email),
+         atualizado_em = NOW()
+       WHERE id = $5 AND estabelecimento_id = $6 RETURNING *`,
+      [nome, telefone, endereco, email, id, req.estabelecimentoId]
     );
+
+    await registrarAuditoria(
+      req.estabelecimentoId, req.funcionarioId, req.funcionarioNome,
+      'ATUALIZAR_CLIENTE', 'clientes', id,
+      anterior.rows[0], resultado.rows[0], req.ip
+    );
+
     res.json(resultado.rows[0]);
   } catch (error) {
-    console.error('Erro ao atualizar meus dados:', error);
-    res.status(500).json({ erro: 'Erro ao salvar seus dados.' });
+    res.status(500).json({ erro: 'Erro ao atualizar cliente.' });
   }
 }
 
-module.exports.autenticarCliente = autenticarCliente;
-module.exports.obterMeusDados = obterMeusDados;
-module.exports.atualizarMeusDados = atualizarMeusDados;
+// Listar auditoria (so admin)
+async function listarAuditoria(req, res) {
+  try {
+    const resultado = await query(
+      `SELECT id, funcionario_nome, acao, tabela_afetada, dados_anteriores, dados_novos, ip, criado_em
+       FROM auditoria
+       WHERE estabelecimento_id = $1
+       ORDER BY criado_em DESC
+       LIMIT 200`,
+      [req.estabelecimentoId]
+    );
+    res.json(resultado.rows);
+  } catch (error) {
+    res.status(500).json({ erro: 'Erro ao listar auditoria.' });
+  }
+}
+
+module.exports = { listar, buscarPorTelefone, criarOuAtualizar, atualizar, listarAuditoria };
