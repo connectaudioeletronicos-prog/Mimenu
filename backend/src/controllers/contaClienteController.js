@@ -118,6 +118,20 @@ async function loginGoogle(req, res) {
       return res.status(400).json({ erro: 'Codigo de autorizacao do Google ausente.' });
     }
 
+    // ---------------------------------------------------------------
+    // DIAGNOSTICO TEMPORARIO - nao imprime o valor real, so confirma
+    // se a variavel chegou no processo e como ela esta formatada.
+    // Remover depois que o login com Google estiver funcionando.
+    // ---------------------------------------------------------------
+    const idBruto = process.env.GOOGLE_CLIENT_ID || '';
+    const secretBruto = process.env.GOOGLE_CLIENT_SECRET || '';
+    console.log('[DIAGNOSTICO GOOGLE] client_id definido?', idBruto.length > 0);
+    console.log('[DIAGNOSTICO GOOGLE] client_id tamanho:', idBruto.length);
+    console.log('[DIAGNOSTICO GOOGLE] client_id inicio/fim:', JSON.stringify(idBruto.slice(0, 12)), '...', JSON.stringify(idBruto.slice(-12)));
+    console.log('[DIAGNOSTICO GOOGLE] client_secret definido?', secretBruto.length > 0);
+    console.log('[DIAGNOSTICO GOOGLE] client_secret tamanho:', secretBruto.length);
+    console.log('[DIAGNOSTICO GOOGLE] client_secret inicio:', JSON.stringify(secretBruto.slice(0, 6)));
+
     // Troca o codigo de autorizacao (recebido do botao "Continuar com
     // Google" no navegador) pelos tokens reais, direto com o Google.
     const respostaToken = await fetch('https://oauth2.googleapis.com/token', {
