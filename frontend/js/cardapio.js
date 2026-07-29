@@ -916,7 +916,7 @@ function inicializarMenuCliente() {
   botaoAbrir.addEventListener('click', () => {
     const jaLogado = sessionStorage.getItem('palatos_token_cliente');
     if (!jaLogado) {
-      window.location.href = 'cliente-login.html';
+      window.location.href = `cliente-login.html?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}`;
       return;
     }
     preencherFormularioDadosCliente();
