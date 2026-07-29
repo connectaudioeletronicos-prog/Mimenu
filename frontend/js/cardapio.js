@@ -628,11 +628,32 @@ function renderizarCarrinho() {
   document.getElementById('carrinho-subtotal').textContent = formatarMoeda(Carrinho.calcularSubtotal());
 }
 
-function irParaCheckout() {
+async function irParaCheckout() {
   if (Carrinho.listar().length === 0) return;
   const dados = obterDadosCliente();
-  if (dados.nome) document.getElementById('checkout-nome').value = dados.nome;
-  if (dados.telefone) document.getElementById('checkout-telefone').value = dados.telefone;
+  let contaLogada = null;
+  const token = sessionStorage.getItem('palatos_token_cliente');
+  if (token) {
+    try {
+      const resposta = await fetch(`${API_BASE_URL}/clientes/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (resposta.ok) contaLogada = await resposta.json();
+    } catch (erro) {
+      // Sem conexao: segue com os dados salvos localmente (se houver).
+    }
+  }
+
+  // Prioridade: dados da conta (se logado) > dados salvos localmente de um
+  // pedido anterior como convidado.
+  const nomeCompleto = contaLogada ? `${contaLogada.nome} ${contaLogada.sobrenome || ''}`.trim() : dados.nome;
+  const telefonePreenchido = contaLogada ? contaLogada.telefone : dados.telefone;
+  const ruaPreenchida = contaLogada ? contaLogada.logradouro : dados.rua;
+  const numeroPreenchido = contaLogada ? contaLogada.numero : dados.numero;
+  const cepPreenchido = contaLogada ? contaLogada.cep : dados.cep;
+
+  if (nomeCompleto) document.getElementById('checkout-nome').value = nomeCompleto;
+  if (telefonePreenchido) document.getElementById('checkout-telefone').value = telefonePreenchido;
 
   const campoTelefone = document.getElementById('checkout-telefone');
   if (campoTelefone && !campoTelefone.dataset.mascara) {
@@ -645,10 +666,33 @@ function irParaCheckout() {
     });
     campoTelefone.dispatchEvent(new Event('input'));
   }
-  if (dados.rua) document.getElementById('checkout-rua').value = dados.rua;
-  if (dados.numero) document.getElementById('checkout-numero').value = dados.numero;
-  if (dados.cep) document.getElementById('checkout-cep').value = dados.cep;
+  if (ruaPreenchida) document.getElementById('checkout-rua').value = ruaPreenchida;
+  if (numeroPreenchido) document.getElementById('checkout-numero').value = numeroPreenchido;
+  if (cepPreenchido) document.getElementById('checkout-cep').value = cepPreenchido;
   aplicarMascaraCep(document.getElementById('checkout-cep'));
+
+  // So oferece "criar conta" pra quem ainda nao tem uma logada. Os dados ja
+  // digitados aqui (nome, telefone, endereco) vao junto pro cadastro, pra
+  // nao precisar digitar tudo de novo la.
+  const ofertaConta = document.getElementById('checkout-oferta-conta');
+  if (ofertaConta) {
+    ofertaConta.classList.toggle('oculto', !!contaLogada);
+    const link = document.getElementById('link-criar-conta-checkout');
+    if (link && !link.dataset.configurado) {
+      link.dataset.configurado = '1';
+      link.addEventListener('click', (evento) => {
+        evento.preventDefault();
+        sessionStorage.setItem('palatos_prefill_cadastro', JSON.stringify({
+          nome: document.getElementById('checkout-nome').value.trim(),
+          telefone: document.getElementById('checkout-telefone').value.trim(),
+          rua: document.getElementById('checkout-rua').value.trim(),
+          numero: document.getElementById('checkout-numero').value.trim(),
+          cep: document.getElementById('checkout-cep').value.trim()
+        }));
+        window.location.href = `cliente-cadastro.html?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}`;
+      });
+    }
+  }
 
   document.getElementById('carrinho-etapa-itens').classList.add('oculto');
   document.getElementById('carrinho-etapa-checkout').classList.remove('oculto');
@@ -916,7 +960,7 @@ function inicializarMenuCliente() {
   botaoAbrir.addEventListener('click', () => {
     const jaLogado = sessionStorage.getItem('palatos_token_cliente');
     if (!jaLogado) {
-      window.location.href = `cliente-login.html?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}`;
+      window.location.href = 'cliente-login.html';
       return;
     }
     preencherFormularioDadosCliente();
@@ -1135,17 +1179,53 @@ function configurarReserva() {
   const form = document.getElementById('form-reserva');
   const botaoFechar = document.getElementById('botao-fechar-reserva');
   const erroEl = document.getElementById('reserva-erro');
+  const camposIdentificacao = document.getElementById('reserva-campos-identificacao');
+  const saudacaoLogado = document.getElementById('reserva-saudacao-logado');
+  const campoNome = document.getElementById('reserva-nome');
+  const campoTelefone = document.getElementById('reserva-telefone');
 
   if (!DADOS.estabelecimento.reserva_mesa_ativa) return;
   botaoAbrir.classList.remove('oculto');
   const logoEl = document.getElementById('reserva-logo-estabelecimento');
   if (logoEl) logoEl.src = DADOS.estabelecimento.logo_url || '';
 
+  // Se o cliente ja estiver logado, busca nome/telefone da conta e nao pede
+  // de novo no formulario - so data, horario e quantidade de pessoas.
+  let dadosClienteLogado = null;
+  async function carregarClienteLogadoSeHouver() {
+    const token = sessionStorage.getItem('palatos_token_cliente');
+    if (!token) return;
+    try {
+      const resposta = await fetch(`${API_BASE_URL}/clientes/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!resposta.ok) return;
+      const conta = await resposta.json();
+      dadosClienteLogado = conta;
+      camposIdentificacao.classList.add('oculto');
+      campoNome.required = false;
+      campoTelefone.required = false;
+      saudacaoLogado.textContent = `Reservando como ${conta.nome} · ${conta.telefone || 'sem telefone cadastrado'}`;
+      saudacaoLogado.classList.remove('oculto');
+    } catch (erro) {
+      // Sem conexao ou sessao invalida: mantem o formulario normal (com nome/telefone).
+    }
+  }
+  carregarClienteLogadoSeHouver();
+
   botaoAbrir.addEventListener('click', () => {
     erroEl.classList.add('oculto');
     modal.classList.remove('oculto');
   });
   botaoFechar.addEventListener('click', () => modal.classList.add('oculto'));
+
+  // Veio do link "So quero reservar uma mesa" na tela de login: abre o
+  // modal direto, sem precisar clicar no botao de novo.
+  const parametros = new URLSearchParams(window.location.search);
+  if (parametros.get('abrirReserva') === '1') {
+    erroEl.classList.add('oculto');
+    modal.classList.remove('oculto');
+  }
 
   form.addEventListener('submit', async (evento) => {
     evento.preventDefault();
@@ -1154,8 +1234,12 @@ function configurarReserva() {
     botaoEnviar.disabled = true;
     try {
       await criarReserva(SLUG_ESTABELECIMENTO, {
-        cliente_nome: document.getElementById('reserva-nome').value.trim(),
-        cliente_telefone: document.getElementById('reserva-telefone').value.trim(),
+        cliente_nome: dadosClienteLogado
+          ? `${dadosClienteLogado.nome} ${dadosClienteLogado.sobrenome || ''}`.trim()
+          : campoNome.value.trim(),
+        cliente_telefone: dadosClienteLogado
+          ? (dadosClienteLogado.telefone || '')
+          : campoTelefone.value.trim(),
         data_reserva: document.getElementById('reserva-data').value,
         horario_reserva: document.getElementById('reserva-hora').value,
         quantidade_pessoas: document.getElementById('reserva-pessoas').value,
