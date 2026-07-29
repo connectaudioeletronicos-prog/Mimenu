@@ -1,9 +1,15 @@
+// ===================================================================
+// DESTINO: backend/src/routes/funcionarios.js  (SUBSTITUI o arquivo atual)
+// Unica mudanca: importa de '../middlewares/auth' (unificado) em vez de
+// '../middlewares/autorizacao' (removido). autenticarFuncionario virou
+// autenticar -- mesma funcao, nome unificado.
+// ===================================================================
 const express = require('express');
 const router = express.Router();
 const funcionarioController = require('../controllers/funcionarioController');
 const clienteController = require('../controllers/clienteController');
 const pedidoController = require('../controllers/pedidoController');
-const { autenticarFuncionario, exigirPermissao, exigirCargoAdministrativo } = require('../middlewares/autorizacao');
+const { autenticar, exigirPermissao, exigirCargoAdministrativo } = require('../middlewares/auth');
 
 // Login de funcionario (publico)
 router.post('/login', funcionarioController.loginFuncionario);
@@ -11,7 +17,7 @@ router.post('/login', funcionarioController.loginFuncionario);
 // cadastrado -- so pra facilitar o acesso, nao substitui login/senha).
 router.get('/acessar/:token', funcionarioController.acessarPorLink);
 
-router.use(autenticarFuncionario);
+router.use(autenticar);
 
 // Gestor libera hora extra pra um funcionario (ignora a carga horaria dele
 // so no dia de hoje) e utilitario de QR Code generico pro painel.
