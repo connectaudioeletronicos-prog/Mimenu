@@ -1,9 +1,15 @@
 // ===================================================================
-// Middleware de autenticacao - protege rotas do painel administrativo
+// DESTINO: backend/src/middlewares/auth.js  (SUBSTITUI o arquivo atual)
+// ===================================================================
+// Middleware unico de autenticacao/autorizacao. Antes existiam dois
+// arquivos quase identicos (auth.js e autorizacao.js) -- um usado por
+// admin.js/auth.js e outro por funcionarios.js. Qualquer correcao feita
+// num so lugar. Agora e um unico arquivo, usado por todas as rotas.
 // ===================================================================
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
 
+// Autentica dono da loja OU funcionario, a partir do token JWT.
 async function autenticar(req, res, next) {
   const authHeader = req.headers.authorization;
 
@@ -65,4 +71,18 @@ function exigirPermissao(permissao) {
   };
 }
 
-module.exports = { autenticar, garantirProprioEstabelecimento, exigirPermissao };
+// Exige que quem esta fazendo a requisicao seja o PROPRIO cargo proprietario
+// ou administrador -- diferente de exigirPermissao, aqui nao basta ter a
+// permissao "gerenciar_funcionarios" marcada; precisa ser um desses dois
+// cargos mesmo. Usado para dados pessoais sensiveis (cadastro completo).
+function exigirCargoAdministrativo(req, res, next) {
+  if (req.cargo === 'proprietario' || req.cargo === 'administrador') return next();
+  return res.status(403).json({ erro: 'So o proprietario ou administrador pode acessar o cadastro completo.' });
+}
+
+module.exports = {
+  autenticar,
+  garantirProprioEstabelecimento,
+  exigirPermissao,
+  exigirCargoAdministrativo
+};
