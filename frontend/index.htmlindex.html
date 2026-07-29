@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minha conta - Palatos</title>
+<link rel="stylesheet" href="css/variaveis.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/componentes.css?v=20260729a">
+</head>
+<body>
+
+  <div id="tela-carregando" class="tela-carregando">
+    <div class="spinner"></div>
+  </div>
+
+  <div id="tela-cliente" class="tela-cliente oculto">
+    <div class="tela-cliente__cabecalho">
+      <button class="tela-cliente__voltar" id="botao-voltar-cardapio">← Voltar</button>
+      <h2 class="tela-cliente__titulo">Minha conta</h2>
+    </div>
+
+    <div style="text-align:center; font-size:13px; margin:16px 0 0;">
+      Ola, <strong id="conta-nome"></strong> ·
+      <button type="button" id="botao-sair-conta" style="background:none; border:none; color:#c0392b; text-decoration:underline; cursor:pointer; font-size:13px; padding:0;">Sair</button>
+    </div>
+
+    <div class="tela-cliente__abas">
+      <button class="tela-cliente__aba ativo" data-aba-cliente="dados">Meus dados</button>
+      <button class="tela-cliente__aba" data-aba-cliente="pedidos">Meus pedidos</button>
+    </div>
+
+    <div class="tela-cliente__conteudo">
+      <div id="aba-cliente-dados" class="aba-cliente">
+        <form id="form-meus-dados" class="tela-cliente__form">
+          <label>Nome
+            <input type="text" id="conta-campo-nome" required>
+          </label>
+          <label>Sobrenome
+            <input type="text" id="conta-campo-sobrenome" required>
+          </label>
+          <label>E-mail
+            <input type="email" id="conta-campo-email" disabled>
+          </label>
+          <label>CPF
+            <input type="text" id="conta-campo-cpf" disabled>
+          </label>
+          <label>WhatsApp / Telefone
+            <input type="tel" id="conta-campo-telefone" maxlength="15" placeholder="(11) 999999999">
+          </label>
+          <div style="display:flex; gap:8px; align-items:flex-end;">
+            <label style="flex:1;">CEP
+              <input type="text" id="conta-campo-cep" maxlength="9" placeholder="99999-999">
+            </label>
+            <button type="button" id="botao-buscar-cep-conta" style="height:42px; padding:0 14px; border-radius:8px; border:1px solid var(--cor-borda,#e5e5e5); background:var(--cor-fundo-alternativo,#f7f7f7); font-weight:600; font-size:0.85rem;">Buscar</button>
+          </div>
+          <label>Rua / Avenida
+            <input type="text" id="conta-campo-logradouro">
+          </label>
+          <div style="display:flex; gap:8px;">
+            <label style="flex:1;">Numero
+              <input type="text" id="conta-campo-numero">
+            </label>
+            <label style="flex:1;">Bairro
+              <input type="text" id="conta-campo-bairro">
+            </label>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <label style="flex:1;">Cidade
+              <input type="text" id="conta-campo-cidade">
+            </label>
+            <label style="flex:1;">Estado
+              <select id="conta-campo-uf">
+                <option value="">UF</option>
+                <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option>
+                <option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option>
+                <option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option>
+                <option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+                <option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option>
+                <option>SE</option><option>TO</option>
+              </select>
+            </label>
+          </div>
+          <p id="conta-mensagem" class="oculto" style="font-size:13px; font-weight:600;"></p>
+          <button type="submit" id="botao-salvar-meus-dados" class="botao-primario">Salvar dados</button>
+        </form>
+      </div>
+
+      <div id="aba-cliente-pedidos" class="aba-cliente oculto">
+        <div id="lista-pedidos-cliente"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/minha-conta.js"></script>
+</body>
+</html>
