@@ -37,3 +37,16 @@ function obterDadosCliente() {
   const dados = localStorage.getItem(CHAVE_DADOS_CLIENTE);
   return dados ? JSON.parse(dados) : { nome: '', telefone: '', endereco: '' };
 }
+
+// -------------------------------------------------------------
+// Corrige automaticamente os links internos (Entrar / Criar conta)
+// para sempre levarem o slug da loja junto, evitando cair na tela
+// de "Cardapio nao encontrado" ao trocar de pagina.
+// -------------------------------------------------------------
+(function corrigirLinksComSlug() {
+  if (!SLUG_ESTABELECIMENTO) return;
+  document.querySelectorAll('a[href="cliente-login.html"], a[href="cliente-cadastro.html"]').forEach((link) => {
+    const hrefBase = link.getAttribute('href').split('?')[0];
+    link.setAttribute('href', `${hrefBase}?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}`);
+  });
+})();
