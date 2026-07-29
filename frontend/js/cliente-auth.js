@@ -27,6 +27,27 @@ function esconderErro(id) {
 // -------------------------------------------------------------
 const formCadastro = document.getElementById('form-cadastro-cliente');
 if (formCadastro) {
+  // Se a pessoa ja tinha digitado nome/telefone/endereco no checkout do
+  // pedido e clicou em "criar conta" de la, aproveita esses dados aqui
+  // pra ela nao ter que digitar tudo de novo.
+  (function preencherComDadosDoCheckout() {
+    const bruto = sessionStorage.getItem('palatos_prefill_cadastro');
+    if (!bruto) return;
+    sessionStorage.removeItem('palatos_prefill_cadastro');
+    try {
+      const dados = JSON.parse(bruto);
+      const partesNome = (dados.nome || '').trim().split(/\s+/).filter(Boolean);
+      if (partesNome.length > 0) document.getElementById('cad-nome').value = partesNome[0];
+      if (partesNome.length > 1) document.getElementById('cad-sobrenome').value = partesNome.slice(1).join(' ');
+      if (dados.telefone) document.getElementById('cad-telefone').value = dados.telefone;
+      if (dados.cep) document.getElementById('cad-cep').value = dados.cep;
+      if (dados.rua) document.getElementById('cad-logradouro').value = dados.rua;
+      if (dados.numero) document.getElementById('cad-numero').value = dados.numero;
+    } catch (erro) {
+      // Dado salvo invalido: ignora e deixa o formulario em branco normalmente.
+    }
+  })();
+
   const irParaEtapa = (numero) => {
     document.getElementById('etapa-1').classList.toggle('oculto', numero !== 1);
     document.getElementById('etapa-2').classList.toggle('oculto', numero !== 2);
@@ -217,3 +238,12 @@ if (formLogin) {
     }
   });
 }
+
+// Link "So quero reservar uma mesa" (so existe na tela de login): leva
+// direto pro cardapio ja com o pedido pra abrir o modal de reserva. Se o
+// cliente ja estiver logado, o formulario de reserva pula nome/telefone
+// sozinho (ver configurarReserva em cardapio.js).
+document.getElementById('link-reservar-mesa-login')?.addEventListener('click', (evento) => {
+  evento.preventDefault();
+  window.location.href = `index.html?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}&abrirReserva=1`;
+});
