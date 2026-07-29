@@ -12,11 +12,16 @@ function obterSlugDaURL() {
     return parametros.get('slug');
   }
 
-  const caminho = window.location.pathname.replace(/^\/+/, '').replace(/\/+$/, '');
-  if (caminho) {
-    return caminho.split('/')[0];
-  }
-
+  // Sem "?slug=" na URL nao tem como saber de qual loja se trata -- o
+  // fallback antigo tentava adivinhar pelo primeiro pedaco do caminho
+  // (ex: "/frontend/index.html" -> "frontend"), mas como o site fica
+  // hospedado dentro de uma pasta chamada justamente "frontend", isso
+  // sempre devolvia "frontend" como se fosse o slug de uma loja de
+  // verdade, causando "Estabelecimento nao encontrado". As duas formas
+  // legitimas de chegar aqui (link direto com ?slug=... ou a URL limpa
+  // tipo palatos.com.br/loja-teste, redirecionada pelo 404.html da raiz)
+  // sempre preenchem esse parametro, entao null aqui e o comportamento
+  // correto quando ele realmente nao veio.
   return null;
 }
 
