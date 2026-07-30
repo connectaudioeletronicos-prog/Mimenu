@@ -1,5 +1,6 @@
 const { query } = require('../config/database');
 const { registrarAuditoria } = require('./funcionarioController');
+const { validarTelefone } = require('../utils/validadores');
 
 // Listar clientes do estabelecimento
 async function listar(req, res) {
@@ -52,6 +53,9 @@ async function criarOuAtualizar(req, res) {
     if (!nome || !telefone) {
       return res.status(400).json({ erro: 'Nome e telefone sao obrigatorios.' });
     }
+    if (!validarTelefone(telefone)) {
+      return res.status(400).json({ erro: 'Informe o telefone no formato (99) 999999999.' });
+    }
 
     const resultado = await query(
       `INSERT INTO clientes (estabelecimento_id, nome, telefone, endereco, email)
@@ -87,6 +91,9 @@ async function atualizar(req, res) {
   try {
     const { id } = req.params;
     const { nome, telefone, endereco, email } = req.body;
+    if (telefone && !validarTelefone(telefone)) {
+      return res.status(400).json({ erro: 'Informe o telefone no formato (99) 999999999.' });
+    }
 
     const anterior = await query(
       'SELECT * FROM clientes WHERE id = $1 AND estabelecimento_id = $2',
