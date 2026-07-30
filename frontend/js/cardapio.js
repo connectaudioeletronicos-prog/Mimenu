@@ -37,8 +37,19 @@ async function iniciar() {
     montarRodape(DADOS.estabelecimento);
     configurarEventosGlobais();
     configurarReserva();
+    Carrinho.atualizarContador();
     document.getElementById('tela-carregando').classList.add('oculto');
     document.getElementById('app').classList.remove('oculto');
+
+    // Se o cliente foi mandado pro login/cadastro no meio do checkout, ao
+    // voltar (ja logado) reabre o carrinho direto na tela de finalizar.
+    if (sessionStorage.getItem('palatos_retomar_checkout') === '1') {
+      sessionStorage.removeItem('palatos_retomar_checkout');
+      if (sessionStorage.getItem('palatos_token_cliente') && Carrinho.listar().length > 0) {
+        abrirModalCarrinho();
+        irParaCheckout();
+      }
+    }
   } catch (erro) {
     mostrarErro(erro.message);
   }
@@ -515,7 +526,6 @@ function configurarEventosGlobais() {
   document.getElementById('form-checkout').addEventListener('submit', finalizarPedido);
   configurarEventosTipoPedido();
   configurarEventosGorjeta();
-  inicializarMenuCliente();
 }
 
 let GORJETA_ATUAL = 0;
@@ -630,15 +640,30 @@ function renderizarCarrinho() {
 
 async function irParaCheckout() {
   if (Carrinho.listar().length === 0) return;
+
+  const token = sessionStorage.getItem('palatos_token_cliente');
+  if (!token) {
+    sessionStorage.setItem('palatos_retomar_checkout', '1');
+    window.location.href = `cliente-login.html?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}`;
+    return;
+  }
+
   const dados = obterDadosCliente();
   let contaLogada = null;
-  const token = sessionStorage.getItem('palatos_token_cliente');
-  if (token) {
+  {
     try {
       const resposta = await fetch(`${API_BASE_URL}/clientes/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (resposta.ok) contaLogada = await resposta.json();
+      if (resposta.ok) {
+        contaLogada = await resposta.json();
+      } else if (resposta.status === 401) {
+        // Sessao expirada: manda pro login de novo pra renovar o token.
+        sessionStorage.removeItem('palatos_token_cliente');
+        sessionStorage.setItem('palatos_retomar_checkout', '1');
+        window.location.href = `cliente-login.html?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}`;
+        return;
+      }
     } catch (erro) {
       // Sem conexao: segue com os dados salvos localmente (se houver).
     }
@@ -670,29 +695,6 @@ async function irParaCheckout() {
   if (numeroPreenchido) document.getElementById('checkout-numero').value = numeroPreenchido;
   if (cepPreenchido) document.getElementById('checkout-cep').value = cepPreenchido;
   aplicarMascaraCep(document.getElementById('checkout-cep'));
-
-  // So oferece "criar conta" pra quem ainda nao tem uma logada. Os dados ja
-  // digitados aqui (nome, telefone, endereco) vao junto pro cadastro, pra
-  // nao precisar digitar tudo de novo la.
-  const ofertaConta = document.getElementById('checkout-oferta-conta');
-  if (ofertaConta) {
-    ofertaConta.classList.toggle('oculto', !!contaLogada);
-    const link = document.getElementById('link-criar-conta-checkout');
-    if (link && !link.dataset.configurado) {
-      link.dataset.configurado = '1';
-      link.addEventListener('click', (evento) => {
-        evento.preventDefault();
-        sessionStorage.setItem('palatos_prefill_cadastro', JSON.stringify({
-          nome: document.getElementById('checkout-nome').value.trim(),
-          telefone: document.getElementById('checkout-telefone').value.trim(),
-          rua: document.getElementById('checkout-rua').value.trim(),
-          numero: document.getElementById('checkout-numero').value.trim(),
-          cep: document.getElementById('checkout-cep').value.trim()
-        }));
-        window.location.href = `cliente-cadastro.html?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}`;
-      });
-    }
-  }
 
   document.getElementById('carrinho-etapa-itens').classList.add('oculto');
   document.getElementById('carrinho-etapa-checkout').classList.remove('oculto');
@@ -950,23 +952,6 @@ function salvarDadosCliente(dados) {
   const atual = obterDadosCliente();
   localStorage.setItem('dados-cliente', JSON.stringify({ ...atual, ...dados }));
 }
-
-// O antigo modal embutido "Minha conta" (que so lia um cache local do
-// navegador, sem relacao com a conta de login de verdade) foi eliminado.
-// Agora o botao do menu do cliente vai direto para a pagina de login
-// (se ainda nao estiver logado) ou para a nova pagina minha-conta.html
-// (dados reais + acompanhamento de pedidos, puxados do servidor).
-function inicializarMenuCliente() {
-  const botaoAbrir = document.getElementById('botao-menu-cliente');
-  if (!botaoAbrir) return;
-
-  botaoAbrir.addEventListener('click', () => {
-    const jaLogado = sessionStorage.getItem('palatos_token_cliente');
-    const destino = jaLogado ? 'minha-conta.html' : 'cliente-login.html';
-    window.location.href = `${destino}?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}`;
-  });
-}
-
 
 // Reserva de mesa: recurso opcional (so aparece se a loja tiver ativado em
 // Configuracoes). Botao discreto no canto superior esquerdo -> abre um
