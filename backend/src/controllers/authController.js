@@ -8,7 +8,8 @@ const { query } = require('../config/database');
 const { enviarEmailRecuperacaoSenha } = require('../utils/email');
 const { gerarQRCodeBase64 } = require('../utils/qrcode');
 const { uploadDocumentoPrivado } = require('../utils/storage');
-const { validarSlug, slugReservado } = require('../utils/validadores');
+const { validarSlug, slugReservado, validarCPF, validarTelefone } = require('../utils/validadores');
+const { validarFormatoCep } = require('../utils/geocoding');
 
 async function login(req, res) {
   try {
@@ -138,6 +139,13 @@ async function cadastrar(req, res) {
       return res.status(400).json({ erro: 'E preciso ser maior de 18 anos para se cadastrar.' });
     }
 
+    if (!validarTelefone(telefone)) {
+      return res.status(400).json({ erro: 'Informe o telefone no formato (99) 999999999.' });
+    }
+    if (!validarFormatoCep(cep)) {
+      return res.status(400).json({ erro: 'Informe o CEP no formato 99999-999.' });
+    }
+
     if (!['rg', 'cnh', 'passaporte'].includes(tipoDocumentoIdentidade)) {
       return res.status(400).json({ erro: 'Tipo de documento de identidade invalido.' });
     }
@@ -146,8 +154,8 @@ async function cadastrar(req, res) {
     }
 
     if (tipoRegistro === 'cpf') {
-      if (!cpf || cpf.replace(/\D/g, '').length !== 11) {
-        return res.status(400).json({ erro: 'Informe um CPF valido.' });
+      if (!validarCPF(cpf)) {
+        return res.status(400).json({ erro: 'Informe o CPF no formato 000.000.000-00.' });
       }
     } else if (tipoRegistro === 'cnpj') {
       if (!cnpj || cnpj.replace(/\D/g, '').length !== 14) {
