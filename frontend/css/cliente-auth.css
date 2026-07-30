@@ -1,216 +1,223 @@
 /* ===================================================================
-   Autenticacao do cliente (Palatos) - cadastro e login
+   Autenticacao do cliente (login / cadastro)
+   Paleta e tipografia fixas da marca Palatos (nao seguem o tema
+   personalizavel de cada loja - essas telas sao do sistema).
    =================================================================== */
 
-* { box-sizing: border-box; }
+:root {
+  --auth-verde: #146c43;
+  --auth-verde-escura: #0e5535;
+  --auth-verde-texto: #1a7a4a;
+  --auth-laranja: #f3a01c;
+  --auth-laranja-escura: #d98a10;
+  --auth-texto: #1b1f1d;
+  --auth-texto-claro: #6f7975;
+  --auth-borda: #dbe2de;
+  --auth-fundo-suave: #f6f8f6;
+  --auth-erro: #d64545;
+  --auth-fonte: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+}
 
-body {
+.auth-pagina {
   margin: 0;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background: #f2f3f5;
-  min-height: 100vh;
+  font-family: var(--auth-fonte);
+  color: var(--auth-texto);
+  background: #ffffff;
+  min-height: 100dvh;
 }
 
-.auth-caixa {
-  background: #fff;
-  border-radius: 20px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.12);
-  max-width: 980px;
-  width: 100%;
-  display: flex;
-  overflow: hidden;
-  min-height: 620px;
+.auth-pagina *,
+.auth-pagina *::before,
+.auth-pagina *::after {
+  box-sizing: border-box;
 }
 
-.auth-lado {
-  flex: 1 1 42%;
-  background: #0d0d0d;
-  position: relative;
+/* ---------- Logo ---------- */
+.auth-logo {
   display: flex;
-  align-items: flex-start;
-  padding: 32px;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-logo__icone {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .auth-logo__texto {
-  font-size: 1.8rem;
   font-weight: 800;
-  color: #fff;
+  font-size: 26px;
+  letter-spacing: -0.5px;
+  color: var(--auth-texto);
+  line-height: 1;
 }
 
 .auth-logo__destaque {
-  color: #2ea55f;
+  color: var(--auth-laranja);
 }
 
 .auth-logo__slogan {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.65rem;
-  letter-spacing: 1px;
+  font-size: 10px;
   font-weight: 700;
-  margin-top: 4px;
-}
-
-.auth-logo__slogan--verde {
-  color: #2ea55f;
-}
-
-.auth-logo__slogan--laranja {
-  color: #e8873e;
+  letter-spacing: 0.6px;
+  margin-top: 3px;
 }
 
 .auth-logo__slogan-traco {
-  display: inline-block;
   width: 14px;
-  height: 1px;
-}
-
-.auth-logo__slogan-traco--verde {
-  background: #2ea55f;
-}
-
-.auth-logo__slogan-traco--laranja {
-  background: #e8873e;
-}
-
-.auth-conteudo {
-  flex: 1 1 58%;
-  padding: 48px 56px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.auth-passos {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 28px;
-}
-
-.auth-passo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.auth-passo__bolha {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #e5e5e5;
-  color: #888;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.85rem;
-}
-
-.auth-passo__bolha--ativa {
-  background: #1B7A3E;
-  color: #fff;
-}
-
-.auth-passo__legenda {
-  font-size: 0.75rem;
-  color: #666;
-  font-weight: 600;
-}
-
-.auth-passo__linha {
-  width: 80px;
   height: 2px;
-  background: #e5e5e5;
-  margin-bottom: 20px;
+  border-radius: 2px;
 }
+.auth-logo__slogan-traco--verde { background: var(--auth-verde-texto); }
+.auth-logo__slogan-traco--laranja { background: var(--auth-laranja); }
+.auth-logo__slogan--verde { color: var(--auth-verde-texto); }
+.auth-logo__slogan--laranja { color: var(--auth-laranja); }
 
-h1 {
-  font-size: 1.7rem;
-  margin: 0 0 8px;
-  color: #1a1a1a;
+/* Logo maior usada no painel esquerdo do layout desktop */
+.auth-logo--grande .auth-logo__icone { width: 56px; height: 56px; }
+.auth-logo--grande .auth-logo__texto { font-size: 34px; }
+.auth-logo--grande .auth-logo__slogan { font-size: 12px; }
+
+/* ---------- Cabecalho de texto ---------- */
+.auth-titulo {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 24px 0 6px;
+  line-height: 1.25;
 }
+.auth-titulo strong { color: var(--auth-verde-texto); }
 
-h1 strong {
-  color: #1B7A3E;
-}
-
-.auth-sub {
-  color: #666;
-  font-size: 0.92rem;
+.auth-subtitulo {
+  font-size: 14px;
+  color: var(--auth-texto-claro);
   margin: 0 0 24px;
   line-height: 1.5;
 }
+.auth-subtitulo strong { color: var(--auth-texto); }
 
-.auth-sub strong {
-  color: #1B7A3E;
+/* ---------- Campos ---------- */
+.auth-campo {
+  margin-bottom: 16px;
 }
 
-.campo-auth {
+.auth-campo label {
   display: block;
-  margin-bottom: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--auth-texto);
 }
 
-.campo-auth input,
-.campo-auth select {
-  width: 100%;
-  padding: 13px 16px;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-family: inherit;
-}
-
-.campo-auth input:focus,
-.campo-auth select:focus {
-  outline: none;
-  border-color: #1B7A3E;
-}
-
-.campo-auth-linha {
+.auth-campo__caixa {
   display: flex;
+  align-items: center;
   gap: 10px;
-  align-items: flex-start;
-}
-
-.auth-botao-principal {
-  width: 100%;
-  padding: 14px;
-  background: #1B7A3E;
-  color: #fff;
-  border: none;
+  border: 1.5px solid var(--auth-borda);
   border-radius: 10px;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  margin-top: 8px;
-}
-
-.auth-botao-principal:hover {
-  background: #15602f;
-}
-
-.auth-botao-secundario {
-  padding: 13px 18px;
+  padding: 0 14px;
   background: #fff;
-  color: #1B7A3E;
-  border: 1px solid #1B7A3E;
-  border-radius: 10px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
+  transition: border-color .15s ease;
 }
 
-.auth-botao-texto {
+.auth-campo__caixa:focus-within {
+  border-color: var(--auth-verde-texto);
+}
+
+.auth-campo__caixa svg {
+  flex-shrink: 0;
+  color: var(--auth-verde-texto);
+}
+
+.auth-campo__caixa input,
+.auth-campo__caixa select {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--auth-fonte);
+  font-size: 15px;
+  padding: 13px 0;
   width: 100%;
+  color: var(--auth-texto);
+}
+
+.auth-campo__caixa select { appearance: none; cursor: pointer; }
+
+.auth-campo__olho {
   background: none;
   border: none;
-  color: #1B7A3E;
-  font-weight: 600;
-  padding: 12px;
   cursor: pointer;
+  color: var(--auth-texto-claro);
+  padding: 4px;
+  display: flex;
+}
+
+.auth-campo--erro .auth-campo__caixa { border-color: var(--auth-erro); }
+.auth-campo__mensagem-erro {
+  color: var(--auth-erro);
+  font-size: 12px;
+  margin-top: 5px;
+  display: none;
+}
+.auth-campo--erro .auth-campo__mensagem-erro { display: block; }
+
+.auth-linha-dupla {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.auth-linha-cep {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: start;
+}
+
+/* ---------- Links e acoes menores ---------- */
+.auth-esqueci {
+  display: block;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--auth-verde-texto);
+  text-decoration: none;
+  margin: -6px 0 18px;
+}
+.auth-esqueci:hover { text-decoration: underline; }
+
+/* ---------- Botoes ---------- */
+.auth-botao {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 15px;
+  font-family: var(--auth-fonte);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: filter .15s ease, opacity .15s ease;
+}
+.auth-botao:hover { filter: brightness(1.06); }
+.auth-botao:disabled { opacity: .65; cursor: default; filter: none; }
+
+.auth-botao--principal {
+  background: var(--auth-verde);
+  color: #fff;
+}
+
+.auth-botao--google {
+  background: #fff;
+  color: var(--auth-texto);
+  border: 1.5px solid var(--auth-borda);
 }
 
 .auth-divisor {
@@ -218,335 +225,240 @@ h1 strong {
   align-items: center;
   gap: 12px;
   margin: 18px 0;
-  color: #999;
-  font-size: 0.82rem;
+  color: var(--auth-texto-claro);
+  font-size: 13px;
 }
-
 .auth-divisor::before,
 .auth-divisor::after {
-  content: "";
+  content: '';
   flex: 1;
   height: 1px;
-  background: #e5e5e5;
-}
-
-.auth-botao-google {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 13px;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  font-family: inherit;
-  color: #1a1a1a;
-  cursor: pointer;
-}
-
-.auth-botao-google:hover {
-  background: #f7f7f7;
-  border-color: #ccc;
-}
-
-.auth-botao-google:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.auth-botao-google svg {
-  flex-shrink: 0;
-}
-
-.auth-logo__icone {
-  height: 52px;
-  display: block;
-  margin: 0 auto;
-}
-
-.auth-logo--centro .auth-logo__icone {
-  height: 96px;
-  margin-bottom: 10px;
-}
-
-.auth-lado .auth-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.auth-lado .auth-logo__icone {
-  height: 44px;
-  margin: 0;
-}
-
-.auth-logo__bloco {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Faixa com foto na base do card de login. Troque a imagem em
-   frontend/img/foto-login.jpg pela foto real do cardapio - enquanto
-   ela nao existir, aparece um degrade solido no lugar. */
-.auth-foto {
-  background: linear-gradient(135deg, #1a1a1a, #3a2a1a);
-  background-size: cover;
-  background-position: center;
-}
-
-.auth-foto--login {
-  height: 110px;
-  border-radius: 0 0 20px 20px;
-  background-size: cover;
-  background-position: center;
-  background-image:
-    linear-gradient(0deg, rgba(0,0,0,0.35), rgba(0,0,0,0.05)),
-    url('../img/foto-login.jpg');
-}
-
-.auth-foto--cadastro {
-  background-size: cover;
-  background-position: center;
-  background-image:
-    linear-gradient(0deg, rgba(0,0,0,0.45), rgba(0,0,0,0.15)),
-    url('../img/foto-cadastro.jpg');
-}
-
-/* Curvas decorativas verde/laranja nos cantos, no estilo da marca */
-body::before,
-body::after {
-  content: "";
-  position: fixed;
-  width: 340px;
-  height: 340px;
-  border-radius: 50%;
-  z-index: 0;
-  pointer-events: none;
-}
-
-body::before {
-  top: -170px;
-  right: -170px;
-  background: conic-gradient(from 200deg, #1B7A3E, #2ea55f 40%, transparent 55%);
-}
-
-body::after {
-  bottom: -170px;
-  left: -170px;
-  background: conic-gradient(from 20deg, #e8873e, #f2a25c 40%, transparent 55%);
-}
-
-.auth-caixa {
-  position: relative;
-  z-index: 1;
+  background: var(--auth-borda);
 }
 
 .auth-rodape {
   text-align: center;
-  font-size: 0.88rem;
-  color: #666;
-  margin-top: 18px;
+  font-size: 14px;
+  color: var(--auth-texto-claro);
+  margin: 22px 0 0;
 }
-
-.auth-rodape a,
-.auth-esqueci a {
-  color: #1B7A3E;
+.auth-rodape a {
+  color: var(--auth-verde-texto);
   font-weight: 700;
   text-decoration: none;
 }
+.auth-rodape a:hover { text-decoration: underline; }
 
-.auth-esqueci {
-  text-align: right;
-  font-size: 0.82rem;
-  margin: -6px 0 14px;
+.auth-voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--auth-verde-texto);
+  font-family: var(--auth-fonte);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 22px;
 }
 
-.auth-erro {
-  background: #fde2e2;
-  color: #b00020;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  margin-bottom: 14px;
+/* ---------- Aviso de erro geral ---------- */
+.auth-aviso {
+  background: #fdecec;
+  border: 1px solid #f6c6c6;
+  color: var(--auth-erro);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  display: none;
+}
+.auth-aviso.visivel { display: block; }
+
+.auth-aviso--sucesso {
+  background: #eaf6ef;
+  border-color: #bfe4cd;
+  color: var(--auth-verde-escura);
 }
 
-.oculto { display: none !important; }
-
-/* Tela de login: card central, sem painel lateral */
-.auth-caixa--login {
-  max-width: 460px;
-  min-height: auto;
-  flex-direction: column;
-}
-
-.auth-conteudo--login {
-  flex: 1 1 100%;
-  padding: 48px 40px;
-}
-
-.auth-logo--centro {
-  text-align: center;
-  margin-bottom: 24px;
-}
-
-.auth-logo--centro .auth-logo__texto {
-  color: #1a1a1a;
-  font-size: 2.2rem;
-}
-
-.auth-logo--centro .auth-logo__slogan {
+/* ---------- Indicador de etapas (cadastro) ---------- */
+.auth-etapas {
+  display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.auth-etapa {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.auth-etapa__bolha {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--auth-borda);
+  color: var(--auth-texto-claro);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: #fff;
+}
+.auth-etapa__rotulo {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--auth-texto-claro);
+  white-space: nowrap;
+}
+.auth-etapa--ativa .auth-etapa__bolha {
+  border-color: var(--auth-verde-texto);
+  background: var(--auth-verde-texto);
+  color: #fff;
+}
+.auth-etapa--ativa .auth-etapa__rotulo { color: var(--auth-verde-texto); }
+.auth-etapa--concluida .auth-etapa__bolha {
+  border-color: var(--auth-verde-texto);
+  color: var(--auth-verde-texto);
+}
+.auth-etapa__linha {
+  width: 48px;
+  height: 2px;
+  background: var(--auth-borda);
+  margin-bottom: 20px;
+}
+.auth-etapa__linha--concluida { background: var(--auth-verde-texto); }
+
+.auth-etapa-painel.oculto { display: none; }
+
+/* ===================================================================
+   LAYOUT MOBILE (padrao, ate 899px)
+   =================================================================== */
+.auth-shell {
+  position: relative;
+  min-height: 100dvh;
+  padding: 28px 24px 0;
+  overflow: hidden;
 }
 
-.auth-titulo-centro {
-  text-align: center;
+.auth-shell__conteudo {
+  position: relative;
+  z-index: 2;
+  max-width: 420px;
+  margin: 0 auto;
+  padding-bottom: 210px; /* espaco pra faixa de foto no rodape */
 }
 
-.auth-sub--centro {
-  text-align: center;
+.auth-shell .auth-logo { justify-content: center; }
+.auth-shell .auth-logo__bloco { display: flex; flex-direction: column; align-items: center; }
+.auth-shell .auth-titulo,
+.auth-shell .auth-subtitulo { text-align: center; }
+
+.auth-swoosh {
+  position: absolute;
+  top: -40px;
+  right: -60px;
+  width: 220px;
+  height: 220px;
+  z-index: 1;
+  pointer-events: none;
 }
 
-@media (max-width: 860px) {
-  .auth-caixa {
-    flex-direction: column;
-    min-height: auto;
-  }
-  .auth-lado {
-    flex: none;
-    padding: 24px;
-    justify-content: center;
-  }
-  .auth-logo__texto { font-size: 1.5rem; }
-  .auth-conteudo {
-    padding: 32px 24px;
-  }
-  .campo-auth-linha {
-    flex-direction: column;
-  }
+.auth-foto-rodape {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 190px;
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+}
+.auth-foto-rodape::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.35) 100%);
 }
 
 /* ===================================================================
-   Ajustes 2026-07: fundo novo no desktop, logo maior no desktop,
-   correcao do espaco em branco no mobile e layout responsivo
-   exclusivo da tela de login (logo grande centralizada + foto no
-   rodape no mobile, duas colunas iguais ao cadastro no desktop).
+   LAYOUT DESKTOP (900px+): painel com foto + painel com formulario
    =================================================================== */
+@media (min-width: 900px) {
+  .auth-shell {
+    display: flex;
+    min-height: 100dvh;
+    padding: 0;
+  }
 
-/* Corrige o "espaco em branco" no mobile: 100vh soma a barra de
-   endereco do navegador e empurra o card pra baixo da tela. Usamos
-   100dvh (viewport dinamico) e so centralizamos com flex a partir do
-   desktop, onde o card tem tamanho fixo. */
-body {
-  min-height: 100dvh;
-}
+  .auth-swoosh,
+  .auth-foto-rodape { display: none; }
 
-@media (min-width: 861px) {
-  body {
+  .auth-painel-foto {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    width: 42%;
+    min-width: 380px;
+    padding: 40px;
+    position: relative;
+    background: #10130f;
+    background-size: cover;
+    background-position: center;
+    border-radius: 0 48px 48px 0;
+    overflow: hidden;
+  }
+  .auth-painel-foto::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(6,10,7,.55) 0%, rgba(6,10,7,.15) 38%, rgba(6,10,7,.85) 100%);
+  }
+  .auth-painel-foto .auth-logo,
+  .auth-painel-foto__curva { position: relative; z-index: 2; }
+  .auth-painel-foto .auth-logo__texto { color: #fff; }
+  .auth-painel-foto .auth-logo__bloco { display: flex; flex-direction: column; }
+
+  .auth-painel-foto__curva {
+    margin-top: auto;
+    width: 120px;
+  }
+
+  .auth-shell__conteudo--desktop {
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px;
-    background: #f2f3f5 url('../img/fundo-fitas.jpg') center center / cover no-repeat;
+    padding: 40px 56px;
   }
 
-  /* A nova imagem de fundo ja tem as fitas decorativas desenhadas;
-     removemos os circulos antigos so no desktop pra nao duplicar. */
-  body::before,
-  body::after {
-    content: none;
-  }
-}
-
-/* Logo maior apenas no desktop (painel lateral escuro, usado no
-   login e no cadastro) */
-@media (min-width: 861px) {
-  .auth-lado .auth-logo__icone {
-    height: 88px;
-  }
-  .auth-lado .auth-logo__texto {
-    font-size: 2.6rem;
-  }
-  .auth-lado .auth-logo__slogan {
-    font-size: 0.8rem;
-    gap: 8px;
-  }
-  .auth-lado .auth-logo__slogan-traco {
-    width: 20px;
-  }
-
-  /* No desktop o painel lateral do login ocupa a coluna inteira
-     (como no cadastro); a altura de 110px era so para a tarja fina
-     do mobile antigo. */
-  .auth-lado.auth-foto--login {
-    height: auto;
-  }
-}
-
-/* Logo grande centralizada da tela de login (versao mobile) */
-.auth-logo--centro .auth-logo__icone {
-  height: 130px;
-  margin-bottom: 12px;
-}
-
-.auth-logo--centro .auth-logo__texto {
-  font-size: 2.5rem;
-}
-
-/* --------------------------------------------------------------
-   Estrutura responsiva exclusiva da tela de login:
-   - Mobile: card unico, logo grande centralizada, foto no rodape.
-   - Desktop: duas colunas, igual ao cadastro (regra padrao acima).
-   -------------------------------------------------------------- */
-
-.auth-lado--somente-desktop { display: none; }
-.auth-lado--somente-mobile { display: block; }
-.auth-logo--somente-mobile { display: block; }
-
-.auth-titulo-centro-mobile,
-.auth-sub-centro-mobile {
-  text-align: center;
-}
-
-@media (min-width: 861px) {
-  .auth-lado--somente-desktop { display: flex; }
-  .auth-lado--somente-mobile { display: none; }
-  .auth-logo--somente-mobile { display: none; }
-
-  .auth-titulo-centro-mobile,
-  .auth-sub-centro-mobile {
-    text-align: left;
-  }
-}
-
-@media (max-width: 860px) {
-  .auth-caixa--login-responsivo {
-    max-width: none;
+  .auth-shell__conteudo--desktop .auth-caixa-formulario {
     width: 100%;
-    min-height: 100dvh;
-    border-radius: 0;
-    box-shadow: none;
-    position: relative;
+    max-width: 460px;
   }
 
-  .auth-conteudo--login-responsivo {
-    padding: 40px 24px 260px;
-    justify-content: flex-start;
-    position: relative;
-    z-index: 1;
-  }
+  .auth-shell__conteudo--desktop .auth-etapas { justify-content: flex-start; }
+  .auth-shell__conteudo--desktop .auth-titulo,
+  .auth-shell__conteudo--desktop .auth-subtitulo { text-align: left; }
 
-  /* Faixa de foto decorativa no rodape do mobile, atras dos cantos
-     arredondados do card (efeito de "janela" como no mockup). */
-  .auth-foto-mobile-login {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 220px;
-    border-radius: 40px 40px 0 0;
-    z-index: 0;
-  }
+  .auth-mobile-apenas { display: none !important; }
 }
+
+@media (max-width: 899px) {
+  .auth-desktop-apenas { display: none !important; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .auth-caixa-formulario { animation: auth-entrada .35s ease both; }
+}
+@keyframes auth-entrada {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+:focus-visible { outline: 2px solid var(--auth-verde-texto); outline-offset: 2px; }
