@@ -3,6 +3,7 @@
 // Configuracoes do painel). Simples: dia, hora, quantidade de pessoas.
 // ===================================================================
 const { query } = require('../config/database');
+const { validarTelefone } = require('../utils/validadores');
 
 const STATUS_VALIDOS = ['pendente', 'confirmada', 'cancelada'];
 
@@ -15,6 +16,9 @@ async function criar(req, res) {
 
     if (!cliente_nome || !cliente_nome.trim() || !cliente_telefone || !cliente_telefone.trim()) {
       return res.status(400).json({ erro: 'Informe seu nome e telefone.' });
+    }
+    if (!validarTelefone(cliente_telefone)) {
+      return res.status(400).json({ erro: 'Informe o telefone no formato (99) 999999999.' });
     }
     if (!data_reserva || !horario_reserva) {
       return res.status(400).json({ erro: 'Informe o dia e o horario da reserva.' });
