@@ -5,6 +5,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { query } = require('../config/database');
+const { validarCPF, validarTelefone } = require('../utils/validadores');
+const { validarFormatoCep } = require('../utils/geocoding');
 
 async function cadastrar(req, res) {
   try {
@@ -23,20 +25,27 @@ async function cadastrar(req, res) {
       return res.status(400).json({ erro: 'A senha deve ter pelo menos 6 caracteres.' });
     }
 
-    const cpfLimpo = (cpf || '').replace(/\D/g, '');
-    if (!cpfLimpo || cpfLimpo.length !== 11) {
-      return res.status(400).json({ erro: 'Informe um CPF valido.' });
+    const cpfFormatado = (cpf || '').trim();
+    if (!validarCPF(cpfFormatado)) {
+      return res.status(400).json({ erro: 'Informe o CPF no formato 000.000.000-00.' });
     }
     if (!cep || !logradouro || !numero || !bairro || !cidade || !uf) {
       return res.status(400).json({ erro: 'Preencha todos os dados de endereco.' });
     }
+    if (!validarFormatoCep(cep)) {
+      return res.status(400).json({ erro: 'Informe o CEP no formato 99999-999.' });
+    }
 
     const emailLimpo = email ? email.toLowerCase().trim() : null;
-    const telefoneLimpo = telefone ? telefone.replace(/\D/g, '') : null;
+    const telefoneFormatado = telefone ? telefone.trim() : null;
+    if (telefoneFormatado && !validarTelefone(telefoneFormatado)) {
+      return res.status(400).json({ erro: 'Informe o telefone no formato (99) 999999999.' });
+    }
 
     const existente = await query(
-      'SELECT id FROM contas_clientes WHERE cpf = $1 OR (email IS NOT NULL AND email = $2) OR (telefone IS NOT NULL AND telefone = $3)',
-      [cpfLimpo, emailLimpo, telefoneLimpo]
+      `SELECT id FROM contas_clientes
+       WHERE cpf = $1 OR (email IS NOT NULL AND email = $2) OR (telefone IS NOT NULL AND telefone = $3)`,
+      [cpfFormatado, emailLimpo, telefoneFormatado]
     );
     if (existente.rows.length > 0) {
       return res.status(409).json({ erro: 'Ja existe uma conta com esse e-mail, telefone ou CPF.' });
@@ -49,8 +58,8 @@ async function cadastrar(req, res) {
         (nome, sobrenome, email, telefone, senha_hash, cpf, cep, logradouro, numero, bairro, cidade, uf)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, nome, sobrenome, email, telefone`,
       [
-        nome.trim(), sobrenome.trim(), emailLimpo, telefoneLimpo, senhaHash,
-        cpfLimpo, cep, logradouro.trim(), numero.trim(), bairro.trim(), cidade.trim(), uf.toUpperCase()
+        nome.trim(), sobrenome.trim(), emailLimpo, telefoneFormatado, senhaHash,
+        cpfFormatado, cep.trim(), logradouro.trim(), numero.trim(), bairro.trim(), cidade.trim(), uf.toUpperCase()
       ]
     );
     const conta = resultado.rows[0];
@@ -82,7 +91,7 @@ async function login(req, res) {
 
     const resultado = await query(
       `SELECT id, nome, sobrenome, email, senha_hash FROM contas_clientes
-       WHERE email = $1 OR (telefone IS NOT NULL AND telefone = $2)`,
+       WHERE email = $1 OR (telefone IS NOT NULL AND regexp_replace(telefone, '\\D', '', 'g') = $2)`,
       [identificador, identificadorTelefone]
     );
     if (resultado.rows.length === 0) {
@@ -288,6 +297,12 @@ async function atualizarMeusDados(req, res) {
   try {
     const { nome, sobrenome, telefone, cep, logradouro, numero, bairro, cidade, uf } = req.body;
     if (!nome || !sobrenome) return res.status(400).json({ erro: 'Nome e sobrenome sao obrigatorios.' });
+    if (telefone && !validarTelefone(telefone)) {
+      return res.status(400).json({ erro: 'Informe o telefone no formato (99) 999999999.' });
+    }
+    if (cep && !validarFormatoCep(cep)) {
+      return res.status(400).json({ erro: 'Informe o CEP no formato 99999-999.' });
+    }
 
     const resultado = await query(
       `UPDATE contas_clientes SET
@@ -298,8 +313,8 @@ async function atualizarMeusDados(req, res) {
        WHERE id = $10
        RETURNING id, nome, sobrenome, email, telefone, cpf, cep, logradouro, numero, bairro, cidade, uf`,
       [
-        nome.trim(), sobrenome.trim(), (telefone || '').replace(/\D/g, '') || null,
-        cep || null, (logradouro || '').trim() || null, (numero || '').trim() || null,
+        nome.trim(), sobrenome.trim(), (telefone || '').trim() || null,
+        (cep || '').trim() || null, (logradouro || '').trim() || null, (numero || '').trim() || null,
         (bairro || '').trim() || null, (cidade || '').trim() || null, uf ? uf.toUpperCase() : null,
         req.contaClienteId
       ]
