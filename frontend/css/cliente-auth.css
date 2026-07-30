@@ -351,7 +351,6 @@
   z-index: 2;
   max-width: 420px;
   margin: 0 auto;
-  padding-bottom: 210px; /* espaco pra faixa de foto no rodape */
 }
 
 .auth-shell .auth-logo { justify-content: center; }
@@ -370,14 +369,11 @@
 }
 
 .auth-foto-rodape {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  margin: 28px -24px 0;
   height: 190px;
   background-size: cover;
   background-position: center;
-  z-index: 0;
+  position: relative;
 }
 .auth-foto-rodape::before {
   content: '';
