@@ -4,15 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Entrar - Palatos</title>
-<link rel="stylesheet" href="css/cliente-auth.css?v=20260727c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/cliente-auth.css?v=20260729a">
 </head>
-<body class="pagina-login">
-  <div class="auth-caixa auth-caixa--login-responsivo">
+<body class="auth-pagina">
 
-    <!-- Painel lateral escuro: visivel apenas no desktop -->
-    <div class="auth-lado auth-lado--somente-desktop auth-foto--login">
-      <div class="auth-logo">
-        <img src="img/logo-icone.png" alt="" class="auth-logo__icone">
+  <div class="auth-shell">
+
+    <!-- Decoracao mobile: curva verde/laranja no canto -->
+    <svg class="auth-swoosh auth-mobile-apenas" viewBox="0 0 220 220" fill="none" aria-hidden="true">
+      <path d="M220 0 C160 10 90 50 60 120 C40 165 60 200 20 220 L220 220 Z" fill="#146c43" opacity="0.9"/>
+      <path d="M220 0 C190 30 175 70 175 110" stroke="#f3a01c" stroke-width="8" stroke-linecap="round" fill="none"/>
+    </svg>
+
+    <!-- Painel com foto: apenas desktop -->
+    <div class="auth-painel-foto auth-desktop-apenas" style="background-image:url('img/foto-login.jpg')">
+      <div class="auth-logo auth-logo--grande">
+        <img src="img/logo-icone.png" class="auth-logo__icone" alt="">
         <div class="auth-logo__bloco">
           <span class="auth-logo__texto">pal<span class="auth-logo__destaque">a</span>tos</span>
           <div class="auth-logo__slogan">
@@ -25,59 +35,94 @@
       </div>
     </div>
 
-    <div class="auth-conteudo auth-conteudo--login-responsivo">
+    <div class="auth-shell__conteudo auth-shell__conteudo--desktop">
+      <div class="auth-caixa-formulario">
 
-      <!-- Logo grande centralizada: visivel apenas no mobile -->
-      <div class="auth-logo auth-logo--centro auth-logo--somente-mobile">
-        <img src="img/logo-icone.png" alt="" class="auth-logo__icone">
-        <div class="auth-logo__bloco">
-          <span class="auth-logo__texto">pal<span class="auth-logo__destaque">a</span>tos</span>
-          <div class="auth-logo__slogan">
-            <span class="auth-logo__slogan-traco auth-logo__slogan-traco--verde"></span>
-            <span class="auth-logo__slogan--verde">MAIS SABOR.</span>
-            <span class="auth-logo__slogan--laranja">MAIS PRATICIDADE.</span>
-            <span class="auth-logo__slogan-traco auth-logo__slogan-traco--laranja"></span>
+        <!-- Logo mobile (centralizada, sem foto de fundo) -->
+        <div class="auth-logo auth-mobile-apenas" style="justify-content:center;">
+          <div class="auth-logo__bloco" style="align-items:center;">
+            <img src="img/logo-icone.png" class="auth-logo__icone" alt="" style="margin-bottom:6px;">
+            <span class="auth-logo__texto">pal<span class="auth-logo__destaque">a</span>tos</span>
+            <div class="auth-logo__slogan">
+              <span class="auth-logo__slogan-traco auth-logo__slogan-traco--verde"></span>
+              <span class="auth-logo__slogan--verde">MAIS SABOR.</span>
+              <span class="auth-logo__slogan--laranja">MAIS PRATICIDADE.</span>
+              <span class="auth-logo__slogan-traco auth-logo__slogan-traco--laranja"></span>
+            </div>
           </div>
         </div>
+
+        <!-- ---------- Painel: login ---------- -->
+        <div id="painel-login" class="auth-etapa-painel">
+          <h1 class="auth-titulo"><strong>Bem-vindo</strong> de volta!</h1>
+          <p class="auth-subtitulo">Faça login para continuar e aproveitar o melhor do <strong>Palatos</strong>.</p>
+
+          <div class="auth-aviso" id="login-aviso"></div>
+
+          <form id="form-login" novalidate>
+            <div class="auth-campo" id="campo-login-identificador">
+              <div class="auth-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18v12H3z"/><path d="m3 7 9 6 9-6"/></svg>
+                <input type="text" id="login-identificador" placeholder="E-mail ou telefone" required autocomplete="username">
+              </div>
+            </div>
+
+            <div class="auth-campo" id="campo-login-senha">
+              <div class="auth-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                <input type="password" id="login-senha" placeholder="Senha" required autocomplete="current-password">
+                <button type="button" class="auth-campo__olho" data-alvo-senha="login-senha" aria-label="Mostrar senha">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <a href="#" class="auth-esqueci" id="link-esqueci-senha">Esqueceu sua senha?</a>
+
+            <button type="submit" class="auth-botao auth-botao--principal" id="botao-entrar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+              Entrar
+            </button>
+          </form>
+
+          <div class="auth-divisor">ou continue com</div>
+          <button type="button" class="auth-botao auth-botao--google" id="botao-google-login">
+            <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.87 2.7-6.62Z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.16.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33Z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58Z"/></svg>
+            Continuar com Google
+          </button>
+
+          <p class="auth-rodape">Ainda não tem uma conta? <a href="cliente-cadastro.html" id="link-ir-cadastro">Criar conta</a></p>
+        </div>
+
+        <!-- ---------- Painel: esqueci minha senha ---------- -->
+        <div id="painel-esqueci-senha" class="auth-etapa-painel oculto">
+          <h1 class="auth-titulo">Recuperar <strong>senha</strong></h1>
+          <p class="auth-subtitulo">Informe o e-mail da sua conta. Se ele estiver cadastrado, enviaremos um link para redefinir sua senha.</p>
+
+          <div class="auth-aviso" id="esqueci-aviso"></div>
+
+          <form id="form-esqueci-senha" novalidate>
+            <div class="auth-campo">
+              <div class="auth-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18v12H3z"/><path d="m3 7 9 6 9-6"/></svg>
+                <input type="email" id="esqueci-email" placeholder="Seu e-mail" required autocomplete="email">
+              </div>
+            </div>
+            <button type="submit" class="auth-botao auth-botao--principal" id="botao-enviar-recuperacao">Enviar link de recuperação</button>
+          </form>
+
+          <button type="button" class="auth-voltar" id="botao-voltar-login">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+            Voltar para o login
+          </button>
+        </div>
+
       </div>
-
-      <h1 class="auth-titulo-centro-mobile"><strong>Bem-vindo</strong> de volta!</h1>
-      <p class="auth-sub auth-sub-centro-mobile">Faça login para continuar e aproveitar o melhor do <strong>Palatos</strong>.</p>
-
-      <form id="form-login-cliente" novalidate>
-        <label class="campo-auth">
-          <input type="text" id="login-identificador" placeholder="E-mail ou telefone" required>
-        </label>
-        <label class="campo-auth">
-          <input type="password" id="login-senha" placeholder="Senha" required>
-        </label>
-
-        <p class="auth-esqueci"><a href="#" id="link-esqueci-senha">Esqueceu sua senha?</a></p>
-
-        <p id="erro-login" class="auth-erro oculto"></p>
-
-        <button type="submit" class="auth-botao-principal">→ Entrar</button>
-      </form>
-
-      <div class="auth-divisor">ou continue com</div>
-      <button type="button" id="botao-google-login" class="auth-botao-google">
-        <svg width="18" height="18" viewBox="0 0 18 18">
-          <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/>
-          <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/>
-          <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/>
-          <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z"/>
-        </svg>
-        Continuar com Google
-      </button>
-
-      <p class="auth-rodape">Ainda não tem uma conta? <a href="cliente-cadastro.html">Criar conta</a></p>
     </div>
 
-    <!-- Faixa de foto no rodape: visivel apenas no mobile -->
-    <div class="auth-foto-mobile-login auth-foto--login auth-lado--somente-mobile"></div>
+    <div class="auth-foto-rodape auth-mobile-apenas" style="background-image:url('img/foto-login.jpg')"></div>
   </div>
 
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="js/config.js"></script>
   <script src="js/cliente-auth.js"></script>
 </body>
