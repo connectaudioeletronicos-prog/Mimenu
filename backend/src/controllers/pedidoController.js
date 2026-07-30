@@ -1,6 +1,7 @@
 const { query } = require('../config/database');
 const { uploadImagem } = require('../utils/storage');
 const { validarFormatoCep, validarCepViaCep } = require('../utils/geocoding');
+const { validarTelefone } = require('../utils/validadores');
 
 async function criarPedido(req, res) {
   try {
@@ -22,8 +23,7 @@ async function criarPedido(req, res) {
       return res.status(400).json({ erro: 'Informe nome e sobrenome completos.' });
     }
 
-    const regexTelefone = /^\(\d{2}\)\s\d{9}$/;
-    if (!regexTelefone.test(cliente_telefone)) {
+    if (!validarTelefone(cliente_telefone)) {
       return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
     }
 
