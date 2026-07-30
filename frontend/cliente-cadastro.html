@@ -4,13 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Criar conta - Palatos</title>
-<link rel="stylesheet" href="css/cliente-auth.css?v=20260727c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/cliente-auth.css?v=20260729a">
 </head>
-<body>
-  <div class="auth-caixa">
-    <div class="auth-lado auth-foto--cadastro">
-      <div class="auth-logo">
-        <img src="img/logo-icone.png" alt="" class="auth-logo__icone">
+<body class="auth-pagina">
+
+  <div class="auth-shell">
+
+    <svg class="auth-swoosh auth-mobile-apenas" viewBox="0 0 220 220" fill="none" aria-hidden="true">
+      <path d="M220 0 C160 10 90 50 60 120 C40 165 60 200 20 220 L220 220 Z" fill="#146c43" opacity="0.9"/>
+      <path d="M220 0 C190 30 175 70 175 110" stroke="#f3a01c" stroke-width="8" stroke-linecap="round" fill="none"/>
+    </svg>
+
+    <div class="auth-painel-foto auth-desktop-apenas" style="background-image:url('img/foto-cadastro.jpg')">
+      <div class="auth-logo auth-logo--grande">
+        <img src="img/logo-icone.png" class="auth-logo__icone" alt="">
         <div class="auth-logo__bloco">
           <span class="auth-logo__texto">pal<span class="auth-logo__destaque">a</span>tos</span>
           <div class="auth-logo__slogan">
@@ -23,113 +33,185 @@
       </div>
     </div>
 
-    <div class="auth-conteudo">
-      <div class="auth-passos">
-        <div class="auth-passo">
-          <span class="auth-passo__bolha auth-passo__bolha--ativa" data-passo-bolha="1">1</span>
-          <span class="auth-passo__legenda">Criar conta</span>
+    <div class="auth-shell__conteudo auth-shell__conteudo--desktop">
+      <div class="auth-caixa-formulario">
+
+        <div class="auth-logo auth-mobile-apenas" style="justify-content:center;">
+          <div class="auth-logo__bloco" style="align-items:center;">
+            <img src="img/logo-icone.png" class="auth-logo__icone" alt="" style="margin-bottom:6px;">
+            <span class="auth-logo__texto">pal<span class="auth-logo__destaque">a</span>tos</span>
+            <div class="auth-logo__slogan">
+              <span class="auth-logo__slogan-traco auth-logo__slogan-traco--verde"></span>
+              <span class="auth-logo__slogan--verde">MAIS SABOR.</span>
+              <span class="auth-logo__slogan--laranja">MAIS PRATICIDADE.</span>
+              <span class="auth-logo__slogan-traco auth-logo__slogan-traco--laranja"></span>
+            </div>
+          </div>
         </div>
-        <div class="auth-passo__linha"></div>
-        <div class="auth-passo">
-          <span class="auth-passo__bolha" data-passo-bolha="2">2</span>
-          <span class="auth-passo__legenda">Dados pessoais</span>
+
+        <div class="auth-etapas">
+          <div class="auth-etapa auth-etapa--ativa" id="indicador-etapa-1">
+            <div class="auth-etapa__bolha">1</div>
+            <div class="auth-etapa__rotulo">Criar conta</div>
+          </div>
+          <div class="auth-etapa__linha" id="linha-etapas"></div>
+          <div class="auth-etapa" id="indicador-etapa-2">
+            <div class="auth-etapa__bolha">2</div>
+            <div class="auth-etapa__rotulo">Dados pessoais</div>
+          </div>
         </div>
-      </div>
 
-      <form id="form-cadastro-cliente" novalidate>
-        <div id="etapa-1" class="auth-etapa">
-          <h1><strong>Criar</strong> sua conta</h1>
-          <p class="auth-sub">É rápido, fácil e gratuito! Crie sua conta e aproveite o melhor do <strong>Palatos</strong>.</p>
+        <div class="auth-aviso" id="cadastro-aviso"></div>
 
-          <label class="campo-auth">
-            <input type="text" id="cad-nome" placeholder="Nome" required>
-          </label>
-          <label class="campo-auth">
-            <input type="text" id="cad-sobrenome" placeholder="Sobrenome" required>
-          </label>
-          <label class="campo-auth">
-            <input type="email" id="cad-email" placeholder="E-mail (opcional se preencher telefone)">
-          </label>
-          <label class="campo-auth">
-            <input type="tel" id="cad-telefone" placeholder="Telefone (opcional se preencher e-mail)">
-          </label>
-          <label class="campo-auth">
-            <input type="password" id="cad-senha" placeholder="Senha (minimo 6 caracteres)" minlength="6" required>
-          </label>
+        <!-- ---------- Etapa 1: criar conta ---------- -->
+        <form id="form-etapa-1" class="auth-etapa-painel" novalidate>
+          <h1 class="auth-titulo">Criar <strong>sua conta</strong></h1>
+          <p class="auth-subtitulo">É rápido, fácil e gratuito! Crie sua conta e aproveite o melhor do <strong>Palatos</strong>.</p>
 
-          <p id="erro-etapa-1" class="auth-erro oculto"></p>
+          <div class="auth-linha-dupla">
+            <div class="auth-campo">
+              <div class="auth-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+                <input type="text" id="cadastro-nome" placeholder="Nome" required autocomplete="given-name">
+              </div>
+            </div>
+            <div class="auth-campo">
+              <div class="auth-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+                <input type="text" id="cadastro-sobrenome" placeholder="Sobrenome" required autocomplete="family-name">
+              </div>
+            </div>
+          </div>
 
-          <button type="button" id="botao-avancar" class="auth-botao-principal">Avançar</button>
+          <div class="auth-campo">
+            <div class="auth-campo__caixa">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18v12H3z"/><path d="m3 7 9 6 9-6"/></svg>
+              <input type="email" id="cadastro-email" placeholder="E-mail" autocomplete="email">
+            </div>
+          </div>
+
+          <div class="auth-campo">
+            <div class="auth-campo__caixa">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.7 2Z"/></svg>
+              <input type="tel" id="cadastro-telefone" placeholder="WhatsApp / Telefone (opcional)" autocomplete="tel">
+            </div>
+          </div>
+
+          <div class="auth-campo">
+            <div class="auth-campo__caixa">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+              <input type="password" id="cadastro-senha" placeholder="Criar senha (mín. 6 caracteres)" required autocomplete="new-password">
+              <button type="button" class="auth-campo__olho" data-alvo-senha="cadastro-senha" aria-label="Mostrar senha">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="auth-campo">
+            <div class="auth-campo__caixa">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+              <input type="password" id="cadastro-confirmar-senha" placeholder="Confirmar senha" required autocomplete="new-password">
+            </div>
+          </div>
+
+          <button type="submit" class="auth-botao auth-botao--principal" id="botao-continuar-etapa-1">Continuar</button>
 
           <div class="auth-divisor">ou continue com</div>
-          <button type="button" id="botao-google-cadastro" class="auth-botao-google">
-            <svg width="18" height="18" viewBox="0 0 18 18">
-              <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/>
-              <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/>
-              <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/>
-              <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z"/>
-            </svg>
+          <button type="button" class="auth-botao auth-botao--google" id="botao-google-cadastro">
+            <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.87 2.7-6.62Z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.16.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33Z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58Z"/></svg>
             Continuar com Google
           </button>
 
-          <p class="auth-rodape">Já tem uma conta? <a href="cliente-login.html">Entrar</a></p>
-        </div>
+          <p class="auth-rodape">Já tem uma conta? <a href="cliente-login.html" id="link-ir-login">Entrar</a></p>
+        </form>
 
-        <div id="etapa-2" class="auth-etapa oculto">
-          <h1><strong>Dados</strong> pessoais</h1>
-          <p class="auth-sub">Precisamos de algumas informações para finalizar seu cadastro e garantir uma experiência <strong>personalizada</strong>.</p>
+        <!-- ---------- Etapa 2: dados pessoais ---------- -->
+        <form id="form-etapa-2" class="auth-etapa-painel oculto" novalidate>
+          <h1 class="auth-titulo">Dados <strong>pessoais</strong></h1>
+          <p class="auth-subtitulo">Precisamos de algumas informações para finalizar seu cadastro e garantir uma experiência <strong>personalizada</strong>.</p>
 
-          <label class="campo-auth">
-            <input type="text" id="cad-cpf" placeholder="CPF (000.000.000-00)" required>
-          </label>
-
-          <div class="campo-auth-linha">
-            <label class="campo-auth" style="flex:1;">
-              <input type="text" id="cad-cep" placeholder="CEP (00000-000)" required>
-            </label>
-            <button type="button" id="botao-buscar-cep" class="auth-botao-secundario">Buscar CEP</button>
+          <div class="auth-campo">
+            <div class="auth-campo__caixa">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h4M7 13h6"/><circle cx="16" cy="15" r="2"/></svg>
+              <input type="text" id="cadastro-cpf" placeholder="CPF (000.000.000-00)" required inputmode="numeric" maxlength="14">
+            </div>
           </div>
 
-          <label class="campo-auth">
-            <input type="text" id="cad-logradouro" placeholder="Rua, Avenida, Travessa..." required>
-          </label>
-
-          <div class="campo-auth-linha">
-            <label class="campo-auth" style="flex:1;">
-              <input type="text" id="cad-numero" placeholder="Número" required>
-            </label>
-            <label class="campo-auth" style="flex:1;">
-              <input type="text" id="cad-bairro" placeholder="Bairro" required>
-            </label>
+          <div class="auth-linha-cep">
+            <div class="auth-campo">
+              <div class="auth-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                <input type="text" id="cadastro-cep" placeholder="CEP (00000-000)" required inputmode="numeric" maxlength="9">
+              </div>
+            </div>
+            <button type="button" class="auth-botao" id="botao-buscar-cep" style="background:#fff;border:1.5px solid var(--auth-verde-texto);color:var(--auth-verde-texto);white-space:nowrap;padding:0 16px;height:48px;margin-top:0;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              Buscar CEP
+            </button>
           </div>
 
-          <div class="campo-auth-linha">
-            <label class="campo-auth" style="flex:1;">
-              <input type="text" id="cad-cidade" placeholder="Cidade" required>
-            </label>
-            <label class="campo-auth" style="flex:1;">
-              <select id="cad-uf" required>
-                <option value="">Estado</option>
-                <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option>
-                <option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option>
-                <option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option>
-                <option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
-                <option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option>
-                <option>SE</option><option>TO</option>
-              </select>
-            </label>
+          <div class="auth-campo">
+            <div class="auth-campo__caixa">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20h18M5 20V9l7-5 7 5v11M9 20v-6h6v6"/></svg>
+              <input type="text" id="cadastro-logradouro" placeholder="Rua, Avenida, Travessa..." required>
+            </div>
           </div>
 
-          <p id="erro-etapa-2" class="auth-erro oculto"></p>
+          <div class="auth-linha-dupla">
+            <div class="auth-campo">
+              <div class="auth-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 4l9 6.5"/><path d="M5 9v11h14V9"/></svg>
+                <input type="text" id="cadastro-numero" placeholder="Número" required inputmode="numeric">
+              </div>
+            </div>
+            <div class="auth-campo">
+              <div class="auth-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                <input type="text" id="cadastro-bairro" placeholder="Bairro" required>
+              </div>
+            </div>
+          </div>
 
-          <button type="submit" id="botao-finalizar" class="auth-botao-principal">🔒 Finalizar cadastro</button>
-          <button type="button" id="botao-voltar" class="auth-botao-texto">← Voltar</button>
-        </div>
-      </form>
+          <div class="auth-linha-dupla">
+            <div class="auth-campo">
+              <div class="auth-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V7l8-4 8 4v14"/><path d="M9 21v-6h6v6M9 11h.01M15 11h.01M9 15h.01M15 15h.01"/></svg>
+                <input type="text" id="cadastro-cidade" placeholder="Cidade" required>
+              </div>
+            </div>
+            <div class="auth-campo">
+              <div class="auth-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2Z"/><path d="M9 4v14M15 6v14"/></svg>
+                <select id="cadastro-uf" required>
+                  <option value="" disabled selected>UF</option>
+                  <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option>
+                  <option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option>
+                  <option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option>
+                  <option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+                  <option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option>
+                  <option>SE</option><option>TO</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="auth-botao auth-botao--principal" id="botao-finalizar-cadastro">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            Finalizar cadastro
+          </button>
+
+          <button type="button" class="auth-voltar" id="botao-voltar-etapa-1">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+            Voltar
+          </button>
+        </form>
+
+      </div>
     </div>
+
+    <div class="auth-foto-rodape auth-mobile-apenas" style="background-image:url('img/foto-cadastro.jpg')"></div>
   </div>
 
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="js/config.js"></script>
   <script src="js/cliente-auth.js"></script>
 </body>
