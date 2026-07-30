@@ -1,5 +1,21 @@
 const Carrinho = (() => {
+  const CHAVE = 'palatos_carrinho_itens';
   let itens = [];
+
+  function carregarSalvo() {
+    try {
+      const salvo = sessionStorage.getItem(CHAVE);
+      itens = salvo ? JSON.parse(salvo) : [];
+    } catch {
+      itens = [];
+    }
+  }
+
+  function salvar() {
+    try { sessionStorage.setItem(CHAVE, JSON.stringify(itens)); } catch {}
+  }
+
+  carregarSalvo();
 
   function adicionar(item) {
     const existente = itens.find(i => i.produto_id === item.produto_id && i.observacao === item.observacao);
@@ -8,11 +24,13 @@ const Carrinho = (() => {
     } else {
       itens.push({ ...item });
     }
+    salvar();
     atualizarContador();
   }
 
   function removerIndice(indice) {
     itens.splice(indice, 1);
+    salvar();
     atualizarContador();
   }
 
@@ -20,12 +38,15 @@ const Carrinho = (() => {
     itens[indice].quantidade += delta;
     if (itens[indice].quantidade <= 0) {
       removerIndice(indice);
+      return;
     }
+    salvar();
     atualizarContador();
   }
 
   function limpar() {
     itens = [];
+    salvar();
     atualizarContador();
   }
 
