@@ -498,6 +498,8 @@ function fecharModais() {
 
 function configurarEventosGlobais() {
   verificarBloqueioHorario();
+  const linkMinhaConta = document.getElementById('link-minha-conta');
+  if (linkMinhaConta) linkMinhaConta.setAttribute('href', linkComSlug('minha-conta.html'));
   document.querySelectorAll('[data-fechar-modal]').forEach(el => el.addEventListener('click', fecharModais));
   document.getElementById('produto-modal-menos').addEventListener('click', () => {
     if (QUANTIDADE_MODAL > 1) QUANTIDADE_MODAL--;
@@ -710,27 +712,6 @@ async function irParaCheckout() {
   atualizarResumoCheckout();
 }
 
-function aplicarMascaraTelefone(campo) {
-  if (!campo || campo.dataset.mascara) return;
-  campo.dataset.mascara = '1';
-  campo.addEventListener('input', function () {
-    let numeros = this.value.replace(/\D/g, '').substring(0, 11);
-    if (numeros.length === 0) this.value = '';
-    else if (numeros.length <= 2) this.value = '(' + numeros;
-    else this.value = '(' + numeros.substring(0, 2) + ') ' + numeros.substring(2);
-  });
-}
-
-function aplicarMascaraCep(campo) {
-  if (!campo || campo.dataset.mascara) return;
-  campo.dataset.mascara = '1';
-  campo.addEventListener('input', function () {
-    let numeros = this.value.replace(/\D/g, '').substring(0, 8);
-    if (numeros.length <= 5) this.value = numeros;
-    else this.value = numeros.substring(0, 5) + '-' + numeros.substring(5);
-  });
-}
-
 async function finalizarPedido(evento) {
   evento.preventDefault();
 
@@ -886,10 +867,6 @@ async function monitorarPagamentoPix(pedidoId) {
   }, 6000);
 }
 
-function formatarMoeda(valor) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(valor) || 0);
-}
-
 function escaparHtml(texto) {
   const div = document.createElement('div');
   div.textContent = texto ?? '';
@@ -941,16 +918,6 @@ function bloquearPedidos(mensagem) {
   aviso.textContent = mensagem;
   const app = document.getElementById('app');
   if (app) app.insertBefore(aviso, app.firstChild);
-}
-
-function obterDadosCliente() {
-  try { return JSON.parse(localStorage.getItem('dados-cliente') || '{}'); }
-  catch { return {}; }
-}
-
-function salvarDadosCliente(dados) {
-  const atual = obterDadosCliente();
-  localStorage.setItem('dados-cliente', JSON.stringify({ ...atual, ...dados }));
 }
 
 // Reserva de mesa: recurso opcional (so aparece se a loja tiver ativado em
