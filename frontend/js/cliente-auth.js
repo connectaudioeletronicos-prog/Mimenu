@@ -55,18 +55,6 @@ document.querySelectorAll('.auth-campo__olho').forEach((botao) => {
 // -------------------------------------------------------------
 // Mascaras simples de digitacao
 // -------------------------------------------------------------
-function aplicarMascaraCpf(input) {
-  if (!input) return;
-  input.addEventListener('input', function () {
-    let numeros = this.value.replace(/\D/g, '').substring(0, 11);
-    let valor = numeros;
-    if (numeros.length > 9) valor = `${numeros.slice(0,3)}.${numeros.slice(3,6)}.${numeros.slice(6,9)}-${numeros.slice(9)}`;
-    else if (numeros.length > 6) valor = `${numeros.slice(0,3)}.${numeros.slice(3,6)}.${numeros.slice(6)}`;
-    else if (numeros.length > 3) valor = `${numeros.slice(0,3)}.${numeros.slice(3)}`;
-    this.value = valor;
-  });
-}
-
 aplicarMascaraTelefone(document.getElementById('cadastro-telefone'));
 aplicarMascaraCep(document.getElementById('cadastro-cep'));
 aplicarMascaraCpf(document.getElementById('cadastro-cpf'));
