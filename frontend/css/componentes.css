@@ -1226,6 +1226,13 @@
   backdrop-filter: blur(2px);
 }
 
+.botao-minha-conta-discreto {
+  left: auto;
+  right: 12px;
+  text-decoration: none;
+  display: inline-block;
+}
+
 .tela-cliente__cabecalho--destaque {
   position: relative;
   background: linear-gradient(135deg, var(--cor-principal, #2A9D8F), var(--cor-secundaria, #1D3557));
