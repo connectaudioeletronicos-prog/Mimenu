@@ -179,16 +179,15 @@ if (formEtapa1) {
     const nome = document.getElementById('cadastro-nome').value.trim();
     const sobrenome = document.getElementById('cadastro-sobrenome').value.trim();
     const email = document.getElementById('cadastro-email').value.trim();
-    const telefone = document.getElementById('cadastro-telefone').value.trim();
     const senha = document.getElementById('cadastro-senha').value;
     const confirmarSenha = document.getElementById('cadastro-confirmar-senha').value;
 
     if (!nome || !sobrenome) return mostrarAviso(avisoEl, 'Informe seu nome e sobrenome.');
-    if (!email && !telefone) return mostrarAviso(avisoEl, 'Informe pelo menos um e-mail ou telefone para contato.');
+    if (!email) return mostrarAviso(avisoEl, 'Informe seu e-mail.');
     if (senha.length < 6) return mostrarAviso(avisoEl, 'A senha deve ter pelo menos 6 caracteres.');
     if (senha !== confirmarSenha) return mostrarAviso(avisoEl, 'As senhas nao coincidem.');
 
-    dadosEtapa1 = { nome, sobrenome, email, telefone, senha };
+    dadosEtapa1 = { nome, sobrenome, email, senha };
 
     formEtapa1.classList.add('oculto');
     formEtapa2.classList.remove('oculto');
@@ -202,6 +201,7 @@ if (formEtapa1) {
 const botaoVoltarEtapa1 = document.getElementById('botao-voltar-etapa-1');
 if (botaoVoltarEtapa1) {
   botaoVoltarEtapa1.addEventListener('click', () => {
+    TOKEN_PENDENTE_GOOGLE = null;
     formEtapa2.classList.add('oculto');
     formEtapa1.classList.remove('oculto');
     document.getElementById('indicador-etapa-2').classList.remove('auth-etapa--ativa');
@@ -251,11 +251,12 @@ if (formEtapa2) {
     const avisoEl = document.getElementById('cadastro-aviso');
     ocultarAviso(avisoEl);
 
-    if (!dadosEtapa1) {
+    if (!TOKEN_PENDENTE_GOOGLE && !dadosEtapa1) {
       mostrarAviso(avisoEl, 'Sessao de cadastro perdida. Volte e preencha a etapa 1 novamente.');
       return;
     }
 
+    const telefone = document.getElementById('cadastro-telefone').value.trim();
     const cpf = document.getElementById('cadastro-cpf').value.trim();
     const cep = document.getElementById('cadastro-cep').value.trim();
     const logradouro = document.getElementById('cadastro-logradouro').value.trim();
@@ -264,6 +265,7 @@ if (formEtapa2) {
     const cidade = document.getElementById('cadastro-cidade').value.trim();
     const uf = document.getElementById('cadastro-uf').value;
 
+    if (!telefone) return mostrarAviso(avisoEl, 'Informe seu WhatsApp/telefone.');
     if (cpf.replace(/\D/g, '').length !== 11) return mostrarAviso(avisoEl, 'Informe um CPF valido.');
     if (!cep || !logradouro || !numero || !bairro || !cidade || !uf) {
       return mostrarAviso(avisoEl, 'Preencha todos os dados de endereco.');
@@ -272,10 +274,18 @@ if (formEtapa2) {
     const botao = document.getElementById('botao-finalizar-cadastro');
     definirCarregando(botao, true);
     try {
-      const resposta = await fetch(`${API_BASE_URL}/clientes/auth/cadastrar`, {
+      const ehGoogle = !!TOKEN_PENDENTE_GOOGLE;
+      const url = ehGoogle
+        ? `${API_BASE_URL}/clientes/auth/google/finalizar`
+        : `${API_BASE_URL}/clientes/auth/cadastrar`;
+      const corpo = ehGoogle
+        ? { tokenPendente: TOKEN_PENDENTE_GOOGLE, telefone, cpf, cep, logradouro, numero, bairro, cidade, uf }
+        : { ...dadosEtapa1, telefone, cpf, cep, logradouro, numero, bairro, cidade, uf };
+
+      const resposta = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...dadosEtapa1, cpf, cep, logradouro, numero, bairro, cidade, uf })
+        body: JSON.stringify(corpo)
       });
       const dados = await resposta.json();
       if (!resposta.ok) {
@@ -314,7 +324,9 @@ function iniciarFluxoGoogle() {
   });
 }
 
-async function processarLoginGoogle(botao, avisoEl) {
+let TOKEN_PENDENTE_GOOGLE = null;
+
+async function processarLoginGoogle(botao, avisoEl, modo) {
   ocultarAviso(avisoEl);
   definirCarregando(botao, true);
   try {
@@ -322,16 +334,37 @@ async function processarLoginGoogle(botao, avisoEl) {
     const resposta = await fetch(`${API_BASE_URL}/clientes/auth/google`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code })
+      body: JSON.stringify({ code, modo })
     });
     const dados = await resposta.json();
+
     if (!resposta.ok) {
-      mostrarAviso(avisoEl, dados.erro || 'Nao foi possivel entrar com o Google.');
+      if (dados.erro === 'conta_nao_encontrada') {
+        mostrarAviso(avisoEl, 'Nao encontramos uma conta com esse Google. Vamos te levar pra criar uma...');
+        setTimeout(() => { window.location.href = linkComSlug('cliente-cadastro.html'); }, 1800);
+        return;
+      }
+      mostrarAviso(avisoEl, dados.erro || dados.mensagem || 'Nao foi possivel continuar com o Google.');
       return;
     }
+
+    if (dados.precisaCompletarCadastro) {
+      // Conta ainda nao existe: guarda o token pendente e pula direto
+      // pra etapa 2 (telefone/CPF/endereco), sem pedir senha - quem usa
+      // Google nao precisa de senha local.
+      TOKEN_PENDENTE_GOOGLE = dados.tokenPendente;
+      formEtapa1.classList.add('oculto');
+      formEtapa2.classList.remove('oculto');
+      document.getElementById('indicador-etapa-1').classList.remove('auth-etapa--ativa');
+      document.getElementById('indicador-etapa-1').classList.add('auth-etapa--concluida');
+      document.getElementById('indicador-etapa-2').classList.add('auth-etapa--ativa');
+      document.getElementById('linha-etapas').classList.add('auth-etapa__linha--concluida');
+      return;
+    }
+
     apresLoginBemSucedido(dados.token, dados.conta);
   } catch (erro) {
-    mostrarAviso(avisoEl, erro.message || 'Nao foi possivel entrar com o Google.');
+    mostrarAviso(avisoEl, erro.message || 'Nao foi possivel continuar com o Google.');
   } finally {
     definirCarregando(botao, false, botao.dataset.textoOriginal);
   }
@@ -340,13 +373,13 @@ async function processarLoginGoogle(botao, avisoEl) {
 const botaoGoogleLogin = document.getElementById('botao-google-login');
 if (botaoGoogleLogin) {
   botaoGoogleLogin.addEventListener('click', () => {
-    processarLoginGoogle(botaoGoogleLogin, document.getElementById('login-aviso'));
+    processarLoginGoogle(botaoGoogleLogin, document.getElementById('login-aviso'), 'login');
   });
 }
 const botaoGoogleCadastro = document.getElementById('botao-google-cadastro');
 if (botaoGoogleCadastro) {
   botaoGoogleCadastro.addEventListener('click', () => {
-    processarLoginGoogle(botaoGoogleCadastro, document.getElementById('cadastro-aviso'));
+    processarLoginGoogle(botaoGoogleCadastro, document.getElementById('cadastro-aviso'), 'cadastro');
   });
 }
 
