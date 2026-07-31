@@ -45,6 +45,20 @@ function aplicarMascaraCep(campo) {
   });
 }
 
+// --- Mascara de CPF: 000.000.000-00 ---
+function aplicarMascaraCpf(campo) {
+  if (!campo || campo.dataset.mascara) return;
+  campo.dataset.mascara = '1';
+  campo.addEventListener('input', function () {
+    let numeros = this.value.replace(/\D/g, '').substring(0, 11);
+    let valor = numeros;
+    if (numeros.length > 9) valor = `${numeros.slice(0,3)}.${numeros.slice(3,6)}.${numeros.slice(6,9)}-${numeros.slice(9)}`;
+    else if (numeros.length > 6) valor = `${numeros.slice(0,3)}.${numeros.slice(3,6)}.${numeros.slice(6)}`;
+    else if (numeros.length > 3) valor = `${numeros.slice(0,3)}.${numeros.slice(3)}`;
+    this.value = valor;
+  });
+}
+
 // --- Monta link preservando o slug do estabelecimento na URL ---
 // Depende de SLUG_ESTABELECIMENTO, definido em config.js (que deve ser
 // carregado antes deste arquivo).
