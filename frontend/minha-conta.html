@@ -4,74 +4,176 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Minha conta - Palatos</title>
-<link rel="stylesheet" href="css/variaveis.css">
-<link rel="stylesheet" href="css/base.css">
-<link rel="stylesheet" href="css/componentes.css?v=20260729a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/cliente-auth.css?v=20260729a">
+<link rel="stylesheet" href="css/minha-conta.css?v=1">
 </head>
-<body>
+<body class="conta-pagina">
 
   <div id="tela-carregando" class="tela-carregando">
     <div class="spinner"></div>
   </div>
 
-  <div id="tela-cliente" class="tela-cliente oculto">
-    <div class="tela-cliente__cabecalho">
-      <button class="tela-cliente__voltar" id="botao-voltar-cardapio">← Voltar</button>
-      <h2 class="tela-cliente__titulo">Minha conta</h2>
+  <div id="tela-cliente" class="conta-shell oculto">
+
+    <svg class="auth-swoosh" viewBox="0 0 220 220" fill="none" aria-hidden="true">
+      <path d="M220 0 C160 10 90 50 60 120 C40 165 60 200 20 220 L220 220 Z" fill="#146c43" opacity="0.9"/>
+      <path d="M220 0 C190 30 175 70 175 110" stroke="#f3a01c" stroke-width="8" stroke-linecap="round" fill="none"/>
+    </svg>
+
+    <div class="conta-topo">
+      <button class="conta-link-topo" id="botao-voltar-cardapio">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+        Voltar
+      </button>
+      <a class="conta-link-topo conta-link-topo--direita oculto" id="link-minhas-reservas" href="#">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Minhas reservas
+      </a>
+      <a class="conta-link-topo conta-link-topo--direita oculto" id="link-suporte" href="#">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-8h3ZM3 19a2 2 0 0 0 2 2h1v-8H3Z"/></svg>
+        Suporte
+      </a>
     </div>
 
-    <div style="text-align:center; font-size:13px; margin:16px 0 0;">
-      Ola, <strong id="conta-nome"></strong> ·
-      <button type="button" id="botao-sair-conta" style="background:none; border:none; color:#c0392b; text-decoration:underline; cursor:pointer; font-size:13px; padding:0;">Sair</button>
+    <div class="conta-cabecalho">
+      <p class="conta-saudacao">Olá, <strong id="conta-nome-topo">usuário</strong></p>
+      <h1 class="conta-titulo" id="conta-titulo-pagina">Minha <strong>conta</strong></h1>
     </div>
 
-    <div class="tela-cliente__abas">
-      <button class="tela-cliente__aba ativo" data-aba-cliente="dados">Meus dados</button>
-      <button class="tela-cliente__aba" data-aba-cliente="pedidos">Meus pedidos</button>
+    <div class="conta-abas">
+      <button class="conta-aba ativo" data-aba-cliente="dados">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+        Meus dados
+      </button>
+      <button class="conta-aba" data-aba-cliente="pedidos">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>
+        Meus pedidos
+      </button>
     </div>
 
-    <div class="tela-cliente__conteudo">
+    <div class="conta-conteudo">
+
+      <!-- ===================== ABA: MEUS DADOS ===================== -->
       <div id="aba-cliente-dados" class="aba-cliente">
-        <form id="form-meus-dados" class="tela-cliente__form">
-          <label>Nome
-            <input type="text" id="conta-campo-nome" required>
-          </label>
-          <label>Sobrenome
-            <input type="text" id="conta-campo-sobrenome" required>
-          </label>
-          <label>E-mail
-            <input type="email" id="conta-campo-email" disabled>
-          </label>
-          <label>CPF
-            <input type="text" id="conta-campo-cpf" disabled>
-          </label>
-          <label>WhatsApp / Telefone
-            <input type="tel" id="conta-campo-telefone" maxlength="15" placeholder="(11) 999999999">
-          </label>
-          <div style="display:flex; gap:8px; align-items:flex-end;">
-            <label style="flex:1;">CEP
-              <input type="text" id="conta-campo-cep" maxlength="9" placeholder="99999-999">
-            </label>
-            <button type="button" id="botao-buscar-cep-conta" style="height:42px; padding:0 14px; border-radius:8px; border:1px solid var(--cor-borda,#e5e5e5); background:var(--cor-fundo-alternativo,#f7f7f7); font-weight:600; font-size:0.85rem;">Buscar</button>
+        <form id="form-meus-dados" novalidate>
+
+          <div class="conta-secao">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+            Informações pessoais
           </div>
-          <label>Rua / Avenida
-            <input type="text" id="conta-campo-logradouro">
-          </label>
-          <div style="display:flex; gap:8px;">
-            <label style="flex:1;">Numero
-              <input type="text" id="conta-campo-numero">
+
+          <div class="conta-linha-dupla">
+            <label class="conta-campo">
+              <span>Nome completo</span>
+              <div class="conta-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+                <input type="text" id="conta-campo-nome-completo" required>
+              </div>
             </label>
-            <label style="flex:1;">Bairro
-              <input type="text" id="conta-campo-bairro">
+            <label class="conta-campo">
+              <span>Data de nascimento</span>
+              <div class="conta-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                <input type="date" id="conta-campo-nascimento">
+              </div>
             </label>
           </div>
-          <div style="display:flex; gap:8px;">
-            <label style="flex:1;">Cidade
-              <input type="text" id="conta-campo-cidade">
+
+          <div class="conta-linha-dupla">
+            <label class="conta-campo">
+              <span>WhatsApp / Telefone</span>
+              <div class="conta-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.7 2Z"/></svg>
+                <input type="tel" id="conta-campo-telefone" maxlength="15" required>
+              </div>
             </label>
-            <label style="flex:1;">Estado
-              <select id="conta-campo-uf">
-                <option value="">UF</option>
+            <label class="conta-campo">
+              <span>E-mail</span>
+              <div class="conta-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18v12H3z"/><path d="m3 7 9 6 9-6"/></svg>
+                <input type="email" id="conta-campo-email" disabled>
+              </div>
+            </label>
+          </div>
+
+          <label class="conta-campo">
+            <span>CPF</span>
+            <div class="conta-campo__caixa">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h4M7 13h6"/><circle cx="16" cy="15" r="2"/></svg>
+              <input type="text" id="conta-campo-cpf" placeholder="000.000.000-00" maxlength="14" required>
+            </div>
+          </label>
+
+          <div class="conta-secao">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            Endereço
+          </div>
+
+          <div class="conta-linha-cep">
+            <label class="conta-campo">
+              <span>CEP</span>
+              <div class="conta-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18v12H3z"/><path d="m3 7 9 6 9-6"/></svg>
+                <input type="text" id="conta-campo-cep" maxlength="9" placeholder="99999-999" required>
+              </div>
+            </label>
+            <button type="button" class="conta-botao-cep" id="botao-buscar-cep-conta">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              Buscar CEP
+            </button>
+          </div>
+
+          <label class="conta-campo">
+            <span>Rua / Avenida</span>
+            <div class="conta-campo__caixa">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              <input type="text" id="conta-campo-logradouro" required>
+            </div>
+          </label>
+
+          <div class="conta-linha-dupla">
+            <label class="conta-campo">
+              <span>Número</span>
+              <div class="conta-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 4l9 6.5"/><path d="M5 9v11h14V9"/></svg>
+                <input type="text" id="conta-campo-numero" required>
+              </div>
+            </label>
+            <label class="conta-campo">
+              <span>Complemento</span>
+              <div class="conta-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V7l8-4 8 4v14"/><path d="M9 21v-6h6v6M9 11h.01M15 11h.01M9 15h.01M15 15h.01"/></svg>
+                <input type="text" id="conta-campo-complemento" placeholder="Apto, bloco...">
+              </div>
+            </label>
+          </div>
+
+          <div class="conta-linha-dupla">
+            <label class="conta-campo">
+              <span>Bairro</span>
+              <div class="conta-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                <input type="text" id="conta-campo-bairro" required>
+              </div>
+            </label>
+            <label class="conta-campo">
+              <span>Cidade</span>
+              <div class="conta-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V7l8-4 8 4v14"/><path d="M9 21v-6h6v6M9 11h.01M15 11h.01M9 15h.01M15 15h.01"/></svg>
+                <input type="text" id="conta-campo-cidade" required>
+              </div>
+            </label>
+          </div>
+
+          <label class="conta-campo">
+            <span>Estado</span>
+            <div class="conta-campo__caixa">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2Z"/><path d="M9 4v14M15 6v14"/></svg>
+              <select id="conta-campo-uf" required>
+                <option value="" disabled selected>UF</option>
                 <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option>
                 <option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option>
                 <option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option>
@@ -79,17 +181,45 @@
                 <option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option>
                 <option>SE</option><option>TO</option>
               </select>
+            </div>
+          </label>
+
+          <div class="conta-secao">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            Preferências
+          </div>
+
+          <div class="conta-preferencia">
+            <div class="conta-preferencia__texto">
+              <strong>Receber novidades e promoções</strong>
+              <span>Fique por dentro das novidades e ofertas exclusivas.</span>
+            </div>
+            <label class="conta-toggle">
+              <input type="checkbox" id="conta-campo-notificacoes" checked>
+              <span class="conta-toggle__trilho"><span class="conta-toggle__bola"></span></span>
             </label>
           </div>
-          <p id="conta-mensagem" class="oculto" style="font-size:13px; font-weight:600;"></p>
-          <button type="submit" id="botao-salvar-meus-dados" class="botao-primario">Salvar dados</button>
+
+          <p id="conta-mensagem" class="conta-mensagem oculto"></p>
+
+          <button type="submit" class="conta-botao-salvar" id="botao-salvar-meus-dados">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+            Salvar dados
+          </button>
         </form>
       </div>
 
+      <!-- ===================== ABA: MEUS PEDIDOS ===================== -->
       <div id="aba-cliente-pedidos" class="aba-cliente oculto">
+        <div id="resumo-pedidos-cliente" class="conta-resumo oculto"></div>
+        <div class="conta-historico-titulo">Histórico de pedidos</div>
         <div id="lista-pedidos-cliente"></div>
       </div>
     </div>
+
+    <p class="conta-sair-linha">
+      <button type="button" id="botao-sair-conta">Sair da conta</button>
+    </p>
   </div>
 
   <script src="js/config.js"></script>
