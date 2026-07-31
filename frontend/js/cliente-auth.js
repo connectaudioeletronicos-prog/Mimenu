@@ -4,10 +4,6 @@
 // abaixo so agem quando o elemento existe na pagina atual).
 // ===================================================================
 
-function linkComSlug(pagina) {
-  return SLUG_ESTABELECIMENTO ? `${pagina}?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}` : pagina;
-}
-
 // Ajusta os links "Criar conta" / "Entrar" do rodape pra levar o slug junto
 document.querySelectorAll('#link-ir-cadastro, #link-ir-login').forEach((link) => {
   link.setAttribute('href', linkComSlug(link.getAttribute('href')));
@@ -59,25 +55,6 @@ document.querySelectorAll('.auth-campo__olho').forEach((botao) => {
 // -------------------------------------------------------------
 // Mascaras simples de digitacao
 // -------------------------------------------------------------
-function aplicarMascaraTelefone(input) {
-  if (!input) return;
-  input.addEventListener('input', function () {
-    let numeros = this.value.replace(/\D/g, '').substring(0, 11);
-    if (numeros.length === 0) this.value = '';
-    else if (numeros.length <= 2) this.value = '(' + numeros;
-    else if (numeros.length <= 7) this.value = '(' + numeros.substring(0, 2) + ') ' + numeros.substring(2);
-    else this.value = '(' + numeros.substring(0, 2) + ') ' + numeros.substring(2, 7) + '-' + numeros.substring(7);
-  });
-}
-
-function aplicarMascaraCep(input) {
-  if (!input) return;
-  input.addEventListener('input', function () {
-    let numeros = this.value.replace(/\D/g, '').substring(0, 8);
-    this.value = numeros.length > 5 ? numeros.substring(0, 5) + '-' + numeros.substring(5) : numeros;
-  });
-}
-
 function aplicarMascaraCpf(input) {
   if (!input) return;
   input.addEventListener('input', function () {
