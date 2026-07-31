@@ -18,11 +18,14 @@ async function cadastrar(req, res) {
     if (!nome || !sobrenome || !senha) {
       return res.status(400).json({ erro: 'Nome, sobrenome e senha sao obrigatorios.' });
     }
-    if (!email && !telefone) {
-      return res.status(400).json({ erro: 'Informe pelo menos um e-mail ou telefone para contato.' });
+    if (!email) {
+      return res.status(400).json({ erro: 'Informe seu e-mail.' });
     }
     if (senha.length < 6) {
       return res.status(400).json({ erro: 'A senha deve ter pelo menos 6 caracteres.' });
+    }
+    if (!validarTelefone(telefone)) {
+      return res.status(400).json({ erro: 'Informe o telefone no formato (99) 999999999.' });
     }
 
     const cpfFormatado = (cpf || '').trim();
@@ -122,7 +125,7 @@ async function login(req, res) {
 
 async function loginGoogle(req, res) {
   try {
-    const { code } = req.body;
+    const { code, modo } = req.body;
     if (!code) {
       return res.status(400).json({ erro: 'Codigo de autorizacao do Google ausente.' });
     }
@@ -200,13 +203,31 @@ async function loginGoogle(req, res) {
     if (resultado.rows.length > 0) {
       conta = resultado.rows[0];
       await query('UPDATE contas_clientes SET google_id = $1 WHERE id = $2', [googleId, conta.id]);
-    } else {
-      const novaConta = await query(
-        `INSERT INTO contas_clientes (nome, sobrenome, email, google_id)
-         VALUES ($1, $2, $3, $4) RETURNING id, nome, sobrenome, email`,
-        [nome.trim(), (sobrenome || '').trim(), email, googleId]
+    } else if (modo === 'cadastro') {
+      // Conta ainda nao existe e o usuario veio da tela de CRIAR CONTA:
+      // nao criamos a conta ainda (falta telefone/CPF/endereco, que sao
+      // obrigatorios). Devolvemos um token assinado e de curta duracao
+      // com os dados ja confirmados pelo Google, pra usar so na proxima
+      // etapa (finalizarCadastroGoogle), sem ter que confiar em dados
+      // crus que o navegador poderia forjar.
+      const tokenPendente = jwt.sign(
+        { tipo: 'pendente_google', googleId, email, nome: nome.trim(), sobrenome: (sobrenome || '').trim() },
+        process.env.JWT_SECRET,
+        { expiresIn: '15m' }
       );
-      conta = novaConta.rows[0];
+      return res.json({
+        precisaCompletarCadastro: true,
+        tokenPendente,
+        perfilGoogle: { nome: nome.trim(), sobrenome: (sobrenome || '').trim(), email }
+      });
+    } else {
+      // Veio da tela de LOGIN e nao existe conta com esse Google/e-mail:
+      // antes isso criava uma conta incompleta na hora, sem pedir
+      // telefone/CPF/endereco. Agora orientamos a pessoa a se cadastrar.
+      return res.status(404).json({
+        erro: 'conta_nao_encontrada',
+        mensagem: 'Nao encontramos uma conta com esse Google. Crie uma conta para continuar.'
+      });
     }
 
     const token = jwt.sign(
@@ -222,6 +243,76 @@ async function loginGoogle(req, res) {
   } catch (error) {
     console.error('Erro no login com Google:', error);
     res.status(500).json({ erro: 'Erro interno ao processar login com Google.' });
+  }
+}
+
+// Segunda etapa do cadastro via Google: recebe o token pendente emitido
+// por loginGoogle (modo: 'cadastro') junto com telefone/CPF/endereco -
+// so ai a conta e criada de fato, com os mesmos dados obrigatorios do
+// cadastro manual.
+async function finalizarCadastroGoogle(req, res) {
+  try {
+    const { tokenPendente, telefone, cpf, cep, logradouro, numero, bairro, cidade, uf } = req.body;
+
+    let payloadPendente;
+    try {
+      payloadPendente = jwt.verify(tokenPendente, process.env.JWT_SECRET);
+    } catch (erro) {
+      return res.status(401).json({ erro: 'Sessao de cadastro com Google expirada. Tente novamente.' });
+    }
+    if (payloadPendente.tipo !== 'pendente_google') {
+      return res.status(401).json({ erro: 'Sessao de cadastro com Google invalida. Tente novamente.' });
+    }
+
+    const { googleId, email, nome, sobrenome } = payloadPendente;
+
+    if (!validarTelefone(telefone)) {
+      return res.status(400).json({ erro: 'Informe o telefone no formato (99) 999999999.' });
+    }
+    const cpfFormatado = (cpf || '').trim();
+    if (!validarCPF(cpfFormatado)) {
+      return res.status(400).json({ erro: 'Informe o CPF no formato 000.000.000-00.' });
+    }
+    if (!cep || !logradouro || !numero || !bairro || !cidade || !uf) {
+      return res.status(400).json({ erro: 'Preencha todos os dados de endereco.' });
+    }
+    if (!validarFormatoCep(cep)) {
+      return res.status(400).json({ erro: 'Informe o CEP no formato 99999-999.' });
+    }
+
+    // Alguem pode ter criado essa mesma conta por outro caminho enquanto
+    // o token pendente estava valido (ex: cadastro manual com o mesmo
+    // e-mail). Nesse caso so vinculamos o google_id em vez de duplicar.
+    const existente = await query(
+      'SELECT id FROM contas_clientes WHERE google_id = $1 OR email = $2 OR cpf = $3 OR telefone = $4',
+      [googleId, email, cpfFormatado, telefone.trim()]
+    );
+    if (existente.rows.length > 0) {
+      return res.status(409).json({ erro: 'Ja existe uma conta com esse e-mail, telefone ou CPF.' });
+    }
+
+    const novaConta = await query(
+      `INSERT INTO contas_clientes
+        (nome, sobrenome, email, telefone, cpf, cep, logradouro, numero, bairro, cidade, uf, google_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, nome, sobrenome, email`,
+      [nome, sobrenome, email, telefone.trim(), cpfFormatado, cep.trim(), logradouro.trim(),
+       numero.trim(), bairro.trim(), cidade.trim(), uf.toUpperCase(), googleId]
+    );
+    const conta = novaConta.rows[0];
+
+    const token = jwt.sign(
+      { contaClienteId: conta.id, tipo: 'cliente' },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      token,
+      conta: { id: conta.id, nome: conta.nome, sobrenome: conta.sobrenome, email: conta.email }
+    });
+  } catch (error) {
+    console.error('Erro ao finalizar cadastro com Google:', error);
+    res.status(500).json({ erro: 'Erro interno ao finalizar cadastro com Google.' });
   }
 }
 
@@ -257,7 +348,7 @@ async function esqueciSenha(req, res) {
   }
 }
 
-module.exports = { cadastrar, login, loginGoogle, esqueciSenha };
+module.exports = { cadastrar, login, loginGoogle, finalizarCadastroGoogle, esqueciSenha };
 
 // ===================================================================
 // Conta logada: "Meus dados" (ver/editar) -- exige token de cliente valido.
