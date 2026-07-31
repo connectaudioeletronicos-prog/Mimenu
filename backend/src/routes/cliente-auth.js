@@ -16,6 +16,7 @@ const limitadorLogin = rateLimit({
 router.post('/cadastrar', limitadorLogin, contaClienteController.cadastrar);
 router.post('/login', limitadorLogin, contaClienteController.login);
 router.post('/google', limitadorLogin, contaClienteController.loginGoogle);
+router.post('/google/finalizar', limitadorLogin, contaClienteController.finalizarCadastroGoogle);
 router.post('/esqueci-senha', limitadorLogin, contaClienteController.esqueciSenha);
 
 router.get('/me', contaClienteController.autenticarCliente, contaClienteController.obterMeusDados);
