@@ -372,7 +372,8 @@ async function autenticarCliente(req, res, next) {
 async function obterMeusDados(req, res) {
   try {
     const resultado = await query(
-      `SELECT id, nome, sobrenome, email, telefone, cpf, cep, logradouro, numero, bairro, cidade, uf
+      `SELECT id, nome, sobrenome, email, telefone, cpf, data_nascimento,
+              cep, logradouro, numero, complemento, bairro, cidade, uf, receber_notificacoes
        FROM contas_clientes WHERE id = $1`,
       [req.contaClienteId]
     );
@@ -386,10 +387,16 @@ async function obterMeusDados(req, res) {
 
 async function atualizarMeusDados(req, res) {
   try {
-    const { nome, sobrenome, telefone, cep, logradouro, numero, bairro, cidade, uf } = req.body;
+    const {
+      nome, sobrenome, telefone, cpf, data_nascimento,
+      cep, logradouro, numero, complemento, bairro, cidade, uf, receber_notificacoes
+    } = req.body;
     if (!nome || !sobrenome) return res.status(400).json({ erro: 'Nome e sobrenome sao obrigatorios.' });
     if (telefone && !validarTelefone(telefone)) {
       return res.status(400).json({ erro: 'Informe o telefone no formato (99) 999999999.' });
+    }
+    if (cpf && !validarCPF(cpf)) {
+      return res.status(400).json({ erro: 'Informe o CPF no formato 000.000.000-00.' });
     }
     if (cep && !validarFormatoCep(cep)) {
       return res.status(400).json({ erro: 'Informe o CEP no formato 99999-999.' });
@@ -398,20 +405,30 @@ async function atualizarMeusDados(req, res) {
     const resultado = await query(
       `UPDATE contas_clientes SET
         nome = $1, sobrenome = $2,
-        telefone = COALESCE($3, telefone), cep = COALESCE($4, cep),
-        logradouro = COALESCE($5, logradouro), numero = COALESCE($6, numero),
-        bairro = COALESCE($7, bairro), cidade = COALESCE($8, cidade), uf = COALESCE($9, uf)
-       WHERE id = $10
-       RETURNING id, nome, sobrenome, email, telefone, cpf, cep, logradouro, numero, bairro, cidade, uf`,
+        telefone = COALESCE($3, telefone), cpf = COALESCE($4, cpf),
+        data_nascimento = COALESCE($5, data_nascimento),
+        cep = COALESCE($6, cep), logradouro = COALESCE($7, logradouro), numero = COALESCE($8, numero),
+        complemento = COALESCE($9, complemento), bairro = COALESCE($10, bairro),
+        cidade = COALESCE($11, cidade), uf = COALESCE($12, uf),
+        receber_notificacoes = COALESCE($13, receber_notificacoes)
+       WHERE id = $14
+       RETURNING id, nome, sobrenome, email, telefone, cpf, data_nascimento,
+                 cep, logradouro, numero, complemento, bairro, cidade, uf, receber_notificacoes`,
       [
-        nome.trim(), sobrenome.trim(), (telefone || '').trim() || null,
+        nome.trim(), sobrenome.trim(), (telefone || '').trim() || null, (cpf || '').trim() || null,
+        data_nascimento || null,
         (cep || '').trim() || null, (logradouro || '').trim() || null, (numero || '').trim() || null,
-        (bairro || '').trim() || null, (cidade || '').trim() || null, uf ? uf.toUpperCase() : null,
+        (complemento || '').trim() || null, (bairro || '').trim() || null, (cidade || '').trim() || null,
+        uf ? uf.toUpperCase() : null,
+        typeof receber_notificacoes === 'boolean' ? receber_notificacoes : null,
         req.contaClienteId
       ]
     );
     res.json(resultado.rows[0]);
   } catch (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({ erro: 'Esse CPF ou telefone ja esta em uso por outra conta.' });
+    }
     console.error('Erro ao atualizar meus dados:', error);
     res.status(500).json({ erro: 'Erro ao salvar seus dados.' });
   }
