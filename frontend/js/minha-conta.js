@@ -81,37 +81,12 @@ function iniciarAcompanhamentoConta(pedidoId, box) {
   }, 15000);
 }
 
-function linkComSlug(pagina) {
-  return SLUG_ESTABELECIMENTO ? `${pagina}?slug=${encodeURIComponent(SLUG_ESTABELECIMENTO)}` : pagina;
-}
-
-function aplicarMascaraTelefoneConta(campo) {
-  campo.addEventListener('input', function () {
-    let numeros = this.value.replace(/\D/g, '').substring(0, 11);
-    if (numeros.length === 0) this.value = '';
-    else if (numeros.length <= 2) this.value = '(' + numeros;
-    else this.value = '(' + numeros.substring(0, 2) + ') ' + numeros.substring(2);
-  });
-}
-
-function aplicarMascaraCepConta(campo) {
-  campo.addEventListener('input', function () {
-    let numeros = this.value.replace(/\D/g, '').substring(0, 8);
-    if (numeros.length <= 5) this.value = numeros;
-    else this.value = numeros.substring(0, 5) + '-' + numeros.substring(5);
-  });
-}
-
 function traduzirStatusConta(status) {
   const mapa = {
     novo: 'Recebido', preparando: 'Em preparo', saiu_entrega: 'Saiu para entrega',
     pronto: 'Pronto', entregue: 'Entregue', cancelado: 'Cancelado'
   };
   return mapa[status] || status;
-}
-
-function formatarMoedaConta(valor) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(valor) || 0);
 }
 
 document.addEventListener('DOMContentLoaded', iniciarMinhaConta);
@@ -185,8 +160,8 @@ function configurarEventosMinhaConta() {
     });
   });
 
-  aplicarMascaraTelefoneConta(document.getElementById('conta-campo-telefone'));
-  aplicarMascaraCepConta(document.getElementById('conta-campo-cep'));
+  aplicarMascaraTelefone(document.getElementById('conta-campo-telefone'));
+  aplicarMascaraCep(document.getElementById('conta-campo-cep'));
 
   document.getElementById('botao-buscar-cep-conta').addEventListener('click', async () => {
     const cepBruto = document.getElementById('conta-campo-cep').value.replace(/\D/g, '');
@@ -279,7 +254,7 @@ async function carregarMeusPedidos() {
           <span class="pedido-detalhe__status">${traduzirStatusConta(pedido.status_pedido)}</span>
         </div>
         <div class="pedido-detalhe__codigo">Pedido #${pedido.id.substring(0, 8)}</div>
-        <div class="pedido-detalhe__total">${formatarMoedaConta(pedido.total)}</div>
+        <div class="pedido-detalhe__total">${formatarMoeda(pedido.total)}</div>
         <div class="acompanhamento-box oculto" id="acomp-conta-${pedido.id}"></div>
       </div>
     `).join('');
