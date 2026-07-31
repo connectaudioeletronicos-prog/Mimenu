@@ -93,10 +93,6 @@ function mostrarToast(mensagem, ehErro = false) {
   setTimeout(() => toast.classList.add('oculto'), 3500);
 }
 
-function formatarMoeda(valor) {
-  return `R$ ${parseFloat(valor || 0).toFixed(2).replace('.', ',')}`;
-}
-
 function formatarPagamento(forma) {
   const nomes = { dinheiro: 'Dinheiro', pix: 'Pix', cartao_credito: 'Cartão de crédito', cartao_debito: 'Cartão de débito' };
   return nomes[forma] || forma || '-';
