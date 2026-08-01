@@ -20,6 +20,7 @@ const pedidoController = require('../controllers/pedidoController');
 const reservaController = require('../controllers/reservaController');
 const estoqueController = require('../controllers/estoqueController');
 const fornecedorController = require('../controllers/fornecedorController');
+const relatorioVendasController = require('../controllers/relatorioVendasController');
 
 router.use(autenticar);
 
@@ -117,5 +118,11 @@ router.get('/fornecedores', exigirPermissao('gerenciar_estoque'), fornecedorCont
 router.post('/fornecedores', exigirPermissao('gerenciar_estoque'), fornecedorController.criar);
 router.put('/fornecedores/:id', exigirPermissao('gerenciar_estoque'), fornecedorController.atualizar);
 router.delete('/fornecedores/:id', exigirPermissao('gerenciar_estoque'), fornecedorController.excluir);
+
+// ---------- Vendas & Inteligencia (parte 2 da tela de Estoque) ----------
+router.get('/estoque/vendas/periodo', exigirPermissao('gerenciar_estoque'), relatorioVendasController.vendasPorPeriodo);
+router.get('/estoque/vendas/canal', exigirPermissao('gerenciar_estoque'), relatorioVendasController.vendasPorCanal);
+router.get('/estoque/vendas/produtos', exigirPermissao('gerenciar_estoque'), relatorioVendasController.vendasPorProduto);
+router.get('/estoque/vendas/lucro-produtos', exigirPermissao('gerenciar_estoque'), relatorioVendasController.lucroPorProduto);
 
 module.exports = router;
