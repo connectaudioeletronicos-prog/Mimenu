@@ -519,6 +519,12 @@
         </div>
 
         <div id="estoque-conteudo">
+          <div class="estoque-subnav">
+            <button class="estoque-subnav__botao ativo" data-subaba="painel">📊 Painel</button>
+            <button class="estoque-subnav__botao" data-subaba="vendas">💰 Vendas &amp; Inteligência</button>
+          </div>
+
+          <div id="estoque-sub-painel">
           <div class="aba__cabecalho-flex">
             <h2 class="aba__titulo" style="margin-bottom:0;">📦 Controle de Estoque</h2>
             <button id="botao-config-alertas" class="botao-secundario">⚙️ Configurar Alertas</button>
@@ -601,6 +607,67 @@
               <div id="estoque-lista-notificacoes" class="estoque-lista-mov"></div>
             </div>
           </div>
+          </div>
+          <!-- fim #estoque-sub-painel -->
+
+          <div id="estoque-sub-vendas" class="oculto">
+            <h2 class="aba__titulo">💰 Vendas &amp; Inteligência</h2>
+
+            <div class="estoque-periodo-filtros">
+              <button class="ativo" data-periodo="hoje">Hoje</button>
+              <button data-periodo="ontem">Ontem</button>
+              <button data-periodo="7dias">7 dias</button>
+              <button data-periodo="15dias">15 dias</button>
+              <button data-periodo="mes">Mês</button>
+              <button data-periodo="ano">Ano</button>
+              <button data-periodo="personalizado">Personalizado</button>
+            </div>
+            <div id="estoque-periodo-personalizado" class="estoque-periodo-personalizado oculto">
+              <input type="date" id="estoque-data-inicio">
+              <span>até</span>
+              <input type="date" id="estoque-data-fim">
+              <button id="estoque-periodo-aplicar" class="botao-secundario">Aplicar</button>
+            </div>
+
+            <div class="estoque-bloco">
+              <h3 class="estoque-bloco__titulo">Vendas por período</h3>
+              <canvas id="grafico-vendas-periodo" height="220"></canvas>
+            </div>
+
+            <div class="estoque-bloco">
+              <h3 class="estoque-bloco__titulo">Vendas por canal</h3>
+              <div class="estoque-canal-grid" id="estoque-canal-grid"></div>
+            </div>
+
+            <div class="estoque-layout-duas-colunas">
+              <div class="estoque-bloco">
+                <h3 class="estoque-bloco__titulo">Vendas por produto</h3>
+                <canvas id="grafico-vendas-produto" height="240"></canvas>
+              </div>
+              <div class="estoque-bloco">
+                <h3 class="estoque-bloco__titulo">Mais vendidos (Top 5)</h3>
+                <div id="estoque-mais-vendidos" class="estoque-ranking"></div>
+                <h3 class="estoque-bloco__titulo" style="margin-top:18px;">Menos vendidos (Top 5)</h3>
+                <div id="estoque-menos-vendidos" class="estoque-ranking"></div>
+              </div>
+            </div>
+
+            <div class="estoque-bloco">
+              <div class="aba__cabecalho-flex">
+                <h3 class="estoque-bloco__titulo" style="margin-bottom:0;">Lucro por produto</h3>
+                <strong id="estoque-lucro-total">R$ 0,00</strong>
+              </div>
+              <div class="tabela-scroll" style="margin-top:10px;">
+                <table class="tabela-estoque">
+                  <thead>
+                    <tr><th>Produto</th><th>Custo</th><th>Venda</th><th>Lucro Unit.</th><th>Vendidos</th><th>Lucro Total</th></tr>
+                  </thead>
+                  <tbody id="estoque-lucro-tabela-corpo"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <!-- fim #estoque-sub-vendas -->
         </div>
       </section>
 
@@ -1257,6 +1324,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
   <script src="../js/config.js"></script>
   <script src="js/admin-api.js?v=20260727a"></script>
   <script src="js/admin.js?v=20260727a"></script>
