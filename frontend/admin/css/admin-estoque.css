@@ -151,3 +151,95 @@
 
 /* Config de alertas (dentro do modal) */
 .estoque-alertas-opcao { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-weight: normal; }
+
+/* Sub-navegacao interna (Painel / Vendas & Inteligencia) */
+.estoque-subnav {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 6px;
+  flex-wrap: wrap;
+}
+.estoque-subnav__botao {
+  background: #fff;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--admin-cor-texto);
+}
+.estoque-subnav__botao.ativo {
+  background: var(--admin-cor-primaria);
+  border-color: var(--admin-cor-primaria);
+  color: #fff;
+}
+
+/* Filtros de periodo */
+.estoque-periodo-filtros {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.estoque-periodo-filtros button {
+  background: #fff;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.estoque-periodo-filtros button.ativo {
+  background: var(--admin-cor-fundo);
+  border-color: var(--admin-cor-primaria);
+  color: var(--admin-cor-primaria);
+  font-weight: 700;
+}
+.estoque-periodo-personalizado {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.estoque-periodo-personalizado input { width: auto; }
+
+/* Vendas por canal */
+.estoque-canal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.estoque-canal-card {
+  background: var(--admin-cor-fundo);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+}
+.estoque-canal-card__icone { font-size: 1.3rem; margin-bottom: 4px; }
+.estoque-canal-card__valor { font-weight: 700; font-size: 1rem; }
+.estoque-canal-card__titulo { font-size: 0.78rem; color: var(--admin-cor-texto-claro); }
+
+/* Ranking mais/menos vendidos */
+.estoque-ranking { display: flex; flex-direction: column; gap: 8px; }
+.estoque-ranking__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+.estoque-ranking__posicao {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--admin-cor-fundo);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.estoque-ranking__nome { flex: 1; }
+.estoque-ranking__valor { font-weight: 700; color: var(--admin-cor-texto-claro); font-size: 0.78rem; }
