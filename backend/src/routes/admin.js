@@ -18,6 +18,8 @@ const vitrineController = require('../controllers/vitrineController');
 const caixaTextoController = require('../controllers/caixaTextoController');
 const pedidoController = require('../controllers/pedidoController');
 const reservaController = require('../controllers/reservaController');
+const estoqueController = require('../controllers/estoqueController');
+const fornecedorController = require('../controllers/fornecedorController');
 
 router.use(autenticar);
 
@@ -92,5 +94,28 @@ router.post('/pedidos', exigirPermissao('criar_pedidos'), pedidoController.criar
 router.get('/caixa-geral', exigirPermissao('ver_caixa_geral'), pedidoController.obterCaixaGeral);
 router.put('/pedidos/:id/status', pedidoController.atualizarStatusPedido);
 router.put('/pedidos/:id/valores', exigirPermissao('corrigir_valores_concluidos'), pedidoController.corrigirValoresPedido);
+
+// ===================================================================
+// Controle de Estoque (modulo opcional, ativado por preferencia do
+// lojista dentro de Configuracoes). Tudo protegido pela permissao
+// 'gerenciar_estoque' -- proprietario e administrador sempre tem acesso.
+// ===================================================================
+router.get('/estoque/config', exigirPermissao('gerenciar_estoque'), estoqueController.obterConfiguracao);
+router.put('/estoque/config/modulo', exigirPermissao('gerenciar_estoque'), estoqueController.alternarModulo);
+router.put('/estoque/config/senha', exigirPermissao('gerenciar_estoque'), estoqueController.alternarProtecaoSenha);
+router.put('/estoque/config/alertas', exigirPermissao('gerenciar_estoque'), estoqueController.atualizarAlertas);
+router.post('/estoque/verificar-senha', exigirPermissao('gerenciar_estoque'), estoqueController.verificarSenha);
+
+router.get('/estoque/produtos', exigirPermissao('gerenciar_estoque'), estoqueController.listarProdutosEstoque);
+router.get('/estoque/indicadores', exigirPermissao('gerenciar_estoque'), estoqueController.obterIndicadores);
+router.post('/estoque/compra', exigirPermissao('gerenciar_estoque'), estoqueController.registrarCompra);
+router.put('/estoque/ajuste', exigirPermissao('gerenciar_estoque'), estoqueController.ajustarManual);
+router.get('/estoque/movimentacoes', exigirPermissao('gerenciar_estoque'), estoqueController.listarMovimentacoes);
+router.get('/estoque/notificacoes', exigirPermissao('gerenciar_estoque'), estoqueController.listarNotificacoes);
+
+router.get('/fornecedores', exigirPermissao('gerenciar_estoque'), fornecedorController.listar);
+router.post('/fornecedores', exigirPermissao('gerenciar_estoque'), fornecedorController.criar);
+router.put('/fornecedores/:id', exigirPermissao('gerenciar_estoque'), fornecedorController.atualizar);
+router.delete('/fornecedores/:id', exigirPermissao('gerenciar_estoque'), fornecedorController.excluir);
 
 module.exports = router;
