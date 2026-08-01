@@ -2589,3 +2589,4 @@ function montarPaletaCores() {
 // ===================================================================
 // Preview ao vivo da fonte escolhida na aba Aparencia
 // 
+
