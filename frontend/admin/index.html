@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&family=Inter:wght@400;700&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Montserrat:wght@400;700&family=Lato:wght@400;700&family=Nunito:wght@400;700&family=Quicksand:wght@400;700&family=Raleway:wght@400;700&family=Work+Sans:wght@400;700&family=DM+Sans:wght@400;700&family=Merriweather:wght@400;700&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/admin.css?v=20260720c">
+  <link rel="stylesheet" href="css/admin-estoque.css?v=1">
 </head>
 <body>
 
@@ -99,6 +100,7 @@
       <button class="painel__menu-item" data-aba="paginas-legais">📄 Paginas legais</button>
       <button class="painel__menu-item" data-aba="configuracoes">⚙️ Configurações</button>
       <button class="painel__menu-item oculto" data-aba="reservas" id="menu-item-reservas">📅 Reservas</button>
+      <button class="painel__menu-item oculto" data-aba="estoque" id="menu-item-estoque">📦 Estoque</button>
       <a href="divulgacao.html" class="painel__menu-item">📣 Divulgação (QR Code / Link)</a>
       <button class="painel__menu-item" data-aba="senha">🔒 Senha</button>
       <button class="painel__menu-item" data-aba="funcionarios" id="menu-item-funcionarios">👥 Funcionarios <span class="painel__menu-contador" data-menu-contador="funcionarios"></span></button>
@@ -486,12 +488,213 @@
           <input type="checkbox" id="config-reserva-mesa-ativa" style="width:auto;">
           Ativar reserva de mesa (aparece um menu "Reserva" no app do cliente)
         </label>
+
+        <hr style="margin:22px 0; border:none; border-top:1px solid var(--admin-cor-borda);">
+
+        <h3 style="font-size:1rem; margin-bottom:10px;">📦 Controle de Estoque</h3>
+        <label style="display:flex; align-items:center; gap:10px; font-weight:normal; margin-top:6px;">
+          <input type="checkbox" id="config-estoque-modulo-ativo" style="width:auto;">
+          Ativar Controle de Estoque (aparece um menu "Estoque" aqui no painel)
+        </label>
+        <label style="display:flex; align-items:center; gap:10px; font-weight:normal; margin-top:10px;">
+          <input type="checkbox" id="config-estoque-senha-protegida" style="width:auto;">
+          Exigir minha senha para acessar a tela de Estoque
+        </label>
       </section>
 
       <section id="aba-reservas" class="aba oculto">
         <h2 class="aba__titulo">Reservas de mesa</h2>
         <div id="lista-reservas-admin" class="lista-itens-admin"></div>
       </section>
+
+      <section id="aba-estoque" class="aba oculto">
+        <div id="estoque-bloqueado" class="estoque-bloqueio oculto">
+          <div class="estoque-bloqueio__card">
+            <h2>🔒 Área protegida</h2>
+            <p>Digite sua senha de acesso para continuar.</p>
+            <input type="password" id="estoque-senha-input" class="campo-texto" placeholder="Sua senha">
+            <div id="estoque-senha-erro" class="login-card__erro oculto"></div>
+            <button id="estoque-senha-confirmar" class="botao-primario">Entrar</button>
+          </div>
+        </div>
+
+        <div id="estoque-conteudo">
+          <div class="aba__cabecalho-flex">
+            <h2 class="aba__titulo" style="margin-bottom:0;">📦 Controle de Estoque</h2>
+            <button id="botao-config-alertas" class="botao-secundario">⚙️ Configurar Alertas</button>
+          </div>
+          <p class="aba__descricao">Ative o controle de estoque em cada produto (na aba Produtos) para que ele apareça aqui.</p>
+
+          <div class="estoque-indicadores">
+            <div class="estoque-card estoque-card--azul">
+              <div class="estoque-card__icone">📦</div>
+              <div>
+                <div class="estoque-card__valor" id="ind-valor-total">R$ 0,00</div>
+                <div class="estoque-card__titulo">Valor total do estoque</div>
+                <div class="estoque-card__sub">Custo de aquisição</div>
+              </div>
+            </div>
+            <div class="estoque-card estoque-card--roxo">
+              <div class="estoque-card__icone">📈</div>
+              <div>
+                <div class="estoque-card__valor" id="ind-lucro-estimado">R$ 0,00</div>
+                <div class="estoque-card__titulo">Lucro estimado do estoque</div>
+                <div class="estoque-card__sub">Baseado no preço de venda</div>
+              </div>
+            </div>
+            <div class="estoque-card estoque-card--laranja">
+              <div class="estoque-card__icone">⚠️</div>
+              <div>
+                <div class="estoque-card__valor" id="ind-baixo-estoque">0</div>
+                <div class="estoque-card__titulo">Produtos com estoque baixo</div>
+                <div class="estoque-card__sub">Requerem atenção</div>
+              </div>
+            </div>
+            <div class="estoque-card estoque-card--vermelho">
+              <div class="estoque-card__icone">⛔</div>
+              <div>
+                <div class="estoque-card__valor" id="ind-esgotados">0</div>
+                <div class="estoque-card__titulo">Produtos esgotados</div>
+                <div class="estoque-card__sub">Sem estoque</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="estoque-layout-duas-colunas">
+            <div class="estoque-bloco">
+              <h3 class="estoque-bloco__titulo">Alertas de Estoque</h3>
+              <div id="estoque-lista-alertas" class="estoque-lista-alertas"></div>
+              <p id="estoque-sem-alertas" class="lista-vazia oculto">Nenhum alerta no momento. 🎉</p>
+            </div>
+
+            <div class="estoque-bloco">
+              <div class="aba__cabecalho-flex">
+                <h3 class="estoque-bloco__titulo" style="margin-bottom:0;">Fornecedores</h3>
+                <button id="botao-novo-fornecedor" class="botao-secundario">+ Novo</button>
+              </div>
+              <div id="estoque-lista-fornecedores" class="lista-itens-admin" style="margin-top:10px;"></div>
+            </div>
+          </div>
+
+          <div class="estoque-bloco">
+            <div class="aba__cabecalho-flex">
+              <h3 class="estoque-bloco__titulo" style="margin-bottom:0;">Estoque atual</h3>
+              <button id="botao-registrar-compra" class="botao-primario">+ Registrar compra</button>
+            </div>
+            <div class="tabela-scroll" style="margin-top:10px;">
+              <table class="tabela-estoque">
+                <thead>
+                  <tr><th>Produto</th><th>SKU</th><th>Estoque</th><th>Mínimo</th><th>Custo Unit.</th><th>Valor Total</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody id="estoque-tabela-corpo"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="estoque-layout-duas-colunas">
+            <div class="estoque-bloco">
+              <h3 class="estoque-bloco__titulo">Últimas movimentações</h3>
+              <div id="estoque-lista-movimentacoes" class="estoque-lista-mov"></div>
+            </div>
+            <div class="estoque-bloco">
+              <h3 class="estoque-bloco__titulo">Notificações enviadas</h3>
+              <div id="estoque-lista-notificacoes" class="estoque-lista-mov"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Modal: registrar compra de estoque -->
+      <div id="modal-estoque-compra" class="modal-admin oculto">
+        <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+        <div class="modal-admin__caixa">
+          <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+          <h3>Registrar compra</h3>
+          <form onsubmit="return false;">
+            <label>Produto
+              <select id="estoque-compra-produto"></select>
+            </label>
+            <label>Quantidade comprada
+              <input type="number" id="estoque-compra-quantidade" min="1">
+            </label>
+            <label>Custo de compra (unitário, opcional)
+              <input type="number" id="estoque-compra-custo" min="0" step="0.01">
+            </label>
+            <label>Fornecedor (opcional)
+              <select id="estoque-compra-fornecedor"></select>
+            </label>
+            <label>Observações
+              <textarea id="estoque-compra-observacoes"></textarea>
+            </label>
+            <button type="button" id="estoque-compra-confirmar" class="botao-primario">Confirmar compra</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Modal: ajuste manual de estoque -->
+      <div id="modal-estoque-ajuste" class="modal-admin oculto">
+        <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+        <div class="modal-admin__caixa">
+          <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+          <h3>Ajustar estoque — <span id="estoque-ajuste-produto-nome"></span></h3>
+          <form onsubmit="return false;">
+            <input type="hidden" id="estoque-ajuste-produto">
+            <label>Novo estoque
+              <input type="number" id="estoque-ajuste-novo-estoque" min="0">
+            </label>
+            <label>Motivo do ajuste
+              <textarea id="estoque-ajuste-observacoes" placeholder="Ex: contagem manual, perda, quebra..."></textarea>
+            </label>
+            <button type="button" id="estoque-ajuste-confirmar" class="botao-primario">Salvar ajuste</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Modal: configurar alertas -->
+      <div id="modal-estoque-alertas" class="modal-admin oculto">
+        <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+        <div class="modal-admin__caixa">
+          <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+          <h3>Configurar alertas de estoque</h3>
+          <label class="estoque-alertas-opcao">
+            <input type="checkbox" id="estoque-alerta-dashboard" style="width:auto;">
+            Avisar no Dashboard
+          </label>
+          <label class="estoque-alertas-opcao">
+            <input type="checkbox" id="estoque-alerta-email" style="width:auto;">
+            Avisar por e-mail
+          </label>
+          <label>E-mail de destino (opcional — se vazio, usa o e-mail da conta)
+            <input type="email" id="estoque-alerta-email-destino">
+          </label>
+          <button type="button" id="estoque-alertas-salvar" class="botao-primario" style="margin-top:14px;">Salvar</button>
+        </div>
+      </div>
+
+      <!-- Modal: fornecedor -->
+      <div id="modal-estoque-fornecedor" class="modal-admin oculto">
+        <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+        <div class="modal-admin__caixa">
+          <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+          <h3 id="modal-estoque-fornecedor-titulo">Novo fornecedor</h3>
+          <form onsubmit="return false;">
+            <label>Nome
+              <input type="text" id="estoque-fornecedor-nome">
+            </label>
+            <label>Telefone
+              <input type="text" id="estoque-fornecedor-telefone">
+            </label>
+            <label>E-mail
+              <input type="email" id="estoque-fornecedor-email">
+            </label>
+            <label>Observações
+              <textarea id="estoque-fornecedor-observacoes"></textarea>
+            </label>
+            <button type="button" id="estoque-fornecedor-salvar" class="botao-primario">Salvar fornecedor</button>
+          </form>
+        </div>
+      </div>
+
 
       <section id="aba-senha" class="aba oculto">
         <h2 class="aba__titulo">Alterar senha</h2>
@@ -659,6 +862,7 @@
                 <label class="permissao-item"><input type="checkbox" value="corrigir_valores_concluidos"> Corrigir valores de pedidos concluidos</label>
                 <label class="permissao-item"><input type="checkbox" value="gerenciar_conta"> Gerenciar configuracoes da conta (pagamento, dados, paginas legais)</label>
                 <label class="permissao-item"><input type="checkbox" value="ver_caixa_geral"> Ver caixa geral (valores das entregas concluidas)</label>
+                <label class="permissao-item"><input type="checkbox" value="gerenciar_estoque"> Gerenciar Controle de Estoque</label>
               </div>
             </div>
 
@@ -749,6 +953,7 @@
           <label class="permissao-item"><input type="checkbox" value="corrigir_valores_concluidos"> Corrigir valores de pedidos concluidos</label>
           <label class="permissao-item"><input type="checkbox" value="gerenciar_conta"> Gerenciar configuracoes da conta (pagamento, dados, paginas legais)</label>
               <label class="permissao-item"><input type="checkbox" value="ver_caixa_geral"> Ver caixa geral (valores das entregas concluidas)</label>
+              <label class="permissao-item"><input type="checkbox" value="gerenciar_estoque"> Gerenciar Controle de Estoque</label>
         </div>
       </label>
       <label class="permissao-item"><input type="checkbox" id="edit-func-ativo"> Funcionario ativo</label>
@@ -832,6 +1037,23 @@
         <label>Quantidade em estoque (deixe em branco se não controla estoque para este produto)
           <input type="number" id="produto-estoque" step="1" min="0" placeholder="Sem controle de estoque">
         </label>
+
+        <label class="campo-checkbox">
+          <input type="checkbox" id="produto-controla-estoque">
+          Ativar Controle de Estoque para este produto (baixa automática nas vendas + alertas)
+        </label>
+
+        <div id="produto-estoque-avancado" class="oculto">
+          <label>Estoque mínimo (dispara alerta quando chegar nesse número)
+            <input type="number" id="produto-estoque-minimo" step="1" min="0" value="0">
+          </label>
+          <label>Custo de compra (unitário)
+            <input type="number" id="produto-custo-compra" step="0.01" min="0">
+          </label>
+          <label>Fornecedor (opcional)
+            <select id="produto-fornecedor"><option value="">Sem fornecedor</option></select>
+          </label>
+        </div>
         <label>Foto do produto
           <input type="file" id="produto-foto" accept="image/*">
         </label>
@@ -1041,5 +1263,6 @@
   <script src="js/admin-vitrines.js?v=20260720d"></script>
   <script src="js/admin-caixatexto.js?v=20260720d"></script>
   <script src="js/admin-construtor.js?v=20260722a"></script>
+  <script src="js/admin-estoque.js?v=1"></script>
 </body>
 </html>
