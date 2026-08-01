@@ -188,3 +188,24 @@ const apiObterCaixaGeral = (dataInicio = '', dataFim = '') => {
   const query = parametros.toString();
   return chamarApiAdmin(`/caixa-geral${query ? `?${query}` : ''}`);
 };
+
+// ===================================================================
+// CONTROLE DE ESTOQUE
+// ===================================================================
+const apiEstoqueConfig = () => chamarApiAdmin('/estoque/config');
+const apiEstoqueAlternarModulo = (ativo) => chamarApiAdmin('/estoque/config/modulo', { method: 'PUT', body: { ativo } });
+const apiEstoqueAlternarSenha = (ativo, senha) => chamarApiAdmin('/estoque/config/senha', { method: 'PUT', body: { ativo, senha } });
+const apiEstoqueAtualizarAlertas = (dados) => chamarApiAdmin('/estoque/config/alertas', { method: 'PUT', body: dados });
+const apiEstoqueVerificarSenha = (senha) => chamarApiAdmin('/estoque/verificar-senha', { method: 'POST', body: { senha } });
+
+const apiEstoqueListarProdutos = () => chamarApiAdmin('/estoque/produtos');
+const apiEstoqueIndicadores = () => chamarApiAdmin('/estoque/indicadores');
+const apiEstoqueRegistrarCompra = (dados) => chamarApiAdmin('/estoque/compra', { method: 'POST', body: dados });
+const apiEstoqueAjustarManual = (dados) => chamarApiAdmin('/estoque/ajuste', { method: 'PUT', body: dados });
+const apiEstoqueMovimentacoes = (produtoId = '') => chamarApiAdmin(`/estoque/movimentacoes${produtoId ? `?produto_id=${produtoId}` : ''}`);
+const apiEstoqueNotificacoes = () => chamarApiAdmin('/estoque/notificacoes');
+
+const apiFornecedoresListar = () => chamarApiAdmin('/fornecedores');
+const apiFornecedoresCriar = (dados) => chamarApiAdmin('/fornecedores', { method: 'POST', body: dados });
+const apiFornecedoresAtualizar = (id, dados) => chamarApiAdmin(`/fornecedores/${id}`, { method: 'PUT', body: dados });
+const apiFornecedoresExcluir = (id) => chamarApiAdmin(`/fornecedores/${id}`, { method: 'DELETE' });
