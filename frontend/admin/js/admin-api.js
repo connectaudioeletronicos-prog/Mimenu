@@ -209,3 +209,18 @@ const apiFornecedoresListar = () => chamarApiAdmin('/fornecedores');
 const apiFornecedoresCriar = (dados) => chamarApiAdmin('/fornecedores', { method: 'POST', body: dados });
 const apiFornecedoresAtualizar = (id, dados) => chamarApiAdmin(`/fornecedores/${id}`, { method: 'PUT', body: dados });
 const apiFornecedoresExcluir = (id) => chamarApiAdmin(`/fornecedores/${id}`, { method: 'DELETE' });
+
+// ---------- Vendas & Inteligencia ----------
+function montarQueryPeriodo({ intervalo, data_inicio, data_fim }) {
+  const params = new URLSearchParams({ intervalo: intervalo || 'hoje' });
+  if (intervalo === 'personalizado') {
+    if (data_inicio) params.append('data_inicio', data_inicio);
+    if (data_fim) params.append('data_fim', data_fim);
+  }
+  return params.toString();
+}
+
+const apiEstoqueVendasPeriodo = (filtro) => chamarApiAdmin(`/estoque/vendas/periodo?${montarQueryPeriodo(filtro)}`);
+const apiEstoqueVendasCanal = (filtro) => chamarApiAdmin(`/estoque/vendas/canal?${montarQueryPeriodo(filtro)}`);
+const apiEstoqueVendasProdutos = (filtro) => chamarApiAdmin(`/estoque/vendas/produtos?${montarQueryPeriodo(filtro)}`);
+const apiEstoqueLucroProdutos = (filtro) => chamarApiAdmin(`/estoque/vendas/lucro-produtos?${montarQueryPeriodo(filtro)}`);
