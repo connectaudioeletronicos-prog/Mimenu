@@ -21,6 +21,7 @@ const reservaController = require('../controllers/reservaController');
 const estoqueController = require('../controllers/estoqueController');
 const fornecedorController = require('../controllers/fornecedorController');
 const relatorioVendasController = require('../controllers/relatorioVendasController');
+const inteligenciaController = require('../controllers/inteligenciaController');
 
 router.use(autenticar);
 
@@ -124,5 +125,7 @@ router.get('/estoque/vendas/periodo', exigirPermissao('gerenciar_estoque'), rela
 router.get('/estoque/vendas/canal', exigirPermissao('gerenciar_estoque'), relatorioVendasController.vendasPorCanal);
 router.get('/estoque/vendas/produtos', exigirPermissao('gerenciar_estoque'), relatorioVendasController.vendasPorProduto);
 router.get('/estoque/vendas/lucro-produtos', exigirPermissao('gerenciar_estoque'), relatorioVendasController.lucroPorProduto);
+
+router.get('/estoque/inteligencia', exigirPermissao('gerenciar_estoque'), inteligenciaController.obterInteligencia);
 
 module.exports = router;
