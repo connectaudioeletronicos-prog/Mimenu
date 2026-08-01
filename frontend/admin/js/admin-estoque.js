@@ -9,6 +9,10 @@
 let ESTOQUE_DESBLOQUEADO = false; // reseta a cada carregamento de pagina
 let ESTOQUE_FORNECEDORES_CACHE = [];
 let ESTOQUE_PRODUTOS_CACHE = [];
+let ESTOQUE_PERIODO_ATUAL = { intervalo: 'hoje' };
+let ESTOQUE_VENDAS_CARREGADO = false;
+let ESTOQUE_CHART_PERIODO = null;
+let ESTOQUE_CHART_PRODUTO = null;
 
 function formatarMoeda(valor) {
   return (Number(valor) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -430,11 +434,205 @@ function configurarToggleModuloEstoque() {
   });
 }
 
+// ---------- Sub-abas: Painel / Vendas & Inteligencia ----------
+
+function configurarSubAbasEstoque() {
+  document.querySelectorAll('.estoque-subnav__botao').forEach(botao => {
+    botao.addEventListener('click', async () => {
+      document.querySelectorAll('.estoque-subnav__botao').forEach(b => b.classList.remove('ativo'));
+      botao.classList.add('ativo');
+
+      const subaba = botao.getAttribute('data-subaba');
+      document.getElementById('estoque-sub-painel').classList.toggle('oculto', subaba !== 'painel');
+      document.getElementById('estoque-sub-vendas').classList.toggle('oculto', subaba !== 'vendas');
+
+      if (subaba === 'vendas' && !ESTOQUE_VENDAS_CARREGADO) {
+        ESTOQUE_VENDAS_CARREGADO = true;
+        await carregarVendasInteligencia();
+      }
+    });
+  });
+}
+
+// ---------- Filtro de periodo ----------
+
+function configurarFiltroPeriodoEstoque() {
+  document.querySelectorAll('.estoque-periodo-filtros button').forEach(botao => {
+    botao.addEventListener('click', async () => {
+      document.querySelectorAll('.estoque-periodo-filtros button').forEach(b => b.classList.remove('ativo'));
+      botao.classList.add('ativo');
+
+      const intervalo = botao.getAttribute('data-periodo');
+      document.getElementById('estoque-periodo-personalizado').classList.toggle('oculto', intervalo !== 'personalizado');
+
+      if (intervalo !== 'personalizado') {
+        ESTOQUE_PERIODO_ATUAL = { intervalo };
+        await carregarVendasInteligencia();
+      }
+    });
+  });
+
+  document.getElementById('estoque-periodo-aplicar')?.addEventListener('click', async () => {
+    const data_inicio = document.getElementById('estoque-data-inicio').value;
+    const data_fim = document.getElementById('estoque-data-fim').value;
+    if (!data_inicio || !data_fim) return mostrarToast('Selecione as duas datas.', true);
+    ESTOQUE_PERIODO_ATUAL = { intervalo: 'personalizado', data_inicio, data_fim };
+    await carregarVendasInteligencia();
+  });
+}
+
+// ---------- Carregamento da pagina de Vendas & Inteligencia ----------
+
+async function carregarVendasInteligencia() {
+  await Promise.all([
+    carregarGraficoVendasPeriodo(),
+    carregarVendasPorCanal(),
+    carregarVendasPorProdutoEGraficos(),
+    carregarLucroPorProduto()
+  ]);
+}
+
+async function carregarGraficoVendasPeriodo() {
+  try {
+    const dados = await apiEstoqueVendasPeriodo(ESTOQUE_PERIODO_ATUAL);
+    const labels = dados.map(d => new Date(d.dia).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+    const valores = dados.map(d => Number(d.total) || 0);
+
+    const ctx = document.getElementById('grafico-vendas-periodo');
+    if (!ctx) return;
+    if (ESTOQUE_CHART_PERIODO) ESTOQUE_CHART_PERIODO.destroy();
+    ESTOQUE_CHART_PERIODO = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Vendas (R$)',
+          data: valores,
+          borderColor: '#2ea55f',
+          backgroundColor: 'rgba(46,165,95,0.12)',
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  } catch (e) {
+    mostrarToast(e.message, true);
+  }
+}
+
+async function carregarVendasPorCanal() {
+  try {
+    const dados = await apiEstoqueVendasCanal(ESTOQUE_PERIODO_ATUAL);
+    const total = Object.values(dados).reduce((soma, v) => soma + (Number(v) || 0), 0);
+    const icones = { balcao: '🧾', delivery: '🛵', mesa: '🍽️', retirada: '🛍️' };
+
+    const grid = document.getElementById('estoque-canal-grid');
+    grid.innerHTML = '';
+    ['balcao', 'delivery', 'mesa', 'retirada'].forEach(canal => {
+      const valor = Number(dados[canal]) || 0;
+      const percentual = total > 0 ? Math.round((valor / total) * 100) : 0;
+      const div = document.createElement('div');
+      div.className = 'estoque-canal-card';
+      div.innerHTML = `
+        <div class="estoque-canal-card__icone">${icones[canal]}</div>
+        <div class="estoque-canal-card__valor">${formatarMoeda(valor)}</div>
+        <div class="estoque-canal-card__titulo">${rotuloCanal(canal)} · ${percentual}%</div>
+      `;
+      grid.appendChild(div);
+    });
+  } catch (e) {
+    mostrarToast(e.message, true);
+  }
+}
+
+async function carregarVendasPorProdutoEGraficos() {
+  try {
+    const dados = await apiEstoqueVendasProdutos(ESTOQUE_PERIODO_ATUAL);
+
+    const top8 = dados.slice(0, 8);
+    const ctx = document.getElementById('grafico-vendas-produto');
+    if (ctx) {
+      if (ESTOQUE_CHART_PRODUTO) ESTOQUE_CHART_PRODUTO.destroy();
+      ESTOQUE_CHART_PRODUTO = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: top8.map(p => p.nome),
+          datasets: [{
+            label: 'Quantidade vendida',
+            data: top8.map(p => Number(p.quantidade_vendida) || 0),
+            backgroundColor: '#2ea55f'
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    const maisVendidos = dados.slice(0, 5);
+    const menosVendidos = [...dados].reverse().slice(0, 5);
+
+    const renderRanking = (elementoId, lista) => {
+      const elemento = document.getElementById(elementoId);
+      elemento.innerHTML = lista.length ? '' : '<p class="lista-vazia">Sem dados no período.</p>';
+      lista.forEach((p, indice) => {
+        const div = document.createElement('div');
+        div.className = 'estoque-ranking__item';
+        div.innerHTML = `
+          <span class="estoque-ranking__posicao">${indice + 1}</span>
+          <span class="estoque-ranking__nome">${p.nome}</span>
+          <span class="estoque-ranking__valor">${p.quantidade_vendida} un.</span>
+        `;
+        elemento.appendChild(div);
+      });
+    };
+
+    renderRanking('estoque-mais-vendidos', maisVendidos);
+    renderRanking('estoque-menos-vendidos', menosVendidos);
+  } catch (e) {
+    mostrarToast(e.message, true);
+  }
+}
+
+async function carregarLucroPorProduto() {
+  try {
+    const resultado = await apiEstoqueLucroProdutos(ESTOQUE_PERIODO_ATUAL);
+    document.getElementById('estoque-lucro-total').textContent = formatarMoeda(resultado.lucro_total);
+
+    const corpo = document.getElementById('estoque-lucro-tabela-corpo');
+    corpo.innerHTML = resultado.produtos.length ? '' : '<tr><td colspan="6" class="lista-vazia">Sem vendas no período.</td></tr>';
+
+    resultado.produtos.forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${p.nome}</td>
+        <td>${formatarMoeda(p.custo_compra)}</td>
+        <td>${formatarMoeda(p.preco)}</td>
+        <td>${formatarMoeda(p.lucro_unitario)}</td>
+        <td>${p.quantidade_vendida}</td>
+        <td><strong>${formatarMoeda(p.lucro_total)}</strong></td>
+      `;
+      corpo.appendChild(tr);
+    });
+  } catch (e) {
+    mostrarToast(e.message, true);
+  }
+}
+
 // ---------- Inicializacao ----------
 
 function inicializarEstoque() {
   configurarEntradaEstoque();
   configurarToggleModuloEstoque();
+  configurarSubAbasEstoque();
+  configurarFiltroPeriodoEstoque();
 
   document.getElementById('botao-registrar-compra')?.addEventListener('click', abrirModalCompra);
   document.getElementById('estoque-compra-confirmar')?.addEventListener('click', confirmarCompra);
