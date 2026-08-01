@@ -115,7 +115,8 @@ async function buscarMeuEstabelecimento(req, res) {
               endereco, instagram, facebook, linkedin, email_contato,
               horario_funcionamento, dominio_proprio,
               mp_public_key, plano, criado_em,
-              termos_uso, politica_privacidade, cookies, reserva_mesa_ativa
+              termos_uso, politica_privacidade, cookies, reserva_mesa_ativa,
+              estoque_modulo_ativo, estoque_senha_protegida
        FROM estabelecimentos WHERE id = $1`,
       [req.estabelecimentoId]
     );
