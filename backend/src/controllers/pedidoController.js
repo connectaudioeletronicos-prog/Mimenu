@@ -2,6 +2,7 @@ const { query } = require('../config/database');
 const { uploadImagem } = require('../utils/storage');
 const { validarFormatoCep, validarCepViaCep } = require('../utils/geocoding');
 const { validarTelefone } = require('../utils/validadores');
+const { baixarEstoquePorVenda } = require('../utils/estoque');
 
 async function criarPedido(req, res) {
   try {
@@ -68,12 +69,21 @@ async function criarPedido(req, res) {
     const gorjetaFinal = parseFloat(gorjeta || 0);
     const total = subtotal + taxaEntregaFinal + gorjetaFinal;
 
+    // Canal da venda, independente do tipo_pedido ja existente -- usado
+    // pelos relatorios/dashboard de estoque e vendas por canal.
+    const canalVenda = ehRetirada ? 'retirada' : 'delivery';
+
     const pedidoRes = await query(
-      `INSERT INTO pedidos (estabelecimento_id, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes, forma_pagamento, itens, subtotal, taxa_entrega, gorjeta, total, tipo_pedido, status_pedido, status_pagamento)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'novo','pendente') RETURNING *`,
-      [estabelecimentoId, cliente_nome, cliente_telefone, ehRetirada ? null : cliente_endereco, ehRetirada ? null : cliente_cep, observacoes || '', forma_pagamento, JSON.stringify(itensValidados), subtotal, taxaEntregaFinal, gorjetaFinal, total, tipoPedidoFinal]
+      `INSERT INTO pedidos (estabelecimento_id, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes, forma_pagamento, itens, subtotal, taxa_entrega, gorjeta, total, tipo_pedido, canal_venda, status_pedido, status_pagamento)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'novo','pendente') RETURNING *`,
+      [estabelecimentoId, cliente_nome, cliente_telefone, ehRetirada ? null : cliente_endereco, ehRetirada ? null : cliente_cep, observacoes || '', forma_pagamento, JSON.stringify(itensValidados), subtotal, taxaEntregaFinal, gorjetaFinal, total, tipoPedidoFinal, canalVenda]
     );
     const pedido = pedidoRes.rows[0];
+
+    // Baixa automatica de estoque -- nunca derruba a criacao do pedido em
+    // caso de erro (o proprio utilitario trata os erros internamente).
+    baixarEstoquePorVenda(estabelecimentoId, itensValidados, { pedidoId: pedido.id, canalVenda })
+      .catch(e => console.error('Erro na baixa automatica de estoque:', e.message));
 
     // Tenta salvar cliente automaticamente
     try {
@@ -467,7 +477,7 @@ async function obterCaixaGeral(req, res) {
 // indo direto pra cozinha.
 async function criarPedidoManual(req, res) {
   try {
-    const { cliente_nome, itens, forma_pagamento, observacoes, enviar_entrega } = req.body;
+    const { cliente_nome, itens, forma_pagamento, observacoes, enviar_entrega, canal_venda } = req.body;
 
     if (!cliente_nome || !cliente_nome.trim()) {
       return res.status(400).json({ erro: 'Informe o nome do cliente ou a identificacao da mesa.' });
@@ -508,18 +518,28 @@ async function criarPedidoManual(req, res) {
     // enviar_entrega deixa o atendente marcar que esse pedido especifico
     // precisa ser entregue mesmo assim (ex: veio por WhatsApp).
     const tipoPedido = enviar_entrega === true ? 'entrega' : 'balcao';
+    // canal_venda: o app do garcom (em desenvolvimento) vai mandar 'mesa'
+    // explicitamente. Sem isso, cai como 'balcao' (ou 'delivery' se marcado
+    // enviar_entrega). Aceita apenas os 4 valores validos por seguranca.
+    const canaisValidos = ['delivery', 'retirada', 'balcao', 'mesa'];
+    const canalVenda = enviar_entrega === true
+      ? 'delivery'
+      : (canaisValidos.includes(canal_venda) ? canal_venda : 'balcao');
 
     const resultado = await query(
       `INSERT INTO pedidos (
         estabelecimento_id, cliente_nome, cliente_telefone, itens, subtotal, taxa_entrega,
-        gorjeta, total, forma_pagamento, status_pagamento, status_pedido, tipo_pedido, observacoes
-      ) VALUES ($1, $2, $3, $4, $5, 0, 0, $6, $7, 'pago', 'preparando', $8, $9)
+        gorjeta, total, forma_pagamento, status_pagamento, status_pedido, tipo_pedido, canal_venda, observacoes
+      ) VALUES ($1, $2, $3, $4, $5, 0, 0, $6, $7, 'pago', 'preparando', $8, $9, $10)
       RETURNING *`,
-      [req.estabelecimentoId, cliente_nome.trim(), '(balcao)', JSON.stringify(itensValidados), subtotal, total, forma_pagamento, tipoPedido, observacoes || null]
+      [req.estabelecimentoId, cliente_nome.trim(), '(balcao)', JSON.stringify(itensValidados), subtotal, total, forma_pagamento, tipoPedido, canalVenda, observacoes || null]
     );
 
     const { registrarAuditoria } = require('./funcionarioController');
     await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'CRIAR_PEDIDO_MANUAL', 'pedidos', resultado.rows[0].id, null, resultado.rows[0], req.ip);
+
+    baixarEstoquePorVenda(req.estabelecimentoId, itensValidados, { pedidoId: resultado.rows[0].id, funcionarioId: req.funcionarioId, canalVenda })
+      .catch(e => console.error('Erro na baixa automatica de estoque:', e.message));
 
     res.status(201).json(resultado.rows[0]);
   } catch (error) {
