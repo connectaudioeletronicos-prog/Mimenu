@@ -224,3 +224,4 @@ const apiEstoqueVendasPeriodo = (filtro) => chamarApiAdmin(`/estoque/vendas/peri
 const apiEstoqueVendasCanal = (filtro) => chamarApiAdmin(`/estoque/vendas/canal?${montarQueryPeriodo(filtro)}`);
 const apiEstoqueVendasProdutos = (filtro) => chamarApiAdmin(`/estoque/vendas/produtos?${montarQueryPeriodo(filtro)}`);
 const apiEstoqueLucroProdutos = (filtro) => chamarApiAdmin(`/estoque/vendas/lucro-produtos?${montarQueryPeriodo(filtro)}`);
+const apiEstoqueInteligencia = () => chamarApiAdmin('/estoque/inteligencia');
