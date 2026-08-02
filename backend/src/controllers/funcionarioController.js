@@ -579,7 +579,18 @@ async function exigirDentroDoHorario(req, res, next) {
     const liberadoHoje = f.liberado_hora_extra_data && new Date(f.liberado_hora_extra_data).toDateString() === new Date().toDateString();
     if (liberadoHoje || dentroDoHorario(f.carga_horaria)) return next();
 
-    return res.status(403).json({ erro: 'Fora do horario de expediente. Peca ao seu gestor pra liberar hora extra se precisar acessar agora.', fora_do_horario: true });
+    // Detalhes de diagnostico -- temporario, so pra achar a causa exata do
+    // bloqueio sem precisar olhar log do Render. Remover depois de resolvido.
+    return res.status(403).json({
+      erro: 'Fora do horario de expediente. Peca ao seu gestor pra liberar hora extra se precisar acessar agora.',
+      fora_do_horario: true,
+      diagnostico: {
+        carga_horaria: f.carga_horaria,
+        liberado_hora_extra_data: f.liberado_hora_extra_data,
+        agora_no_servidor: new Date().toISOString(),
+        hoje_no_servidor: new Date().toDateString()
+      }
+    });
   } catch (error) {
     console.error('Erro ao verificar horario do funcionario:', error);
     res.status(500).json({ erro: 'Erro ao verificar horario.' });
