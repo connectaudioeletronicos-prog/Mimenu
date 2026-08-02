@@ -132,6 +132,9 @@ async function iniciarLeituraQR() {
   statusEl.textContent = 'Abrindo câmera...';
 
   try {
+    if (typeof window.jsQR === 'undefined') {
+      throw new Error('lib_jsqr_ausente');
+    }
     streamCamera = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     video.srcObject = streamCamera;
     await video.play();
@@ -139,9 +142,17 @@ async function iniciarLeituraQR() {
 
     const canvas = document.createElement('canvas');
     const contexto = canvas.getContext('2d');
+    const inicioLeitura = Date.now();
+    let sugestaoManualMostrada = false;
 
     const lerFrame = async () => {
       if (!streamCamera) return; // tela foi trocada / camera parada
+
+      if (!sugestaoManualMostrada && Date.now() - inicioLeitura > 12000) {
+        sugestaoManualMostrada = true;
+        statusEl.textContent = 'Não achou o código? Toque em "Não consigo usar a câmera" abaixo.';
+      }
+
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -169,7 +180,11 @@ async function iniciarLeituraQR() {
     };
     requestAnimationFrame(lerFrame);
   } catch (erro) {
-    erroEl.textContent = 'Não foi possível acessar a câmera. Verifique as permissões do navegador.';
+    if (erro.message === 'lib_jsqr_ausente') {
+      erroEl.textContent = 'Não foi possível carregar o leitor de QR Code (conexão instável). Use "Não consigo usar a câmera" abaixo para digitar o código.';
+    } else {
+      erroEl.textContent = 'Não foi possível acessar a câmera. Verifique as permissões do navegador.';
+    }
     erroEl.classList.remove('oculto');
     statusEl.textContent = '';
   }
