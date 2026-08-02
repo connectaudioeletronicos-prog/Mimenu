@@ -100,7 +100,6 @@
       <button class="painel__menu-item" data-aba="paginas-legais">📄 Paginas legais</button>
       <button class="painel__menu-item" data-aba="configuracoes">⚙️ Configurações</button>
       <button class="painel__menu-item oculto" data-aba="reservas" id="menu-item-reservas">📅 Reservas</button>
-      <button class="painel__menu-item oculto" data-aba="estoque" id="menu-item-estoque">📦 Estoque</button>
       <a href="divulgacao.html" class="painel__menu-item">📣 Divulgação (QR Code / Link)</a>
       <button class="painel__menu-item" data-aba="senha">🔒 Senha</button>
       <button class="painel__menu-item" data-aba="funcionarios" id="menu-item-funcionarios">👥 Funcionarios <span class="painel__menu-contador" data-menu-contador="funcionarios"></span></button>
@@ -492,14 +491,8 @@
         <hr style="margin:22px 0; border:none; border-top:1px solid var(--admin-cor-borda);">
 
         <h3 style="font-size:1rem; margin-bottom:10px;">📦 Controle de Estoque</h3>
-        <label style="display:flex; align-items:center; gap:10px; font-weight:normal; margin-top:6px;">
-          <input type="checkbox" id="config-estoque-modulo-ativo" style="width:auto;">
-          Ativar Controle de Estoque (aparece um menu "Estoque" aqui no painel)
-        </label>
-        <label style="display:flex; align-items:center; gap:10px; font-weight:normal; margin-top:10px;">
-          <input type="checkbox" id="config-estoque-senha-protegida" style="width:auto;">
-          Exigir minha senha para acessar a tela de Estoque
-        </label>
+        <p class="aba__descricao" style="margin-top:0;">Ative o módulo, configure a senha de acesso e os alertas direto na tela de Estoque.</p>
+        <button id="botao-ir-para-estoque" class="botao-secundario">Abrir Controle de Estoque →</button>
       </section>
 
       <section id="aba-reservas" class="aba oculto">
@@ -523,6 +516,20 @@
             <button class="estoque-subnav__botao ativo" data-subaba="painel">📊 Painel</button>
             <button class="estoque-subnav__botao" data-subaba="vendas">💰 Vendas &amp; Inteligência</button>
             <button class="estoque-subnav__botao" data-subaba="inteligencia">🧠 Inteligência</button>
+          </div>
+
+          <div class="estoque-config-linha">
+            <label class="interruptor" title="Ativar ou desativar o Controle de Estoque">
+              <input type="checkbox" id="config-estoque-modulo-ativo">
+              <span class="interruptor__trilho"></span>
+            </label>
+            <span>Controle de Estoque ativado</span>
+
+            <label class="interruptor" title="Exigir senha para acessar esta tela" style="margin-left:22px;">
+              <input type="checkbox" id="config-estoque-senha-protegida">
+              <span class="interruptor__trilho"></span>
+            </label>
+            <span>Exigir senha de acesso</span>
           </div>
 
           <div id="estoque-sub-painel">
