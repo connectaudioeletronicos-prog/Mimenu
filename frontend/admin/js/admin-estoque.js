@@ -32,10 +32,18 @@ function rotuloCanal(canal) {
 // ---------- Entrada na aba (com ou sem senha) ----------
 
 function configurarEntradaEstoque() {
-  const botaoMenu = document.getElementById('menu-item-estoque');
-  if (!botaoMenu) return;
+  const botaoAbrir = document.getElementById('botao-ir-para-estoque');
+  if (!botaoAbrir) return;
 
-  botaoMenu.addEventListener('click', async () => {
+  botaoAbrir.addEventListener('click', async () => {
+    // Reproduz a troca de aba padrao (mesma logica de configurarMenu em
+    // admin.js), ja que "Estoque" nao tem mais botao proprio no menu
+    // lateral -- agora e acessado de dentro de Configuracoes.
+    document.querySelectorAll('.painel__menu-item[data-aba]').forEach(b => b.classList.remove('ativo'));
+    document.querySelectorAll('.aba').forEach(a => a.classList.add('oculto'));
+    document.getElementById('aba-estoque').classList.remove('oculto');
+    sincronizarTogglesEstoque();
+
     const precisaSenha = ESTADO.estabelecimento && ESTADO.estabelecimento.estoque_senha_protegida;
     const bloqueio = document.getElementById('estoque-bloqueado');
     const conteudo = document.getElementById('estoque-conteudo');
@@ -401,19 +409,22 @@ async function excluirFornecedor(id) {
 
 // ---------- Configuracoes: ativar modulo / senha ----------
 
+function sincronizarTogglesEstoque() {
+  const checkboxModulo = document.getElementById('config-estoque-modulo-ativo');
+  const checkboxSenha = document.getElementById('config-estoque-senha-protegida');
+  if (checkboxModulo) checkboxModulo.checked = !!(ESTADO.estabelecimento && ESTADO.estabelecimento.estoque_modulo_ativo);
+  if (checkboxSenha) checkboxSenha.checked = !!(ESTADO.estabelecimento && ESTADO.estabelecimento.estoque_senha_protegida);
+}
+
 function configurarToggleModuloEstoque() {
   const checkboxModulo = document.getElementById('config-estoque-modulo-ativo');
   const checkboxSenha = document.getElementById('config-estoque-senha-protegida');
   if (!checkboxModulo) return;
 
-  checkboxModulo.checked = !!(ESTADO.estabelecimento && ESTADO.estabelecimento.estoque_modulo_ativo);
-  if (checkboxSenha) checkboxSenha.checked = !!(ESTADO.estabelecimento && ESTADO.estabelecimento.estoque_senha_protegida);
-
   checkboxModulo.addEventListener('change', async () => {
     try {
       await apiEstoqueAlternarModulo(checkboxModulo.checked);
       ESTADO.estabelecimento.estoque_modulo_ativo = checkboxModulo.checked;
-      document.getElementById('menu-item-estoque')?.classList.toggle('oculto', !checkboxModulo.checked);
       mostrarToast(checkboxModulo.checked ? 'Controle de estoque ativado.' : 'Controle de estoque desativado.');
     } catch (e) {
       checkboxModulo.checked = !checkboxModulo.checked;
@@ -718,11 +729,6 @@ function inicializarEstoque() {
 
   document.getElementById('botao-novo-fornecedor')?.addEventListener('click', () => abrirModalFornecedor(null));
   document.getElementById('estoque-fornecedor-salvar')?.addEventListener('click', salvarFornecedor);
-
-  // Mostra o item de menu se o modulo ja estiver ativo (a checagem de
-  // permissao/visibilidade geral do menu ja acontece em admin.js).
-  const moduloAtivo = ESTADO.estabelecimento && ESTADO.estabelecimento.estoque_modulo_ativo;
-  document.getElementById('menu-item-estoque')?.classList.toggle('oculto', !moduloAtivo);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
