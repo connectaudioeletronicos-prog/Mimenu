@@ -40,6 +40,13 @@ router.put('/entregas/:id/aceitar', funcionarioController.exigirDentroDoHorario,
 router.put('/entregas/:id/recusar', funcionarioController.exigirDentroDoHorario, pedidoController.recusarEntrega);
 router.put('/entregas/:id/encerrar', funcionarioController.exigirDentroDoHorario, pedidoController.encerrarEntrega);
 
+// Plantao do entregador: abre automaticamente no checkin; o proprio
+// entregador encerra pelo app (tela de fim de expediente). Historico e
+// visao do admin, por permissao de gerenciar funcionarios.
+router.get('/plantao/atual', funcionarioController.exigirDentroDoHorario, funcionarioController.obterPlantaoAtual);
+router.put('/plantao/encerrar', funcionarioController.exigirDentroDoHorario, funcionarioController.encerrarPlantao);
+router.get('/plantao/historico', exigirPermissao('gerenciar_funcionarios'), funcionarioController.listarHistoricoPlantoes);
+
 // Funcionarios
 router.get('/', exigirPermissao('gerenciar_funcionarios'), funcionarioController.listar);
 router.post('/', exigirPermissao('gerenciar_funcionarios'), funcionarioController.criar);
