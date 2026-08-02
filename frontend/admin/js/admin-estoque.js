@@ -11,6 +11,7 @@ let ESTOQUE_FORNECEDORES_CACHE = [];
 let ESTOQUE_PRODUTOS_CACHE = [];
 let ESTOQUE_PERIODO_ATUAL = { intervalo: 'hoje' };
 let ESTOQUE_VENDAS_CARREGADO = false;
+let ESTOQUE_INTELIGENCIA_CARREGADO = false;
 let ESTOQUE_CHART_PERIODO = null;
 let ESTOQUE_CHART_PRODUTO = null;
 
@@ -445,10 +446,15 @@ function configurarSubAbasEstoque() {
       const subaba = botao.getAttribute('data-subaba');
       document.getElementById('estoque-sub-painel').classList.toggle('oculto', subaba !== 'painel');
       document.getElementById('estoque-sub-vendas').classList.toggle('oculto', subaba !== 'vendas');
+      document.getElementById('estoque-sub-inteligencia').classList.toggle('oculto', subaba !== 'inteligencia');
 
       if (subaba === 'vendas' && !ESTOQUE_VENDAS_CARREGADO) {
         ESTOQUE_VENDAS_CARREGADO = true;
         await carregarVendasInteligencia();
+      }
+      if (subaba === 'inteligencia' && !ESTOQUE_INTELIGENCIA_CARREGADO) {
+        ESTOQUE_INTELIGENCIA_CARREGADO = true;
+        await carregarCentroInteligencia();
       }
     });
   });
@@ -629,6 +635,66 @@ async function carregarLucroPorProduto() {
         <td><strong>${formatarMoeda(p.lucro_total)}</strong></td>
       `;
       corpo.appendChild(tr);
+    });
+  } catch (e) {
+    mostrarToast(e.message, true);
+  }
+}
+
+// ---------- Centro de Inteligencia do Estoque ----------
+
+async function carregarCentroInteligencia() {
+  try {
+    const dados = await apiEstoqueInteligencia();
+
+    document.getElementById('int-mais-vendido-hoje').textContent = dados.mais_vendido_hoje
+      ? `${dados.mais_vendido_hoje.nome} (${dados.mais_vendido_hoje.quantidade} un.)`
+      : 'Nenhuma venda hoje ainda.';
+
+    document.getElementById('int-valor-investido').textContent = formatarMoeda(dados.valor_investido_estoque);
+
+    document.getElementById('int-maior-lucro').textContent = dados.maior_lucro_30_dias
+      ? `${dados.maior_lucro_30_dias.nome} (${formatarMoeda(dados.maior_lucro_30_dias.lucro_total)})`
+      : 'Sem vendas nos últimos 30 dias.';
+
+    document.getElementById('int-vende-muito-lucra-pouco').textContent = dados.vende_muito_lucra_pouco
+      ? `${dados.vende_muito_lucra_pouco.nome} (${dados.vende_muito_lucra_pouco.quantidade_vendida} un. · lucro unit. ${formatarMoeda(dados.vende_muito_lucra_pouco.lucro_unitario)})`
+      : 'Sem dados suficientes ainda.';
+
+    const listaParados = document.getElementById('int-produtos-parados');
+    listaParados.innerHTML = dados.produtos_parados.length ? '' : '<p class="lista-vazia">Nenhum produto parado. 🎉</p>';
+    dados.produtos_parados.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'estoque-mov-item';
+      div.innerHTML = `<div><strong>${p.nome}</strong></div><div class="estoque-mov-item__data">${p.dias_parado} dias sem vender</div>`;
+      listaParados.appendChild(div);
+    });
+
+    const listaAcabando = document.getElementById('int-produtos-acabando');
+    listaAcabando.innerHTML = dados.produtos_acabando.length ? '' : '<p class="lista-vazia">Nenhum produto acabando. 🎉</p>';
+    dados.produtos_acabando.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'estoque-mov-item';
+      div.innerHTML = `<div><strong>${p.nome}</strong></div><div class="estoque-mov-item__data">${p.estoque} un. (mínimo ${p.estoque_minimo})</div>`;
+      listaAcabando.appendChild(div);
+    });
+
+    const listaCompras = document.getElementById('int-ultimas-compras');
+    listaCompras.innerHTML = dados.ultimas_compras_por_fornecedor.length ? '' : '<p class="lista-vazia">Nenhuma compra registrada ainda.</p>';
+    dados.ultimas_compras_por_fornecedor.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'estoque-mov-item';
+      div.innerHTML = `<div><strong>${c.fornecedor_nome}</strong><div class="estoque-alerta-item__detalhe">${c.produto_nome} · +${c.quantidade} un.</div></div><div class="estoque-mov-item__data">${formatarDataHora(c.criado_em)}</div>`;
+      listaCompras.appendChild(div);
+    });
+
+    const listaCanal = document.getElementById('int-canal-top-produto');
+    listaCanal.innerHTML = dados.canal_top_por_produto.length ? '' : '<p class="lista-vazia">Sem vendas nos últimos 30 dias.</p>';
+    dados.canal_top_por_produto.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'estoque-mov-item';
+      div.innerHTML = `<div><strong>${c.nome}</strong></div><div class="estoque-mov-item__data">${rotuloCanal(c.canal_top)} · ${c.quantidade} un.</div>`;
+      listaCanal.appendChild(div);
     });
   } catch (e) {
     mostrarToast(e.message, true);
