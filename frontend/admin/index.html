@@ -522,6 +522,7 @@
           <div class="estoque-subnav">
             <button class="estoque-subnav__botao ativo" data-subaba="painel">📊 Painel</button>
             <button class="estoque-subnav__botao" data-subaba="vendas">💰 Vendas &amp; Inteligência</button>
+            <button class="estoque-subnav__botao" data-subaba="inteligencia">🧠 Inteligência</button>
           </div>
 
           <div id="estoque-sub-painel">
@@ -668,6 +669,56 @@
             </div>
           </div>
           <!-- fim #estoque-sub-vendas -->
+
+          <div id="estoque-sub-inteligencia" class="oculto">
+            <h2 class="aba__titulo">🧠 Centro de Inteligência do Estoque</h2>
+            <p class="aba__descricao">Respostas automáticas com base nos últimos 30 dias de vendas e no estoque atual.</p>
+
+            <div class="estoque-inteligencia-grid">
+              <div class="estoque-pergunta-card">
+                <div class="estoque-pergunta-card__pergunta">Qual produto vendeu mais hoje?</div>
+                <div class="estoque-pergunta-card__resposta" id="int-mais-vendido-hoje">—</div>
+              </div>
+
+              <div class="estoque-pergunta-card">
+                <div class="estoque-pergunta-card__pergunta">Quanto dinheiro está investido em estoque?</div>
+                <div class="estoque-pergunta-card__resposta" id="int-valor-investido">—</div>
+              </div>
+
+              <div class="estoque-pergunta-card">
+                <div class="estoque-pergunta-card__pergunta">Qual produto gera mais lucro? (30 dias)</div>
+                <div class="estoque-pergunta-card__resposta" id="int-maior-lucro">—</div>
+              </div>
+
+              <div class="estoque-pergunta-card">
+                <div class="estoque-pergunta-card__pergunta">Vende muito, mas lucra pouco?</div>
+                <div class="estoque-pergunta-card__resposta" id="int-vende-muito-lucra-pouco">—</div>
+              </div>
+            </div>
+
+            <div class="estoque-layout-duas-colunas">
+              <div class="estoque-bloco">
+                <h3 class="estoque-bloco__titulo">Produtos parados há 30+ dias</h3>
+                <div id="int-produtos-parados" class="estoque-lista-mov"></div>
+              </div>
+              <div class="estoque-bloco">
+                <h3 class="estoque-bloco__titulo">Produtos acabando</h3>
+                <div id="int-produtos-acabando" class="estoque-lista-mov"></div>
+              </div>
+            </div>
+
+            <div class="estoque-layout-duas-colunas">
+              <div class="estoque-bloco">
+                <h3 class="estoque-bloco__titulo">Últimas compras por fornecedor</h3>
+                <div id="int-ultimas-compras" class="estoque-lista-mov"></div>
+              </div>
+              <div class="estoque-bloco">
+                <h3 class="estoque-bloco__titulo">Canal que mais vende cada produto (30 dias)</h3>
+                <div id="int-canal-top-produto" class="estoque-lista-mov"></div>
+              </div>
+            </div>
+          </div>
+          <!-- fim #estoque-sub-inteligencia -->
         </div>
       </section>
 
