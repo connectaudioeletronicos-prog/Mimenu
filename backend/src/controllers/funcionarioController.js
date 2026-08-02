@@ -192,11 +192,14 @@ async function criar(req, res) {
 async function atualizar(req, res) {
   try {
     const { id } = req.params;
-    const { nome, email, username, cargo, ativo, permissoes, ordem, telefone, carga_horaria } = req.body;
+    const { nome, email, username, cargo, ativo, permissoes, ordem, telefone, carga_horaria, forma_pagamento_entrega, valor_por_entrega, valor_por_km } = req.body;
 
     if (cargo && !CARGOS_VALIDOS.includes(cargo)) return res.status(400).json({ erro: 'Categoria invalida.' });
     if (telefone && !validarTelefone(telefone)) {
       return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
+    }
+    if (forma_pagamento_entrega && !['entrega', 'km'].includes(forma_pagamento_entrega)) {
+      return res.status(400).json({ erro: 'Forma de pagamento invalida.' });
     }
 
     const anterior = await query('SELECT * FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
@@ -216,9 +219,21 @@ async function atualizar(req, res) {
        ordem = COALESCE($7, ordem),
        telefone = COALESCE($8, telefone),
        carga_horaria = COALESCE($9, carga_horaria),
+       forma_pagamento_entrega = COALESCE($10, forma_pagamento_entrega),
+       valor_por_entrega = COALESCE($11, valor_por_entrega),
+       valor_por_km = COALESCE($12, valor_por_km),
        atualizado_em = NOW()
-       WHERE id = $10 AND estabelecimento_id = $11 RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem, carga_horaria`,
-      [nome, email, username, cargo, ativo, permissoesFinais !== undefined ? JSON.stringify(permissoesFinais) : null, ordem, telefone, cargaHorariaFinal !== undefined ? JSON.stringify(cargaHorariaFinal) : null, id, req.estabelecimentoId]
+       WHERE id = $13 AND estabelecimento_id = $14 RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem, carga_horaria, forma_pagamento_entrega, valor_por_entrega, valor_por_km`,
+      [
+        nome, email, username, cargo, ativo,
+        permissoesFinais !== undefined ? JSON.stringify(permissoesFinais) : null,
+        ordem, telefone,
+        cargaHorariaFinal !== undefined ? JSON.stringify(cargaHorariaFinal) : null,
+        forma_pagamento_entrega || null,
+        valor_por_entrega !== undefined && valor_por_entrega !== '' ? parseFloat(valor_por_entrega) : null,
+        valor_por_km !== undefined && valor_por_km !== '' ? parseFloat(valor_por_km) : null,
+        id, req.estabelecimentoId
+      ]
     );
 
     await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'ATUALIZAR_FUNCIONARIO', 'funcionarios', id, anterior.rows[0], resultado.rows[0], req.ip);
@@ -509,6 +524,18 @@ async function checkinEntregador(req, res) {
       [req.funcionarioId]
     );
 
+    // Abre um plantao novo se nao houver nenhum aberto pra esse entregador
+    // (ON CONFLICT protege contra o indice unico de plantao aberto, caso
+    // duas chamadas cheguem quase juntas).
+    await query(
+      `INSERT INTO plantoes_entregador (estabelecimento_id, funcionario_id)
+       SELECT $1, $2
+       WHERE NOT EXISTS (
+         SELECT 1 FROM plantoes_entregador WHERE funcionario_id = $2 AND fim IS NULL
+       )`,
+      [req.estabelecimentoId, req.funcionarioId]
+    );
+
     // Ao bater o ponto, ja tenta puxar algum pedido "pronto" esperando fila.
     const { tentarOfertarPedidosPendentes } = require('./pedidoController');
     await tentarOfertarPedidosPendentes(req.estabelecimentoId);
@@ -591,9 +618,121 @@ async function gerarQrcodeGenerico(req, res) {
   }
 }
 
+// ===================================================================
+// Plantao do entregador (inicio/fim, resumo e historico)
+// ===================================================================
+
+// Retorna o plantao aberto do proprio entregador (ou null se nao tiver
+// nenhum), com os totais calculados em tempo real a partir das entregas
+// concluidas nesse plantao ate agora.
+async function obterPlantaoAtual(req, res) {
+  try {
+    const aberto = await query(
+      'SELECT * FROM plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
+      [req.funcionarioId]
+    );
+    if (aberto.rows.length === 0) return res.json(null);
+
+    const resumo = await calcularResumoPlantao(aberto.rows[0].id, req.funcionarioId);
+    res.json({ ...aberto.rows[0], ...resumo });
+  } catch (error) {
+    console.error('Erro ao obter plantao atual:', error);
+    res.status(500).json({ erro: 'Erro ao obter plantao atual.' });
+  }
+}
+
+// Calcula entregas/km/valor de um plantao com base nas entregas concluidas
+// vinculadas a ele (pedidos.plantao_id), usando a forma de pagamento
+// configurada para o entregador no momento do calculo.
+async function calcularResumoPlantao(plantaoId, funcionarioId) {
+  const funcionario = await query(
+    'SELECT forma_pagamento_entrega, valor_por_entrega, valor_por_km FROM funcionarios WHERE id = $1',
+    [funcionarioId]
+  );
+  const f = funcionario.rows[0] || {};
+
+  const entregas = await query(
+    `SELECT COUNT(*) AS total_entregas, COALESCE(SUM(distancia_km), 0) AS total_km
+     FROM pedidos WHERE plantao_id = $1 AND status_pedido = 'entregue'`,
+    [plantaoId]
+  );
+  const totalEntregas = parseInt(entregas.rows[0].total_entregas, 10) || 0;
+  const totalKm = Number(entregas.rows[0].total_km) || 0;
+
+  const valorTotal = f.forma_pagamento_entrega === 'km'
+    ? totalKm * (Number(f.valor_por_km) || 0)
+    : totalEntregas * (Number(f.valor_por_entrega) || 0);
+
+  return {
+    total_entregas: totalEntregas,
+    total_km: totalKm,
+    valor_total: valorTotal,
+    forma_pagamento_entrega: f.forma_pagamento_entrega,
+    valor_por_entrega: f.valor_por_entrega,
+    valor_por_km: f.valor_por_km
+  };
+}
+
+// Encerra o plantao aberto do entregador, grava os totais finais e devolve
+// o resumo pra tela de "fim de expediente" do app.
+async function encerrarPlantao(req, res) {
+  try {
+    const aberto = await query(
+      'SELECT id FROM plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
+      [req.funcionarioId]
+    );
+    if (aberto.rows.length === 0) return res.status(404).json({ erro: 'Nenhum plantao aberto no momento.' });
+
+    const plantaoId = aberto.rows[0].id;
+    const resumo = await calcularResumoPlantao(plantaoId, req.funcionarioId);
+
+    const fechado = await query(
+      `UPDATE plantoes_entregador SET fim = NOW(), total_entregas = $1, total_km = $2, valor_total = $3
+       WHERE id = $4 RETURNING *`,
+      [resumo.total_entregas, resumo.total_km, resumo.valor_total, plantaoId]
+    );
+
+    res.json(fechado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao encerrar plantao:', error);
+    res.status(500).json({ erro: 'Erro ao encerrar plantao.' });
+  }
+}
+
+// Historico de plantoes -- painel admin. Sem funcionario_id, traz de todos
+// os entregadores (ex: fechamento semanal); com funcionario_id, filtra um so.
+async function listarHistoricoPlantoes(req, res) {
+  try {
+    const { funcionario_id, limite } = req.query;
+    let sql = `
+      SELECT p.*, f.nome AS funcionario_nome
+      FROM plantoes_entregador p
+      JOIN funcionarios f ON f.id = p.funcionario_id
+      WHERE p.estabelecimento_id = $1 AND p.fim IS NOT NULL`;
+    const params = [req.estabelecimentoId];
+
+    if (funcionario_id) {
+      params.push(funcionario_id);
+      sql += ` AND p.funcionario_id = $${params.length}`;
+    }
+    sql += ' ORDER BY p.fim DESC';
+
+    const limiteFinal = Math.min(parseInt(limite, 10) || 30, 100);
+    params.push(limiteFinal);
+    sql += ` LIMIT $${params.length}`;
+
+    const resultado = await query(sql, params);
+    res.json(resultado.rows);
+  } catch (error) {
+    console.error('Erro ao listar historico de plantoes:', error);
+    res.status(500).json({ erro: 'Erro ao listar historico de plantoes.' });
+  }
+}
+
 module.exports = {
   loginFuncionario, acessarPorLink, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir,
   listarEquipeOperacional, alternarDisponibilidadeEntregador,
   obterQrcodeDoDia, checkinEntregador, exigirDentroDoHorario, liberarHoraExtra, gerarQrcodeGenerico,
+  obterPlantaoAtual, encerrarPlantao, listarHistoricoPlantoes, calcularResumoPlantao,
   registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS
 };
