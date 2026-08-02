@@ -499,7 +499,7 @@ async function carregarGraficoVendasPeriodo() {
     const valores = dados.map(d => Number(d.total) || 0);
 
     const ctx = document.getElementById('grafico-vendas-periodo');
-    if (!ctx) return;
+    if (!ctx || typeof Chart === 'undefined') return;
     if (ESTOQUE_CHART_PERIODO) ESTOQUE_CHART_PERIODO.destroy();
     ESTOQUE_CHART_PERIODO = new Chart(ctx, {
       type: 'line',
@@ -521,7 +521,7 @@ async function carregarGraficoVendasPeriodo() {
       }
     });
   } catch (e) {
-    mostrarToast(e.message, true);
+    console.error('Erro ao carregar grafico de vendas por periodo:', e.message);
   }
 }
 
@@ -551,12 +551,21 @@ async function carregarVendasPorCanal() {
 }
 
 async function carregarVendasPorProdutoEGraficos() {
+  let dados = [];
   try {
-    const dados = await apiEstoqueVendasProdutos(ESTOQUE_PERIODO_ATUAL);
+    dados = await apiEstoqueVendasProdutos(ESTOQUE_PERIODO_ATUAL);
+  } catch (e) {
+    mostrarToast(e.message, true);
+    return;
+  }
 
+  // A criacao do grafico fica isolada -- se o Chart.js falhar (CDN fora do
+  // ar, versao errada etc.), o ranking Mais/Menos vendidos continua
+  // aparecendo normalmente.
+  try {
     const top8 = dados.slice(0, 8);
     const ctx = document.getElementById('grafico-vendas-produto');
-    if (ctx) {
+    if (ctx && typeof Chart !== 'undefined') {
       if (ESTOQUE_CHART_PRODUTO) ESTOQUE_CHART_PRODUTO.destroy();
       ESTOQUE_CHART_PRODUTO = new Chart(ctx, {
         type: 'bar',
@@ -575,30 +584,30 @@ async function carregarVendasPorProdutoEGraficos() {
         }
       });
     }
-
-    const maisVendidos = dados.slice(0, 5);
-    const menosVendidos = [...dados].reverse().slice(0, 5);
-
-    const renderRanking = (elementoId, lista) => {
-      const elemento = document.getElementById(elementoId);
-      elemento.innerHTML = lista.length ? '' : '<p class="lista-vazia">Sem dados no período.</p>';
-      lista.forEach((p, indice) => {
-        const div = document.createElement('div');
-        div.className = 'estoque-ranking__item';
-        div.innerHTML = `
-          <span class="estoque-ranking__posicao">${indice + 1}</span>
-          <span class="estoque-ranking__nome">${p.nome}</span>
-          <span class="estoque-ranking__valor">${p.quantidade_vendida} un.</span>
-        `;
-        elemento.appendChild(div);
-      });
-    };
-
-    renderRanking('estoque-mais-vendidos', maisVendidos);
-    renderRanking('estoque-menos-vendidos', menosVendidos);
   } catch (e) {
-    mostrarToast(e.message, true);
+    console.error('Erro ao desenhar grafico de vendas por produto:', e.message);
   }
+
+  const maisVendidos = dados.slice(0, 5);
+  const menosVendidos = [...dados].reverse().slice(0, 5);
+
+  const renderRanking = (elementoId, lista) => {
+    const elemento = document.getElementById(elementoId);
+    elemento.innerHTML = lista.length ? '' : '<p class="lista-vazia">Sem dados no período.</p>';
+    lista.forEach((p, indice) => {
+      const div = document.createElement('div');
+      div.className = 'estoque-ranking__item';
+      div.innerHTML = `
+        <span class="estoque-ranking__posicao">${indice + 1}</span>
+        <span class="estoque-ranking__nome">${p.nome}</span>
+        <span class="estoque-ranking__valor">${p.quantidade_vendida} un.</span>
+      `;
+      elemento.appendChild(div);
+    });
+  };
+
+  renderRanking('estoque-mais-vendidos', maisVendidos);
+  renderRanking('estoque-menos-vendidos', menosVendidos);
 }
 
 async function carregarLucroPorProduto() {
