@@ -632,11 +632,20 @@ async function recusarEntrega(req, res) {
 async function encerrarEntrega(req, res) {
   try {
     const { id } = req.params;
+    const { distancia_km } = req.body;
+
+    const plantaoAberto = await query(
+      'SELECT id FROM plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
+      [req.funcionarioId]
+    );
+    const plantaoId = plantaoAberto.rows[0]?.id || null;
+
     const resultado = await query(
-      `UPDATE pedidos SET status_pedido = 'entregue'
-       WHERE id = $1 AND estabelecimento_id = $2 AND entregador_id = $3 AND status_pedido = 'saiu_entrega'
+      `UPDATE pedidos SET status_pedido = 'entregue', horario_entregue = NOW(),
+        distancia_km = COALESCE($1, distancia_km), plantao_id = COALESCE($2, plantao_id)
+       WHERE id = $3 AND estabelecimento_id = $4 AND entregador_id = $5 AND status_pedido = 'saiu_entrega'
        RETURNING *`,
-      [id, req.estabelecimentoId, req.funcionarioId]
+      [distancia_km !== undefined && distancia_km !== '' ? parseFloat(distancia_km) : null, plantaoId, id, req.estabelecimentoId, req.funcionarioId]
     );
     if (resultado.rows.length === 0) {
       return res.status(409).json({ erro: 'Essa entrega nao esta mais em andamento.' });
