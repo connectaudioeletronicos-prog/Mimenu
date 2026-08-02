@@ -43,6 +43,10 @@ async function chamarApi(caminho, { method = 'GET', body = null } = {}) {
   if (resposta.status === 403 && dados.fora_do_horario) {
     pararPolling();
     mostrarTela('tela-fora-horario');
+    const diagEl = document.getElementById('fora-horario-diagnostico');
+    if (diagEl && dados.diagnostico) {
+      diagEl.textContent = `[debug temporário]\ncarga_horaria: ${JSON.stringify(dados.diagnostico.carga_horaria)}\nliberado_hora_extra_data: ${dados.diagnostico.liberado_hora_extra_data}\nagora no servidor: ${dados.diagnostico.agora_no_servidor}\nhoje no servidor: ${dados.diagnostico.hoje_no_servidor}`;
+    }
     throw new Error(dados.erro);
   }
   if (!resposta.ok) throw new Error(dados.erro || 'Ocorreu um erro ao processar a solicitacao.');
