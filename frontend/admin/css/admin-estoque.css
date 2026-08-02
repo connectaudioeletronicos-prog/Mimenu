@@ -243,3 +243,26 @@
 }
 .estoque-ranking__nome { flex: 1; }
 .estoque-ranking__valor { font-weight: 700; color: var(--admin-cor-texto-claro); font-size: 0.78rem; }
+
+/* Centro de Inteligencia */
+.estoque-inteligencia-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+  margin: 16px 0 20px;
+}
+.estoque-pergunta-card {
+  background: #fff;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: var(--admin-raio);
+  padding: 16px;
+}
+.estoque-pergunta-card__pergunta {
+  font-size: 0.78rem;
+  color: var(--admin-cor-texto-claro);
+  margin-bottom: 8px;
+}
+.estoque-pergunta-card__resposta {
+  font-size: 0.98rem;
+  font-weight: 700;
+}
