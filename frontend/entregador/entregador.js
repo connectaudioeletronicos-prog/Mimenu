@@ -123,6 +123,30 @@ document.getElementById('form-login').addEventListener('submit', async (evento) 
 });
 
 // -------------------- Checkin por QR Code --------------------
+// Le o QR com a API nativa do navegador (BarcodeDetector), que ja vem
+// embutida no Chrome/Android -- sem depender de nenhuma biblioteca externa
+// via CDN. So usa o jsQR (externo) como reserva, pra navegadores antigos
+// que nao tem BarcodeDetector (ex: Safari/iOS mais antigo).
+function suportaBarcodeDetectorNativo() {
+  return 'BarcodeDetector' in window;
+}
+
+async function detectarQRNoFrame(canvas, contexto, video, detectorNativo) {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  if (detectorNativo) {
+    const codigos = await detectorNativo.detect(canvas);
+    return codigos && codigos.length > 0 ? codigos[0].rawValue : null;
+  }
+
+  if (typeof window.jsQR === 'undefined') throw new Error('lib_jsqr_ausente');
+  const imagem = contexto.getImageData(0, 0, canvas.width, canvas.height);
+  const codigo = window.jsQR(imagem.data, imagem.width, imagem.height);
+  return codigo && codigo.data ? codigo.data : null;
+}
+
 async function iniciarLeituraQR() {
   mostrarTela('tela-checkin');
   const video = document.getElementById('video-qr');
@@ -132,9 +156,9 @@ async function iniciarLeituraQR() {
   statusEl.textContent = 'Abrindo câmera...';
 
   try {
-    if (typeof window.jsQR === 'undefined') {
-      throw new Error('lib_jsqr_ausente');
-    }
+    const usaDetectorNativo = suportaBarcodeDetectorNativo();
+    const detectorNativo = usaDetectorNativo ? new window.BarcodeDetector({ formats: ['qr_code'] }) : null;
+
     streamCamera = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     video.srcObject = streamCamera;
     await video.play();
@@ -144,6 +168,7 @@ async function iniciarLeituraQR() {
     const contexto = canvas.getContext('2d');
     const inicioLeitura = Date.now();
     let sugestaoManualMostrada = false;
+    let lendoFrame = false;
 
     const lerFrame = async () => {
       if (!streamCamera) return; // tela foi trocada / camera parada
@@ -153,35 +178,38 @@ async function iniciarLeituraQR() {
         statusEl.textContent = 'Não achou o código? Toque em "Não consigo usar a câmera" abaixo.';
       }
 
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imagem = contexto.getImageData(0, 0, canvas.width, canvas.height);
-        const codigo = window.jsQR(imagem.data, imagem.width, imagem.height);
-        if (codigo && codigo.data) {
-          pararCamera();
-          statusEl.textContent = 'Confirmando checkin...';
-          try {
-            const resultado = await chamarApi('/checkin', { method: 'POST', body: { token: codigo.data } });
-            mostrarToast(resultado.mensagem || 'Checkin realizado!');
-            iniciarAguardandoPedido();
-            return;
-          } catch (erro) {
-            erroEl.textContent = erro.message;
-            erroEl.classList.remove('oculto');
-            statusEl.textContent = '';
-            iniciarLeituraQR();
-            return;
+      if (video.readyState === video.HAVE_ENOUGH_DATA && !lendoFrame) {
+        lendoFrame = true;
+        try {
+          const tokenLido = await detectarQRNoFrame(canvas, contexto, video, detectorNativo);
+          if (tokenLido) {
+            pararCamera();
+            statusEl.textContent = 'Confirmando checkin...';
+            try {
+              const resultado = await chamarApi('/checkin', { method: 'POST', body: { token: tokenLido } });
+              mostrarToast(resultado.mensagem || 'Checkin realizado!');
+              iniciarAguardandoPedido();
+              return;
+            } catch (erro) {
+              erroEl.textContent = erro.message;
+              erroEl.classList.remove('oculto');
+              statusEl.textContent = '';
+              iniciarLeituraQR();
+              return;
+            }
           }
+        } catch (erroDeteccao) {
+          if (erroDeteccao.message === 'lib_jsqr_ausente') throw erroDeteccao;
+          // Erro pontual de deteccao (frame ruim) -- so tenta de novo no proximo frame.
         }
+        lendoFrame = false;
       }
       requestAnimationFrame(lerFrame);
     };
     requestAnimationFrame(lerFrame);
   } catch (erro) {
     if (erro.message === 'lib_jsqr_ausente') {
-      erroEl.textContent = 'Não foi possível carregar o leitor de QR Code (conexão instável). Use "Não consigo usar a câmera" abaixo para digitar o código.';
+      erroEl.textContent = 'Não foi possível carregar o leitor de QR Code. Use "Não consigo usar a câmera" abaixo para digitar o código.';
     } else {
       erroEl.textContent = 'Não foi possível acessar a câmera. Verifique as permissões do navegador.';
     }
