@@ -55,7 +55,7 @@
       <div class="spinner"></div>
       <h2>Você está na fila</h2>
       <p class="ajuda">Assim que um pedido ficar pronto e for sua vez, você vai receber a oferta aqui.</p>
-      <button id="botao-sair-aguardando" class="botao botao-secundario">Sair</button>
+      <button id="botao-sair-aguardando" class="botao botao-secundario">Encerrar plantão</button>
     </div>
   </section>
 
@@ -100,8 +100,21 @@
     <div class="cartao cartao-centro">
       <h2>Fora do horário de expediente</h2>
       <p class="ajuda">Seu acesso ao app está liberado só durante o seu horário cadastrado. Se precisar entrar agora (hora extra), peça ao seu gestor pra liberar.</p>
-      <p id="fora-horario-diagnostico" class="ajuda" style="font-size:12px; text-align:left; background:#f5f5f5; padding:10px; border-radius:8px; white-space:pre-wrap;"></p>
       <button id="botao-sair-fora-horario" class="botao botao-secundario">Sair</button>
+    </div>
+  </section>
+
+  <!-- ===================== TELA: RESUMO DO PLANTAO ===================== -->
+  <section id="tela-resumo-plantao" class="tela oculto">
+    <div class="cartao cartao-centro">
+      <h2>Resumo do plantão</h2>
+      <p class="ajuda">Foi um bom plantão! Aqui está o fechamento de hoje.</p>
+      <div class="detalhes-pedido">
+        <p><strong>Entregas realizadas:</strong> <span id="resumo-total-entregas"></span></p>
+        <p id="resumo-linha-km"><strong>Km rodados:</strong> <span id="resumo-total-km"></span></p>
+        <p><strong>Valor a receber:</strong> <span id="resumo-valor-total"></span></p>
+      </div>
+      <button id="botao-sair-resumo-plantao" class="botao botao-principal">Sair</button>
     </div>
   </section>
 
