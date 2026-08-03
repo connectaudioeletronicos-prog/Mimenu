@@ -43,7 +43,9 @@ async function chamarApi(caminho, { method = 'GET', body = null } = {}) {
   if (resposta.status === 403 && dados.fora_do_horario) {
     pararPolling();
     mostrarTela('tela-fora-horario');
-    throw new Error(dados.erro);
+    const erro = new Error(dados.erro);
+    erro.foraDoHorario = true;
+    throw erro;
   }
   if (!resposta.ok) throw new Error(dados.erro || 'Ocorreu um erro ao processar a solicitacao.');
   return dados;
@@ -191,6 +193,7 @@ async function iniciarLeituraQR() {
               iniciarAguardandoPedido();
               return;
             } catch (erro) {
+              if (erro.foraDoHorario) return; // ja trocou pra tela-fora-horario
               erroEl.textContent = erro.message;
               erroEl.classList.remove('oculto');
               statusEl.textContent = '';
@@ -241,6 +244,7 @@ document.getElementById('botao-confirmar-codigo-manual').addEventListener('click
     mostrarToast(resultado.mensagem || 'Checkin realizado!');
     iniciarAguardandoPedido();
   } catch (erro) {
+    if (erro.foraDoHorario) return; // ja trocou pra tela-fora-horario
     erroEl.textContent = erro.message;
     erroEl.classList.remove('oculto');
   }
@@ -262,15 +266,17 @@ function pararPolling() {
 }
 
 let pedidoOfertaAtual = null;
-let pedidoAndamentoAtual = null;
+let paradasRotaAtual = []; // array de pedidos com status 'saiu_entrega' (rota atual, 1 ou mais paradas)
+let plantaoAtualCache = null; // ultimo resumo de /plantao/atual (usado no Resumo do dia e no menu)
 
 async function verificarOfertaOuEntregaAtual() {
   try {
-    // Prioridade 1: entrega ja aceita e em andamento (ex: reabriu o app).
+    // Prioridade 1: entrega(s) ja aceita(s) e em andamento (ex: reabriu o app,
+    // ou o admin atribuiu mais de um pedido pra essa rota).
     const emAndamento = await chamarApi('/entregas/atual');
-    if (emAndamento) {
-      pedidoAndamentoAtual = emAndamento;
-      exibirEntregaEmAndamento(emAndamento);
+    if (Array.isArray(emAndamento) && emAndamento.length > 0) {
+      paradasRotaAtual = emAndamento;
+      await exibirRotaEmAndamento();
       return;
     }
     // Prioridade 2: oferta pendente aguardando aceite/recusa.
@@ -302,9 +308,9 @@ function exibirOfertaDeEntrega(pedido) {
 document.getElementById('botao-aceitar').addEventListener('click', async () => {
   if (!pedidoOfertaAtual) return;
   try {
-    const pedido = await chamarApi(`/entregas/${pedidoOfertaAtual.id}/aceitar`, { method: 'PUT' });
-    pedidoAndamentoAtual = pedido;
-    exibirEntregaEmAndamento(pedido);
+    await chamarApi(`/entregas/${pedidoOfertaAtual.id}/aceitar`, { method: 'PUT' });
+    pedidoOfertaAtual = null;
+    verificarOfertaOuEntregaAtual();
   } catch (erro) {
     mostrarToast(erro.message, true);
     verificarOfertaOuEntregaAtual();
@@ -324,17 +330,74 @@ document.getElementById('botao-recusar').addEventListener('click', async () => {
   }
 });
 
-function exibirEntregaEmAndamento(pedido) {
-  document.getElementById('andamento-cliente').textContent = pedido.cliente_nome || '-';
-  document.getElementById('andamento-endereco').textContent = pedido.cliente_endereco || '-';
-  document.getElementById('andamento-telefone').textContent = pedido.cliente_telefone || '-';
-  document.getElementById('andamento-total').textContent = formatarMoeda(pedido.total);
-  document.getElementById('andamento-pagamento').textContent = formatarPagamento(pedido.forma_pagamento);
-  mostrarTela('tela-em-andamento');
+function enderecoParaLinkMaps(endereco) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco || '')}`;
+}
+
+function formatarHora(dataISO) {
+  if (!dataISO) return '-';
+  return new Date(dataISO).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Renderiza a tela de "rota em andamento": a proxima parada em destaque
+// (primeira da fila, por ordem de saida) + as demais paradas restantes
+// (caso o admin tenha atribuido mais de um pedido pra essa rota) + resumo
+// do dia (busca /plantao/atual em paralelo pra pegar entregas ja concluidas).
+async function exibirRotaEmAndamento() {
+  const paradas = paradasRotaAtual;
+  const proxima = paradas[0];
+  const restantes = paradas.slice(1);
+
+  try {
+    plantaoAtualCache = await chamarApi('/plantao/atual');
+  } catch {
+    plantaoAtualCache = null;
+  }
+  const realizadasHoje = plantaoAtualCache?.total_entregas ?? 0;
+  const totalRota = paradas.length + realizadasHoje;
+  const posicaoAtual = realizadasHoje + 1;
+
+  document.getElementById('rota-contador').textContent = `${posicaoAtual} de ${totalRota} entregas`;
+
+  document.getElementById('rota-proxima-cliente').textContent = proxima.cliente_nome || '-';
+  document.getElementById('rota-proxima-endereco').textContent = proxima.cliente_endereco || '-';
+  document.getElementById('rota-proxima-total').textContent = formatarMoeda(proxima.total);
+  document.getElementById('rota-proxima-pagamento').textContent = formatarPagamento(proxima.forma_pagamento);
+  document.getElementById('rota-botao-navegar').href = enderecoParaLinkMaps(proxima.cliente_endereco);
+
+  document.getElementById('rota-inicio').textContent = formatarHora(proxima.horario_saiu_entrega);
+  const valorRota = paradas.reduce((soma, p) => soma + (parseFloat(p.total) || 0), 0);
+  document.getElementById('rota-valor-total').textContent = formatarMoeda(valorRota);
+
+  document.getElementById('rota-resumo-andamento').textContent = paradas.length;
+  document.getElementById('rota-resumo-realizadas').textContent = realizadasHoje;
+  document.getElementById('rota-resumo-a-receber').textContent = formatarMoeda(valorRota);
+
+  const listaEl = document.getElementById('lista-paradas-restantes');
+  if (restantes.length === 0) {
+    listaEl.innerHTML = '';
+  } else {
+    listaEl.innerHTML = `<p class="rotulo-detalhe" style="margin-bottom:8px;">Próximas paradas da rota</p>` +
+      restantes.map((p, i) => `
+        <div class="parada-futura">
+          <strong><span class="parada-futura__numero">${i + 2}</span>${escaparHtml(p.cliente_nome || '-')}</strong>
+          <span>${escaparHtml(p.cliente_endereco || '-')} · ${formatarMoeda(p.total)}</span>
+        </div>
+      `).join('');
+  }
+
+  mostrarTela('tela-rota');
+}
+
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto ?? '';
+  return div.innerHTML;
 }
 
 document.getElementById('botao-encerrar').addEventListener('click', async () => {
-  if (!pedidoAndamentoAtual) return;
+  const proxima = paradasRotaAtual[0];
+  if (!proxima) return;
 
   let distanciaKm;
   const dados = obterDados();
@@ -349,13 +412,12 @@ document.getElementById('botao-encerrar').addEventListener('click', async () => 
   }
 
   try {
-    await chamarApi(`/entregas/${pedidoAndamentoAtual.id}/encerrar`, {
+    await chamarApi(`/entregas/${proxima.id}/encerrar`, {
       method: 'PUT',
       body: distanciaKm !== undefined ? { distancia_km: distanciaKm } : {}
     });
-    pedidoAndamentoAtual = null;
-    mostrarToast('Entrega encerrada. Você voltou para a fila.');
-    iniciarAguardandoPedido();
+    mostrarToast('Entrega concluída!');
+    verificarOfertaOuEntregaAtual();
   } catch (erro) {
     mostrarToast(erro.message, true);
   }
@@ -391,6 +453,72 @@ function exibirResumoPlantao(resumo) {
 }
 
 document.getElementById('botao-sair-resumo-plantao').addEventListener('click', fazerLogout);
+
+// -------------------- Menu lateral (painel deslizante) --------------------
+function abrirMenuLateral() {
+  document.getElementById('menu-lateral').classList.remove('oculto');
+  document.getElementById('fundo-menu-lateral').classList.remove('oculto');
+  exibirSecaoMenu('atual');
+}
+function fecharMenuLateral() {
+  document.getElementById('menu-lateral').classList.add('oculto');
+  document.getElementById('fundo-menu-lateral').classList.add('oculto');
+}
+document.getElementById('botao-abrir-menu-aguardando').addEventListener('click', abrirMenuLateral);
+document.getElementById('botao-abrir-menu-rota').addEventListener('click', abrirMenuLateral);
+document.getElementById('botao-fechar-menu').addEventListener('click', fecharMenuLateral);
+document.getElementById('fundo-menu-lateral').addEventListener('click', fecharMenuLateral);
+
+document.querySelectorAll('.menu-lateral__item').forEach(botao => {
+  botao.addEventListener('click', () => {
+    document.querySelectorAll('.menu-lateral__item').forEach(b => b.classList.remove('menu-lateral__item--ativo'));
+    botao.classList.add('menu-lateral__item--ativo');
+    exibirSecaoMenu(botao.getAttribute('data-menu-secao'));
+  });
+});
+
+function exibirSecaoMenu(secao) {
+  const conteudo = document.getElementById('menu-lateral-conteudo');
+  if (secao === 'atual') {
+    const emRota = paradasRotaAtual.length;
+    const valorPendente = paradasRotaAtual.reduce((s, p) => s + (parseFloat(p.total) || 0), 0);
+    const realizadas = plantaoAtualCache?.total_entregas ?? 0;
+    const valorPlantao = plantaoAtualCache?.valor_total ?? 0;
+    conteudo.innerHTML = `
+      <p class="resumo-geral-titulo">PLANTÃO DE HOJE</p>
+      <div class="resumo-geral-linha"><span>Em andamento</span><strong>${emRota}</strong></div>
+      <div class="resumo-geral-linha"><span>Entregas realizadas</span><strong>${realizadas}</strong></div>
+      <div class="resumo-geral-linha"><span>Valor pendente (em rota)</span><strong>${formatarMoeda(valorPendente)}</strong></div>
+      <div class="resumo-geral-linha"><span>Valor já concluído hoje</span><strong>${formatarMoeda(valorPlantao)}</strong></div>
+    `;
+    return;
+  }
+
+  conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
+  chamarApi('/plantao/meu-historico').then(dados => {
+    const r = dados.resumo || {};
+    let html = `
+      <p class="resumo-geral-titulo">RESUMO GERAL</p>
+      <div class="resumo-geral-linha"><span>Total de plantões</span><strong>${r.total_plantoes ?? 0}</strong></div>
+      <div class="resumo-geral-linha"><span>Entregas realizadas</span><strong>${r.total_entregas ?? 0}</strong></div>
+      <div class="resumo-geral-linha"><span>Valor total a receber</span><strong>${formatarMoeda(r.valor_total)}</strong></div>
+      <p class="resumo-geral-titulo" style="margin-top:18px;">PLANTÕES REALIZADOS</p>
+    `;
+    if (!dados.plantoes || dados.plantoes.length === 0) {
+      html += '<p class="ajuda">Nenhum plantão encerrado ainda.</p>';
+    } else {
+      html += dados.plantoes.map(p => `
+        <div class="item-plantao-historico">
+          <div class="item-plantao-historico__data">${new Date(p.fim).toLocaleDateString('pt-BR')}</div>
+          <div class="item-plantao-historico__linha"><span>${p.total_entregas} entrega(s)</span><span>${formatarMoeda(p.valor_total)}</span></div>
+        </div>
+      `).join('');
+    }
+    conteudo.innerHTML = html;
+  }).catch(erro => {
+    conteudo.innerHTML = `<p class="erro">${erro.message}</p>`;
+  });
+}
 
 function fazerLogout() {
   pararCamera();
