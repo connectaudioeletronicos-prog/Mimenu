@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>App do Entregador</title>
-<link rel="stylesheet" href="entregador.css?v=20260803a">
+<link rel="stylesheet" href="entregador.css">
 </head>
 <body>
 
@@ -50,12 +50,24 @@
   </section>
 
   <!-- ===================== TELA: AGUARDANDO PEDIDO ===================== -->
-  <section id="tela-aguardando" class="tela oculto">
-    <div class="cartao cartao-centro">
-      <div class="spinner"></div>
-      <h2>Você está na fila</h2>
-      <p class="ajuda">Assim que um pedido ficar pronto e for sua vez, você vai receber a oferta aqui.</p>
-      <button id="botao-sair-aguardando" class="botao botao-secundario">Encerrar plantão</button>
+  <section id="tela-aguardando" class="tela tela-painel oculto">
+    <header class="cabecalho-app">
+      <div>
+        <div class="cabecalho-app__saudacao">Olá, Entregador! 👋</div>
+        <div class="cabecalho-app__sub">Vamos nessa!</div>
+      </div>
+      <div class="cabecalho-app__direita">
+        <span class="badge-online">● Online</span>
+        <button id="botao-abrir-menu-aguardando" class="botao-menu-hamburguer" aria-label="Abrir menu">☰</button>
+      </div>
+    </header>
+    <div class="conteudo-painel conteudo-painel--centro">
+      <div class="cartao cartao-centro">
+        <div class="spinner"></div>
+        <h2>Você está na fila</h2>
+        <p class="ajuda">Assim que um pedido ficar pronto e for sua vez, você vai receber a oferta aqui.</p>
+        <button id="botao-sair-aguardando" class="botao botao-secundario">Encerrar plantão</button>
+      </div>
     </div>
   </section>
 
@@ -77,23 +89,92 @@
     </div>
   </section>
 
-  <!-- ===================== TELA: ENTREGA EM ANDAMENTO ===================== -->
-  <section id="tela-em-andamento" class="tela oculto">
-    <div class="cartao">
-      <h2>Entrega em andamento</h2>
-      <div class="detalhes-pedido">
-        <p><strong>Cliente:</strong> <span id="andamento-cliente"></span></p>
-        <p><strong>Endereço:</strong> <span id="andamento-endereco"></span></p>
-        <p><strong>Telefone:</strong> <span id="andamento-telefone"></span></p>
-        <p><strong>Total:</strong> <span id="andamento-total"></span></p>
-        <p><strong>Pagamento:</strong> <span id="andamento-pagamento"></span></p>
+  <!-- ===================== TELA: ROTA EM ANDAMENTO (1+ ENTREGAS) ===================== -->
+  <section id="tela-rota" class="tela tela-painel oculto">
+    <header class="cabecalho-app">
+      <div>
+        <div class="cabecalho-app__saudacao">Olá, Entregador! 👋</div>
+        <div class="cabecalho-app__sub">Vamos nessa!</div>
       </div>
-      <div class="mapa-placeholder">
-        <span>📍 Acompanhamento por GPS em breve</span>
+      <div class="cabecalho-app__direita">
+        <span class="badge-online">● Online</span>
+        <button id="botao-abrir-menu-rota" class="botao-menu-hamburguer" aria-label="Abrir menu">☰</button>
       </div>
-      <button id="botao-encerrar" class="botao botao-principal">Encerrar entrega</button>
+    </header>
+
+    <div class="conteudo-painel">
+      <div class="cartao-painel">
+        <div class="cartao-painel__topo">
+          <strong>ROTA EM ANDAMENTO</strong>
+          <span class="badge-contador" id="rota-contador">1 de 1 entregas</span>
+        </div>
+        <div class="mapa-placeholder-novo">
+          <span>🗺️ Mapa da rota em breve</span>
+        </div>
+      </div>
+
+      <div class="cartao-painel">
+        <div class="cartao-painel__topo"><strong>PRÓXIMA ENTREGA</strong></div>
+        <p class="rota-endereco-cliente" id="rota-proxima-cliente"></p>
+        <p class="rota-endereco" id="rota-proxima-endereco"></p>
+        <div class="rota-navegacao">
+          <a id="rota-botao-navegar" class="botao botao-principal botao-navegar" target="_blank" rel="noopener">📍 Iniciar navegação</a>
+        </div>
+      </div>
+
+      <div class="cartao-painel">
+        <div class="cartao-painel__topo"><strong>DETALHES DA ROTA ATUAL</strong></div>
+        <div class="grade-detalhes">
+          <div><span class="rotulo-detalhe">Início da rota</span><span id="rota-inicio"></span></div>
+          <div><span class="rotulo-detalhe">Valor da rota</span><span id="rota-valor-total"></span></div>
+        </div>
+      </div>
+
+      <div class="cartao-painel cartao-painel--destaque">
+        <div class="linha-espacada">
+          <div>
+            <span class="rotulo-detalhe">A receber do cliente</span>
+            <div class="valor-grande" id="rota-proxima-total"></div>
+          </div>
+          <div style="text-align:right;">
+            <span class="rotulo-detalhe">Pagamento</span>
+            <div id="rota-proxima-pagamento"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cartao-painel">
+        <div class="cartao-painel__topo"><strong>RESUMO DO DIA</strong></div>
+        <div class="grade-resumo-dia">
+          <div class="resumo-dia-item"><span id="rota-resumo-andamento"></span><small>Em andamento</small></div>
+          <div class="resumo-dia-item"><span id="rota-resumo-realizadas"></span><small>Realizadas</small></div>
+          <div class="resumo-dia-item"><span id="rota-resumo-a-receber"></span><small>A receber</small></div>
+        </div>
+      </div>
+
+      <div id="lista-paradas-restantes"></div>
+
+      <button id="botao-encerrar" class="botao botao-principal">Marcar entrega como concluída</button>
     </div>
   </section>
+
+  <!-- ===================== MENU LATERAL (PAINEL DESLIZANTE) ===================== -->
+  <div id="fundo-menu-lateral" class="fundo-menu-lateral oculto"></div>
+  <aside id="menu-lateral" class="menu-lateral oculto">
+    <div class="menu-lateral__topo">
+      <span class="menu-lateral__logo">🍽️ Palatos</span>
+      <button id="botao-fechar-menu" class="botao-fechar-menu" aria-label="Fechar menu">✕</button>
+    </div>
+
+    <nav class="menu-lateral__nav">
+      <button type="button" class="menu-lateral__item menu-lateral__item--ativo" data-menu-secao="atual">🔄 Rota em andamento</button>
+      <button type="button" class="menu-lateral__item" data-menu-secao="historico">✅ Plantões realizados</button>
+    </nav>
+
+    <div class="menu-lateral__conteudo" id="menu-lateral-conteudo">
+      <p class="ajuda">Carregando...</p>
+    </div>
+  </aside>
 
   <!-- ===================== TELA: FORA DO EXPEDIENTE ===================== -->
   <section id="tela-fora-horario" class="tela oculto">
@@ -123,6 +204,6 @@
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="../js/config.js"></script>
   <script src="../js/utils.js"></script>
-  <script src="entregador.js?v=20260803a"></script>
+  <script src="entregador.js"></script>
 </body>
 </html>
