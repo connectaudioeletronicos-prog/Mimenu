@@ -571,20 +571,60 @@ async function listarEntregaPendente(req, res) {
   }
 }
 
-// Entrega em andamento (ja aceita) desse entregador -- pra tela de
-// "entrega atual" com o botao de encerrar.
-async function entregaAtual(req, res) {
+// Todas as entregas em andamento (ja aceitas, ainda nao entregues) desse
+// entregador -- pra tela de "rota em andamento". Normalmente e so uma (fila
+// automatica so oferece 1 de cada vez), mas o admin pode atribuir mais de
+// um pedido manualmente pro mesmo entregador (ver atribuirEntregadorManual),
+// formando uma rota com varias paradas.
+async function entregasEmAndamento(req, res) {
   try {
     const resultado = await query(
       `SELECT * FROM pedidos
        WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_pedido = 'saiu_entrega'
-       ORDER BY horario_saiu_entrega ASC LIMIT 1`,
+       ORDER BY horario_saiu_entrega ASC`,
       [req.estabelecimentoId, req.funcionarioId]
     );
-    res.json(resultado.rows[0] || null);
+    res.json(resultado.rows);
   } catch (error) {
-    console.error('Erro ao buscar entrega atual:', error);
-    res.status(500).json({ erro: 'Erro ao buscar entrega atual.' });
+    console.error('Erro ao buscar entregas em andamento:', error);
+    res.status(500).json({ erro: 'Erro ao buscar entregas em andamento.' });
+  }
+}
+
+// O admin/gestor atribui manualmente um pedido "pronto" a um entregador
+// especifico -- inclusive um que ja esteja com outra entrega em andamento,
+// formando uma rota com varias paradas pra esse entregador. Diferente da
+// fila automatica (tentarOfertarPedido), essa atribuicao ignora a regra de
+// "so quem esta livre" -- e uma decisao manual do gestor.
+async function atribuirEntregadorManual(req, res) {
+  try {
+    const temPermissao = req.cargo === 'proprietario' || (req.permissoes || []).includes('mudar_status_pedidos');
+    if (!temPermissao) return res.status(403).json({ erro: 'Voce nao tem permissao para atribuir entregador.' });
+
+    const { id } = req.params;
+    const { entregador_id } = req.body;
+    if (!entregador_id) return res.status(400).json({ erro: 'Informe o entregador.' });
+
+    const entregadorRes = await query(
+      `SELECT id, nome FROM funcionarios
+       WHERE id = $1 AND estabelecimento_id = $2 AND cargo = 'entregador' AND ativo = true`,
+      [entregador_id, req.estabelecimentoId]
+    );
+    if (entregadorRes.rows.length === 0) return res.status(404).json({ erro: 'Entregador nao encontrado ou inativo.' });
+
+    const resultado = await query(
+      `UPDATE pedidos SET entregador_id = $1, entregador_nome = $2, status_convite_entrega = 'pendente'
+       WHERE id = $3 AND estabelecimento_id = $4 AND status_pedido = 'pronto'
+       RETURNING *`,
+      [entregadorRes.rows[0].id, entregadorRes.rows[0].nome, id, req.estabelecimentoId]
+    );
+    if (resultado.rows.length === 0) {
+      return res.status(409).json({ erro: 'Esse pedido precisa estar "pronto" e sem entregador pra ser atribuido.' });
+    }
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao atribuir entregador manualmente:', error);
+    res.status(500).json({ erro: 'Erro ao atribuir entregador.' });
   }
 }
 
@@ -682,7 +722,8 @@ module.exports = {
   obterCaixaGeral,
   tentarOfertarPedidosPendentes,
   listarEntregaPendente,
-  entregaAtual,
+  entregasEmAndamento,
+  atribuirEntregadorManual,
   aceitarEntrega,
   recusarEntrega,
   encerrarEntrega
