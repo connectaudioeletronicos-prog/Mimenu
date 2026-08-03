@@ -269,10 +269,36 @@ async function tentarOfertarPedidosPendentes(estabelecimentoId) {
   }
 }
 
+// Posicao do entregador logado na fila de espera (mesma ordem/regras usadas
+// pra oferecer pedidos automaticamente) -- pra tela "Voce esta na fila"
+// mostrar "ha N pessoas na sua frente" / "voce e o proximo".
+async function posicaoNaFila(req, res) {
+  try {
+    const resultado = await query(
+      `SELECT f.id
+       FROM funcionarios f
+       WHERE f.estabelecimento_id = $1 AND f.cargo = 'entregador' AND f.ativo = true AND f.disponivel_entrega = true
+         AND f.ultimo_checkin_data = CURRENT_DATE
+         AND NOT EXISTS (
+           SELECT 1 FROM pedidos p WHERE p.entregador_id = f.id AND p.status_pedido = 'saiu_entrega'
+         )
+       ORDER BY f.ultima_fila_em ASC NULLS FIRST, f.criado_em ASC`,
+      [req.estabelecimentoId]
+    );
+    const ids = resultado.rows.map(r => r.id);
+    const indice = ids.indexOf(req.funcionarioId);
+    res.json({
+      na_fila: indice !== -1,
+      posicao: indice === -1 ? null : indice + 1,
+      total_na_fila: ids.length
+    });
+  } catch (error) {
+    console.error('Erro ao obter posicao na fila:', error);
+    res.status(500).json({ erro: 'Erro ao obter posicao na fila.' });
+  }
+}
 async function atualizarStatusPedido(req, res) {
   try {
-    const { id } = req.params;
-    const { status_pedido } = req.body;
 
     const statusValidos = ['novo', 'preparando', 'pronto', 'saiu_entrega', 'entregue', 'cancelado'];
     if (!statusValidos.includes(status_pedido)) return res.status(400).json({ erro: 'Status invalido.' });
@@ -721,6 +747,7 @@ module.exports = {
   listarPedidosCliente,
   obterCaixaGeral,
   tentarOfertarPedidosPendentes,
+  posicaoNaFila,
   listarEntregaPendente,
   entregasEmAndamento,
   atribuirEntregadorManual,
