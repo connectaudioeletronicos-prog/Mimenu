@@ -35,7 +35,7 @@ router.post('/checkin', funcionarioController.exigirDentroDoHorario, funcionario
 // controller sempre filtra por req.funcionarioId). Fora do horario
 // configurado (sem hora extra liberada pra hoje), essas rotas ficam bloqueadas.
 router.get('/entregas/pendente', funcionarioController.exigirDentroDoHorario, pedidoController.listarEntregaPendente);
-router.get('/entregas/atual', funcionarioController.exigirDentroDoHorario, pedidoController.entregaAtual);
+router.get('/entregas/atual', funcionarioController.exigirDentroDoHorario, pedidoController.entregasEmAndamento);
 router.put('/entregas/:id/aceitar', funcionarioController.exigirDentroDoHorario, pedidoController.aceitarEntrega);
 router.put('/entregas/:id/recusar', funcionarioController.exigirDentroDoHorario, pedidoController.recusarEntrega);
 router.put('/entregas/:id/encerrar', funcionarioController.exigirDentroDoHorario, pedidoController.encerrarEntrega);
@@ -46,6 +46,7 @@ router.put('/entregas/:id/encerrar', funcionarioController.exigirDentroDoHorario
 router.get('/plantao/atual', funcionarioController.exigirDentroDoHorario, funcionarioController.obterPlantaoAtual);
 router.put('/plantao/encerrar', funcionarioController.exigirDentroDoHorario, funcionarioController.encerrarPlantao);
 router.get('/plantao/historico', exigirPermissao('gerenciar_funcionarios'), funcionarioController.listarHistoricoPlantoes);
+router.get('/plantao/meu-historico', funcionarioController.exigirDentroDoHorario, funcionarioController.meuHistoricoPlantoes);
 
 // Funcionarios
 router.get('/', exigirPermissao('gerenciar_funcionarios'), funcionarioController.listar);
