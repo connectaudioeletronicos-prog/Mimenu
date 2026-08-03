@@ -53,8 +53,8 @@
   <section id="tela-aguardando" class="tela tela-painel oculto">
     <header class="cabecalho-app">
       <div>
-        <div class="cabecalho-app__saudacao">Olá, Entregador! 👋</div>
-        <div class="cabecalho-app__sub">Vamos nessa!</div>
+        <div class="cabecalho-app__saudacao" id="saudacao-aguardando">Olá! 👋</div>
+        <div class="cabecalho-app__sub">Vamos à entrega!</div>
       </div>
       <div class="cabecalho-app__direita">
         <span class="badge-online">● Online</span>
@@ -66,6 +66,7 @@
         <div class="spinner"></div>
         <h2>Você está na fila</h2>
         <p class="ajuda">Assim que um pedido ficar pronto e for sua vez, você vai receber a oferta aqui.</p>
+        <p class="ajuda destaque-fila oculto" id="fila-posicao-info"></p>
         <button id="botao-sair-aguardando" class="botao botao-secundario">Encerrar plantão</button>
       </div>
     </div>
@@ -93,8 +94,8 @@
   <section id="tela-rota" class="tela tela-painel oculto">
     <header class="cabecalho-app">
       <div>
-        <div class="cabecalho-app__saudacao">Olá, Entregador! 👋</div>
-        <div class="cabecalho-app__sub">Vamos nessa!</div>
+        <div class="cabecalho-app__saudacao" id="saudacao-rota">Olá! 👋</div>
+        <div class="cabecalho-app__sub">Vamos à entrega!</div>
       </div>
       <div class="cabecalho-app__direita">
         <span class="badge-online">● Online</span>
@@ -125,6 +126,7 @@
       <div class="cartao-painel">
         <div class="cartao-painel__topo"><strong>DETALHES DA ROTA ATUAL</strong></div>
         <div class="grade-detalhes">
+          <div><span class="rotulo-detalhe">Data</span><span id="rota-data"></span></div>
           <div><span class="rotulo-detalhe">Início da rota</span><span id="rota-inicio"></span></div>
           <div><span class="rotulo-detalhe">Valor da rota</span><span id="rota-valor-total"></span></div>
         </div>
@@ -145,10 +147,11 @@
 
       <div class="cartao-painel">
         <div class="cartao-painel__topo"><strong>RESUMO DO DIA</strong></div>
-        <div class="grade-resumo-dia">
+        <div class="grade-resumo-dia grade-resumo-dia--4">
           <div class="resumo-dia-item"><span id="rota-resumo-andamento"></span><small>Em andamento</small></div>
           <div class="resumo-dia-item"><span id="rota-resumo-realizadas"></span><small>Realizadas</small></div>
-          <div class="resumo-dia-item"><span id="rota-resumo-a-receber"></span><small>A receber</small></div>
+          <div class="resumo-dia-item"><span id="rota-resumo-total"></span><small>Seus ganhos hoje</small></div>
+          <div class="resumo-dia-item"><span id="rota-resumo-a-receber"></span><small>A receber (rota atual)</small></div>
         </div>
       </div>
 
