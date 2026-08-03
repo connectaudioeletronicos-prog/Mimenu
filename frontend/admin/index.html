@@ -973,6 +973,24 @@
               </div>
             </div>
 
+            <div class="campo-grupo">
+              <label class="campo-label">Pagamento por entrega (só usado para Entregadores)</label>
+              <div class="campo-linha">
+                <select id="func-forma-pagamento-entrega" class="campo-texto" style="flex:1;">
+                  <option value="entrega">Valor fixo por entrega</option>
+                  <option value="km">Valor por quilômetro rodado</option>
+                </select>
+              </div>
+              <div class="campo-linha">
+                <label class="campo-label" style="flex:1;">Valor por entrega (R$)
+                  <input type="number" id="func-valor-por-entrega" class="campo-texto" step="0.01" min="0" value="0">
+                </label>
+                <label class="campo-label" style="flex:1;">Valor por km (R$)
+                  <input type="number" id="func-valor-por-km" class="campo-texto" step="0.01" min="0" value="0">
+                </label>
+              </div>
+            </div>
+
             <div class="campo-grupo" id="grupo-permissoes-funcionario">
               <label class="campo-label">Permissoes</label>
               <button type="button" class="botao-secundario botao-marcar-todas" data-alvo-permissoes="grupo-permissoes-funcionario" style="margin-bottom:8px;">Marcar todas / Desmarcar todas</button>
@@ -1061,6 +1079,23 @@
           </label>
           <label class="campo-label" style="flex:1;">Saida
             <input type="time" id="edit-func-carga-fim">
+          </label>
+        </div>
+      </label>
+      <label>
+        Pagamento por entrega (só usado para Entregadores)
+        <div class="campo-linha">
+          <select id="edit-func-forma-pagamento-entrega" style="flex:1;">
+            <option value="entrega">Valor fixo por entrega</option>
+            <option value="km">Valor por quilômetro rodado</option>
+          </select>
+        </div>
+        <div class="campo-linha">
+          <label class="campo-label" style="flex:1;">Valor por entrega (R$)
+            <input type="number" id="edit-func-valor-por-entrega" step="0.01" min="0" value="0">
+          </label>
+          <label class="campo-label" style="flex:1;">Valor por km (R$)
+            <input type="number" id="edit-func-valor-por-km" step="0.01" min="0" value="0">
           </label>
         </div>
       </label>
