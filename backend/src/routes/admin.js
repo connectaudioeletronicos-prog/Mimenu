@@ -95,6 +95,7 @@ router.post('/pedidos', exigirPermissao('criar_pedidos'), pedidoController.criar
 // administrador (ou quem tiver a permissao marcada) tem acesso.
 router.get('/caixa-geral', exigirPermissao('ver_caixa_geral'), pedidoController.obterCaixaGeral);
 router.put('/pedidos/:id/status', pedidoController.atualizarStatusPedido);
+router.put('/pedidos/:id/entregador', pedidoController.atribuirEntregadorManual);
 router.put('/pedidos/:id/valores', exigirPermissao('corrigir_valores_concluidos'), pedidoController.corrigirValoresPedido);
 
 // ===================================================================
