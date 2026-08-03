@@ -43,10 +43,6 @@ async function chamarApi(caminho, { method = 'GET', body = null } = {}) {
   if (resposta.status === 403 && dados.fora_do_horario) {
     pararPolling();
     mostrarTela('tela-fora-horario');
-    const diagEl = document.getElementById('fora-horario-diagnostico');
-    if (diagEl && dados.diagnostico) {
-      diagEl.textContent = `[debug temporário]\ncarga_horaria: ${JSON.stringify(dados.diagnostico.carga_horaria)}\nliberado_hora_extra_data: ${dados.diagnostico.liberado_hora_extra_data}\nagora no servidor: ${dados.diagnostico.agora_no_servidor}\nhoje no servidor: ${dados.diagnostico.hoje_no_servidor}`;
-    }
     throw new Error(dados.erro);
   }
   if (!resposta.ok) throw new Error(dados.erro || 'Ocorreu um erro ao processar a solicitacao.');
@@ -339,8 +335,24 @@ function exibirEntregaEmAndamento(pedido) {
 
 document.getElementById('botao-encerrar').addEventListener('click', async () => {
   if (!pedidoAndamentoAtual) return;
+
+  let distanciaKm;
+  const dados = obterDados();
+  if (dados && dados.formaPagamentoEntrega === 'km') {
+    const valorDigitado = prompt('Quantos km você rodou nessa entrega?');
+    if (valorDigitado === null) return; // cancelou
+    distanciaKm = valorDigitado.replace(',', '.').trim();
+    if (!distanciaKm || isNaN(parseFloat(distanciaKm))) {
+      mostrarToast('Informe um valor de km válido.', true);
+      return;
+    }
+  }
+
   try {
-    await chamarApi(`/entregas/${pedidoAndamentoAtual.id}/encerrar`, { method: 'PUT' });
+    await chamarApi(`/entregas/${pedidoAndamentoAtual.id}/encerrar`, {
+      method: 'PUT',
+      body: distanciaKm !== undefined ? { distancia_km: distanciaKm } : {}
+    });
     pedidoAndamentoAtual = null;
     mostrarToast('Entrega encerrada. Você voltou para a fila.');
     iniciarAguardandoPedido();
@@ -349,8 +361,36 @@ document.getElementById('botao-encerrar').addEventListener('click', async () => 
   }
 });
 
-document.getElementById('botao-sair-aguardando').addEventListener('click', fazerLogout);
+document.getElementById('botao-sair-aguardando').addEventListener('click', () => {
+  encerrarPlantaoEMostrarResumo();
+});
 document.getElementById('botao-sair-fora-horario').addEventListener('click', fazerLogout);
+
+// -------------------- Plantao (inicio/fim + resumo) --------------------
+async function encerrarPlantaoEMostrarResumo() {
+  try {
+    const resumo = await chamarApi('/plantao/encerrar', { method: 'PUT' });
+    pararPolling();
+    exibirResumoPlantao(resumo);
+  } catch (erro) {
+    // Se nao tinha plantao aberto (ex: nunca fez checkin), so faz logout normal.
+    fazerLogout();
+  }
+}
+
+function exibirResumoPlantao(resumo) {
+  const dados = obterDados();
+  const porKm = dados && dados.formaPagamentoEntrega === 'km';
+
+  document.getElementById('resumo-total-entregas').textContent = resumo.total_entregas ?? 0;
+  document.getElementById('resumo-total-km').textContent = `${Number(resumo.total_km || 0).toLocaleString('pt-BR')} km`;
+  document.getElementById('resumo-linha-km').classList.toggle('oculto', !porKm);
+  document.getElementById('resumo-valor-total').textContent = formatarMoeda(resumo.valor_total);
+
+  mostrarTela('tela-resumo-plantao');
+}
+
+document.getElementById('botao-sair-resumo-plantao').addEventListener('click', fazerLogout);
 
 function fazerLogout() {
   pararCamera();
