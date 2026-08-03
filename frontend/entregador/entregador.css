@@ -277,6 +277,16 @@ input[type="text"], input[type="password"] {
   gap: 10px;
   text-align: center;
 }
+.grade-resumo-dia--4 { grid-template-columns: repeat(2, 1fr); }
+.grade-resumo-dia--4 .resumo-dia-item { padding: 14px 6px; }
+
+.destaque-fila {
+  background: #eef8f6;
+  color: var(--cor-principal-escura);
+  border-radius: var(--raio-borda);
+  padding: 10px 14px;
+  font-weight: 600;
+}
 .resumo-dia-item {
   background: var(--cor-fundo);
   border-radius: var(--raio-borda);
