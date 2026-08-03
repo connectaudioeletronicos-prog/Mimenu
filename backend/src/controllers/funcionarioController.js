@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { query } = require('../config/database');
 const { validarTelefone, validarCPF } = require('../utils/validadores');
 const { gerarQRCodeBase64 } = require('../utils/qrcode');
+const { agoraNoFuso, dataParaISO } = require('../utils/horario');
 
 // As 9 permissoes possiveis (caixinhas). O cargo NAO define o que o
 // funcionario pode fazer -- serve so para limitar quantos de cada
@@ -486,7 +487,7 @@ async function obterQrcodeDoDia(req, res) {
     );
     let token = atual.rows[0]?.qrcode_entregador_token;
     const dataAtual = atual.rows[0]?.qrcode_entregador_data;
-    const jaEhDeHoje = dataAtual && new Date(dataAtual).toDateString() === new Date().toDateString();
+    const jaEhDeHoje = dataAtual && dataParaISO(dataAtual) === agoraNoFuso().dataISO;
 
     if (!token || !jaEhDeHoje) {
       token = crypto.randomBytes(16).toString('hex');
@@ -523,7 +524,7 @@ async function checkinEntregador(req, res) {
     );
     const tokenValido = est.rows[0]?.qrcode_entregador_token;
     const dataValida = est.rows[0]?.qrcode_entregador_data;
-    const ehDeHoje = dataValida && new Date(dataValida).toDateString() === new Date().toDateString();
+    const ehDeHoje = dataValida && dataParaISO(dataValida) === agoraNoFuso().dataISO;
 
     if (!ehDeHoje || !tokenValido || tokenValido !== token) {
       return res.status(400).json({ erro: 'QR Code invalido ou vencido. Peca o QR do dia atualizado na loja.' });
@@ -567,11 +568,9 @@ function dentroDoHorario(cargaHoraria) {
   if (!cargaHoraria || !Array.isArray(cargaHoraria.dias) || cargaHoraria.dias.length === 0 || !cargaHoraria.inicio || !cargaHoraria.fim) {
     return true;
   }
-  const agora = new Date();
-  const diaSemana = DIAS_SEMANA_VALIDOS[agora.getDay()];
+  const { hora, diaSemana } = agoraNoFuso();
   if (!cargaHoraria.dias.includes(diaSemana)) return false;
-  const horaAtual = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`;
-  return horaAtual >= cargaHoraria.inicio && horaAtual <= cargaHoraria.fim;
+  return hora >= cargaHoraria.inicio && hora <= cargaHoraria.fim;
 }
 
 // Middleware: bloqueia o uso do app fora do horario configurado, a menos
@@ -586,7 +585,7 @@ async function exigirDentroDoHorario(req, res, next) {
     const f = resultado.rows[0];
     if (!f) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
 
-    const liberadoHoje = f.liberado_hora_extra_data && new Date(f.liberado_hora_extra_data).toDateString() === new Date().toDateString();
+    const liberadoHoje = f.liberado_hora_extra_data && dataParaISO(f.liberado_hora_extra_data) === agoraNoFuso().dataISO;
     if (liberadoHoje || dentroDoHorario(f.carga_horaria)) return next();
 
     return res.status(403).json({ erro: 'Fora do horario de expediente. Peca ao seu gestor pra liberar hora extra se precisar acessar agora.', fora_do_horario: true });
@@ -709,6 +708,42 @@ async function encerrarPlantao(req, res) {
   }
 }
 
+// Historico de plantoes do PROPRIO entregador (usado no painel/menu lateral
+// do app dele -- "rotas realizadas" e "valores a receber"). Diferente de
+// listarHistoricoPlantoes (visao do admin), esse so mostra o que e do
+// funcionario logado, sem precisar de permissao de gestor.
+async function meuHistoricoPlantoes(req, res) {
+  try {
+    const plantoes = await query(
+      `SELECT id, inicio, fim, total_entregas, total_km, valor_total
+       FROM plantoes_entregador
+       WHERE funcionario_id = $1 AND fim IS NOT NULL
+       ORDER BY fim DESC
+       LIMIT 60`,
+      [req.funcionarioId]
+    );
+
+    const resumo = await query(
+      `SELECT COUNT(*) AS total_plantoes, COALESCE(SUM(total_entregas), 0) AS total_entregas,
+              COALESCE(SUM(valor_total), 0) AS valor_total
+       FROM plantoes_entregador WHERE funcionario_id = $1 AND fim IS NOT NULL`,
+      [req.funcionarioId]
+    );
+
+    res.json({
+      plantoes: plantoes.rows,
+      resumo: {
+        total_plantoes: parseInt(resumo.rows[0].total_plantoes, 10) || 0,
+        total_entregas: parseInt(resumo.rows[0].total_entregas, 10) || 0,
+        valor_total: Number(resumo.rows[0].valor_total) || 0
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao obter meu historico de plantoes:', error);
+    res.status(500).json({ erro: 'Erro ao obter historico de plantoes.' });
+  }
+}
+
 // Historico de plantoes -- painel admin. Sem funcionario_id, traz de todos
 // os entregadores (ex: fechamento semanal); com funcionario_id, filtra um so.
 async function listarHistoricoPlantoes(req, res) {
@@ -743,6 +778,6 @@ module.exports = {
   loginFuncionario, acessarPorLink, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir,
   listarEquipeOperacional, alternarDisponibilidadeEntregador,
   obterQrcodeDoDia, checkinEntregador, exigirDentroDoHorario, liberarHoraExtra, gerarQrcodeGenerico,
-  obterPlantaoAtual, encerrarPlantao, listarHistoricoPlantoes, calcularResumoPlantao,
+  obterPlantaoAtual, encerrarPlantao, listarHistoricoPlantoes, meuHistoricoPlantoes, calcularResumoPlantao,
   registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS
 };
