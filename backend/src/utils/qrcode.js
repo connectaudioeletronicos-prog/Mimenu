@@ -10,8 +10,8 @@ const QRCode = require('qrcode');
 async function gerarQRCodeBase64(link) {
   return await QRCode.toDataURL(link, {
     width: 600,
-    margin: 3,
-    errorCorrectionLevel: 'L',
+    margin: 4,
+    errorCorrectionLevel: 'H',
     color: { dark: '#000000', light: '#FFFFFF' }
   });
 }
