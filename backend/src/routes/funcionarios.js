@@ -35,6 +35,7 @@ router.post('/checkin', funcionarioController.exigirDentroDoHorario, funcionario
 // controller sempre filtra por req.funcionarioId). Fora do horario
 // configurado (sem hora extra liberada pra hoje), essas rotas ficam bloqueadas.
 router.get('/entregas/pendente', funcionarioController.exigirDentroDoHorario, pedidoController.listarEntregaPendente);
+router.get('/fila/posicao', funcionarioController.exigirDentroDoHorario, pedidoController.posicaoNaFila);
 router.get('/entregas/atual', funcionarioController.exigirDentroDoHorario, pedidoController.entregasEmAndamento);
 router.put('/entregas/:id/aceitar', funcionarioController.exigirDentroDoHorario, pedidoController.aceitarEntrega);
 router.put('/entregas/:id/recusar', funcionarioController.exigirDentroDoHorario, pedidoController.recusarEntrega);
