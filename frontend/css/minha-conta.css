@@ -1,0 +1,293 @@
+/* ===================================================================
+   Minha conta / Meus pedidos - mesma identidade visual do login e
+   cadastro (cores e fonte vem de cliente-auth.css: --auth-verde,
+   --auth-laranja, --auth-fonte). Este arquivo cuida só do layout
+   específico desta página (abas, seções, resumo de pedidos, timeline).
+=================================================================== */
+
+body.conta-pagina {
+  background: var(--auth-fundo-suave);
+  font-family: var(--auth-fonte);
+  color: var(--auth-texto);
+  margin: 0;
+}
+
+.conta-shell {
+  position: relative;
+  overflow: hidden;
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  padding: 20px 20px 100px;
+}
+
+.conta-shell .auth-swoosh {
+  position: absolute;
+  top: -40px;
+  right: -60px;
+  width: 200px;
+  height: 200px;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.conta-topo {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.conta-link-topo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--auth-texto-claro);
+  font-family: var(--auth-fonte);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 4px 0;
+}
+.conta-link-topo--direita { margin-left: auto; }
+.conta-link-topo:hover { color: var(--auth-verde-texto); }
+
+.conta-cabecalho {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  margin: 18px 0 20px;
+}
+.conta-saudacao {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  color: var(--auth-texto);
+}
+.conta-saudacao strong { color: var(--auth-verde-texto); }
+.conta-titulo {
+  margin: 0;
+  font-size: 1.9rem;
+  font-weight: 400;
+  color: var(--auth-texto);
+}
+.conta-titulo strong { font-weight: 800; }
+
+.conta-abas {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.conta-aba {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 10px;
+  border-radius: var(--raio-borda, 12px);
+  border: 1.5px solid var(--auth-borda);
+  background: #fff;
+  color: var(--auth-texto);
+  font-family: var(--auth-fonte);
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+.conta-aba.ativo {
+  background: var(--auth-verde);
+  border-color: var(--auth-verde);
+  color: #fff;
+}
+
+.conta-conteudo { position: relative; z-index: 2; }
+
+.conta-secao {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--auth-verde-texto);
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 26px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--auth-borda);
+}
+.conta-secao:first-child { margin-top: 0; }
+
+.conta-linha-dupla { display: flex; gap: 12px; }
+.conta-linha-dupla .conta-campo { flex: 1; min-width: 0; }
+
+.conta-campo { display: block; margin-bottom: 14px; }
+.conta-campo > span {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--auth-texto);
+  margin-bottom: 6px;
+}
+.conta-campo__caixa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1.5px solid var(--auth-borda);
+  border-radius: var(--raio-borda-pequeno, 8px);
+  padding: 0 12px;
+  height: 46px;
+  background: #fff;
+}
+.conta-campo__caixa svg { flex-shrink: 0; color: var(--auth-verde-texto); }
+.conta-campo__caixa input,
+.conta-campo__caixa select {
+  border: none;
+  outline: none;
+  flex: 1;
+  height: 100%;
+  font-family: var(--auth-fonte);
+  font-size: 0.92rem;
+  color: var(--auth-texto);
+  background: transparent;
+  min-width: 0;
+}
+.conta-campo__caixa input:disabled { color: var(--auth-texto-claro); }
+
+.conta-linha-cep { display: flex; gap: 10px; align-items: flex-end; }
+.conta-linha-cep .conta-campo { flex: 1; margin-bottom: 14px; }
+.conta-botao-cep {
+  height: 46px;
+  padding: 0 16px;
+  border-radius: var(--raio-borda-pequeno, 8px);
+  border: 1.5px solid var(--auth-verde-texto);
+  background: #fff;
+  color: var(--auth-verde-texto);
+  font-family: var(--auth-fonte);
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  margin-bottom: 14px;
+}
+
+.conta-preferencia {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.conta-preferencia__texto { display: flex; flex-direction: column; gap: 2px; }
+.conta-preferencia__texto strong { font-size: 0.9rem; }
+.conta-preferencia__texto span { font-size: 0.78rem; color: var(--auth-texto-claro); }
+
+.conta-toggle { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+.conta-toggle input { opacity: 0; width: 0; height: 0; }
+.conta-toggle__trilho {
+  position: absolute; inset: 0; background: #ccc; border-radius: 999px; transition: background 0.15s;
+}
+.conta-toggle__bola {
+  position: absolute; top: 3px; left: 3px; width: 20px; height: 20px;
+  background: #fff; border-radius: 50%; transition: transform 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.conta-toggle input:checked + .conta-toggle__trilho { background: var(--auth-verde); }
+.conta-toggle input:checked + .conta-toggle__trilho .conta-toggle__bola { transform: translateX(20px); }
+
+.conta-mensagem { font-size: 0.85rem; font-weight: 600; margin: -4px 0 14px; }
+
+.conta-botao-salvar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 50px;
+  border: none;
+  border-radius: var(--raio-borda, 12px);
+  background: var(--auth-verde);
+  color: #fff;
+  font-family: var(--auth-fonte);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.conta-botao-salvar:disabled { opacity: 0.6; cursor: default; }
+
+.conta-sair-linha { text-align: center; margin-top: 24px; position: relative; z-index: 2; }
+.conta-sair-linha button {
+  background: none; border: none; color: var(--auth-erro);
+  font-family: var(--auth-fonte); font-size: 0.85rem; cursor: pointer; text-decoration: underline;
+}
+
+/* ---------- Resumo dos pedidos ---------- */
+.conta-resumo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.conta-resumo__card {
+  border: 1px solid var(--auth-borda);
+  border-radius: var(--raio-borda-pequeno, 8px);
+  padding: 14px 10px;
+  text-align: center;
+  background: #fff;
+}
+.conta-resumo__card svg { color: var(--auth-verde-texto); }
+.conta-resumo__numero { font-size: 1.4rem; font-weight: 800; margin: 4px 0 2px; }
+.conta-resumo__legenda { font-size: 0.75rem; color: var(--auth-texto-claro); }
+.conta-resumo__card--preparo svg,
+.conta-resumo__card--preparo .conta-resumo__numero { color: var(--auth-laranja-escura); }
+.conta-resumo__card--entrega svg,
+.conta-resumo__card--entrega .conta-resumo__numero { color: #2f6fed; }
+
+.conta-historico-titulo { font-weight: 700; font-size: 1rem; margin-bottom: 12px; }
+
+.conta-pedido-card {
+  border: 1px solid var(--auth-borda);
+  border-radius: var(--raio-borda, 12px);
+  padding: 14px;
+  margin-bottom: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+.conta-pedido-card__linha { display: flex; align-items: center; gap: 10px; }
+.conta-pedido-card__icone { font-size: 1.2rem; line-height: 1; }
+.conta-pedido-card__texto { flex: 1; min-width: 0; }
+.conta-pedido-card__codigo { font-weight: 700; font-size: 0.92rem; }
+.conta-pedido-card__data { font-size: 0.78rem; color: var(--auth-texto-claro); }
+.conta-pedido-card__status {
+  font-size: 0.72rem; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+  background: var(--auth-fundo-suave); color: var(--auth-verde-texto); white-space: nowrap;
+}
+.conta-pedido-card__seta { transition: transform 0.15s; color: var(--auth-texto-claro); }
+.conta-pedido-card.selecionado .conta-pedido-card__seta { transform: rotate(180deg); }
+
+.conta-pedido-card__timeline { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--auth-borda); }
+.conta-pedido-card__timeline.oculto { display: none; }
+
+.conta-timeline__passo { display: flex; gap: 10px; padding-bottom: 14px; position: relative; }
+.conta-timeline__passo:not(:last-child)::before {
+  content: ''; position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: var(--auth-borda);
+}
+.conta-timeline__passo.concluido:not(:last-child)::before { background: var(--auth-verde); }
+.conta-timeline__bola {
+  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--auth-fundo-suave); color: var(--auth-texto-claro); font-size: 0.8rem;
+}
+.conta-timeline__passo.concluido .conta-timeline__bola,
+.conta-timeline__passo.ativo .conta-timeline__bola { background: var(--auth-verde); color: #fff; }
+.conta-timeline__titulo { font-size: 0.85rem; font-weight: 600; }
+.conta-timeline__desc { font-size: 0.75rem; color: var(--auth-texto-claro); }
+
+@media (min-width: 640px) {
+  .conta-resumo { grid-template-columns: repeat(4, 1fr); }
+}
