@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const { query } = require('../config/database');
 const { validarTelefone, validarCPF } = require('../utils/validadores');
 const { gerarQRCodeBase64 } = require('../utils/qrcode');
-const { agoraNoFuso, dataParaISO } = require('../utils/horario');
 
 // As 9 permissoes possiveis (caixinhas). O cargo NAO define o que o
 // funcionario pode fazer -- serve so para limitar quantos de cada
@@ -67,7 +66,8 @@ async function loginFuncionario(req, res) {
     const estabelecimentoNome = estRes.rows[0].nome;
 
     const resultado = await query(
-      `SELECT id, nome, email, username, senha_hash, cargo, permissoes, ativo
+      `SELECT id, nome, email, username, senha_hash, cargo, permissoes, ativo,
+              forma_pagamento_entrega, valor_por_entrega, valor_por_km
        FROM funcionarios
        WHERE estabelecimento_id = $1 AND (email = $2 OR username = $2)`,
       [estabelecimentoId, login]
@@ -89,7 +89,10 @@ async function loginFuncionario(req, res) {
       token,
       funcionario: {
         id: funcionario.id, nome: funcionario.nome, cargo: funcionario.cargo, permissoes, slug,
-        estabelecimentoNome
+        estabelecimentoNome,
+        formaPagamentoEntrega: funcionario.forma_pagamento_entrega,
+        valorPorEntrega: funcionario.valor_por_entrega,
+        valorPorKm: funcionario.valor_por_km
       }
     });
   } catch (error) {
@@ -105,7 +108,9 @@ async function acessarPorLink(req, res) {
   try {
     const { token } = req.params;
     const resultado = await query(
-      `SELECT f.id, f.nome, f.cargo, f.permissoes, f.ativo, e.id AS estabelecimento_id, e.slug, e.nome AS estabelecimento_nome
+      `SELECT f.id, f.nome, f.cargo, f.permissoes, f.ativo,
+              f.forma_pagamento_entrega, f.valor_por_entrega, f.valor_por_km,
+              e.id AS estabelecimento_id, e.slug, e.nome AS estabelecimento_nome
        FROM funcionarios f JOIN estabelecimentos e ON e.id = f.estabelecimento_id
        WHERE f.token_acesso = $1`,
       [token]
@@ -119,7 +124,10 @@ async function acessarPorLink(req, res) {
 
     res.json({
       token: tokenSessao,
-      funcionario: { id: f.id, nome: f.nome, cargo: f.cargo, permissoes, slug: f.slug, estabelecimentoNome: f.estabelecimento_nome }
+      funcionario: {
+        id: f.id, nome: f.nome, cargo: f.cargo, permissoes, slug: f.slug, estabelecimentoNome: f.estabelecimento_nome,
+        formaPagamentoEntrega: f.forma_pagamento_entrega, valorPorEntrega: f.valor_por_entrega, valorPorKm: f.valor_por_km
+      }
     });
   } catch (error) {
     console.error('Erro no acesso por link:', error);
@@ -131,7 +139,8 @@ async function acessarPorLink(req, res) {
 async function listar(req, res) {
   try {
     const resultado = await query(
-      `SELECT id, nome, email, username, telefone, celular, data_nascimento, rg, cpf, cargo, permissoes, ativo, ordem, carga_horaria, token_acesso, criado_em
+      `SELECT id, nome, email, username, telefone, celular, data_nascimento, rg, cpf, cargo, permissoes, ativo, ordem, carga_horaria, token_acesso, criado_em,
+              forma_pagamento_entrega, valor_por_entrega, valor_por_km
        FROM funcionarios WHERE estabelecimento_id = $1 ORDER BY ordem ASC, criado_em ASC`,
       [req.estabelecimentoId]
     );
@@ -477,14 +486,13 @@ async function obterQrcodeDoDia(req, res) {
     );
     let token = atual.rows[0]?.qrcode_entregador_token;
     const dataAtual = atual.rows[0]?.qrcode_entregador_data;
-    const hojeBrasil = agoraNoFuso().dataISO;
-    const jaEhDeHoje = dataParaISO(dataAtual) === hojeBrasil;
+    const jaEhDeHoje = dataAtual && new Date(dataAtual).toDateString() === new Date().toDateString();
 
     if (!token || !jaEhDeHoje) {
       token = crypto.randomBytes(16).toString('hex');
       await query(
-        'UPDATE estabelecimentos SET qrcode_entregador_token = $1, qrcode_entregador_data = $2 WHERE id = $3',
-        [token, hojeBrasil, req.estabelecimentoId]
+        'UPDATE estabelecimentos SET qrcode_entregador_token = $1, qrcode_entregador_data = CURRENT_DATE WHERE id = $2',
+        [token, req.estabelecimentoId]
       );
     }
 
@@ -515,15 +523,15 @@ async function checkinEntregador(req, res) {
     );
     const tokenValido = est.rows[0]?.qrcode_entregador_token;
     const dataValida = est.rows[0]?.qrcode_entregador_data;
-    const ehDeHoje = dataParaISO(dataValida) === agoraNoFuso().dataISO;
+    const ehDeHoje = dataValida && new Date(dataValida).toDateString() === new Date().toDateString();
 
     if (!ehDeHoje || !tokenValido || tokenValido !== token) {
       return res.status(400).json({ erro: 'QR Code invalido ou vencido. Peca o QR do dia atualizado na loja.' });
     }
 
     await query(
-      'UPDATE funcionarios SET ultimo_checkin_data = $2, disponivel_entrega = true, ultima_fila_em = COALESCE(ultima_fila_em, NOW()) WHERE id = $1',
-      [req.funcionarioId, agoraNoFuso().dataISO]
+      'UPDATE funcionarios SET ultimo_checkin_data = CURRENT_DATE, disponivel_entrega = true, ultima_fila_em = COALESCE(ultima_fila_em, NOW()) WHERE id = $1',
+      [req.funcionarioId]
     );
 
     // Abre um plantao novo se nao houver nenhum aberto pra esse entregador
@@ -555,30 +563,15 @@ async function checkinEntregador(req, res) {
 
 // true = pode usar o app agora. Sem carga horaria configurada = sem
 // restricao nenhuma (sempre liberado).
-//
-// Sempre calcula em cima do horario de Brasilia (America/Sao_Paulo), nao do
-// fuso do servidor -- antes usava new Date().getHours() direto, que no
-// servidor (Render, em UTC) fica 3h a frente do horario real do Brasil e
-// bloqueava o entregador o tempo todo, mesmo dentro do expediente.
-//
-// Tambem suporta turno que atravessa a meia-noite (ex: 18:00-02:00): quando
-// o "fim" cadastrado e menor que o "inicio", considera que o turno vira o
-// dia -- antes disso travava o acesso pra sempre, porque nenhum horario do
-// dia conseguia ser ">= inicio" e "<= fim" ao mesmo tempo.
 function dentroDoHorario(cargaHoraria) {
   if (!cargaHoraria || !Array.isArray(cargaHoraria.dias) || cargaHoraria.dias.length === 0 || !cargaHoraria.inicio || !cargaHoraria.fim) {
     return true;
   }
-  const { hora: horaAtual, diaSemana } = agoraNoFuso();
+  const agora = new Date();
+  const diaSemana = DIAS_SEMANA_VALIDOS[agora.getDay()];
   if (!cargaHoraria.dias.includes(diaSemana)) return false;
-
-  if (cargaHoraria.inicio <= cargaHoraria.fim) {
-    // Turno normal, dentro do mesmo dia (ex: 08:00-18:00).
-    return horaAtual >= cargaHoraria.inicio && horaAtual <= cargaHoraria.fim;
-  }
-  // Turno noturno, atravessa a meia-noite (ex: 18:00-02:00): esta dentro do
-  // expediente se a hora atual for depois do inicio OU antes do fim.
-  return horaAtual >= cargaHoraria.inicio || horaAtual <= cargaHoraria.fim;
+  const horaAtual = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`;
+  return horaAtual >= cargaHoraria.inicio && horaAtual <= cargaHoraria.fim;
 }
 
 // Middleware: bloqueia o uso do app fora do horario configurado, a menos
@@ -593,20 +586,10 @@ async function exigirDentroDoHorario(req, res, next) {
     const f = resultado.rows[0];
     if (!f) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
 
-    const liberadoHoje = dataParaISO(f.liberado_hora_extra_data) === agoraNoFuso().dataISO;
+    const liberadoHoje = f.liberado_hora_extra_data && new Date(f.liberado_hora_extra_data).toDateString() === new Date().toDateString();
     if (liberadoHoje || dentroDoHorario(f.carga_horaria)) return next();
 
-    // Detalhes de diagnostico -- temporario, so pra achar a causa exata do
-    // bloqueio sem precisar olhar log do Render. Remover depois de resolvido.
-    return res.status(403).json({
-      erro: 'Fora do horario de expediente. Peca ao seu gestor pra liberar hora extra se precisar acessar agora.',
-      fora_do_horario: true,
-      diagnostico: {
-        carga_horaria: f.carga_horaria,
-        liberado_hora_extra_data: f.liberado_hora_extra_data,
-        agora_no_brasil: agoraNoFuso()
-      }
-    });
+    return res.status(403).json({ erro: 'Fora do horario de expediente. Peca ao seu gestor pra liberar hora extra se precisar acessar agora.', fora_do_horario: true });
   } catch (error) {
     console.error('Erro ao verificar horario do funcionario:', error);
     res.status(500).json({ erro: 'Erro ao verificar horario.' });
@@ -618,9 +601,9 @@ async function liberarHoraExtra(req, res) {
   try {
     const { id } = req.params;
     const resultado = await query(
-      `UPDATE funcionarios SET liberado_hora_extra_data = $3
+      `UPDATE funcionarios SET liberado_hora_extra_data = CURRENT_DATE
        WHERE id = $1 AND estabelecimento_id = $2 RETURNING id`,
-      [id, req.estabelecimentoId, agoraNoFuso().dataISO]
+      [id, req.estabelecimentoId]
     );
     if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
     res.json({ mensagem: 'Hora extra liberada para hoje. Reenvie o link/QR de acesso dele se precisar.' });
