@@ -569,8 +569,23 @@ function dentroDoHorario(cargaHoraria) {
     return true;
   }
   const { hora, diaSemana } = agoraNoFuso();
-  if (!cargaHoraria.dias.includes(diaSemana)) return false;
-  return hora >= cargaHoraria.inicio && hora <= cargaHoraria.fim;
+
+  // Turno "normal", termina no mesmo dia (ex: 08:00 as 18:00).
+  if (cargaHoraria.fim >= cargaHoraria.inicio) {
+    return cargaHoraria.dias.includes(diaSemana) && hora >= cargaHoraria.inicio && hora <= cargaHoraria.fim;
+  }
+
+  // Turno atravessa a meia-noite (ex: 18:00 as 05:00): a comparacao simples
+  // "hora >= inicio && hora <= fim" nunca seria verdadeira nesse caso (nao
+  // existe hora ao mesmo tempo >= 18:00 e <= 05:00), entao precisa checar
+  // as duas metades separadas -- ou esta na parte de hoje a noite (depois
+  // do inicio) ou na madrugada de hoje que pertence ao turno que comecou
+  // ONTEM (antes do fim).
+  const indiceHoje = DIAS_SEMANA_VALIDOS.indexOf(diaSemana);
+  const diaAnterior = DIAS_SEMANA_VALIDOS[(indiceHoje + 6) % 7];
+  const comecouHoje = cargaHoraria.dias.includes(diaSemana) && hora >= cargaHoraria.inicio;
+  const continuaDeOntem = cargaHoraria.dias.includes(diaAnterior) && hora <= cargaHoraria.fim;
+  return comecouHoje || continuaDeOntem;
 }
 
 // Middleware: bloqueia o uso do app fora do horario configurado, a menos
