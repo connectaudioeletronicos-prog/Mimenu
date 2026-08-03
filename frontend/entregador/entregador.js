@@ -252,10 +252,35 @@ document.getElementById('botao-confirmar-codigo-manual').addEventListener('click
 
 // -------------------- Fila de espera + oferta de entrega --------------------
 function iniciarAguardandoPedido() {
+  const dados = obterDados();
+  const primeiroNome = (dados?.nome || '').split(' ')[0];
+  const saudacao = primeiroNome ? `Olá, ${primeiroNome}! 👋` : 'Olá! 👋';
+  document.getElementById('saudacao-aguardando').textContent = saudacao;
+  document.getElementById('saudacao-rota').textContent = saudacao;
+
   mostrarTela('tela-aguardando');
   pararPolling();
   intervaloPolling = setInterval(verificarOfertaOuEntregaAtual, INTERVALO_POLL_MS);
   verificarOfertaOuEntregaAtual();
+  atualizarPosicaoNaFila();
+}
+
+async function atualizarPosicaoNaFila() {
+  const infoEl = document.getElementById('fila-posicao-info');
+  try {
+    const dados = await chamarApi('/fila/posicao');
+    if (!dados.na_fila) {
+      infoEl.classList.add('oculto');
+      return;
+    }
+    const pessoasNaFrente = dados.posicao - 1;
+    infoEl.textContent = pessoasNaFrente === 0
+      ? 'Você é o próximo da fila!'
+      : `Há ${pessoasNaFrente} entregador(es) na sua frente. Você está na posição ${dados.posicao} de ${dados.total_na_fila}.`;
+    infoEl.classList.remove('oculto');
+  } catch {
+    infoEl.classList.add('oculto');
+  }
 }
 
 function pararPolling() {
@@ -290,6 +315,7 @@ async function verificarOfertaOuEntregaAtual() {
     if (document.getElementById('tela-aguardando').classList.contains('oculto')) {
       mostrarTela('tela-aguardando');
     }
+    atualizarPosicaoNaFila();
   } catch (erro) {
     // Erro de rede pontual durante o polling nao precisa travar a tela.
     console.warn('Erro ao verificar entregas:', erro.message);
@@ -365,12 +391,16 @@ async function exibirRotaEmAndamento() {
   document.getElementById('rota-proxima-pagamento').textContent = formatarPagamento(proxima.forma_pagamento);
   document.getElementById('rota-botao-navegar').href = enderecoParaLinkMaps(proxima.cliente_endereco);
 
+  document.getElementById('rota-data').textContent = proxima.horario_saiu_entrega
+    ? new Date(proxima.horario_saiu_entrega).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
   document.getElementById('rota-inicio').textContent = formatarHora(proxima.horario_saiu_entrega);
   const valorRota = paradas.reduce((soma, p) => soma + (parseFloat(p.total) || 0), 0);
   document.getElementById('rota-valor-total').textContent = formatarMoeda(valorRota);
 
+  const ganhoHoje = plantaoAtualCache?.valor_total ?? 0;
   document.getElementById('rota-resumo-andamento').textContent = paradas.length;
   document.getElementById('rota-resumo-realizadas').textContent = realizadasHoje;
+  document.getElementById('rota-resumo-total').textContent = formatarMoeda(ganhoHoje);
   document.getElementById('rota-resumo-a-receber').textContent = formatarMoeda(valorRota);
 
   const listaEl = document.getElementById('lista-paradas-restantes');
