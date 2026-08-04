@@ -782,7 +782,6 @@ async function meuHistoricoPlantoes(req, res) {
       resumo: {
         total_plantoes: parseInt(resumo.rows[0].total_plantoes, 10) || 0,
         total_entregas: parseInt(resumo.rows[0].total_entregas, 10) || 0,
-        // valor_total ja inclui comissao + caixinha (ver calcularResumoPlantao)
         valor_total: Number(resumo.rows[0].valor_total) || 0,
         total_gorjetas: Number(resumo.rows[0].total_gorjetas) || 0
       }
@@ -823,10 +822,46 @@ async function listarHistoricoPlantoes(req, res) {
   }
 }
 
+// Confirma que um login+senha pertence a um gerente ou administrador do
+// MESMO estabelecimento de quem esta chamando (o atendente ja autenticado).
+// Usado pelo app do atendente/garcom quando um pagamento precisa ser
+// resolvido/corrigido: em vez de dar a permissao direto pro garcom, ele
+// pede pro gerente/administrador digitar a propria senha ali na hora.
+// Nao gera token novo nem troca a sessao -- so confirma "sim, pode".
+async function verificarSenhaSupervisor(req, res) {
+  try {
+    const { login, senha } = req.body;
+    if (!login || !senha) {
+      return res.status(400).json({ erro: 'Informe login e senha.' });
+    }
+
+    const resultado = await query(
+      `SELECT senha_hash, cargo, nome FROM funcionarios
+       WHERE estabelecimento_id = $1 AND (email = $2 OR username = $2) AND ativo = true`,
+      [req.estabelecimentoId, login]
+    );
+    if (resultado.rows.length === 0) return res.status(401).json({ erro: 'Login ou senha invalidos.' });
+
+    const alvo = resultado.rows[0];
+    if (!['administrador', 'gerente'].includes(alvo.cargo)) {
+      return res.status(403).json({ erro: 'Essa senha nao e de um gerente ou administrador.' });
+    }
+
+    const senhaCorreta = await bcrypt.compare(senha, alvo.senha_hash);
+    if (!senhaCorreta) return res.status(401).json({ erro: 'Login ou senha invalidos.' });
+
+    res.json({ autorizado: true, nome: alvo.nome, cargo: alvo.cargo });
+  } catch (error) {
+    console.error('Erro ao verificar senha de supervisor:', error);
+    res.status(500).json({ erro: 'Erro ao verificar senha.' });
+  }
+}
+
 module.exports = {
   loginFuncionario, acessarPorLink, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir,
   listarEquipeOperacional, alternarDisponibilidadeEntregador,
   obterQrcodeDoDia, checkinEntregador, exigirDentroDoHorario, liberarHoraExtra, gerarQrcodeGenerico,
   obterPlantaoAtual, encerrarPlantao, listarHistoricoPlantoes, meuHistoricoPlantoes, calcularResumoPlantao,
+  verificarSenhaSupervisor,
   registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS
 };
