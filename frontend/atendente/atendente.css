@@ -1,0 +1,337 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --at-verde-escuro: #0f2e1c;
+  --at-verde: #17643a;
+  --at-verde-forte: #1c7a3e;
+  --at-verde-claro: #e7f6ec;
+  --at-laranja: #e8873e;
+  --at-texto: #1f2937;
+  --at-texto-claro: #6b7280;
+  --at-fundo: #f6f7f9;
+  --at-borda: #e5e7eb;
+  --at-erro: #d62828;
+  --at-raio: 12px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--at-fundo);
+  color: var(--at-texto);
+}
+
+.oculto { display: none !important; }
+button { cursor: pointer; font-family: inherit; }
+input, textarea { font-family: inherit; }
+
+/* ===================== TELA LOGIN ===================== */
+.tela { min-height: 100vh; }
+
+#tela-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--at-verde-escuro);
+}
+
+.cartao-login {
+  background: #fff;
+  padding: 28px 24px;
+  border-radius: var(--at-raio);
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+
+.logo-login { font-size: 1.4rem; font-weight: 800; color: var(--at-verde); margin-bottom: 14px; }
+.cartao-login h1 { font-size: 1.2rem; margin-bottom: 6px; }
+.cartao-login .ajuda { color: var(--at-texto-claro); font-size: 0.85rem; margin-bottom: 16px; }
+
+.cartao-login form { display: flex; flex-direction: column; gap: 10px; }
+.cartao-login label { font-size: 0.8rem; font-weight: 600; color: var(--at-texto-claro); margin-top: 4px; }
+.cartao-login input {
+  padding: 11px 12px;
+  border: 1px solid var(--at-borda);
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.botao {
+  padding: 13px 16px;
+  border-radius: 10px;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+  width: 100%;
+}
+.botao-principal { background: var(--at-verde-forte); color: #fff; margin-top: 6px; }
+.botao-principal:active { background: var(--at-verde); }
+.botao-principal:disabled { opacity: 0.5; }
+.botao-secundario { background: #fff; color: var(--at-texto); border: 1px solid var(--at-borda); margin-top: 8px; }
+.botao-perigo { background: #fff; color: var(--at-erro); border: 1px solid var(--at-erro); margin-top: 8px; }
+
+.erro { color: var(--at-erro); font-size: 0.85rem; margin-top: 8px; }
+.ajuda { color: var(--at-texto-claro); font-size: 0.85rem; }
+
+/* ===================== CABECALHO APP ===================== */
+.cabecalho-atendente {
+  background: var(--at-verde-escuro);
+  color: #fff;
+  padding: 16px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#saudacao-atendente { font-weight: 700; font-size: 1rem; }
+.cabecalho-atendente__sub { font-size: 0.8rem; color: #a9d9bb; }
+.botao-menu-hamburguer {
+  background: none; border: none; color: #fff; font-size: 1.4rem;
+}
+
+.busca-atendente { background: var(--at-verde-escuro); padding: 0 18px 16px; }
+#campo-busca-produto {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: none;
+  font-size: 0.95rem;
+}
+
+/* ===================== CORPO (produtos + comanda) ===================== */
+.corpo-atendente {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+@media (min-width: 900px) {
+  .corpo-atendente { flex-direction: row; align-items: flex-start; }
+  .painel-produtos { flex: 1; min-width: 0; }
+  .painel-comanda { width: 360px; flex-shrink: 0; position: sticky; top: 16px; display: flex !important; }
+  #botao-flutuante-comanda { display: none !important; }
+}
+
+.titulo-secao { font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; }
+
+/* ---------- Categorias ---------- */
+.lista-categorias {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.categoria-chip {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  border-radius: var(--at-raio);
+  background: #fff;
+  border: 1px solid var(--at-borda);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--at-texto);
+}
+.categoria-chip__icone { font-size: 1.3rem; }
+.categoria-chip--ativa {
+  background: var(--at-verde-claro);
+  border-color: var(--at-verde-forte);
+  color: var(--at-verde-forte);
+}
+
+/* ---------- Grade de produtos ---------- */
+.grade-produtos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.produto-card {
+  background: #fff;
+  border: 1px solid var(--at-borda);
+  border-radius: var(--at-raio);
+  overflow: hidden;
+  text-align: left;
+}
+.produto-card__imagem {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  background: var(--at-fundo);
+}
+.produto-card__corpo { padding: 10px; }
+.produto-card__nome { font-size: 0.85rem; font-weight: 600; line-height: 1.25; margin-bottom: 4px; }
+.produto-card__preco { color: var(--at-verde-forte); font-weight: 700; font-size: 0.9rem; }
+.produto-card__indisponivel { opacity: 0.45; }
+
+.lista-vazia, .comanda-vazia { color: var(--at-texto-claro); font-size: 0.85rem; padding: 12px 4px; }
+
+/* ===================== PAINEL COMANDA (carrinho) ===================== */
+.painel-comanda {
+  background: #fff;
+  border: 1px solid var(--at-borda);
+  border-radius: var(--at-raio);
+  padding: 16px;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+.painel-comanda--aberto { display: flex; }
+
+.painel-comanda__topo { display: flex; justify-content: space-between; align-items: center; }
+.botao-mesa-cliente {
+  background: var(--at-verde-claro);
+  color: var(--at-verde-forte);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.lista-itens-comanda { display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; }
+
+.item-comanda { display: flex; gap: 10px; align-items: center; }
+.item-comanda__imagem { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: var(--at-fundo); flex-shrink: 0; }
+.item-comanda__info { flex: 1; min-width: 0; }
+.item-comanda__nome { font-size: 0.85rem; font-weight: 600; }
+.item-comanda__preco { font-size: 0.78rem; color: var(--at-verde-forte); font-weight: 700; }
+.item-comanda__excluir { background: none; border: none; color: var(--at-erro); font-size: 1rem; }
+
+.item-comanda__qtd { display: flex; align-items: center; gap: 8px; }
+.item-comanda__qtd button {
+  width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--at-borda);
+  background: var(--at-fundo); font-weight: 700;
+}
+.item-comanda__qtd span { min-width: 16px; text-align: center; font-weight: 700; font-size: 0.85rem; }
+
+.observacao-comanda label { font-size: 0.78rem; font-weight: 600; color: var(--at-texto-claro); }
+#observacao-comanda {
+  width: 100%; margin-top: 4px; padding: 8px 10px; border: 1px solid var(--at-borda);
+  border-radius: 8px; font-size: 0.85rem; resize: vertical;
+}
+
+.resumo-comanda { border-top: 1px solid var(--at-borda); padding-top: 10px; }
+.resumo-comanda__linha { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 3px 0; color: var(--at-texto-claro); }
+.resumo-comanda__total { color: var(--at-texto); font-weight: 800; font-size: 1.05rem; }
+
+/* ---------- Botão flutuante (mobile) ---------- */
+.botao-flutuante-comanda {
+  position: fixed;
+  left: 16px; right: 16px; bottom: 16px;
+  background: var(--at-verde-forte);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  z-index: 20;
+}
+
+/* ===================== MODAIS ===================== */
+.fundo-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 40; }
+.modal {
+  position: fixed;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: var(--at-raio);
+  padding: 22px;
+  width: 90%;
+  max-width: 380px;
+  z-index: 41;
+}
+.modal h2 { font-size: 1.1rem; margin-bottom: 6px; }
+.modal input { width: 100%; padding: 10px 12px; border: 1px solid var(--at-borda); border-radius: 8px; margin-top: 10px; font-size: 0.9rem; }
+.modal label { font-size: 0.8rem; font-weight: 600; color: var(--at-texto-claro); margin-top: 10px; display: block; }
+
+.botoes-linha { display: flex; gap: 10px; margin-top: 16px; }
+.botoes-linha .botao { margin-top: 0; }
+
+.grade-pagamento { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.opcao-pagamento {
+  padding: 16px 10px;
+  border: 2px solid var(--at-borda);
+  border-radius: var(--at-raio);
+  background: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.opcao-pagamento--selecionada { border-color: var(--at-verde-forte); background: var(--at-verde-claro); color: var(--at-verde-forte); }
+
+.aviso-pix {
+  margin-top: 12px;
+  background: #fff7ea;
+  border: 1px solid #f0d9a8;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 0.8rem;
+  color: #8a6300;
+}
+
+/* ===================== MENU LATERAL (drawer que empurra o layout) ===================== */
+/* Por padrao o menu fica encostado fora da tela, a direita, e o conteudo
+   principal ocupa 100%. Ao abrir (.menu-lateral--aberto no <body>), o menu
+   desliza pra dentro e o conteudo principal desloca pra esquerda no mesmo
+   ritmo -- da sensacao de "arrastar" o layout, sem escurecer nada por cima. */
+.conteudo-principal {
+  transition: transform 0.28s ease;
+}
+.menu-lateral {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 300px; max-width: 85vw;
+  background: #fff;
+  z-index: 31;
+  display: flex; flex-direction: column;
+  box-shadow: -8px 0 30px rgba(0,0,0,0.15);
+  transform: translateX(100%);
+  transition: transform 0.28s ease;
+}
+body.menu-lateral--aberto .menu-lateral { transform: translateX(0); }
+body.menu-lateral--aberto .conteudo-principal { transform: translateX(-300px); }
+@media (max-width: 480px) {
+  body.menu-lateral--aberto .conteudo-principal { transform: translateX(-85vw); }
+}
+.menu-lateral__topo {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 18px;
+  background: var(--at-verde-escuro);
+  color: #fff;
+}
+.menu-lateral__logo { font-weight: 800; }
+.botao-fechar-menu { background: none; border: none; color: #fff; font-size: 1.2rem; }
+
+.menu-lateral__identificacao { padding: 16px 18px; border-bottom: 1px solid var(--at-borda); }
+.identificacao-nome { font-weight: 700; }
+.identificacao-cargo { font-size: 0.8rem; color: var(--at-texto-claro); text-transform: capitalize; }
+
+.menu-lateral__nav { display: flex; flex-direction: column; padding: 10px; gap: 4px; }
+.menu-lateral__item {
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 12px 10px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--at-texto-claro);
+}
+.menu-lateral__item--ativa, .menu-lateral__item--ativo { background: var(--at-verde-claro); color: var(--at-verde-forte); }
+
+.menu-lateral__conteudo { flex: 1; overflow-y: auto; padding: 4px 18px; }
+
+.item-venda-resumo { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--at-borda); font-size: 0.85rem; }
+.item-venda-resumo strong { color: var(--at-verde-forte); }
+
+/* ===================== TOAST ===================== */
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  background: var(--at-texto); color: #fff; padding: 12px 18px;
+  border-radius: 10px; font-size: 0.85rem; z-index: 60; max-width: 90%; text-align: center;
+}
+.toast.erro-toast { background: var(--at-erro); }
