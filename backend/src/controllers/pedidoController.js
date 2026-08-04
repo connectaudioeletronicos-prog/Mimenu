@@ -299,6 +299,8 @@ async function posicaoNaFila(req, res) {
 }
 async function atualizarStatusPedido(req, res) {
   try {
+    const { id } = req.params;
+    const { status_pedido } = req.body;
 
     const statusValidos = ['novo', 'preparando', 'pronto', 'saiu_entrega', 'entregue', 'cancelado'];
     if (!statusValidos.includes(status_pedido)) return res.status(400).json({ erro: 'Status invalido.' });
