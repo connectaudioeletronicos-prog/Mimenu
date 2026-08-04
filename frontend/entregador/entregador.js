@@ -513,13 +513,15 @@ function exibirSecaoMenu(secao) {
     const emRota = paradasRotaAtual.length;
     const valorPendente = paradasRotaAtual.reduce((s, p) => s + (parseFloat(p.total) || 0), 0);
     const realizadas = plantaoAtualCache?.total_entregas ?? 0;
-    const valorPlantao = plantaoAtualCache?.valor_total ?? 0;
+    const valorUltimaRota = plantaoAtualCache?.valor_ultima_rota;
+    const gorjetasHoje = plantaoAtualCache?.total_gorjetas ?? 0;
     conteudo.innerHTML = `
       <p class="resumo-geral-titulo">PLANTÃO DE HOJE</p>
       <div class="resumo-geral-linha"><span>Em andamento</span><strong>${emRota}</strong></div>
       <div class="resumo-geral-linha"><span>Entregas realizadas</span><strong>${realizadas}</strong></div>
       <div class="resumo-geral-linha"><span>Valor pendente (em rota)</span><strong>${formatarMoeda(valorPendente)}</strong></div>
-      <div class="resumo-geral-linha"><span>Valor já concluído hoje</span><strong>${formatarMoeda(valorPlantao)}</strong></div>
+      <div class="resumo-geral-linha"><span>Valor da última rota</span><strong>${valorUltimaRota == null ? '-' : formatarMoeda(valorUltimaRota)}</strong></div>
+      <div class="resumo-geral-linha"><span>Caixinha recebida hoje</span><strong>${formatarMoeda(gorjetasHoje)}</strong></div>
     `;
     return;
   }
@@ -531,6 +533,7 @@ function exibirSecaoMenu(secao) {
       <p class="resumo-geral-titulo">RESUMO GERAL</p>
       <div class="resumo-geral-linha"><span>Total de plantões</span><strong>${r.total_plantoes ?? 0}</strong></div>
       <div class="resumo-geral-linha"><span>Entregas realizadas</span><strong>${r.total_entregas ?? 0}</strong></div>
+      <div class="resumo-geral-linha"><span>Total em caixinhas</span><strong>${formatarMoeda(r.total_gorjetas)}</strong></div>
       <div class="resumo-geral-linha"><span>Valor total a receber</span><strong>${formatarMoeda(r.valor_total)}</strong></div>
       <p class="resumo-geral-titulo" style="margin-top:18px;">PLANTÕES REALIZADOS</p>
     `;
@@ -540,7 +543,7 @@ function exibirSecaoMenu(secao) {
       html += dados.plantoes.map(p => `
         <div class="item-plantao-historico">
           <div class="item-plantao-historico__data">${new Date(p.fim).toLocaleDateString('pt-BR')}</div>
-          <div class="item-plantao-historico__linha"><span>${p.total_entregas} entrega(s)</span><span>${formatarMoeda(p.valor_total)}</span></div>
+          <div class="item-plantao-historico__linha"><span>${p.total_entregas} entrega(s) · caixinha ${formatarMoeda(p.total_gorjetas)}</span><span>${formatarMoeda(p.valor_total)}</span></div>
         </div>
       `).join('');
     }
