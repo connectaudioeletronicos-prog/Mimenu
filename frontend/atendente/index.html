@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>App do Atendente - Palatos</title>
+<title>App do Garçom - Palatos</title>
 <link rel="stylesheet" href="atendente.css?v=20260804">
 </head>
 <body>
@@ -12,7 +12,7 @@
   <section id="tela-login" class="tela">
     <div class="cartao-login">
       <div class="logo-login">🍽️ Palatos</div>
-      <h1>Entrar como atendente</h1>
+      <h1>Entrar como garçom</h1>
       <p class="ajuda">Peça o "slug" da loja ao seu gestor, se não souber.</p>
       <form id="form-login">
         <label>Slug da loja</label>
@@ -31,65 +31,68 @@
   </section>
 
   <!-- ===================== TELA: APP (VENDA) ===================== -->
-  <section id="tela-app" class="tela oculto">
-    <header class="cabecalho-atendente">
-      <div class="cabecalho-atendente__saudacao">
-        <div id="saudacao-atendente">Olá, atendente!</div>
-        <div class="cabecalho-atendente__sub">Bem-vindo ao Palatos</div>
-      </div>
-      <button id="botao-abrir-menu" class="botao-menu-hamburguer" aria-label="Abrir menu">☰</button>
-    </header>
-
-    <div class="busca-atendente">
-      <input type="text" id="campo-busca-produto" placeholder="Buscar produto...">
-    </div>
-
-    <div class="corpo-atendente">
-      <!-- ---------- Coluna produtos ---------- -->
-      <div class="painel-produtos">
-        <div class="categorias-linha">
-          <div class="titulo-secao">Categorias</div>
+  <!-- #conteudo-principal empurra pra esquerda quando o menu lateral abre -->
+  <div id="conteudo-principal" class="conteudo-principal">
+    <section id="tela-app" class="tela oculto">
+      <header class="cabecalho-atendente">
+        <div class="cabecalho-atendente__saudacao">
+          <div id="saudacao-atendente">Olá, garçom!</div>
+          <div class="cabecalho-atendente__sub">Bem-vindo ao Palatos</div>
         </div>
-        <div id="lista-categorias" class="lista-categorias"></div>
+        <button id="botao-abrir-menu" class="botao-menu-hamburguer" aria-label="Abrir menu">☰</button>
+      </header>
 
-        <div class="titulo-secao" style="margin-top:14px;">Produtos</div>
-        <div id="grade-produtos" class="grade-produtos"></div>
+      <div class="busca-atendente">
+        <input type="text" id="campo-busca-produto" placeholder="Buscar produto...">
       </div>
 
-      <!-- ---------- Coluna comanda (cart) ---------- -->
-      <aside id="painel-comanda" class="painel-comanda">
-        <div class="painel-comanda__topo">
-          <strong>Pedido</strong>
-          <button id="botao-mesa-cliente" class="botao-mesa-cliente" type="button">
-            <span id="rotulo-mesa-cliente">Mesa / Cliente</span> 👤
-          </button>
+      <div class="corpo-atendente">
+        <!-- ---------- Coluna produtos ---------- -->
+        <div class="painel-produtos">
+          <div class="categorias-linha">
+            <div class="titulo-secao">Categorias</div>
+          </div>
+          <div id="lista-categorias" class="lista-categorias"></div>
+
+          <div class="titulo-secao" style="margin-top:14px;">Produtos</div>
+          <div id="grade-produtos" class="grade-produtos"></div>
         </div>
 
-        <div id="lista-itens-comanda" class="lista-itens-comanda">
-          <p class="comanda-vazia">Nenhum item adicionado ainda.</p>
-        </div>
+        <!-- ---------- Coluna comanda (cart) ---------- -->
+        <aside id="painel-comanda" class="painel-comanda">
+          <div class="painel-comanda__topo">
+            <strong>Pedido</strong>
+            <button id="botao-mesa-cliente" class="botao-mesa-cliente" type="button">
+              <span id="rotulo-mesa-cliente">Mesa / Cliente</span> 👤
+            </button>
+          </div>
 
-        <div class="observacao-comanda">
-          <label>Observação do pedido</label>
-          <textarea id="observacao-comanda" placeholder="Adicione uma observação..." rows="2"></textarea>
-        </div>
+          <div id="lista-itens-comanda" class="lista-itens-comanda">
+            <p class="comanda-vazia">Nenhum item adicionado ainda.</p>
+          </div>
 
-        <div class="resumo-comanda">
-          <div class="resumo-comanda__linha"><span>Subtotal</span><span id="comanda-subtotal">R$ 0,00</span></div>
-          <div class="resumo-comanda__linha resumo-comanda__total"><span>Total</span><span id="comanda-total">R$ 0,00</span></div>
-        </div>
+          <div class="observacao-comanda">
+            <label>Observação do pedido</label>
+            <textarea id="observacao-comanda" placeholder="Adicione uma observação..." rows="2"></textarea>
+          </div>
 
-        <button id="botao-finalizar-pedido" class="botao botao-principal">Finalizar pedido</button>
-        <button id="botao-salvar-comanda" class="botao botao-secundario">💾 Salvar comanda</button>
-        <button id="botao-limpar-comanda" class="botao botao-perigo">🗑️ Limpar pedido</button>
-      </aside>
-    </div>
+          <div class="resumo-comanda">
+            <div class="resumo-comanda__linha"><span>Subtotal</span><span id="comanda-subtotal">R$ 0,00</span></div>
+            <div class="resumo-comanda__linha resumo-comanda__total"><span>Total</span><span id="comanda-total">R$ 0,00</span></div>
+          </div>
 
-    <!-- Botão flutuante (só aparece no celular, com painel-comanda escondido) -->
-    <button id="botao-flutuante-comanda" class="botao-flutuante-comanda oculto">
-      🛒 <span id="flutuante-contagem">0</span> itens · <span id="flutuante-total">R$ 0,00</span>
-    </button>
-  </section>
+          <button id="botao-finalizar-pedido" class="botao botao-principal">Finalizar pedido</button>
+          <button id="botao-salvar-comanda" class="botao botao-secundario">💾 Salvar comanda</button>
+          <button id="botao-limpar-comanda" class="botao botao-perigo">🗑️ Limpar pedido</button>
+        </aside>
+      </div>
+
+      <!-- Botão flutuante (só aparece no celular, com painel-comanda escondido) -->
+      <button id="botao-flutuante-comanda" class="botao-flutuante-comanda oculto">
+        🛒 <span id="flutuante-contagem">0</span> itens · <span id="flutuante-total">R$ 0,00</span>
+      </button>
+    </section>
+  </div>
 
   <!-- ===================== MODAL: MESA / CLIENTE ===================== -->
   <div id="fundo-modal-mesa" class="fundo-modal oculto"></div>
@@ -137,9 +140,8 @@
     </div>
   </div>
 
-  <!-- ===================== MENU LATERAL ===================== -->
-  <div id="fundo-menu-lateral" class="fundo-menu-lateral oculto"></div>
-  <aside id="menu-lateral" class="menu-lateral oculto">
+  <!-- ===================== MENU LATERAL (drawer que empurra o layout) ===================== -->
+  <aside id="menu-lateral" class="menu-lateral">
     <div class="menu-lateral__topo">
       <span class="menu-lateral__logo">🍽️ Palatos</span>
       <button id="botao-fechar-menu" class="botao-fechar-menu" aria-label="Fechar menu">✕</button>
