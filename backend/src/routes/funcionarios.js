@@ -19,6 +19,11 @@ router.get('/acessar/:token', funcionarioController.acessarPorLink);
 
 router.use(autenticar);
 
+// Confirma senha de gerente/administrador do mesmo estabelecimento, sem
+// trocar a sessao atual -- usado pelo app do atendente para liberar a
+// resolucao de um pagamento com problema.
+router.post('/verificar-senha-supervisor', funcionarioController.verificarSenhaSupervisor);
+
 // Gestor libera hora extra pra um funcionario (ignora a carga horaria dele
 // so no dia de hoje) e utilitario de QR Code generico pro painel.
 router.put('/:id/liberar-hora-extra', exigirPermissao('gerenciar_funcionarios'), funcionarioController.liberarHoraExtra);
