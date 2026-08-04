@@ -131,17 +131,6 @@ input[type="text"], input[type="password"] {
   font-size: 15px;
 }
 
-.mapa-placeholder {
-  margin: 16px 0;
-  padding: 30px 10px;
-  background: var(--cor-fundo);
-  border: 1px dashed var(--cor-borda);
-  border-radius: var(--raio-borda);
-  text-align: center;
-  color: var(--cor-texto-claro);
-  font-size: 14px;
-}
-
 .toast {
   position: fixed;
   bottom: 20px;
