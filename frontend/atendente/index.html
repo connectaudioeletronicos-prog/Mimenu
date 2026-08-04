@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>App do Atendente - Palatos</title>
+<link rel="stylesheet" href="atendente.css?v=20260804">
+</head>
+<body>
+
+  <!-- ===================== TELA: LOGIN ===================== -->
+  <section id="tela-login" class="tela">
+    <div class="cartao-login">
+      <div class="logo-login">🍽️ Palatos</div>
+      <h1>Entrar como atendente</h1>
+      <p class="ajuda">Peça o "slug" da loja ao seu gestor, se não souber.</p>
+      <form id="form-login">
+        <label>Slug da loja</label>
+        <input type="text" id="login-slug" required autocomplete="off">
+
+        <label>Login (e-mail ou usuário)</label>
+        <input type="text" id="login-usuario" required autocomplete="username">
+
+        <label>Senha</label>
+        <input type="password" id="login-senha" required autocomplete="current-password">
+
+        <button type="submit" class="botao botao-principal">Entrar</button>
+        <p id="login-erro" class="erro oculto"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===================== TELA: APP (VENDA) ===================== -->
+  <section id="tela-app" class="tela oculto">
+    <header class="cabecalho-atendente">
+      <div class="cabecalho-atendente__saudacao">
+        <div id="saudacao-atendente">Olá, atendente!</div>
+        <div class="cabecalho-atendente__sub">Bem-vindo ao Palatos</div>
+      </div>
+      <button id="botao-abrir-menu" class="botao-menu-hamburguer" aria-label="Abrir menu">☰</button>
+    </header>
+
+    <div class="busca-atendente">
+      <input type="text" id="campo-busca-produto" placeholder="Buscar produto...">
+    </div>
+
+    <div class="corpo-atendente">
+      <!-- ---------- Coluna produtos ---------- -->
+      <div class="painel-produtos">
+        <div class="categorias-linha">
+          <div class="titulo-secao">Categorias</div>
+        </div>
+        <div id="lista-categorias" class="lista-categorias"></div>
+
+        <div class="titulo-secao" style="margin-top:14px;">Produtos</div>
+        <div id="grade-produtos" class="grade-produtos"></div>
+      </div>
+
+      <!-- ---------- Coluna comanda (cart) ---------- -->
+      <aside id="painel-comanda" class="painel-comanda">
+        <div class="painel-comanda__topo">
+          <strong>Pedido</strong>
+          <button id="botao-mesa-cliente" class="botao-mesa-cliente" type="button">
+            <span id="rotulo-mesa-cliente">Mesa / Cliente</span> 👤
+          </button>
+        </div>
+
+        <div id="lista-itens-comanda" class="lista-itens-comanda">
+          <p class="comanda-vazia">Nenhum item adicionado ainda.</p>
+        </div>
+
+        <div class="observacao-comanda">
+          <label>Observação do pedido</label>
+          <textarea id="observacao-comanda" placeholder="Adicione uma observação..." rows="2"></textarea>
+        </div>
+
+        <div class="resumo-comanda">
+          <div class="resumo-comanda__linha"><span>Subtotal</span><span id="comanda-subtotal">R$ 0,00</span></div>
+          <div class="resumo-comanda__linha resumo-comanda__total"><span>Total</span><span id="comanda-total">R$ 0,00</span></div>
+        </div>
+
+        <button id="botao-finalizar-pedido" class="botao botao-principal">Finalizar pedido</button>
+        <button id="botao-salvar-comanda" class="botao botao-secundario">💾 Salvar comanda</button>
+        <button id="botao-limpar-comanda" class="botao botao-perigo">🗑️ Limpar pedido</button>
+      </aside>
+    </div>
+
+    <!-- Botão flutuante (só aparece no celular, com painel-comanda escondido) -->
+    <button id="botao-flutuante-comanda" class="botao-flutuante-comanda oculto">
+      🛒 <span id="flutuante-contagem">0</span> itens · <span id="flutuante-total">R$ 0,00</span>
+    </button>
+  </section>
+
+  <!-- ===================== MODAL: MESA / CLIENTE ===================== -->
+  <div id="fundo-modal-mesa" class="fundo-modal oculto"></div>
+  <div id="modal-mesa" class="modal oculto">
+    <h2>Mesa / Cliente</h2>
+    <p class="ajuda">Identifique essa comanda (ex: "Mesa 5" ou o nome do cliente).</p>
+    <input type="text" id="input-mesa-cliente" placeholder="Ex: Mesa 5">
+    <div class="botoes-linha">
+      <button id="botao-cancelar-mesa" class="botao botao-secundario" type="button">Cancelar</button>
+      <button id="botao-confirmar-mesa" class="botao botao-principal" type="button">Confirmar</button>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: PAGAMENTO ===================== -->
+  <div id="fundo-modal-pagamento" class="fundo-modal oculto"></div>
+  <div id="modal-pagamento" class="modal oculto">
+    <h2>Forma de pagamento</h2>
+    <p class="ajuda">Total a cobrar: <strong id="pagamento-total">R$ 0,00</strong></p>
+    <div class="grade-pagamento">
+      <button type="button" class="opcao-pagamento" data-forma="dinheiro">💵 Dinheiro</button>
+      <button type="button" class="opcao-pagamento" data-forma="cartao_credito">💳 Cartão Crédito</button>
+      <button type="button" class="opcao-pagamento" data-forma="cartao_debito">💳 Cartão Débito</button>
+      <button type="button" class="opcao-pagamento" data-forma="pix">📱 PIX</button>
+    </div>
+    <p id="aviso-pix" class="aviso-pix oculto">📌 QR Code Pix chega numa próxima etapa. Por enquanto, confirme o pagamento manualmente com o cliente.</p>
+    <div class="botoes-linha">
+      <button id="botao-cancelar-pagamento" class="botao botao-secundario" type="button">Cancelar</button>
+      <button id="botao-confirmar-pagamento" class="botao botao-principal" type="button" disabled>Confirmar e enviar</button>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: PROBLEMA NO PAGAMENTO (senha supervisor) ===================== -->
+  <div id="fundo-modal-supervisor" class="fundo-modal oculto"></div>
+  <div id="modal-supervisor" class="modal oculto">
+    <h2>⚠️ Problema no pagamento</h2>
+    <p class="ajuda">Peça pro gerente ou administrador digitar a própria senha pra liberar essa ação.</p>
+    <label>Login do gerente/administrador</label>
+    <input type="text" id="supervisor-login" autocomplete="off">
+    <label>Senha</label>
+    <input type="password" id="supervisor-senha" autocomplete="off">
+    <p id="supervisor-erro" class="erro oculto"></p>
+    <div class="botoes-linha">
+      <button id="botao-cancelar-supervisor" class="botao botao-secundario" type="button">Cancelar</button>
+      <button id="botao-confirmar-supervisor" class="botao botao-principal" type="button">Autorizar</button>
+    </div>
+  </div>
+
+  <!-- ===================== MENU LATERAL ===================== -->
+  <div id="fundo-menu-lateral" class="fundo-menu-lateral oculto"></div>
+  <aside id="menu-lateral" class="menu-lateral oculto">
+    <div class="menu-lateral__topo">
+      <span class="menu-lateral__logo">🍽️ Palatos</span>
+      <button id="botao-fechar-menu" class="botao-fechar-menu" aria-label="Fechar menu">✕</button>
+    </div>
+
+    <div class="menu-lateral__identificacao">
+      <div class="identificacao-nome" id="menu-nome-funcionario">-</div>
+      <div class="identificacao-cargo" id="menu-cargo-funcionario">-</div>
+    </div>
+
+    <nav class="menu-lateral__nav">
+      <button type="button" class="menu-lateral__item menu-lateral__item--ativo" data-menu-secao="comandas">📋 Comandas abertas</button>
+      <button type="button" class="menu-lateral__item" data-menu-secao="vendas">💰 Minhas vendas de hoje</button>
+    </nav>
+
+    <div class="menu-lateral__conteudo" id="menu-lateral-conteudo"></div>
+
+    <button id="botao-sair-menu" class="botao botao-secundario" style="margin:14px;">Sair</button>
+  </aside>
+
+  <div id="toast" class="toast oculto"></div>
+
+  <script src="../js/config.js"></script>
+  <script src="../js/utils.js"></script>
+  <script src="atendente.js?v=20260804"></script>
+</body>
+</html>
