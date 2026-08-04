@@ -294,14 +294,30 @@ let pedidoOfertaAtual = null;
 let paradasRotaAtual = []; // array de pedidos com status 'saiu_entrega' (rota atual, 1 ou mais paradas)
 let plantaoAtualCache = null; // ultimo resumo de /plantao/atual (usado no Resumo do dia e no menu)
 
+// Busca /plantao/atual e atualiza o cache usado no resumo "PLANTAO DE HOJE"
+// (menu lateral) e na tela de rota. Chamada em TODA checagem de estado --
+// nao so quando ha rota em andamento -- pra nao ficar com os totais
+// desatualizados/zerados assim que a ultima entrega do dia e concluida e o
+// entregador volta pra tela de espera (antes, isso so era buscado dentro de
+// exibirRotaEmAndamento(), entao parava de atualizar nesse momento).
+async function atualizarPlantaoAtualCache() {
+  try {
+    plantaoAtualCache = await chamarApi('/plantao/atual');
+  } catch {
+    plantaoAtualCache = null;
+  }
+}
+
 async function verificarOfertaOuEntregaAtual() {
   try {
+    await atualizarPlantaoAtualCache();
+
     // Prioridade 1: entrega(s) ja aceita(s) e em andamento (ex: reabriu o app,
     // ou o admin atribuiu mais de um pedido pra essa rota).
     const emAndamento = await chamarApi('/entregas/atual');
     if (Array.isArray(emAndamento) && emAndamento.length > 0) {
       paradasRotaAtual = emAndamento;
-      await exibirRotaEmAndamento();
+      exibirRotaEmAndamento();
       return;
     }
     // Prioridade 2: oferta pendente aguardando aceite/recusa.
@@ -374,11 +390,6 @@ async function exibirRotaEmAndamento() {
   const proxima = paradas[0];
   const restantes = paradas.slice(1);
 
-  try {
-    plantaoAtualCache = await chamarApi('/plantao/atual');
-  } catch {
-    plantaoAtualCache = null;
-  }
   const realizadasHoje = plantaoAtualCache?.total_entregas ?? 0;
   const totalRota = paradas.length + realizadasHoje;
   const posicaoAtual = realizadasHoje + 1;
