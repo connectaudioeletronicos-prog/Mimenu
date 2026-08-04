@@ -6,49 +6,24 @@
 
 const CHAVE_TOKEN = 'mimenu_entregador_token';
 const CHAVE_DADOS = 'mimenu_entregador_dados';
-// Guarda o codigo do QR do dia que ja funcionou nesse aparelho, pra nao
-// obrigar o entregador a escanear de novo so porque a pagina recarregou
-// (internet cai na rua, troca de modo mobile/desktop, etc.). O codigo do
-// QR vale o dia inteiro pra loja toda (ver backend), entao reenviar o
-// mesmo codigo em outro carregamento da pagina e seguro e idempotente.
-const CHAVE_CHECKIN = 'mimenu_entregador_checkin';
 const INTERVALO_POLL_MS = 5000;
 
 let streamCamera = null;
 let intervaloPolling = null;
 
 // -------------------- Sessao --------------------
-// Usa localStorage (nao sessionStorage): o entregador trabalha na rua,
-// recarrega a pagina por causa de internet ruim, alterna entre modo mobile
-// e desktop no navegador, etc. -- sessionStorage e apagado pelo navegador
-// nessas situacoes e forcava relogar toda hora. localStorage so e limpo
-// quando fazemos limparSessao() (logout explicito).
 function salvarSessao(token, dados) {
-  localStorage.setItem(CHAVE_TOKEN, token);
-  localStorage.setItem(CHAVE_DADOS, JSON.stringify(dados));
+  sessionStorage.setItem(CHAVE_TOKEN, token);
+  sessionStorage.setItem(CHAVE_DADOS, JSON.stringify(dados));
 }
-function obterToken() { return localStorage.getItem(CHAVE_TOKEN); }
+function obterToken() { return sessionStorage.getItem(CHAVE_TOKEN); }
 function obterDados() {
-  const dados = localStorage.getItem(CHAVE_DADOS);
+  const dados = sessionStorage.getItem(CHAVE_DADOS);
   return dados ? JSON.parse(dados) : null;
 }
 function limparSessao() {
-  localStorage.removeItem(CHAVE_TOKEN);
-  localStorage.removeItem(CHAVE_DADOS);
-}
-
-function salvarCheckinFeito(token) {
-  localStorage.setItem(CHAVE_CHECKIN, JSON.stringify({ token, dia: new Date().toDateString() }));
-}
-function obterCheckinValidoHoje() {
-  try {
-    const bruto = localStorage.getItem(CHAVE_CHECKIN);
-    if (!bruto) return null;
-    const info = JSON.parse(bruto);
-    return info && info.dia === new Date().toDateString() ? info.token : null;
-  } catch {
-    return null;
-  }
+  sessionStorage.removeItem(CHAVE_TOKEN);
+  sessionStorage.removeItem(CHAVE_DADOS);
 }
 
 // -------------------- Chamadas de API --------------------
@@ -125,25 +100,6 @@ function formatarPagamento(forma) {
   return nomes[forma] || forma || '-';
 }
 
-function formatarMoeda(valor) {
-  return (Number(valor) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function formatarHora(dataISO) {
-  if (!dataISO) return '-';
-  return new Date(dataISO).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-
-function enderecoParaLinkMaps(endereco) {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco || '')}`;
-}
-
-function escaparHtml(texto) {
-  const div = document.createElement('div');
-  div.textContent = texto ?? '';
-  return div.innerHTML;
-}
-
 // -------------------- Login --------------------
 document.getElementById('form-login').addEventListener('submit', async (evento) => {
   evento.preventDefault();
@@ -193,12 +149,6 @@ async function detectarQRNoFrame(canvas, contexto, video, detectorNativo) {
   return codigo && codigo.data ? codigo.data : null;
 }
 
-async function confirmarCheckin(token) {
-  const resultado = await chamarApi('/checkin', { method: 'POST', body: { token } });
-  salvarCheckinFeito(token);
-  return resultado;
-}
-
 async function iniciarLeituraQR() {
   mostrarTela('tela-checkin');
   const video = document.getElementById('video-qr');
@@ -238,7 +188,7 @@ async function iniciarLeituraQR() {
             pararCamera();
             statusEl.textContent = 'Confirmando checkin...';
             try {
-              const resultado = await confirmarCheckin(tokenLido);
+              const resultado = await chamarApi('/checkin', { method: 'POST', body: { token: tokenLido } });
               mostrarToast(resultado.mensagem || 'Checkin realizado!');
               iniciarAguardandoPedido();
               return;
@@ -290,7 +240,7 @@ document.getElementById('botao-confirmar-codigo-manual').addEventListener('click
   const codigo = document.getElementById('checkin-codigo-manual').value.trim();
   if (!codigo) return;
   try {
-    const resultado = await confirmarCheckin(codigo);
+    const resultado = await chamarApi('/checkin', { method: 'POST', body: { token: codigo } });
     mostrarToast(resultado.mensagem || 'Checkin realizado!');
     iniciarAguardandoPedido();
   } catch (erro) {
@@ -300,27 +250,7 @@ document.getElementById('botao-confirmar-codigo-manual').addEventListener('click
   }
 });
 
-// ===================================================================
-// -------------------- ROTAS E VALORES (reescrito) --------------------
-// Um unico estado, um unico lugar que busca os dados, uma unica funcao
-// por tela. Nada aqui e calculado em dois lugares diferentes.
-//
-// resumoPlantaoAtual = retrato de hoje, vindo do backend (GET /plantao/atual):
-//   total_entregas, total_km, total_gorjetas, valor_comissao, valor_total
-//   (valor_total = comissao + caixinha = o que o entregador GANHA),
-//   valor_ultima_rota, forma_pagamento_entrega, valor_por_entrega, valor_por_km.
-// paradasRotaAtual = pedidos com status 'saiu_entrega' (rota ativa agora).
-//
-// "Total dos pedidos desta rota" (soma de pedido.total) e informativo pro
-// entregador saber quanto cobrar do cliente em pedidos no dinheiro -- NUNCA
-// e exibido como se fosse o ganho dele. O ganho real e sempre
-// resumoPlantaoAtual.valor_total, vindo pronto do backend.
-// ===================================================================
-
-let pedidoOfertaAtual = null;
-let paradasRotaAtual = [];
-let resumoPlantaoAtual = null;
-
+// -------------------- Fila de espera + oferta de entrega --------------------
 function iniciarAguardandoPedido() {
   const dados = obterDados();
   const primeiroNome = (dados?.nome || '').split(' ')[0];
@@ -330,8 +260,9 @@ function iniciarAguardandoPedido() {
 
   mostrarTela('tela-aguardando');
   pararPolling();
-  intervaloPolling = setInterval(atualizarEstadoEntregador, INTERVALO_POLL_MS);
-  atualizarEstadoEntregador();
+  intervaloPolling = setInterval(verificarOfertaOuEntregaAtual, INTERVALO_POLL_MS);
+  verificarOfertaOuEntregaAtual();
+  atualizarPosicaoNaFila();
 }
 
 async function atualizarPosicaoNaFila() {
@@ -359,30 +290,28 @@ function pararPolling() {
   }
 }
 
-// Ponto unico de atualizacao: busca o resumo do plantao de hoje E o estado
-// da rota (em andamento / oferta pendente / esperando) numa unica passada,
-// sempre -- nao so quando ha rota ativa. E por isso que o resumo (menu
-// lateral, "Plantao de hoje") nao fica mais desatualizado/zerado depois
-// que a ultima entrega do dia e concluida.
-async function atualizarEstadoEntregador() {
-  try {
-    resumoPlantaoAtual = await chamarApi('/plantao/atual').catch(() => null);
+let pedidoOfertaAtual = null;
+let paradasRotaAtual = []; // array de pedidos com status 'saiu_entrega' (rota atual, 1 ou mais paradas)
+let plantaoAtualCache = null; // ultimo resumo de /plantao/atual (usado no Resumo do dia e no menu)
 
+async function verificarOfertaOuEntregaAtual() {
+  try {
+    // Prioridade 1: entrega(s) ja aceita(s) e em andamento (ex: reabriu o app,
+    // ou o admin atribuiu mais de um pedido pra essa rota).
     const emAndamento = await chamarApi('/entregas/atual');
     if (Array.isArray(emAndamento) && emAndamento.length > 0) {
       paradasRotaAtual = emAndamento;
-      exibirRotaEmAndamento();
+      await exibirRotaEmAndamento();
       return;
     }
-
-    paradasRotaAtual = [];
+    // Prioridade 2: oferta pendente aguardando aceite/recusa.
     const oferta = await chamarApi('/entregas/pendente');
     if (oferta) {
       pedidoOfertaAtual = oferta;
       exibirOfertaDeEntrega(oferta);
       return;
     }
-
+    // Nenhuma das duas: continua esperando na fila.
     if (document.getElementById('tela-aguardando').classList.contains('oculto')) {
       mostrarTela('tela-aguardando');
     }
@@ -407,10 +336,10 @@ document.getElementById('botao-aceitar').addEventListener('click', async () => {
   try {
     await chamarApi(`/entregas/${pedidoOfertaAtual.id}/aceitar`, { method: 'PUT' });
     pedidoOfertaAtual = null;
-    atualizarEstadoEntregador();
+    verificarOfertaOuEntregaAtual();
   } catch (erro) {
     mostrarToast(erro.message, true);
-    atualizarEstadoEntregador();
+    verificarOfertaOuEntregaAtual();
   }
 });
 
@@ -423,18 +352,34 @@ document.getElementById('botao-recusar').addEventListener('click', async () => {
     iniciarAguardandoPedido();
   } catch (erro) {
     mostrarToast(erro.message, true);
-    atualizarEstadoEntregador();
+    verificarOfertaOuEntregaAtual();
   }
 });
 
-// Tela de rota em andamento: proxima parada em destaque + demais paradas
-// (se o admin atribuiu mais de um pedido pra essa rota) + resumo do dia.
-function exibirRotaEmAndamento() {
+function enderecoParaLinkMaps(endereco) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco || '')}`;
+}
+
+function formatarHora(dataISO) {
+  if (!dataISO) return '-';
+  return new Date(dataISO).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Renderiza a tela de "rota em andamento": a proxima parada em destaque
+// (primeira da fila, por ordem de saida) + as demais paradas restantes
+// (caso o admin tenha atribuido mais de um pedido pra essa rota) + resumo
+// do dia (busca /plantao/atual em paralelo pra pegar entregas ja concluidas).
+async function exibirRotaEmAndamento() {
   const paradas = paradasRotaAtual;
   const proxima = paradas[0];
   const restantes = paradas.slice(1);
 
-  const realizadasHoje = resumoPlantaoAtual?.total_entregas ?? 0;
+  try {
+    plantaoAtualCache = await chamarApi('/plantao/atual');
+  } catch {
+    plantaoAtualCache = null;
+  }
+  const realizadasHoje = plantaoAtualCache?.total_entregas ?? 0;
   const totalRota = paradas.length + realizadasHoje;
   const posicaoAtual = realizadasHoje + 1;
 
@@ -449,19 +394,14 @@ function exibirRotaEmAndamento() {
   document.getElementById('rota-data').textContent = proxima.horario_saiu_entrega
     ? new Date(proxima.horario_saiu_entrega).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
   document.getElementById('rota-inicio').textContent = formatarHora(proxima.horario_saiu_entrega);
+  const valorRota = paradas.reduce((soma, p) => soma + (parseFloat(p.total) || 0), 0);
+  document.getElementById('rota-valor-total').textContent = formatarMoeda(valorRota);
 
-  // Total dos PEDIDOS desta rota (o que os clientes pagam) -- so pra saber
-  // quanto cobrar em caso de dinheiro. Nao e ganho do entregador.
-  const totalPedidosRota = paradas.reduce((soma, p) => soma + (parseFloat(p.total) || 0), 0);
-  document.getElementById('rota-valor-total').textContent = formatarMoeda(totalPedidosRota);
-
-  // Ganho real de hoje (comissao + caixinha), vindo pronto do backend.
-  const ganhoHoje = resumoPlantaoAtual?.valor_total ?? 0;
-  const caixinhaHoje = resumoPlantaoAtual?.total_gorjetas ?? 0;
+  const ganhoHoje = plantaoAtualCache?.valor_total ?? 0;
   document.getElementById('rota-resumo-andamento').textContent = paradas.length;
   document.getElementById('rota-resumo-realizadas').textContent = realizadasHoje;
   document.getElementById('rota-resumo-total').textContent = formatarMoeda(ganhoHoje);
-  document.getElementById('rota-resumo-caixinha').textContent = formatarMoeda(caixinhaHoje);
+  document.getElementById('rota-resumo-a-receber').textContent = formatarMoeda(valorRota);
 
   const listaEl = document.getElementById('lista-paradas-restantes');
   if (restantes.length === 0) {
@@ -477,6 +417,12 @@ function exibirRotaEmAndamento() {
   }
 
   mostrarTela('tela-rota');
+}
+
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto ?? '';
+  return div.innerHTML;
 }
 
 document.getElementById('botao-encerrar').addEventListener('click', async () => {
@@ -501,7 +447,7 @@ document.getElementById('botao-encerrar').addEventListener('click', async () => 
       body: distanciaKm !== undefined ? { distancia_km: distanciaKm } : {}
     });
     mostrarToast('Entrega concluída!');
-    atualizarEstadoEntregador();
+    verificarOfertaOuEntregaAtual();
   } catch (erro) {
     mostrarToast(erro.message, true);
   }
@@ -512,7 +458,7 @@ document.getElementById('botao-sair-aguardando').addEventListener('click', () =>
 });
 document.getElementById('botao-sair-fora-horario').addEventListener('click', fazerLogout);
 
-// -------------------- Plantao (fim + resumo de fechamento) --------------------
+// -------------------- Plantao (inicio/fim + resumo) --------------------
 async function encerrarPlantaoEMostrarResumo() {
   try {
     const resumo = await chamarApi('/plantao/encerrar', { method: 'PUT' });
@@ -565,15 +511,15 @@ function exibirSecaoMenu(secao) {
   const conteudo = document.getElementById('menu-lateral-conteudo');
   if (secao === 'atual') {
     const emRota = paradasRotaAtual.length;
-    const totalPedidosRota = paradasRotaAtual.reduce((s, p) => s + (parseFloat(p.total) || 0), 0);
-    const realizadas = resumoPlantaoAtual?.total_entregas ?? 0;
-    const valorUltimaRota = resumoPlantaoAtual?.valor_ultima_rota;
-    const gorjetasHoje = resumoPlantaoAtual?.total_gorjetas ?? 0;
+    const valorPendente = paradasRotaAtual.reduce((s, p) => s + (parseFloat(p.total) || 0), 0);
+    const realizadas = plantaoAtualCache?.total_entregas ?? 0;
+    const valorUltimaRota = plantaoAtualCache?.valor_ultima_rota;
+    const gorjetasHoje = plantaoAtualCache?.total_gorjetas ?? 0;
     conteudo.innerHTML = `
       <p class="resumo-geral-titulo">PLANTÃO DE HOJE</p>
       <div class="resumo-geral-linha"><span>Em andamento</span><strong>${emRota}</strong></div>
       <div class="resumo-geral-linha"><span>Entregas realizadas</span><strong>${realizadas}</strong></div>
-      <div class="resumo-geral-linha"><span>Total dos pedidos (rota atual)</span><strong>${formatarMoeda(totalPedidosRota)}</strong></div>
+      <div class="resumo-geral-linha"><span>Valor pendente (em rota)</span><strong>${formatarMoeda(valorPendente)}</strong></div>
       <div class="resumo-geral-linha"><span>Valor da última rota</span><strong>${valorUltimaRota == null ? '-' : formatarMoeda(valorUltimaRota)}</strong></div>
       <div class="resumo-geral-linha"><span>Caixinha recebida hoje</span><strong>${formatarMoeda(gorjetasHoje)}</strong></div>
     `;
@@ -615,23 +561,10 @@ function fazerLogout() {
 }
 
 // -------------------- Inicializacao --------------------
-// Se ja tem um checkin valido de hoje salvo nesse aparelho, reenvia o
-// mesmo codigo em segundo plano (sem camera, sem tela de QR) e vai direto
-// pra fila/rota. So mostra a tela de leitura de QR quando realmente e
-// necessario: primeiro acesso do dia, ou se o codigo salvo nao for mais
-// aceito pelo backend (ex: loja gerou um QR novo).
-async function iniciarAppLogado() {
-  const codigoSalvo = obterCheckinValidoHoje();
-  if (codigoSalvo) {
-    try {
-      await confirmarCheckin(codigoSalvo);
-      iniciarAguardandoPedido();
-      return;
-    } catch (erro) {
-      if (erro.foraDoHorario) return; // ja mostrou tela-fora-horario
-      // codigo salvo nao serve mais -- segue pro fluxo normal de leitura do QR
-    }
-  }
+function iniciarAppLogado() {
+  // Sempre passa pelo checkin do dia ao entrar/recarregar a pagina; o
+  // proprio checkin de hoje ja feito nao tem problema em repetir (o
+  // backend so atualiza a data, e idempotente).
   iniciarLeituraQR();
 }
 
