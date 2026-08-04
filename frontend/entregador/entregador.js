@@ -12,18 +12,23 @@ let streamCamera = null;
 let intervaloPolling = null;
 
 // -------------------- Sessao --------------------
+// Usa localStorage (nao sessionStorage): o entregador trabalha na rua,
+// recarrega a pagina por causa de internet ruim, alterna entre modo mobile
+// e desktop no navegador, etc. -- sessionStorage e apagado pelo navegador
+// nessas situacoes (reinicio de aba/processo) e forcava relogar toda hora.
+// localStorage so e limpo quando fazemos limparSessao() (logout explicito).
 function salvarSessao(token, dados) {
-  sessionStorage.setItem(CHAVE_TOKEN, token);
-  sessionStorage.setItem(CHAVE_DADOS, JSON.stringify(dados));
+  localStorage.setItem(CHAVE_TOKEN, token);
+  localStorage.setItem(CHAVE_DADOS, JSON.stringify(dados));
 }
-function obterToken() { return sessionStorage.getItem(CHAVE_TOKEN); }
+function obterToken() { return localStorage.getItem(CHAVE_TOKEN); }
 function obterDados() {
-  const dados = sessionStorage.getItem(CHAVE_DADOS);
+  const dados = localStorage.getItem(CHAVE_DADOS);
   return dados ? JSON.parse(dados) : null;
 }
 function limparSessao() {
-  sessionStorage.removeItem(CHAVE_TOKEN);
-  sessionStorage.removeItem(CHAVE_DADOS);
+  localStorage.removeItem(CHAVE_TOKEN);
+  localStorage.removeItem(CHAVE_DADOS);
 }
 
 // -------------------- Chamadas de API --------------------
