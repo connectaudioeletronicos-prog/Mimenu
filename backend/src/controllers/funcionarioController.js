@@ -588,10 +588,19 @@ function dentroDoHorario(cargaHoraria) {
   return comecouHoje || continuaDeOntem;
 }
 
+// Cargos para os quais a checagem de carga horaria / hora extra fica
+// DESATIVADA por enquanto (o app libera acesso o tempo todo, mesmo com
+// carga_horaria cadastrada ou sem hora extra liberada). O restante do
+// mecanismo (dentroDoHorario, liberarHoraExtra, coluna liberado_hora_extra_data
+// etc.) continua intacto para ser reativado ou estendido a outros cargos
+// futuramente -- so precisa remover o cargo desta lista.
+const CARGOS_SEM_CHECAGEM_DE_HORARIO = ['entregador'];
+
 // Middleware: bloqueia o uso do app fora do horario configurado, a menos
 // que o gestor tenha liberado hora extra pra hoje. So se aplica aos apps
 // proprios de funcionario (entregador etc.), nunca ao painel administrativo.
 async function exigirDentroDoHorario(req, res, next) {
+  if (CARGOS_SEM_CHECAGEM_DE_HORARIO.includes(req.cargo)) return next();
   try {
     const resultado = await query(
       'SELECT carga_horaria, liberado_hora_extra_data FROM funcionarios WHERE id = $1',
