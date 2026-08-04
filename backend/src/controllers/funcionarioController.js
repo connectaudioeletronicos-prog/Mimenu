@@ -676,21 +676,44 @@ async function calcularResumoPlantao(plantaoId, funcionarioId) {
   const f = funcionario.rows[0] || {};
 
   const entregas = await query(
-    `SELECT COUNT(*) AS total_entregas, COALESCE(SUM(distancia_km), 0) AS total_km
+    `SELECT COUNT(*) AS total_entregas, COALESCE(SUM(distancia_km), 0) AS total_km,
+            COALESCE(SUM(gorjeta), 0) AS total_gorjetas
      FROM pedidos WHERE plantao_id = $1 AND status_pedido = 'entregue'`,
     [plantaoId]
   );
   const totalEntregas = parseInt(entregas.rows[0].total_entregas, 10) || 0;
   const totalKm = Number(entregas.rows[0].total_km) || 0;
+  const totalGorjetas = Number(entregas.rows[0].total_gorjetas) || 0;
 
-  const valorTotal = f.forma_pagamento_entrega === 'km'
+  const valorComissao = f.forma_pagamento_entrega === 'km'
     ? totalKm * (Number(f.valor_por_km) || 0)
     : totalEntregas * (Number(f.valor_por_entrega) || 0);
+
+  // Valor so da ULTIMA entrega concluida (comissao dela + a caixinha dela),
+  // separado do total acumulado do plantao -- usado no card "valor da
+  // ultima rota" do app.
+  const ultima = await query(
+    `SELECT gorjeta, distancia_km FROM pedidos
+     WHERE plantao_id = $1 AND status_pedido = 'entregue'
+     ORDER BY horario_entregue DESC LIMIT 1`,
+    [plantaoId]
+  );
+  let valorUltimaRota = null;
+  if (ultima.rows.length > 0) {
+    const u = ultima.rows[0];
+    const comissaoUltima = f.forma_pagamento_entrega === 'km'
+      ? (Number(u.distancia_km) || 0) * (Number(f.valor_por_km) || 0)
+      : (Number(f.valor_por_entrega) || 0);
+    valorUltimaRota = comissaoUltima + (Number(u.gorjeta) || 0);
+  }
 
   return {
     total_entregas: totalEntregas,
     total_km: totalKm,
-    valor_total: valorTotal,
+    total_gorjetas: totalGorjetas,
+    valor_comissao: valorComissao,
+    valor_total: valorComissao + totalGorjetas, // o que o entregador recebe no total: comissao + caixinha
+    valor_ultima_rota: valorUltimaRota,
     forma_pagamento_entrega: f.forma_pagamento_entrega,
     valor_por_entrega: f.valor_por_entrega,
     valor_por_km: f.valor_por_km
@@ -711,9 +734,9 @@ async function encerrarPlantao(req, res) {
     const resumo = await calcularResumoPlantao(plantaoId, req.funcionarioId);
 
     const fechado = await query(
-      `UPDATE plantoes_entregador SET fim = NOW(), total_entregas = $1, total_km = $2, valor_total = $3
-       WHERE id = $4 RETURNING *`,
-      [resumo.total_entregas, resumo.total_km, resumo.valor_total, plantaoId]
+      `UPDATE plantoes_entregador SET fim = NOW(), total_entregas = $1, total_km = $2, valor_total = $3, total_gorjetas = $4
+       WHERE id = $5 RETURNING *`,
+      [resumo.total_entregas, resumo.total_km, resumo.valor_total, resumo.total_gorjetas, plantaoId]
     );
 
     res.json(fechado.rows[0]);
@@ -730,7 +753,7 @@ async function encerrarPlantao(req, res) {
 async function meuHistoricoPlantoes(req, res) {
   try {
     const plantoes = await query(
-      `SELECT id, inicio, fim, total_entregas, total_km, valor_total
+      `SELECT id, inicio, fim, total_entregas, total_km, valor_total, total_gorjetas
        FROM plantoes_entregador
        WHERE funcionario_id = $1 AND fim IS NOT NULL
        ORDER BY fim DESC
@@ -740,7 +763,7 @@ async function meuHistoricoPlantoes(req, res) {
 
     const resumo = await query(
       `SELECT COUNT(*) AS total_plantoes, COALESCE(SUM(total_entregas), 0) AS total_entregas,
-              COALESCE(SUM(valor_total), 0) AS valor_total
+              COALESCE(SUM(valor_total), 0) AS valor_total, COALESCE(SUM(total_gorjetas), 0) AS total_gorjetas
        FROM plantoes_entregador WHERE funcionario_id = $1 AND fim IS NOT NULL`,
       [req.funcionarioId]
     );
@@ -750,7 +773,9 @@ async function meuHistoricoPlantoes(req, res) {
       resumo: {
         total_plantoes: parseInt(resumo.rows[0].total_plantoes, 10) || 0,
         total_entregas: parseInt(resumo.rows[0].total_entregas, 10) || 0,
-        valor_total: Number(resumo.rows[0].valor_total) || 0
+        // valor_total ja inclui comissao + caixinha (ver calcularResumoPlantao)
+        valor_total: Number(resumo.rows[0].valor_total) || 0,
+        total_gorjetas: Number(resumo.rows[0].total_gorjetas) || 0
       }
     });
   } catch (error) {
