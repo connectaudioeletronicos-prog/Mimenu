@@ -3,6 +3,32 @@ const { uploadImagem } = require('../utils/storage');
 const { validarFormatoCep, validarCepViaCep } = require('../utils/geocoding');
 const { validarTelefone } = require('../utils/validadores');
 const { baixarEstoquePorVenda } = require('../utils/estoque');
+const pagamentos = require('../utils/pagamentos');
+
+// Monta a cobranca Pix pra um pedido ja inserido (status 'pendente') e
+// grava o QR Code nele. Usado tanto pelo pedido publico (cliente) quanto
+// pelo pedido manual (app do garcom / balcao). Se der erro, o pedido
+// continua existindo como 'pendente' -- so nao vai ter QR pra mostrar,
+// entao devolve o erro pra quem chamou decidir o que fazer (normalmente
+// avisar o cliente/garcom que precisa tentar de novo ou usar outra forma
+// de pagamento).
+async function gerarCobrancaPixParaPedido(estabelecimento, pedido, emailPagador) {
+  const notificationUrl = `${process.env.BACKEND_URL}/api/webhooks/mercadopago?estabelecimento_id=${estabelecimento.id}`;
+  const cobranca = await pagamentos.criarCobrancaPix(estabelecimento, {
+    valor: parseFloat(pedido.total),
+    descricao: `Pedido Palatos #${pedido.id.slice(0, 8)}`,
+    referenciaExterna: pedido.id,
+    emailPagador: emailPagador || `pedido-${pedido.id.slice(0, 8)}@palatos.com.br`,
+    notificationUrl
+  });
+
+  const atualizado = await query(
+    `UPDATE pedidos SET mp_payment_id = $1, pix_qr_code = $2, pix_qr_code_base64 = $3, pix_expira_em = $4
+     WHERE id = $5 RETURNING *`,
+    [cobranca.idPagamento, cobranca.qrCode, cobranca.qrCodeBase64, cobranca.expiraEm, pedido.id]
+  );
+  return atualizado.rows[0];
+}
 
 async function criarPedido(req, res) {
   try {
@@ -45,7 +71,7 @@ async function criarPedido(req, res) {
       }
     }
 
-    const estRes = await query('SELECT id, ativo, mp_access_token, tempo_preparo_min FROM estabelecimentos WHERE slug = $1', [slug]);
+    const estRes = await query('SELECT id, ativo, mp_access_token, provedor_pagamento, tempo_preparo_min FROM estabelecimentos WHERE slug = $1', [slug]);
     if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
     if (!estRes.rows[0].ativo) return res.status(403).json({ erro: 'Estabelecimento indisponivel.' });
     const estabelecimentoId = estRes.rows[0].id;
@@ -101,9 +127,27 @@ async function criarPedido(req, res) {
       console.warn('Aviso: nao foi possivel salvar cliente automaticamente:', e.message);
     }
 
+    // Se for Pix, gera a cobranca de verdade (QR Code) agora. Se der
+    // qualquer erro (chave nao configurada, Mercado Pago fora do ar etc.),
+    // o pedido continua criado como 'pendente', so nao vai ter QR --
+    // devolve o aviso pro cliente tentar outra forma de pagamento.
+    let pedidoFinal = pedido;
+    let pagamento = null;
+    let avisoPagamento = null;
+    if (forma_pagamento === 'pix') {
+      try {
+        pedidoFinal = await gerarCobrancaPixParaPedido(estRes.rows[0], pedido, null);
+        pagamento = { qr_code: pedidoFinal.pix_qr_code, qr_code_base64: pedidoFinal.pix_qr_code_base64, expira_em: pedidoFinal.pix_expira_em };
+      } catch (erroPix) {
+        console.error('Erro ao gerar cobranca Pix:', erroPix.message);
+        avisoPagamento = 'Nao foi possivel gerar o QR Code Pix agora. Tente outra forma de pagamento ou fale com a loja.';
+      }
+    }
+
     res.status(201).json({
-      pedido,
-      pagamento: null,
+      pedido: pedidoFinal,
+      pagamento,
+      aviso_pagamento: avisoPagamento,
       tempo_preparo_min: estRes.rows[0].tempo_preparo_min || 30
     });
   } catch (error) {
@@ -130,7 +174,47 @@ async function consultarStatusPedido(req, res) {
 }
 
 async function webhookMercadoPago(req, res) {
-  res.sendStatus(200);
+  // Responde 200 sempre e rapido -- o Mercado Pago reenvia (varias vezes)
+  // se nao receber 200, entao qualquer erro interno e so logado, nunca
+  // devolvido como erro pra ele.
+  try {
+    const estabelecimentoId = req.query.estabelecimento_id;
+    const idPagamento = req.body?.data?.id || req.query['data.id'];
+    const tipo = req.body?.type || req.query.type;
+
+    if (!estabelecimentoId || !idPagamento || tipo !== 'payment') {
+      return res.sendStatus(200);
+    }
+
+    const estRes = await query('SELECT id, mp_access_token, provedor_pagamento FROM estabelecimentos WHERE id = $1', [estabelecimentoId]);
+    if (estRes.rows.length === 0 || !estRes.rows[0].mp_access_token) return res.sendStatus(200);
+
+    // Nunca confia no corpo do webhook por si so -- confirma direto na API
+    // do Mercado Pago antes de marcar qualquer coisa como paga.
+    const confirmado = await pagamentos.consultarPagamento(estRes.rows[0], idPagamento);
+    if (!confirmado.referenciaExterna) return res.sendStatus(200);
+
+    const pedidoId = confirmado.referenciaExterna;
+    if (confirmado.status === 'pago') {
+      await query(
+        `UPDATE pedidos SET status_pagamento = 'pago',
+                             status_pedido = CASE WHEN status_pedido = 'novo' THEN 'preparando' ELSE status_pedido END
+         WHERE id = $1 AND estabelecimento_id = $2 AND status_pagamento <> 'pago'`,
+        [pedidoId, estabelecimentoId]
+      );
+    } else if (confirmado.status === 'recusado') {
+      await query(
+        `UPDATE pedidos SET status_pagamento = 'recusado' WHERE id = $1 AND estabelecimento_id = $2 AND status_pagamento = 'pendente'`,
+        [pedidoId, estabelecimentoId]
+      );
+    }
+    // status 'pendente' (ainda aguardando): nao faz nada, so espera o proximo aviso.
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('Erro ao processar webhook do Mercado Pago:', error.message);
+    res.sendStatus(200);
+  }
 }
 
 async function listarPedidosAdmin(req, res) {
@@ -546,35 +630,62 @@ async function criarPedidoManual(req, res) {
     // enviar_entrega deixa o atendente marcar que esse pedido especifico
     // precisa ser entregue mesmo assim (ex: veio por WhatsApp).
     const tipoPedido = enviar_entrega === true ? 'entrega' : 'balcao';
-    // canal_venda: o app do garcom (em desenvolvimento) vai mandar 'mesa'
-    // explicitamente. Sem isso, cai como 'balcao' (ou 'delivery' se marcado
-    // enviar_entrega). Aceita apenas os 4 valores validos por seguranca.
+    // canal_venda: o app do garcom manda 'mesa' explicitamente. Sem isso,
+    // cai como 'balcao' (ou 'delivery' se marcado enviar_entrega). Aceita
+    // apenas os 4 valores validos por seguranca.
     const canaisValidos = ['delivery', 'retirada', 'balcao', 'mesa'];
     const canalVenda = enviar_entrega === true
       ? 'delivery'
       : (canaisValidos.includes(canal_venda) ? canal_venda : 'balcao');
 
+    // Pix precisa esperar a confirmacao de pagamento antes de ir pra
+    // cozinha: entra como 'novo' + 'pendente' e so vira 'preparando' + 'pago'
+    // quando o webhook do Mercado Pago confirmar. Dinheiro/cartao continuam
+    // como sempre -- o atendente ja cobrou na hora, entao ja nasce pago.
+    const ehPix = forma_pagamento === 'pix';
+    const statusPagamentoInicial = ehPix ? 'pendente' : 'pago';
+    const statusPedidoInicial = ehPix ? 'novo' : 'preparando';
+
     const resultado = await query(
       `INSERT INTO pedidos (
         estabelecimento_id, cliente_nome, cliente_telefone, itens, subtotal, taxa_entrega,
         gorjeta, total, forma_pagamento, status_pagamento, status_pedido, tipo_pedido, canal_venda, observacoes
-      ) VALUES ($1, $2, $3, $4, $5, 0, 0, $6, $7, 'pago', 'preparando', $8, $9, $10)
+      ) VALUES ($1, $2, $3, $4, $5, 0, 0, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *`,
-      [req.estabelecimentoId, cliente_nome.trim(), '(balcao)', JSON.stringify(itensValidados), subtotal, total, forma_pagamento, tipoPedido, canalVenda, observacoes || null]
+      [req.estabelecimentoId, cliente_nome.trim(), '(balcao)', JSON.stringify(itensValidados), subtotal, total, forma_pagamento, statusPagamentoInicial, statusPedidoInicial, tipoPedido, canalVenda, observacoes || null]
     );
+    let pedido = resultado.rows[0];
 
     const { registrarAuditoria } = require('./funcionarioController');
-    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'CRIAR_PEDIDO_MANUAL', 'pedidos', resultado.rows[0].id, null, resultado.rows[0], req.ip);
+    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'CRIAR_PEDIDO_MANUAL', 'pedidos', pedido.id, null, pedido, req.ip);
 
-    baixarEstoquePorVenda(req.estabelecimentoId, itensValidados, { pedidoId: resultado.rows[0].id, funcionarioId: req.funcionarioId, canalVenda })
+    // Baixa de estoque acontece na hora mesmo pra pedido Pix pendente --
+    // o produto ja saiu da cozinha reservado pra essa mesa. Se o pagamento
+    // for recusado depois, quem resolve isso e o fluxo de cancelamento
+    // manual (nao reestorna estoque sozinho aqui).
+    baixarEstoquePorVenda(req.estabelecimentoId, itensValidados, { pedidoId: pedido.id, funcionarioId: req.funcionarioId, canalVenda })
       .catch(e => console.error('Erro na baixa automatica de estoque:', e.message));
 
-    res.status(201).json(resultado.rows[0]);
+    let pagamento = null;
+    let avisoPagamento = null;
+    if (ehPix) {
+      try {
+        const estRes = await query('SELECT id, mp_access_token, provedor_pagamento FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
+        pedido = await gerarCobrancaPixParaPedido(estRes.rows[0], pedido, null);
+        pagamento = { qr_code: pedido.pix_qr_code, qr_code_base64: pedido.pix_qr_code_base64, expira_em: pedido.pix_expira_em };
+      } catch (erroPix) {
+        console.error('Erro ao gerar cobranca Pix (pedido manual):', erroPix.message);
+        avisoPagamento = 'Nao foi possivel gerar o QR Code Pix agora. Escolha outra forma de pagamento.';
+      }
+    }
+
+    res.status(201).json({ pedido, pagamento, aviso_pagamento: avisoPagamento });
   } catch (error) {
     console.error('Erro ao criar pedido manual:', error);
     res.status(500).json({ erro: 'Erro ao criar pedido.' });
   }
 }
+
 
 // ===================================================================
 // App do entregador (rotas proprias, fora do painel administrativo).
