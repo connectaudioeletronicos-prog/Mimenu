@@ -1,29 +1,22 @@
 // ===================================================================
-// App do Garçom (pasta/arquivos continuam "atendente" por baixo dos panos).
-// Exclusivo para funcionarios com cargo === 'garcom'. Nao mistura com
-// caixa/colaborador. Pedidos vao para canal_venda = 'mesa', separado do
-// Atendimento balcao do dashboard (canal_venda = 'balcao'), mas ambos
-// aparecem no mesmo Caixa/relatorios.
+// App do Garcom. Fluxo de comanda: abre uma comanda por mesa/cliente,
+// cada rodada de itens vai pra cozinha na hora (nao espera cobranca), e
+// so fecha/cobra no final, quando o cliente pede a conta. Historico de
+// comandas fechadas fica salvo no servidor (permanente).
 // ===================================================================
 
 const CHAVE_TOKEN = 'garcom_token';
 const CHAVE_DADOS = 'garcom_dados';
-const CHAVE_COMANDAS = 'garcom_comandas';
-const CHAVE_VENDAS_HOJE = 'garcom_vendas_hoje';
 
 let categorias = [];
 let produtos = [];
 let categoriaSelecionada = null;
 let termoBusca = '';
 
-// Comanda atual em edicao. Cada comanda salva localmente tem um id proprio,
-// pra o garcom poder atender varias mesas ao mesmo tempo.
-let comandaAtual = criarComandaVazia();
-let idComandaEmEdicao = null; // se veio de "Salvar comanda" e foi reaberta
-
-function criarComandaVazia() {
-  return { id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), mesaCliente: '', itens: [], observacao: '' };
-}
+// Comanda em atendimento agora (null = ainda nao aberta/escolhida nessa tela).
+let comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0 };
+// Itens dessa rodada (ainda NAO enviados pra cozinha).
+let draftItens = [];
 
 // ===================== Utilitarios =====================
 
@@ -42,24 +35,7 @@ function mostrarToast(mensagem, ehErro) {
   mostrarToast._t = setTimeout(() => toast.classList.add('oculto'), 3200);
 }
 
-function obterComandasSalvas() {
-  try { return JSON.parse(sessionStorage.getItem(CHAVE_COMANDAS)) || []; } catch (e) { return []; }
-}
-function salvarComandasNoStorage(lista) {
-  sessionStorage.setItem(CHAVE_COMANDAS, JSON.stringify(lista));
-}
-function obterVendasHoje() {
-  try { return JSON.parse(sessionStorage.getItem(CHAVE_VENDAS_HOJE)) || []; } catch (e) { return []; }
-}
-function registrarVendaHoje(pedido) {
-  const lista = obterVendasHoje();
-  lista.unshift({ id: pedido.id, cliente_nome: pedido.cliente_nome, total: parseFloat(pedido.total), forma_pagamento: pedido.forma_pagamento, criado_em: pedido.criado_em });
-  sessionStorage.setItem(CHAVE_VENDAS_HOJE, JSON.stringify(lista));
-}
-
 // ===================== Chamadas de API =====================
-// Reaproveita as mesmas rotas do painel admin (/api/admin/*) -- o token do
-// garcom e um JWT normal de funcionario, entao funciona nelas do mesmo jeito.
 
 async function chamarApi(caminho, opcoes = {}) {
   const token = sessionStorage.getItem(CHAVE_TOKEN);
@@ -103,8 +79,6 @@ function iniciarSessao(token, funcionario) {
 function encerrarSessao() {
   sessionStorage.removeItem(CHAVE_TOKEN);
   sessionStorage.removeItem(CHAVE_DADOS);
-  sessionStorage.removeItem(CHAVE_COMANDAS);
-  sessionStorage.removeItem(CHAVE_VENDAS_HOJE);
   document.getElementById('tela-app').classList.add('oculto');
   document.getElementById('tela-login').classList.remove('oculto');
 }
@@ -130,7 +104,6 @@ document.getElementById('form-login').addEventListener('submit', async (evento) 
   const slug = document.getElementById('login-slug').value.trim();
   const login = document.getElementById('login-usuario').value.trim();
   const senha = document.getElementById('login-senha').value;
-
   try {
     const dados = await chamarApiFuncionarios('/login', { method: 'POST', body: JSON.stringify({ slug, login, senha }) });
     iniciarSessao(dados.token, dados.funcionario);
@@ -165,6 +138,7 @@ async function mostrarApp() {
     produtos = listaProdutos;
     renderizarCategorias();
     renderizarProdutos();
+    renderizarComanda();
   } catch (erro) {
     mostrarToast(erro.message, true);
   }
@@ -175,11 +149,10 @@ function renderizarCategorias() {
   const chips = [{ id: null, nome: 'Todas', icone_url: null }, ...categorias];
   container.innerHTML = chips.map(cat => `
     <button type="button" class="categoria-chip ${categoriaSelecionada === cat.id ? 'categoria-chip--ativa' : ''}" data-categoria-id="${cat.id ?? ''}">
-      ${cat.icone_url ? `<img src="${cat.icone_url}" class="categoria-chip__icone" style="width:24px;height:24px;border-radius:6px;object-fit:cover;">` : `<span class="categoria-chip__icone">🍽️</span>`}
+      ${cat.icone_url ? `<img src="${cat.icone_url}" style="width:24px;height:24px;border-radius:6px;object-fit:cover;">` : `<span class="categoria-chip__icone">🍽️</span>`}
       ${escaparHtml(cat.nome)}
     </button>
   `).join('');
-
   container.querySelectorAll('[data-categoria-id]').forEach(botao => {
     botao.addEventListener('click', () => {
       categoriaSelecionada = botao.dataset.categoriaId || null;
@@ -196,12 +169,10 @@ function renderizarProdutos() {
     const bateBusca = !termoBusca || p.nome.toLowerCase().includes(termoBusca.toLowerCase());
     return bateCategoria && bateBusca;
   });
-
   if (filtrados.length === 0) {
     container.innerHTML = '<p class="lista-vazia">Nenhum produto encontrado.</p>';
     return;
   }
-
   container.innerHTML = filtrados.map(p => {
     const temPromo = p.preco_promocional && parseFloat(p.preco_promocional) < parseFloat(p.preco);
     const precoExibido = temPromo ? p.preco_promocional : p.preco;
@@ -215,9 +186,8 @@ function renderizarProdutos() {
       </button>
     `;
   }).join('');
-
   container.querySelectorAll('[data-produto-id]').forEach(botao => {
-    botao.addEventListener('click', () => adicionarItemNaComanda(botao.dataset.produtoId));
+    botao.addEventListener('click', () => adicionarItemNaRodada(botao.dataset.produtoId));
   });
 }
 
@@ -226,53 +196,51 @@ document.getElementById('campo-busca-produto').addEventListener('input', (evento
   renderizarProdutos();
 });
 
-// ===================== Comanda (carrinho) =====================
+// ===================== Rodada atual (itens ainda nao enviados) =====================
 
-function adicionarItemNaComanda(produtoId) {
+function adicionarItemNaRodada(produtoId) {
   const produto = produtos.find(p => p.id === produtoId);
   if (!produto || !produto.disponivel) return;
-
-  const existente = comandaAtual.itens.find(i => i.produto_id === produtoId);
+  const existente = draftItens.find(i => i.produto_id === produtoId);
   const temPromo = produto.preco_promocional && parseFloat(produto.preco_promocional) < parseFloat(produto.preco);
   const preco = parseFloat(temPromo ? produto.preco_promocional : produto.preco);
-
-  if (existente) {
-    existente.quantidade += 1;
-  } else {
-    comandaAtual.itens.push({ produto_id: produto.id, nome: produto.nome, preco, foto_url: produto.foto_url, quantidade: 1 });
-  }
+  if (existente) existente.quantidade += 1;
+  else draftItens.push({ produto_id: produto.id, nome: produto.nome, preco, foto_url: produto.foto_url, quantidade: 1 });
   renderizarComanda();
   mostrarToast(`${produto.nome} adicionado.`);
 }
 
 function alterarQuantidade(produtoId, delta) {
-  const item = comandaAtual.itens.find(i => i.produto_id === produtoId);
+  const item = draftItens.find(i => i.produto_id === produtoId);
   if (!item) return;
   item.quantidade += delta;
-  if (item.quantidade <= 0) {
-    comandaAtual.itens = comandaAtual.itens.filter(i => i.produto_id !== produtoId);
-  }
+  if (item.quantidade <= 0) draftItens = draftItens.filter(i => i.produto_id !== produtoId);
   renderizarComanda();
 }
-
 function removerItem(produtoId) {
-  comandaAtual.itens = comandaAtual.itens.filter(i => i.produto_id !== produtoId);
+  draftItens = draftItens.filter(i => i.produto_id !== produtoId);
   renderizarComanda();
 }
-
-function calcularTotalComanda() {
-  return comandaAtual.itens.reduce((soma, item) => soma + item.preco * item.quantidade, 0);
+function calcularSubtotalRodada() {
+  return draftItens.reduce((soma, item) => soma + item.preco * item.quantidade, 0);
 }
 
 function renderizarComanda() {
-  const lista = document.getElementById('lista-itens-comanda');
-  const rotuloMesa = document.getElementById('rotulo-mesa-cliente');
-  rotuloMesa.textContent = comandaAtual.mesaCliente || 'Mesa / Cliente';
+  document.getElementById('rotulo-mesa-cliente').textContent = comandaAtual.mesaCliente || 'Mesa / Cliente';
 
-  if (comandaAtual.itens.length === 0) {
+  const resumoEnviado = document.getElementById('resumo-comanda-enviada');
+  if (comandaAtual.id && comandaAtual.subtotalEnviado > 0) {
+    resumoEnviado.classList.remove('oculto');
+    document.getElementById('valor-ja-enviado').textContent = `R$ ${formatarMoeda(comandaAtual.subtotalEnviado)}`;
+  } else {
+    resumoEnviado.classList.add('oculto');
+  }
+
+  const lista = document.getElementById('lista-itens-comanda');
+  if (draftItens.length === 0) {
     lista.innerHTML = '<p class="comanda-vazia">Nenhum item adicionado ainda.</p>';
   } else {
-    lista.innerHTML = comandaAtual.itens.map(item => `
+    lista.innerHTML = draftItens.map(item => `
       <div class="item-comanda">
         <img class="item-comanda__imagem" src="${item.foto_url || '../img/sem-foto.png'}" alt="">
         <div class="item-comanda__info">
@@ -287,21 +255,20 @@ function renderizarComanda() {
         <button type="button" class="item-comanda__excluir" data-excluir="${item.produto_id}">🗑️</button>
       </div>
     `).join('');
-
     lista.querySelectorAll('[data-qtd-mais]').forEach(b => b.addEventListener('click', () => alterarQuantidade(b.dataset.qtdMais, 1)));
     lista.querySelectorAll('[data-qtd-menos]').forEach(b => b.addEventListener('click', () => alterarQuantidade(b.dataset.qtdMenos, -1)));
     lista.querySelectorAll('[data-excluir]').forEach(b => b.addEventListener('click', () => removerItem(b.dataset.excluir)));
   }
 
-  const total = calcularTotalComanda();
-  document.getElementById('comanda-subtotal').textContent = `R$ ${formatarMoeda(total)}`;
-  document.getElementById('comanda-total').textContent = `R$ ${formatarMoeda(total)}`;
+  const subtotalRodada = calcularSubtotalRodada();
+  document.getElementById('comanda-subtotal').textContent = `R$ ${formatarMoeda(subtotalRodada)}`;
 
-  const contagem = comandaAtual.itens.reduce((s, i) => s + i.quantidade, 0);
+  const contagem = draftItens.reduce((s, i) => s + i.quantidade, 0);
   document.getElementById('flutuante-contagem').textContent = contagem;
-  document.getElementById('flutuante-total').textContent = `R$ ${formatarMoeda(total)}`;
-  document.getElementById('botao-flutuante-comanda').classList.toggle('oculto', contagem === 0 || window.matchMedia('(min-width: 900px)').matches);
-  document.getElementById('painel-comanda').classList.toggle('painel-comanda--aberto', contagem > 0 || window.matchMedia('(min-width: 900px)').matches);
+  document.getElementById('flutuante-total').textContent = `R$ ${formatarMoeda(subtotalRodada)}`;
+  const ehDesktop = window.matchMedia('(min-width: 900px)').matches;
+  document.getElementById('botao-flutuante-comanda').classList.toggle('oculto', contagem === 0 || ehDesktop);
+  document.getElementById('painel-comanda').classList.toggle('painel-comanda--aberto', contagem > 0 || ehDesktop);
 }
 
 document.getElementById('botao-flutuante-comanda').addEventListener('click', () => {
@@ -309,115 +276,158 @@ document.getElementById('botao-flutuante-comanda').addEventListener('click', () 
   document.getElementById('painel-comanda').scrollIntoView({ behavior: 'smooth' });
 });
 
-// ---------- Modal Mesa/Cliente ----------
-function abrirModalMesa() {
-  document.getElementById('input-mesa-cliente').value = comandaAtual.mesaCliente;
+// ===================== Modal Mesa/Cliente (abrir ou escolher comanda) =====================
+
+async function abrirModalMesa() {
+  document.getElementById('input-mesa-cliente').value = '';
   document.getElementById('fundo-modal-mesa').classList.remove('oculto');
   document.getElementById('modal-mesa').classList.remove('oculto');
+
+  const container = document.getElementById('lista-comandas-abertas-modal');
+  container.innerHTML = '<p class="ajuda">Carregando...</p>';
+  try {
+    const abertas = await chamarApi('/comandas?status=aberta');
+    if (abertas.length === 0) {
+      container.innerHTML = '<p class="ajuda">Nenhuma comanda aberta no momento.</p>';
+    } else {
+      container.innerHTML = abertas.map(c => `
+        <div class="item-comanda-modal">
+          <span>${escaparHtml(c.mesa_cliente)} · R$ ${formatarMoeda(c.subtotal)}</span>
+          <button type="button" data-selecionar-comanda="${c.id}" data-mesa="${escaparHtml(c.mesa_cliente)}" data-subtotal="${c.subtotal}">Abrir</button>
+        </div>
+      `).join('');
+      container.querySelectorAll('[data-selecionar-comanda]').forEach(botao => {
+        botao.addEventListener('click', () => selecionarComandaExistente(botao.dataset.selecionarComanda, botao.dataset.mesa, parseFloat(botao.dataset.subtotal)));
+      });
+    }
+  } catch (erro) {
+    container.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
+  }
 }
+
+function trocarComandaAtual(nova) {
+  if (draftItens.length > 0 && !confirm('Você tem itens dessa rodada ainda não enviados pra cozinha. Descartar e trocar de comanda?')) {
+    return false;
+  }
+  draftItens = [];
+  comandaAtual = nova;
+  renderizarComanda();
+  return true;
+}
+
+function selecionarComandaExistente(id, mesaCliente, subtotal) {
+  if (!trocarComandaAtual({ id, mesaCliente, subtotalEnviado: subtotal })) return;
+  fecharModalMesa();
+}
+
+document.getElementById('botao-mesa-cliente').addEventListener('click', abrirModalMesa);
 function fecharModalMesa() {
   document.getElementById('fundo-modal-mesa').classList.add('oculto');
   document.getElementById('modal-mesa').classList.add('oculto');
 }
-document.getElementById('botao-mesa-cliente').addEventListener('click', abrirModalMesa);
 document.getElementById('botao-cancelar-mesa').addEventListener('click', fecharModalMesa);
-document.getElementById('botao-confirmar-mesa').addEventListener('click', () => {
-  comandaAtual.mesaCliente = document.getElementById('input-mesa-cliente').value.trim();
-  fecharModalMesa();
-  renderizarComanda();
+document.getElementById('botao-confirmar-mesa').addEventListener('click', async () => {
+  const mesaCliente = document.getElementById('input-mesa-cliente').value.trim();
+  if (!mesaCliente) return mostrarToast('Informe a mesa ou o nome do cliente.', true);
+  try {
+    const nova = await chamarApi('/comandas', { method: 'POST', body: JSON.stringify({ mesa_cliente: mesaCliente }) });
+    if (!trocarComandaAtual({ id: nova.id, mesaCliente: nova.mesa_cliente, subtotalEnviado: 0 })) return;
+    fecharModalMesa();
+    mostrarToast(`Comanda "${mesaCliente}" aberta.`);
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
 });
 
-// ---------- Salvar / Limpar comanda ----------
-document.getElementById('botao-salvar-comanda').addEventListener('click', () => {
-  if (comandaAtual.itens.length === 0) return mostrarToast('Adicione itens antes de salvar.', true);
-  if (!comandaAtual.mesaCliente) return abrirModalMesaEDepoisSalvar();
+// ===================== Enviar rodada pra cozinha =====================
 
-  comandaAtual.observacao = document.getElementById('observacao-comanda').value;
-  const lista = obterComandasSalvas();
-  const indiceExistente = lista.findIndex(c => c.id === comandaAtual.id);
-  if (indiceExistente >= 0) lista[indiceExistente] = comandaAtual; else lista.push(comandaAtual);
-  salvarComandasNoStorage(lista);
+document.getElementById('botao-enviar-cozinha').addEventListener('click', async () => {
+  if (!comandaAtual.id) { mostrarToast('Identifique a mesa/cliente antes de enviar.', true); return abrirModalMesa(); }
+  if (draftItens.length === 0) return mostrarToast('Adicione itens antes de enviar.', true);
 
-  mostrarToast(`Comanda "${comandaAtual.mesaCliente}" salva. Você pode atender outra mesa agora.`);
-  comandaAtual = criarComandaVazia();
-  document.getElementById('observacao-comanda').value = '';
-  renderizarComanda();
+  try {
+    await chamarApi(`/comandas/${comandaAtual.id}/itens`, {
+      method: 'POST',
+      body: JSON.stringify({
+        itens: draftItens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade })),
+        observacoes: document.getElementById('observacao-comanda').value || null
+      })
+    });
+    comandaAtual.subtotalEnviado += calcularSubtotalRodada();
+    draftItens = [];
+    document.getElementById('observacao-comanda').value = '';
+    renderizarComanda();
+    mostrarToast(`Rodada enviada pra cozinha! (Mesa: ${comandaAtual.mesaCliente})`);
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
 });
-
-function abrirModalMesaEDepoisSalvar() {
-  mostrarToast('Identifique a mesa/cliente antes de salvar.', true);
-  abrirModalMesa();
-}
 
 document.getElementById('botao-limpar-comanda').addEventListener('click', () => {
-  if (comandaAtual.itens.length === 0) return;
-  if (!confirm('Limpar todos os itens desse pedido?')) return;
-  comandaAtual = criarComandaVazia();
-  document.getElementById('observacao-comanda').value = '';
+  if (draftItens.length === 0) return;
+  if (!confirm('Limpar os itens dessa rodada (ainda não enviados)?')) return;
+  draftItens = [];
   renderizarComanda();
 });
 
-// ===================== Pagamento / Finalizar =====================
+// ===================== Cobrar / Fechar comanda =====================
 
 let formaPagamentoSelecionada = null;
 
-function abrirModalPagamento() {
-  if (comandaAtual.itens.length === 0) return mostrarToast('Adicione itens antes de finalizar.', true);
+document.getElementById('botao-cobrar-comanda').addEventListener('click', () => {
+  if (!comandaAtual.id) { mostrarToast('Escolha uma comanda primeiro.', true); return abrirModalMesa(); }
+  if (draftItens.length > 0) return mostrarToast('Envie a rodada atual pra cozinha antes de cobrar.', true);
+  if (comandaAtual.subtotalEnviado <= 0) return mostrarToast('Essa comanda ainda não tem nenhum item enviado.', true);
+
   formaPagamentoSelecionada = null;
   document.querySelectorAll('.opcao-pagamento').forEach(b => b.classList.remove('opcao-pagamento--selecionada'));
-  document.getElementById('aviso-pix').classList.add('oculto');
   document.getElementById('botao-confirmar-pagamento').disabled = true;
-  document.getElementById('pagamento-total').textContent = `R$ ${formatarMoeda(calcularTotalComanda())}`;
+  document.getElementById('pagamento-mesa-nome').textContent = comandaAtual.mesaCliente;
+  document.getElementById('input-gorjeta').value = '0';
+  atualizarTotalPagamento();
   document.getElementById('fundo-modal-pagamento').classList.remove('oculto');
   document.getElementById('modal-pagamento').classList.remove('oculto');
+});
+
+function atualizarTotalPagamento() {
+  const gorjeta = parseFloat(document.getElementById('input-gorjeta').value) || 0;
+  const total = comandaAtual.subtotalEnviado + gorjeta;
+  document.getElementById('pagamento-total').textContent = `R$ ${formatarMoeda(total)}`;
 }
+document.getElementById('input-gorjeta').addEventListener('input', atualizarTotalPagamento);
+
 function fecharModalPagamento() {
   document.getElementById('fundo-modal-pagamento').classList.add('oculto');
   document.getElementById('modal-pagamento').classList.add('oculto');
 }
-document.getElementById('botao-finalizar-pedido').addEventListener('click', abrirModalPagamento);
 document.getElementById('botao-cancelar-pagamento').addEventListener('click', fecharModalPagamento);
-
 document.querySelectorAll('.opcao-pagamento').forEach(botao => {
   botao.addEventListener('click', () => {
     formaPagamentoSelecionada = botao.dataset.forma;
     document.querySelectorAll('.opcao-pagamento').forEach(b => b.classList.remove('opcao-pagamento--selecionada'));
     botao.classList.add('opcao-pagamento--selecionada');
-    document.getElementById('aviso-pix').classList.toggle('oculto', formaPagamentoSelecionada !== 'pix');
     document.getElementById('botao-confirmar-pagamento').disabled = false;
   });
 });
 
 document.getElementById('botao-confirmar-pagamento').addEventListener('click', async () => {
   if (!formaPagamentoSelecionada) return;
-  const nomeMesa = comandaAtual.mesaCliente || 'Mesa sem identificação';
-  const corpo = {
-    cliente_nome: nomeMesa,
-    itens: comandaAtual.itens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade })),
-    forma_pagamento: formaPagamentoSelecionada,
-    observacoes: document.getElementById('observacao-comanda').value || null,
-    canal_venda: 'mesa'
-  };
+  const gorjeta = parseFloat(document.getElementById('input-gorjeta').value) || 0;
+  const mesaCliente = comandaAtual.mesaCliente;
+  const comandaId = comandaAtual.id;
 
   try {
-    const resposta = await chamarApi('/pedidos', { method: 'POST', body: JSON.stringify(corpo) });
-    const pedido = resposta.pedido;
-
-    // Se essa comanda tinha sido salva antes, remove da lista de abertas.
-    const lista = obterComandasSalvas().filter(c => c.id !== comandaAtual.id);
-    salvarComandasNoStorage(lista);
+    const resposta = await chamarApi(`/comandas/${comandaId}/fechar`, {
+      method: 'POST',
+      body: JSON.stringify({ forma_pagamento: formaPagamentoSelecionada, gorjeta })
+    });
     fecharModalPagamento();
 
     if (resposta.pagamento) {
-      // Pix de verdade: mostra o QR e fica de olho ate confirmar (ou o
-      // garcom confirmar manualmente que recebeu por fora).
-      abrirModalPix(pedido, resposta.pagamento, nomeMesa);
+      abrirModalPix(comandaId, resposta.pagamento, mesaCliente);
     } else {
-      if (resposta.aviso_pagamento) mostrarToast(resposta.aviso_pagamento, true);
-      registrarVendaHoje(pedido);
-      mostrarToast(`Pedido de "${nomeMesa}" enviado para a cozinha!`);
-      comandaAtual = criarComandaVazia();
-      document.getElementById('observacao-comanda').value = '';
+      mostrarToast(`Comanda "${mesaCliente}" fechada e paga!`);
+      comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0 };
       renderizarComanda();
     }
   } catch (erro) {
@@ -429,53 +439,41 @@ document.getElementById('botao-confirmar-pagamento').addEventListener('click', a
 
 let intervaloChecagemPix = null;
 
-function abrirModalPix(pedido, pagamento, nomeMesa) {
+function abrirModalPix(comandaId, pagamento, mesaCliente) {
   document.getElementById('pix-qr-imagem').src = `data:image/png;base64,${pagamento.qr_code_base64}`;
   document.getElementById('pix-copia-cola').value = pagamento.qr_code || '';
   const statusEl = document.getElementById('pix-status');
   statusEl.textContent = 'Aguardando confirmação do pagamento...';
   statusEl.className = 'pix-status';
-
   document.getElementById('fundo-modal-pix').classList.remove('oculto');
   document.getElementById('modal-pix').classList.remove('oculto');
-
-  const dadosFuncionario = JSON.parse(sessionStorage.getItem(CHAVE_DADOS));
-  const slug = dadosFuncionario.slug;
-
-  // Limpa o pedido/comanda atual da tela na hora (ja foi enviado pro
-  // servidor) -- o garcom pode atender outra mesa enquanto espera o Pix.
-  comandaAtual = criarComandaVazia();
-  document.getElementById('observacao-comanda').value = '';
-  renderizarComanda();
 
   clearInterval(intervaloChecagemPix);
   intervaloChecagemPix = setInterval(async () => {
     try {
-      const resposta = await fetch(`${API_BASE_URL}/publico/${slug}/pedidos/${pedido.id}/status`);
-      const dados = await resposta.json();
-      if (dados.status_pagamento === 'pago') {
+      const comanda = await chamarApi(`/comandas/${comandaId}`);
+      if (comanda.status === 'fechada' && comanda.status_pagamento === 'pago') {
         clearInterval(intervaloChecagemPix);
         statusEl.textContent = '✅ Pagamento confirmado!';
         statusEl.className = 'pix-status pix-status--pago';
-        registrarVendaHoje({ ...pedido, cliente_nome: nomeMesa, forma_pagamento: 'pix' });
+        comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0 };
+        renderizarComanda();
         setTimeout(fecharModalPix, 1800);
-      } else if (dados.status_pagamento === 'recusado') {
+      } else if (comanda.status_pagamento === 'recusado') {
         clearInterval(intervaloChecagemPix);
         statusEl.textContent = '❌ Pagamento recusado. Tente outra forma de pagamento.';
         statusEl.className = 'pix-status pix-status--recusado';
       }
-    } catch (erro) {
-      // Falha de rede na checagem nao interrompe a tela -- so tenta de novo no proximo ciclo.
-    }
+    } catch (erro) { /* tenta de novo no proximo ciclo */ }
   }, 4000);
-}
 
+  window._comandaPixEmAndamento = comandaId;
+}
 function fecharModalPix() {
   clearInterval(intervaloChecagemPix);
   document.getElementById('fundo-modal-pix').classList.add('oculto');
   document.getElementById('modal-pix').classList.add('oculto');
 }
-
 document.getElementById('botao-cancelar-pix').addEventListener('click', fecharModalPix);
 document.getElementById('botao-copiar-pix').addEventListener('click', () => {
   const campo = document.getElementById('pix-copia-cola');
@@ -483,17 +481,12 @@ document.getElementById('botao-copiar-pix').addEventListener('click', () => {
   navigator.clipboard?.writeText(campo.value).catch(() => {});
   mostrarToast('Código copiado.');
 });
-
-// Pra quando o cliente pagou por fora do QR (ex: transferencia direta) e o
-// garcom precisa confirmar na mao -- so o gerente/administrador pode fazer
-// isso, ja que muda o status financeiro do pedido manualmente.
 document.getElementById('botao-confirmar-pix-manual').addEventListener('click', () => {
   fecharModalPix();
   abrirModalSupervisor();
 });
 
 // ===================== Problema no pagamento (senha supervisor) =====================
-// (acessivel pelo menu lateral, dentro de "Comandas abertas")
 
 function abrirModalSupervisor() {
   document.getElementById('supervisor-login').value = '';
@@ -507,36 +500,22 @@ function fecharModalSupervisor() {
   document.getElementById('modal-supervisor').classList.add('oculto');
 }
 document.getElementById('botao-cancelar-supervisor').addEventListener('click', fecharModalSupervisor);
-
-// A chamada de verificacao de senha usa o token do proprio garcom (rota
-// fica sob /funcionarios, nao /admin), entao usa fetch direto aqui.
-async function verificarSenhaSupervisorReal(login, senha) {
-  const token = sessionStorage.getItem(CHAVE_TOKEN);
-  const resposta = await fetch(`${API_BASE_URL}/funcionarios/verificar-senha-supervisor`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ login, senha })
-  });
-  const dados = await resposta.json().catch(() => ({}));
-  if (!resposta.ok) throw new Error(dados.erro || 'Nao foi possivel verificar a senha.');
-  return dados;
-}
-
 document.getElementById('botao-confirmar-supervisor').addEventListener('click', async () => {
   const login = document.getElementById('supervisor-login').value.trim();
   const senha = document.getElementById('supervisor-senha').value;
   const erroEl = document.getElementById('supervisor-erro');
   erroEl.classList.add('oculto');
-  if (!login || !senha) {
-    erroEl.textContent = 'Informe login e senha.';
-    erroEl.classList.remove('oculto');
-    return;
-  }
+  if (!login || !senha) { erroEl.textContent = 'Informe login e senha.'; erroEl.classList.remove('oculto'); return; }
+
+  const comandaId = window._comandaPixEmAndamento;
+  if (!comandaId) { erroEl.textContent = 'Nenhuma comanda pendente encontrada.'; erroEl.classList.remove('oculto'); return; }
+
   try {
-    const resultado = await verificarSenhaSupervisorReal(login, senha);
+    await chamarApi(`/comandas/${comandaId}/confirmar-manual`, { method: 'POST', body: JSON.stringify({ login, senha }) });
     fecharModalSupervisor();
-    mostrarToast(`Liberado por ${resultado.nome} (${resultado.cargo}).`);
-    return resultado;
+    mostrarToast('Comanda confirmada como paga manualmente.');
+    if (comandaAtual.id === comandaId) comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0 };
+    renderizarComanda();
   } catch (erro) {
     erroEl.textContent = erro.message;
     erroEl.classList.remove('oculto');
@@ -549,12 +528,9 @@ function abrirMenuLateral() {
   document.body.classList.add('menu-lateral--aberto');
   renderizarMenuLateral('comandas');
 }
-function fecharMenuLateral() {
-  document.body.classList.remove('menu-lateral--aberto');
-}
+function fecharMenuLateral() { document.body.classList.remove('menu-lateral--aberto'); }
 document.getElementById('botao-abrir-menu').addEventListener('click', abrirMenuLateral);
 document.getElementById('botao-fechar-menu').addEventListener('click', fecharMenuLateral);
-
 document.querySelectorAll('.menu-lateral__item').forEach(botao => {
   botao.addEventListener('click', () => {
     document.querySelectorAll('.menu-lateral__item').forEach(b => b.classList.remove('menu-lateral__item--ativo'));
@@ -563,55 +539,105 @@ document.querySelectorAll('.menu-lateral__item').forEach(botao => {
   });
 });
 
-function renderizarMenuLateral(secao) {
+async function renderizarMenuLateral(secao) {
   const container = document.getElementById('menu-lateral-conteudo');
+  container.innerHTML = '<p class="ajuda">Carregando...</p>';
 
   if (secao === 'comandas') {
-    const comandas = obterComandasSalvas();
-    if (comandas.length === 0) {
-      container.innerHTML = `
-        <p class="ajuda" style="padding:12px 0;">Nenhuma comanda salva no momento.</p>
-        <button type="button" class="botao botao-secundario" id="botao-problema-pagamento">⚠️ Problema no pagamento</button>
-      `;
-    } else {
-      container.innerHTML = comandas.map(c => `
-        <div class="item-venda-resumo">
-          <span>${escaparHtml(c.mesaCliente || 'Sem identificação')} · ${c.itens.reduce((s, i) => s + i.quantidade, 0)} itens</span>
-          <button type="button" class="botao-mesa-cliente" data-reabrir-comanda="${c.id}">Abrir</button>
-        </div>
-      `).join('') + `<button type="button" class="botao botao-secundario" id="botao-problema-pagamento" style="margin-top:12px;">⚠️ Problema no pagamento</button>`;
-
-      container.querySelectorAll('[data-reabrir-comanda]').forEach(botao => {
-        botao.addEventListener('click', () => {
-          const alvo = comandas.find(c => c.id === botao.dataset.reabrirComanda);
-          if (!alvo) return;
-          comandaAtual = alvo;
-          document.getElementById('observacao-comanda').value = alvo.observacao || '';
-          renderizarComanda();
-          fecharMenuLateral();
+    try {
+      const abertas = await chamarApi('/comandas?status=aberta');
+      if (abertas.length === 0) {
+        container.innerHTML = '<p class="ajuda" style="padding:12px 0;">Nenhuma comanda aberta no momento.</p>';
+      } else {
+        container.innerHTML = abertas.map(c => `
+          <div class="item-venda-resumo">
+            <span>${escaparHtml(c.mesa_cliente)} · R$ ${formatarMoeda(c.subtotal)}</span>
+            <button type="button" class="botao-mesa-cliente" data-abrir-comanda="${c.id}" data-mesa="${escaparHtml(c.mesa_cliente)}" data-subtotal="${c.subtotal}">Abrir</button>
+          </div>
+        `).join('');
+        container.querySelectorAll('[data-abrir-comanda]').forEach(botao => {
+          botao.addEventListener('click', () => {
+            if (!trocarComandaAtual({ id: botao.dataset.abrirComanda, mesaCliente: botao.dataset.mesa, subtotalEnviado: parseFloat(botao.dataset.subtotal) })) return;
+            fecharMenuLateral();
+          });
         });
-      });
+      }
+    } catch (erro) {
+      container.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
     }
-    document.getElementById('botao-problema-pagamento')?.addEventListener('click', abrirModalSupervisor);
   }
 
-  if (secao === 'vendas') {
-    const vendas = obterVendasHoje();
-    if (vendas.length === 0) {
-      container.innerHTML = '<p class="ajuda" style="padding:12px 0;">Nenhuma venda finalizada ainda hoje.</p>';
-      return;
+  if (secao === 'historico') {
+    try {
+      const fechadas = await chamarApi('/comandas?status=fechada&limite=50');
+      if (fechadas.length === 0) {
+        container.innerHTML = '<p class="ajuda" style="padding:12px 0;">Nenhuma comanda fechada ainda.</p>';
+      } else {
+        container.innerHTML = fechadas.map(c => `
+          <div class="item-venda-resumo">
+            <span>${escaparHtml(c.mesa_cliente)}</span>
+            <button type="button" class="botao-mesa-cliente" data-ver-historico="${c.id}">R$ ${formatarMoeda(c.total)}</button>
+          </div>
+        `).join('');
+        container.querySelectorAll('[data-ver-historico]').forEach(botao => {
+          botao.addEventListener('click', () => abrirDetalheHistorico(botao.dataset.verHistorico));
+        });
+      }
+    } catch (erro) {
+      container.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
     }
-    const totalDia = vendas.reduce((s, v) => s + v.total, 0);
-    container.innerHTML = `
-      <div class="item-venda-resumo"><span><strong>Total de hoje</strong></span><strong>R$ ${formatarMoeda(totalDia)}</strong></div>
-    ` + vendas.map(v => `
-      <div class="item-venda-resumo">
-        <span>${escaparHtml(v.cliente_nome)}</span>
-        <strong>R$ ${formatarMoeda(v.total)}</strong>
-      </div>
-    `).join('');
   }
 }
+
+// ===================== Detalhe do histórico =====================
+
+function formatarHora(isoString) {
+  if (!isoString) return '-';
+  const data = new Date(isoString);
+  return data.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+async function abrirDetalheHistorico(comandaId) {
+  const conteudo = document.getElementById('historico-conteudo');
+  document.getElementById('historico-titulo').textContent = 'Carregando...';
+  conteudo.innerHTML = '';
+  document.getElementById('fundo-modal-historico').classList.remove('oculto');
+  document.getElementById('modal-historico').classList.remove('oculto');
+
+  try {
+    const comanda = await chamarApi(`/comandas/${comandaId}`);
+    document.getElementById('historico-titulo').textContent = comanda.mesa_cliente;
+
+    const formasLegenda = { dinheiro: 'Dinheiro', pix: 'PIX', cartao_credito: 'Cartão Crédito', cartao_debito: 'Cartão Débito' };
+    conteudo.innerHTML = `
+      <div class="historico-linha"><span>Aberta em</span><span>${formatarHora(comanda.aberta_em)}</span></div>
+      <div class="historico-linha"><span>Fechada em</span><span>${formatarHora(comanda.fechada_em)}</span></div>
+      <div class="historico-linha"><span>Forma de pagamento</span><span>${formasLegenda[comanda.forma_pagamento] || comanda.forma_pagamento || '-'}</span></div>
+      <div class="historico-linha"><span>Subtotal (pedidos)</span><span>R$ ${formatarMoeda(comanda.subtotal)}</span></div>
+      <div class="historico-linha"><span>Gorjeta / Caixinha</span><span>R$ ${formatarMoeda(comanda.gorjeta)}</span></div>
+      <div class="historico-linha"><strong>Total</strong><strong>R$ ${formatarMoeda(comanda.total)}</strong></div>
+      <div class="titulo-secao" style="margin-top:14px;">Itens pedidos</div>
+      ${(comanda.rodadas || []).map(rodada => `
+        <div class="historico-rodada">
+          <div class="historico-rodada__hora">${formatarHora(rodada.criado_em)}</div>
+          ${(Array.isArray(rodada.itens) ? rodada.itens : []).map(item => `
+            <div class="historico-linha" style="border:none;padding:2px 0;">
+              <span>${item.quantidade}x ${escaparHtml(item.nome)}</span>
+              <span>R$ ${formatarMoeda(item.preco * item.quantidade)}</span>
+            </div>
+          `).join('')}
+          ${rodada.observacoes ? `<div class="ajuda" style="margin-top:4px;">Obs: ${escaparHtml(rodada.observacoes)}</div>` : ''}
+        </div>
+      `).join('')}
+    `;
+  } catch (erro) {
+    conteudo.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
+  }
+}
+document.getElementById('botao-fechar-historico').addEventListener('click', () => {
+  document.getElementById('fundo-modal-historico').classList.add('oculto');
+  document.getElementById('modal-historico').classList.add('oculto');
+});
 
 // ===================== Inicializacao =====================
 
@@ -619,11 +645,6 @@ function renderizarMenuLateral(secao) {
   const acessouPorLink = await tentarAcessoPorLink();
   const tokenSalvo = sessionStorage.getItem(CHAVE_TOKEN);
   if (acessouPorLink || tokenSalvo) {
-    try {
-      await mostrarApp();
-      renderizarComanda();
-    } catch (erro) {
-      mostrarToast(erro.message, true);
-    }
+    try { await mostrarApp(); } catch (erro) { mostrarToast(erro.message, true); }
   }
 })();
