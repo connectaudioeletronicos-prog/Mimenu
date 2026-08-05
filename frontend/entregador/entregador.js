@@ -96,8 +96,33 @@ function mostrarToast(mensagem, ehErro = false) {
 }
 
 function formatarPagamento(forma) {
-  const nomes = { dinheiro: 'Dinheiro', pix: 'Pix', cartao_credito: 'Cartão de crédito', cartao_debito: 'Cartão de débito' };
+  const nomes = { dinheiro: 'Dinheiro', pix: 'Pix', cartao: 'Pago online', cartao_credito: 'Cartão de crédito', cartao_debito: 'Cartão de débito' };
   return nomes[forma] || forma || '-';
+}
+
+// Classe do badge de pagamento: dinheiro (verde), pix (azul), pago
+// online/cartao (roxo) -- so pra dar uma pista visual rapida ao entregador.
+function classeBadgePagamento(forma) {
+  if (forma === 'dinheiro') return 'badge-pagamento--dinheiro';
+  if (forma === 'pix') return 'badge-pagamento--pix';
+  return 'badge-pagamento--online';
+}
+
+// Preenche o bloco de forma de pagamento (+ troco quando for dinheiro) de
+// um pedido num card do painel. Usado tanto na oferta quanto na rota atual.
+function aplicarFormaPagamento(pedido, elBadge, elBlocoTroco, elTrocoPara, elTrocoValor) {
+  elBadge.textContent = formatarPagamento(pedido.forma_pagamento);
+  elBadge.className = `badge-pagamento ${classeBadgePagamento(pedido.forma_pagamento)}`;
+
+  const temTroco = pedido.forma_pagamento === 'dinheiro' && pedido.troco_para !== null && pedido.troco_para !== undefined;
+  if (elBlocoTroco) {
+    elBlocoTroco.classList.toggle('oculto', !temTroco);
+    if (temTroco) {
+      const troco = parseFloat(pedido.troco_para) - parseFloat(pedido.total || 0);
+      elTrocoPara.textContent = formatarMoeda(pedido.troco_para);
+      elTrocoValor.textContent = `Troco: ${formatarMoeda(troco)}`;
+    }
+  }
 }
 
 // -------------------- Login --------------------
@@ -255,7 +280,6 @@ function iniciarAguardandoPedido() {
   const dados = obterDados();
   const primeiroNome = (dados?.nome || '').split(' ')[0];
   const saudacao = primeiroNome ? `Olá, ${primeiroNome}! 👋` : 'Olá! 👋';
-  document.getElementById('saudacao-aguardando').textContent = saudacao;
   document.getElementById('saudacao-rota').textContent = saudacao;
 
   mostrarTela('tela-aguardando');
@@ -266,20 +290,26 @@ function iniciarAguardandoPedido() {
 }
 
 async function atualizarPosicaoNaFila() {
-  const infoEl = document.getElementById('fila-posicao-info');
+  const boxEl = document.getElementById('fila-posicao-box');
+  const linha1El = document.getElementById('fila-posicao-linha1');
+  const linha2El = document.getElementById('fila-posicao-linha2');
   try {
     const dados = await chamarApi('/fila/posicao');
     if (!dados.na_fila) {
-      infoEl.classList.add('oculto');
+      boxEl.classList.add('oculto');
       return;
     }
     const pessoasNaFrente = dados.posicao - 1;
-    infoEl.textContent = pessoasNaFrente === 0
-      ? 'Você é o próximo da fila!'
-      : `Há ${pessoasNaFrente} entregador(es) na sua frente. Você está na posição ${dados.posicao} de ${dados.total_na_fila}.`;
-    infoEl.classList.remove('oculto');
+    if (pessoasNaFrente === 0) {
+      linha1El.textContent = 'Você é o próximo da fila!';
+      linha2El.textContent = 'Prepare-se, sua entrega está quase pronta.';
+    } else {
+      linha1El.textContent = 'Há pessoas na sua frente.';
+      linha2El.textContent = `Aguarde, você está na posição ${dados.posicao} de ${dados.total_na_fila}.`;
+    }
+    boxEl.classList.remove('oculto');
   } catch {
-    infoEl.classList.add('oculto');
+    boxEl.classList.add('oculto');
   }
 }
 
@@ -328,6 +358,11 @@ function exibirOfertaDeEntrega(pedido) {
   document.getElementById('oferta-telefone').textContent = pedido.cliente_telefone || '-';
   document.getElementById('oferta-total').textContent = formatarMoeda(pedido.total);
   document.getElementById('oferta-pagamento').textContent = formatarPagamento(pedido.forma_pagamento);
+
+  const temTroco = pedido.forma_pagamento === 'dinheiro' && pedido.troco_para !== null && pedido.troco_para !== undefined;
+  document.getElementById('oferta-troco-linha').classList.toggle('oculto', !temTroco);
+  if (temTroco) document.getElementById('oferta-troco').textContent = formatarMoeda(pedido.troco_para);
+
   mostrarTela('tela-oferta');
 }
 
@@ -369,6 +404,19 @@ function formatarHora(dataISO) {
 // (primeira da fila, por ordem de saida) + as demais paradas restantes
 // (caso o admin tenha atribuido mais de um pedido pra essa rota) + resumo
 // do dia (busca /plantao/atual em paralelo pra pegar entregas ja concluidas).
+// Comissao do ENTREGADOR por entrega -- nunca o valor do pedido (isso e
+// dinheiro da loja/produto, coisa completamente diferente). Usa a forma de
+// pagamento configurada pro entregador (por entrega fixa ou por km) + a
+// gorjeta que o cliente ja tiver dado no pedido (caixinha).
+function comissaoDaEntrega(pedido) {
+  const dados = obterDados();
+  const comissao = dados?.formaPagamentoEntrega === 'km'
+    ? (parseFloat(pedido.distancia_km) || 0) * (parseFloat(dados?.valorPorKm) || 0)
+    : (parseFloat(dados?.valorPorEntrega) || 0);
+  const gorjeta = parseFloat(pedido.gorjeta) || 0;
+  return comissao + gorjeta;
+}
+
 async function exibirRotaEmAndamento() {
   const paradas = paradasRotaAtual;
   const proxima = paradas[0];
@@ -384,23 +432,49 @@ async function exibirRotaEmAndamento() {
   const posicaoAtual = realizadasHoje + 1;
 
   document.getElementById('rota-contador').textContent = `${posicaoAtual} de ${totalRota} entregas`;
+  renderizarMapaRota(paradas.length, posicaoAtual);
 
   document.getElementById('rota-proxima-cliente').textContent = proxima.cliente_nome || '-';
   document.getElementById('rota-proxima-endereco').textContent = proxima.cliente_endereco || '-';
   document.getElementById('rota-proxima-total').textContent = formatarMoeda(proxima.total);
-  document.getElementById('rota-proxima-pagamento').textContent = formatarPagamento(proxima.forma_pagamento);
   document.getElementById('rota-botao-navegar').href = enderecoParaLinkMaps(proxima.cliente_endereco);
+  document.getElementById('rota-pago-momento').textContent = formatarMoeda(0);
 
-  document.getElementById('rota-data').textContent = proxima.horario_saiu_entrega
-    ? new Date(proxima.horario_saiu_entrega).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+  aplicarFormaPagamento(
+    proxima,
+    document.getElementById('rota-proxima-pagamento'),
+    document.getElementById('rota-troco-bloco'),
+    document.getElementById('rota-troco-para'),
+    document.getElementById('rota-troco-valor')
+  );
+
+  // Previsao de chegada / distancia restante / previsao total dependem de
+  // uma integracao com mapa (Google Maps), que ainda nao esta configurada
+  // (falta a chave de API) -- por enquanto ficam com "-" no lugar de um
+  // valor inventado, e o botao abaixo abre a rota direto no Google Maps.
+  document.getElementById('rota-previsao-chegada').textContent = '—';
+  document.getElementById('rota-distancia-restante').textContent = '—';
+  document.getElementById('rota-previsao-total').textContent = '—';
+
+  const dataRota = proxima.horario_saiu_entrega ? new Date(proxima.horario_saiu_entrega) : new Date();
+  document.getElementById('rota-data').textContent = dataRota.toLocaleDateString('pt-BR');
   document.getElementById('rota-inicio').textContent = formatarHora(proxima.horario_saiu_entrega);
-  const valorRota = paradas.reduce((soma, p) => soma + (parseFloat(p.total) || 0), 0);
+  document.getElementById('rota-info-hora').textContent = formatarHora(proxima.horario_saiu_entrega);
+  document.getElementById('rota-info-data').textContent = dataRota.toLocaleDateString('pt-BR');
+
+  // "Valor da rota" e o quanto o ENTREGADOR ganha nessa rota (comissao +
+  // caixinha), nunca o valor dos pedidos (isso pertence a loja/produto e
+  // fica separado, so aparece em "A receber do cliente" abaixo).
+  const valorRota = paradas.reduce((soma, p) => soma + comissaoDaEntrega(p), 0);
   document.getElementById('rota-valor-total').textContent = formatarMoeda(valorRota);
 
   const ganhoHoje = plantaoAtualCache?.valor_total ?? 0;
   document.getElementById('rota-resumo-andamento').textContent = paradas.length;
+  document.getElementById('rota-resumo-andamento-valor').textContent = formatarMoeda(valorRota);
   document.getElementById('rota-resumo-realizadas').textContent = realizadasHoje;
-  document.getElementById('rota-resumo-total').textContent = formatarMoeda(ganhoHoje);
+  document.getElementById('rota-resumo-realizadas-valor').textContent = formatarMoeda(ganhoHoje);
+  document.getElementById('rota-resumo-totalrotas').textContent = totalRota;
+  document.getElementById('rota-resumo-totalrotas-valor').textContent = formatarMoeda(ganhoHoje + valorRota);
   document.getElementById('rota-resumo-a-receber').textContent = formatarMoeda(valorRota);
 
   const listaEl = document.getElementById('lista-paradas-restantes');
@@ -411,12 +485,58 @@ async function exibirRotaEmAndamento() {
       restantes.map((p, i) => `
         <div class="parada-futura">
           <strong><span class="parada-futura__numero">${i + 2}</span>${escaparHtml(p.cliente_nome || '-')}</strong>
-          <span>${escaparHtml(p.cliente_endereco || '-')} · ${formatarMoeda(p.total)}</span>
+          <span>${escaparHtml(p.cliente_endereco || '-')} · ${formatarMoeda(comissaoDaEntrega(p))}</span>
         </div>
       `).join('');
   }
 
   mostrarTela('tela-rota');
+}
+
+// Desenha um diagrama simplificado da rota (paradas numeradas ligadas por
+// linhas) no lugar de um mapa de verdade -- ainda nao ha integracao com
+// Google Maps (falta configurar a chave de API). Parada atual em laranja,
+// concluidas em verde, futuras em cinza.
+function renderizarMapaRota(totalParadasRestantes, posicaoAtual) {
+  const total = Math.max(totalParadasRestantes + (posicaoAtual - 1), 1);
+  const container = document.getElementById('mapa-rota-visual');
+  const larguraTotal = 320;
+  const alturaTotal = 190;
+  const passo = total > 1 ? larguraTotal / total : 0;
+  const pontos = [];
+  for (let i = 0; i < total; i++) {
+    const x = 40 + i * passo;
+    const y = 60 + (i % 2 === 0 ? -20 : 30) + (i === 0 ? 20 : 0);
+    pontos.push({ x, y: Math.min(Math.max(y, 30), alturaTotal - 20) });
+  }
+
+  let linhasSvg = '';
+  for (let i = 0; i < pontos.length - 1; i++) {
+    const numeroParada = i + 1;
+    const classe = numeroParada < posicaoAtual ? 'mapa-rota__linha-feita' : 'mapa-rota__linha-pendente';
+    linhasSvg += `<line x1="${pontos[i].x}" y1="${pontos[i].y}" x2="${pontos[i + 1].x}" y2="${pontos[i + 1].y}" class="${classe}"></line>`;
+  }
+
+  let circulosSvg = '';
+  pontos.forEach((p, i) => {
+    const numeroParada = i + 1;
+    let corFundo = '#c7cbc7';
+    if (numeroParada === posicaoAtual) corFundo = '#f0932b';
+    else if (numeroParada < posicaoAtual) corFundo = 'var(--cor-principal)';
+    const raio = numeroParada === posicaoAtual ? 15 : 12;
+    circulosSvg += `
+      <circle cx="${p.x}" cy="${p.y}" r="${raio}" fill="${corFundo === 'var(--cor-principal)' ? '#1f8b3b' : corFundo}"></circle>
+      <text x="${p.x}" y="${p.y + 4}" text-anchor="middle" class="mapa-rota__parada">${numeroParada}</text>
+    `;
+  });
+
+  container.innerHTML = `
+    <svg class="mapa-rota__svg" viewBox="0 0 ${larguraTotal + 40} ${alturaTotal}" preserveAspectRatio="xMidYMid meet">
+      ${linhasSvg}
+      ${circulosSvg}
+    </svg>
+    <div class="mapa-rota__moto" style="left:${((pontos[0].x - 30) / (larguraTotal + 40)) * 100}%; top:${(pontos[0].y / alturaTotal) * 100}%;">🛵</div>
+  `;
 }
 
 function escaparHtml(texto) {
@@ -489,6 +609,7 @@ function abrirMenuLateral() {
   document.getElementById('menu-lateral').classList.remove('oculto');
   document.getElementById('fundo-menu-lateral').classList.remove('oculto');
   exibirSecaoMenu('atual');
+  renderizarRodapeMenu();
 }
 function fecharMenuLateral() {
   document.getElementById('menu-lateral').classList.add('oculto');
@@ -509,9 +630,10 @@ document.querySelectorAll('.menu-lateral__item').forEach(botao => {
 
 function exibirSecaoMenu(secao) {
   const conteudo = document.getElementById('menu-lateral-conteudo');
+
   if (secao === 'atual') {
     const emRota = paradasRotaAtual.length;
-    const valorPendente = paradasRotaAtual.reduce((s, p) => s + (parseFloat(p.total) || 0), 0);
+    const valorPendente = paradasRotaAtual.reduce((s, p) => s + (comissaoDaEntrega(p)), 0);
     const realizadas = plantaoAtualCache?.total_entregas ?? 0;
     const valorUltimaRota = plantaoAtualCache?.valor_ultima_rota;
     const gorjetasHoje = plantaoAtualCache?.total_gorjetas ?? 0;
@@ -526,31 +648,168 @@ function exibirSecaoMenu(secao) {
     return;
   }
 
-  conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
-  chamarApi('/plantao/meu-historico').then(dados => {
+  if (secao === 'historico') {
+    conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
+    chamarApi('/plantao/meu-historico').then(dados => {
+      const r = dados.resumo || {};
+      let html = `
+        <p class="resumo-geral-titulo">RESUMO GERAL</p>
+        <div class="resumo-geral-linha"><span>Total de plantões</span><strong>${r.total_plantoes ?? 0}</strong></div>
+        <div class="resumo-geral-linha"><span>Entregas realizadas</span><strong>${r.total_entregas ?? 0}</strong></div>
+        <div class="resumo-geral-linha"><span>Total em caixinhas</span><strong>${formatarMoeda(r.total_gorjetas)}</strong></div>
+        <div class="resumo-geral-linha"><span>Valor total a receber</span><strong>${formatarMoeda(r.valor_total)}</strong></div>
+        <p class="resumo-geral-titulo" style="margin-top:18px;">ROTAS (PLANTÕES) REALIZADAS</p>
+      `;
+      if (!dados.plantoes || dados.plantoes.length === 0) {
+        html += '<p class="ajuda">Nenhum plantão encerrado ainda.</p>';
+      } else {
+        html += dados.plantoes.map(p => `
+          <div class="item-plantao-historico">
+            <div class="item-plantao-historico__data">${new Date(p.fim).toLocaleDateString('pt-BR')}</div>
+            <div class="item-plantao-historico__linha"><span>${p.total_entregas} entrega(s) · caixinha ${formatarMoeda(p.total_gorjetas)}</span><span>${formatarMoeda(p.valor_total)}</span></div>
+          </div>
+        `).join('');
+      }
+      conteudo.innerHTML = html;
+    }).catch(erro => {
+      conteudo.innerHTML = `<p class="erro">${erro.message}</p>`;
+    });
+    return;
+  }
+
+  // "Resumo de rotas": contagem de rotas do dia + detalhe de cada uma
+  // (valor, forma de pagamento, troco quando for dinheiro).
+  if (secao === 'resumo-rotas') {
+    conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
+    chamarApi('/entregas/minhas-hoje').then(dados => {
+      const entregas = dados.entregas || [];
+      const valorTotalHoje = entregas.reduce((s, e) => s + (e.valor_rota || 0), 0);
+      let html = `
+        <p class="resumo-geral-titulo">ROTAS DE HOJE</p>
+        <div class="resumo-geral-linha"><span>Quantidade de rotas</span><strong>${entregas.length}</strong></div>
+        <div class="resumo-geral-linha"><span>Valor total do dia</span><strong>${formatarMoeda(valorTotalHoje)}</strong></div>
+        <p class="resumo-geral-titulo" style="margin-top:18px;">DETALHE DE CADA ROTA</p>
+      `;
+      if (entregas.length === 0) {
+        html += '<p class="ajuda">Nenhuma rota concluída hoje ainda.</p>';
+      } else {
+        html += entregas.map(e => {
+          const pagamento = formatarPagamento(e.forma_pagamento);
+          const linhaTroco = (e.forma_pagamento === 'dinheiro' && e.troco !== null)
+            ? `<div class="item-entrega-detalhe__linha"><span>Troco</span><span>${formatarMoeda(e.troco)}</span></div>` : '';
+          return `
+            <div class="item-entrega-detalhe">
+              <div class="item-entrega-detalhe__topo">
+                <span class="item-entrega-detalhe__horario">${formatarHora(e.horario_entregue)}</span>
+                <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
+              </div>
+              <div class="item-entrega-detalhe__linha"><span>Pedido</span><span>${formatarMoeda(e.total_pedido)}</span></div>
+              <div class="item-entrega-detalhe__linha"><span>Pagamento</span><span>${escaparHtml(pagamento)}</span></div>
+              ${linhaTroco}
+              <div class="item-entrega-detalhe__linha"><span>Caixinha</span><span>${formatarMoeda(e.gorjeta)}</span></div>
+            </div>
+          `;
+        }).join('');
+      }
+      conteudo.innerHTML = html;
+    }).catch(erro => {
+      conteudo.innerHTML = `<p class="erro">${erro.message}</p>`;
+    });
+    return;
+  }
+
+  // "Caixinha recebida": total de gorjetas de hoje + historico geral.
+  if (secao === 'caixinha') {
+    conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
+    Promise.all([
+      chamarApi('/entregas/minhas-hoje').catch(() => ({ entregas: [] })),
+      chamarApi('/plantao/meu-historico').catch(() => ({ resumo: {} }))
+    ]).then(([hoje, historico]) => {
+      const entregasComCaixinha = (hoje.entregas || []).filter(e => (e.gorjeta || 0) > 0);
+      const gorjetaHoje = (hoje.entregas || []).reduce((s, e) => s + (e.gorjeta || 0), 0);
+      const gorjetaTotal = historico.resumo?.total_gorjetas ?? 0;
+      let html = `
+        <p class="resumo-geral-titulo">CAIXINHA RECEBIDA</p>
+        <div class="resumo-geral-linha"><span>Recebida hoje</span><strong>${formatarMoeda(gorjetaHoje)}</strong></div>
+        <div class="resumo-geral-linha"><span>Total acumulado</span><strong>${formatarMoeda(gorjetaTotal)}</strong></div>
+        <p class="resumo-geral-titulo" style="margin-top:18px;">CAIXINHAS DE HOJE</p>
+      `;
+      if (entregasComCaixinha.length === 0) {
+        html += '<p class="ajuda">Nenhuma caixinha recebida hoje ainda.</p>';
+      } else {
+        html += entregasComCaixinha.map(e => `
+          <div class="item-entrega-detalhe">
+            <div class="item-entrega-detalhe__topo">
+              <span class="item-entrega-detalhe__horario">${formatarHora(e.horario_entregue)}</span>
+              <span class="item-entrega-detalhe__valor">${formatarMoeda(e.gorjeta)}</span>
+            </div>
+            <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(e.cliente_nome || '-')}</span></div>
+          </div>
+        `).join('');
+      }
+      conteudo.innerHTML = html;
+    }).catch(erro => {
+      conteudo.innerHTML = `<p class="erro">${erro.message}</p>`;
+    });
+    return;
+  }
+
+  // "Recebimento": quanto ja recebeu vs. quanto ainda tem a receber.
+  if (secao === 'recebimento') {
+    conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
+    chamarApi('/plantao/meu-historico').then(dados => {
+      const r = dados.resumo || {};
+      const valorPendenteAtual = paradasRotaAtual.reduce((s, p) => s + (comissaoDaEntrega(p)), 0);
+      const ganhoHoje = plantaoAtualCache?.valor_total ?? 0;
+      const html = `
+        <p class="resumo-geral-titulo">A RECEBER</p>
+        <div class="resumo-geral-linha"><span>Ganhos de hoje (plantão atual)</span><strong>${formatarMoeda(ganhoHoje)}</strong></div>
+        <div class="resumo-geral-linha"><span>Em rota agora</span><strong>${formatarMoeda(valorPendenteAtual)}</strong></div>
+        <p class="resumo-geral-titulo" style="margin-top:18px;">HISTÓRICO GERAL</p>
+        <div class="resumo-geral-linha"><span>Total de plantões encerrados</span><strong>${r.total_plantoes ?? 0}</strong></div>
+        <div class="resumo-geral-linha"><span>Valor total a receber</span><strong>${formatarMoeda(r.valor_total)}</strong></div>
+        <p class="ajuda" style="margin-top:14px;">Os valores de plantões encerrados são fechados com o seu gestor conforme a política da loja.</p>
+      `;
+      conteudo.innerHTML = html;
+    }).catch(erro => {
+      conteudo.innerHTML = `<p class="erro">${erro.message}</p>`;
+    });
+  }
+}
+
+// Bloco fixo no rodape do menu lateral (RESUMO GERAL + ÚLTIMA ATUALIZAÇÃO),
+// sempre visivel independente da secao de navegacao selecionada.
+async function renderizarRodapeMenu() {
+  const rodape = document.getElementById('menu-lateral-rodape');
+  rodape.innerHTML = '<p class="ajuda">Carregando...</p>';
+  try {
+    const dados = await chamarApi('/plantao/meu-historico');
     const r = dados.resumo || {};
-    let html = `
-      <p class="resumo-geral-titulo">RESUMO GERAL</p>
-      <div class="resumo-geral-linha"><span>Total de plantões</span><strong>${r.total_plantoes ?? 0}</strong></div>
-      <div class="resumo-geral-linha"><span>Entregas realizadas</span><strong>${r.total_entregas ?? 0}</strong></div>
-      <div class="resumo-geral-linha"><span>Total em caixinhas</span><strong>${formatarMoeda(r.total_gorjetas)}</strong></div>
-      <div class="resumo-geral-linha"><span>Valor total a receber</span><strong>${formatarMoeda(r.valor_total)}</strong></div>
-      <p class="resumo-geral-titulo" style="margin-top:18px;">PLANTÕES REALIZADOS</p>
-    `;
-    if (!dados.plantoes || dados.plantoes.length === 0) {
-      html += '<p class="ajuda">Nenhum plantão encerrado ainda.</p>';
-    } else {
-      html += dados.plantoes.map(p => `
-        <div class="item-plantao-historico">
-          <div class="item-plantao-historico__data">${new Date(p.fim).toLocaleDateString('pt-BR')}</div>
-          <div class="item-plantao-historico__linha"><span>${p.total_entregas} entrega(s) · caixinha ${formatarMoeda(p.total_gorjetas)}</span><span>${formatarMoeda(p.valor_total)}</span></div>
+    const gorjetaHoje = plantaoAtualCache?.total_gorjetas ?? 0;
+    const agora = new Date();
+    rodape.innerHTML = `
+      <div class="resumo-geral-bloco">
+        <p class="resumo-geral-titulo">RESUMO GERAL</p>
+        <div class="resumo-geral-bloco__linha-topo"><span>Total de rotas</span><strong>${String(r.total_entregas ?? 0).padStart(2, '0')}</strong></div>
+        <div class="resumo-geral-bloco__valor">${formatarMoeda(r.valor_total)}</div>
+        <div class="resumo-geral-bloco__linha-topo"><span>A receber</span></div>
+        <div class="resumo-geral-bloco__valor">${formatarMoeda(r.valor_total)}</div>
+        <div class="resumo-geral-bloco__linha-topo"><span>Recebido hoje</span></div>
+        <div class="resumo-geral-bloco__valor">${formatarMoeda(gorjetaHoje)}</div>
+      </div>
+      <p class="resumo-geral-titulo">ÚLTIMA ATUALIZAÇÃO</p>
+      <div class="ultima-atualizacao-bloco">
+        <div>
+          <div class="ultima-atualizacao-linha">📅 ${agora.toLocaleDateString('pt-BR')}</div>
+          <div class="ultima-atualizacao-linha">🕐 ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
         </div>
-      `).join('');
-    }
-    conteudo.innerHTML = html;
-  }).catch(erro => {
-    conteudo.innerHTML = `<p class="erro">${erro.message}</p>`;
-  });
+        <button type="button" class="botao-atualizar-resumo" id="botao-atualizar-resumo-menu" aria-label="Atualizar">🔄</button>
+      </div>
+    `;
+    document.getElementById('botao-atualizar-resumo-menu')?.addEventListener('click', renderizarRodapeMenu);
+  } catch (erro) {
+    rodape.innerHTML = `<p class="erro">${erro.message}</p>`;
+  }
 }
 
 function fazerLogout() {
