@@ -100,6 +100,7 @@ router.get('/comandas', exigirPermissao('criar_pedidos'), comandaController.list
 router.get('/comandas/:id', exigirPermissao('criar_pedidos'), comandaController.detalhe);
 router.post('/comandas/:id/itens', exigirPermissao('criar_pedidos'), comandaController.adicionarItens);
 router.post('/comandas/:id/fechar', exigirPermissao('criar_pedidos'), comandaController.fechar);
+router.post('/comandas/:id/confirmar-manual', exigirPermissao('criar_pedidos'), comandaController.confirmarPagamentoManual);
 router.delete('/comandas/:id', exigirCargoAdministrativo, comandaController.excluir);
 
 // Caixa geral - resumo dos valores das entregas concluidas. So gerente e
