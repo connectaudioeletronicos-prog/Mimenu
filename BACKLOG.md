@@ -154,19 +154,27 @@
     estiver ativa; se a loja fechar, manter por até 2 meses
 
 ## Apps auxiliares (via QR Code, sem app nativo por enquanto)
-- [x]/[ ] **App do funcionário/garçom (comanda):** por enquanto funciona
-      *dentro do próprio dashboard* — quem tem a permissão "Criar pedidos"
-      já lança pedido de balcão/mesa pelo botão "+ Novo pedido" na aba
-      Pedidos, escolhendo produtos do cardápio (preço sempre recalculado no
-      servidor). Cancelamento continua exigindo a permissão separada
-      "Cancelar pedidos" (senha do gerente/admin), então dá pra restringir
-      o garçom a só criar, nunca cancelar — 22/07. Ainda faltam:
-  - QR Code único por funcionário gerado no cadastro (hoje o acesso é por
-    login normal de funcionário)
-  - Emissão de QR de cobrança pra comanda, vinculado ao caixa
-  - Ainda não existe conceito de "mesa"/comanda numerada com histórico
-    próprio — cada pedido de balcão hoje é avulso (identificado só pelo
-    nome/mesa digitado na hora)
+- [x] **App do garçom (`frontend/atendente/`):** app próprio, separado do
+      dashboard — 04/08: login exclusivo pra cargo "garçom" (slug + usuário
+      + senha), cardápio com categorias/busca, comanda por mesa/cliente
+      (dá pra salvar várias comandas abertas ao mesmo tempo e trocar entre
+      elas), finalizar envia pro backend com `canal_venda: 'mesa'` (não se
+      mistura com o Atendimento balcão do dashboard, mas ambos caem no
+      mesmo Caixa/relatórios). Pagamento: Dinheiro/Cartão Crédito/Cartão
+      Débito/PIX (Pix ainda sem QR real — ver pendência de Mercado Pago
+      abaixo). Botão "⚠️ Problema no pagamento" no menu lateral pede senha
+      de gerente/administrador (`POST /funcionarios/verificar-senha-supervisor`)
+      sem trocar a sessão do garçom. Ainda faltam:
+  - **Link/QR de acesso direto pelo admin:** hoje só loga pelo formulário
+    manual (`https://palatos.com.br/frontend/atendente/index.html`, slug +
+    usuário + senha) ou por link `?acesso=token` se o token for pego direto
+    no banco. Falta replicar em `frontend/admin/js/admin.js` o mesmo botão
+    "Link de acesso" que a aba Equipe já mostra pro entregador, apontando
+    pra esse app
+  - Tela "Resumo do Atendente" no dashboard (design de referência já
+    recebido) — resumo de vendas/fechamento de caixa por garçom, filtrando
+    só `canal_venda = 'mesa'`, protegida por senha de admin/gerente
+  - QR de cobrança Pix de verdade (ver Mercado Pago, abaixo)
 - [x]/[ ] **App da cozinha:** por enquanto funciona *dentro do próprio
       dashboard* — funcionário com cargo "Cozinha" só vê pedidos em preparo,
       sem valores, com botão único "Marcar como pronto" (22/07). Ainda falta:
@@ -188,8 +196,18 @@
   - Regra geral: cada uma dessas extensões (funcionário, cozinha,
     entregador) só se comunica com o admin — nunca entre si diretamente
 
+## Pagamento (Mercado Pago / Pix)
+- [ ] **Integração real de Pix via Mercado Pago — 04/08:** hoje só existe o
+      campo pra guardar `mp_access_token`/`mp_public_key` nas configurações;
+      a função que geraria a cobrança Pix + QR Code de verdade
+      (`webhookMercadoPago` em `pedidoController.js`) ainda é só um stub
+      vazio (`res.sendStatus(200)`, não confirma nada). Falta: chamar a API
+      do Mercado Pago pra gerar a cobrança + QR ao finalizar um pedido Pix
+      (cliente ou app do garçom), e processar o webhook de confirmação de
+      verdade, atualizando `status_pagamento`
+
 ---
-*Última atualização: 22/07/2026 (drag-and-drop de funcionários corrigido;
-carga horária adicionada ao cadastro; "+ Novo pedido" manual ativa o app do
-garçom/atendimento dentro do próprio dashboard; app do entregador e da
-cozinha já testáveis pelo login normal de funcionário)*
+*Última atualização: 04/08/2026 (app do garçom criado como aplicativo
+próprio, separado do dashboard; migration de `canal_venda` restaurada;
+pendências de link/QR no admin e integração real de Pix registradas acima)*
+
