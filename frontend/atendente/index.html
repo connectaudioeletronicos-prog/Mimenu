@@ -117,7 +117,7 @@
       <button type="button" class="opcao-pagamento" data-forma="cartao_debito">💳 Cartão Débito</button>
       <button type="button" class="opcao-pagamento" data-forma="pix">📱 PIX</button>
     </div>
-    <p id="aviso-pix" class="aviso-pix oculto">📌 QR Code Pix chega numa próxima etapa. Por enquanto, confirme o pagamento manualmente com o cliente.</p>
+    <p id="aviso-pix" class="aviso-pix oculto">📌 Ao confirmar, vai aparecer o QR Code de verdade pro cliente escanear.</p>
     <div class="botoes-linha">
       <button id="botao-cancelar-pagamento" class="botao botao-secundario" type="button">Cancelar</button>
       <button id="botao-confirmar-pagamento" class="botao botao-principal" type="button" disabled>Confirmar e enviar</button>
@@ -137,6 +137,26 @@
     <div class="botoes-linha">
       <button id="botao-cancelar-supervisor" class="botao botao-secundario" type="button">Cancelar</button>
       <button id="botao-confirmar-supervisor" class="botao botao-principal" type="button">Autorizar</button>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: PIX (QR Code / aguardando pagamento) ===================== -->
+  <div id="fundo-modal-pix" class="fundo-modal oculto"></div>
+  <div id="modal-pix" class="modal oculto">
+    <h2>📱 Aguardando pagamento</h2>
+    <p class="ajuda">Peça pro cliente escanear o QR ou usar o "Pix Copia e Cola".</p>
+    <div class="pix-qr-imagem-wrap">
+      <img id="pix-qr-imagem" alt="QR Code Pix">
+    </div>
+    <label>Pix Copia e Cola</label>
+    <div class="pix-copia-cola-linha">
+      <input type="text" id="pix-copia-cola" readonly>
+      <button type="button" id="botao-copiar-pix" class="botao-copiar-pix">Copiar</button>
+    </div>
+    <p id="pix-status" class="pix-status">Aguardando confirmação do pagamento...</p>
+    <div class="botoes-linha">
+      <button id="botao-cancelar-pix" class="botao botao-secundario" type="button">Fechar</button>
+      <button id="botao-confirmar-pix-manual" class="botao botao-principal" type="button">Já recebi por fora</button>
     </div>
   </div>
 
