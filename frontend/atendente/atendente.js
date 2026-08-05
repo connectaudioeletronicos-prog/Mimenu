@@ -400,21 +400,96 @@ document.getElementById('botao-confirmar-pagamento').addEventListener('click', a
   };
 
   try {
-    const pedido = await chamarApi('/pedidos', { method: 'POST', body: JSON.stringify(corpo) });
-    registrarVendaHoje(pedido);
+    const resposta = await chamarApi('/pedidos', { method: 'POST', body: JSON.stringify(corpo) });
+    const pedido = resposta.pedido;
 
     // Se essa comanda tinha sido salva antes, remove da lista de abertas.
     const lista = obterComandasSalvas().filter(c => c.id !== comandaAtual.id);
     salvarComandasNoStorage(lista);
-
     fecharModalPagamento();
-    mostrarToast(`Pedido de "${nomeMesa}" enviado para a cozinha!`);
-    comandaAtual = criarComandaVazia();
-    document.getElementById('observacao-comanda').value = '';
-    renderizarComanda();
+
+    if (resposta.pagamento) {
+      // Pix de verdade: mostra o QR e fica de olho ate confirmar (ou o
+      // garcom confirmar manualmente que recebeu por fora).
+      abrirModalPix(pedido, resposta.pagamento, nomeMesa);
+    } else {
+      if (resposta.aviso_pagamento) mostrarToast(resposta.aviso_pagamento, true);
+      registrarVendaHoje(pedido);
+      mostrarToast(`Pedido de "${nomeMesa}" enviado para a cozinha!`);
+      comandaAtual = criarComandaVazia();
+      document.getElementById('observacao-comanda').value = '';
+      renderizarComanda();
+    }
   } catch (erro) {
     mostrarToast(erro.message, true);
   }
+});
+
+// ===================== Modal Pix (QR + acompanhamento) =====================
+
+let intervaloChecagemPix = null;
+
+function abrirModalPix(pedido, pagamento, nomeMesa) {
+  document.getElementById('pix-qr-imagem').src = `data:image/png;base64,${pagamento.qr_code_base64}`;
+  document.getElementById('pix-copia-cola').value = pagamento.qr_code || '';
+  const statusEl = document.getElementById('pix-status');
+  statusEl.textContent = 'Aguardando confirmação do pagamento...';
+  statusEl.className = 'pix-status';
+
+  document.getElementById('fundo-modal-pix').classList.remove('oculto');
+  document.getElementById('modal-pix').classList.remove('oculto');
+
+  const dadosFuncionario = JSON.parse(sessionStorage.getItem(CHAVE_DADOS));
+  const slug = dadosFuncionario.slug;
+
+  // Limpa o pedido/comanda atual da tela na hora (ja foi enviado pro
+  // servidor) -- o garcom pode atender outra mesa enquanto espera o Pix.
+  comandaAtual = criarComandaVazia();
+  document.getElementById('observacao-comanda').value = '';
+  renderizarComanda();
+
+  clearInterval(intervaloChecagemPix);
+  intervaloChecagemPix = setInterval(async () => {
+    try {
+      const resposta = await fetch(`${API_BASE_URL}/publico/${slug}/pedidos/${pedido.id}/status`);
+      const dados = await resposta.json();
+      if (dados.status_pagamento === 'pago') {
+        clearInterval(intervaloChecagemPix);
+        statusEl.textContent = '✅ Pagamento confirmado!';
+        statusEl.className = 'pix-status pix-status--pago';
+        registrarVendaHoje({ ...pedido, cliente_nome: nomeMesa, forma_pagamento: 'pix' });
+        setTimeout(fecharModalPix, 1800);
+      } else if (dados.status_pagamento === 'recusado') {
+        clearInterval(intervaloChecagemPix);
+        statusEl.textContent = '❌ Pagamento recusado. Tente outra forma de pagamento.';
+        statusEl.className = 'pix-status pix-status--recusado';
+      }
+    } catch (erro) {
+      // Falha de rede na checagem nao interrompe a tela -- so tenta de novo no proximo ciclo.
+    }
+  }, 4000);
+}
+
+function fecharModalPix() {
+  clearInterval(intervaloChecagemPix);
+  document.getElementById('fundo-modal-pix').classList.add('oculto');
+  document.getElementById('modal-pix').classList.add('oculto');
+}
+
+document.getElementById('botao-cancelar-pix').addEventListener('click', fecharModalPix);
+document.getElementById('botao-copiar-pix').addEventListener('click', () => {
+  const campo = document.getElementById('pix-copia-cola');
+  campo.select();
+  navigator.clipboard?.writeText(campo.value).catch(() => {});
+  mostrarToast('Código copiado.');
+});
+
+// Pra quando o cliente pagou por fora do QR (ex: transferencia direta) e o
+// garcom precisa confirmar na mao -- so o gerente/administrador pode fazer
+// isso, ja que muda o status financeiro do pedido manualmente.
+document.getElementById('botao-confirmar-pix-manual').addEventListener('click', () => {
+  fecharModalPix();
+  abrirModalSupervisor();
 });
 
 // ===================== Problema no pagamento (senha supervisor) =====================
