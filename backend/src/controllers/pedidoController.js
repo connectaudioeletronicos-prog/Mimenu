@@ -17,7 +17,7 @@ async function gerarCobrancaPixParaPedido(estabelecimento, pedido, emailPagador)
   const cobranca = await pagamentos.criarCobrancaPix(estabelecimento, {
     valor: parseFloat(pedido.total),
     descricao: `Pedido Palatos #${pedido.id.slice(0, 8)}`,
-    referenciaExterna: pedido.id,
+    referenciaExterna: `pedido:${pedido.id}`,
     emailPagador: emailPagador || `pedido-${pedido.id.slice(0, 8)}@palatos.com.br`,
     notificationUrl
   });
@@ -194,18 +194,37 @@ async function webhookMercadoPago(req, res) {
     const confirmado = await pagamentos.consultarPagamento(estRes.rows[0], idPagamento);
     if (!confirmado.referenciaExterna) return res.sendStatus(200);
 
-    const pedidoId = confirmado.referenciaExterna;
+    // A referencia externa vem prefixada ('pedido:xxx' ou 'comanda:xxx')
+    // pra esse webhook saber em qual tabela procurar e atualizar.
+    const [tipoReferencia, referenciaId] = confirmado.referenciaExterna.split(':');
+
+    if (tipoReferencia === 'comanda') {
+      if (confirmado.status === 'pago') {
+        await query(
+          `UPDATE comandas SET status = 'fechada', status_pagamento = 'pago', fechada_em = NOW()
+           WHERE id = $1 AND estabelecimento_id = $2 AND status_pagamento <> 'pago'`,
+          [referenciaId, estabelecimentoId]
+        );
+      } else if (confirmado.status === 'recusado') {
+        await query(
+          `UPDATE comandas SET status_pagamento = 'recusado' WHERE id = $1 AND estabelecimento_id = $2 AND status_pagamento = 'pendente'`,
+          [referenciaId, estabelecimentoId]
+        );
+      }
+      return res.sendStatus(200);
+    }
+
     if (confirmado.status === 'pago') {
       await query(
         `UPDATE pedidos SET status_pagamento = 'pago',
                              status_pedido = CASE WHEN status_pedido = 'novo' THEN 'preparando' ELSE status_pedido END
          WHERE id = $1 AND estabelecimento_id = $2 AND status_pagamento <> 'pago'`,
-        [pedidoId, estabelecimentoId]
+        [referenciaId, estabelecimentoId]
       );
     } else if (confirmado.status === 'recusado') {
       await query(
         `UPDATE pedidos SET status_pagamento = 'recusado' WHERE id = $1 AND estabelecimento_id = $2 AND status_pagamento = 'pendente'`,
-        [pedidoId, estabelecimentoId]
+        [referenciaId, estabelecimentoId]
       );
     }
     // status 'pendente' (ainda aguardando): nao faz nada, so espera o proximo aviso.
