@@ -274,6 +274,15 @@ input, textarea { font-family: inherit; }
   color: #8a6300;
 }
 
+.pix-qr-imagem-wrap { display: flex; justify-content: center; margin: 14px 0; }
+.pix-qr-imagem-wrap img { width: 200px; height: 200px; border: 1px solid var(--at-borda); border-radius: 8px; }
+.pix-copia-cola-linha { display: flex; gap: 8px; margin-top: 6px; }
+.pix-copia-cola-linha input { flex: 1; font-size: 0.75rem; background: var(--at-fundo); }
+.botao-copiar-pix { padding: 0 14px; border-radius: 8px; border: 1px solid var(--at-borda); background: #fff; font-weight: 700; font-size: 0.8rem; }
+.pix-status { text-align: center; margin-top: 14px; font-size: 0.85rem; color: var(--at-texto-claro); }
+.pix-status--pago { color: var(--at-verde-forte); font-weight: 700; }
+.pix-status--recusado { color: var(--at-erro); font-weight: 700; }
+
 /* ===================== MENU LATERAL (drawer que empurra o layout) ===================== */
 /* Por padrao o menu fica encostado fora da tela, a direita, e o conteudo
    principal ocupa 100%. Ao abrir (.menu-lateral--aberto no <body>), o menu
