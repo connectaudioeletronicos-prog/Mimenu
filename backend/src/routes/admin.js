@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { autenticar, exigirPermissao } = require('../middlewares/auth');
+const { autenticar, exigirPermissao, exigirCargoAdministrativo } = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
 
 const estabelecimentoController = require('../controllers/estabelecimentoController');
@@ -17,6 +17,7 @@ const carrosselController = require('../controllers/carrosselController');
 const vitrineController = require('../controllers/vitrineController');
 const caixaTextoController = require('../controllers/caixaTextoController');
 const pedidoController = require('../controllers/pedidoController');
+const comandaController = require('../controllers/comandaController');
 const reservaController = require('../controllers/reservaController');
 const estoqueController = require('../controllers/estoqueController');
 const fornecedorController = require('../controllers/fornecedorController');
@@ -90,6 +91,16 @@ router.get('/pedidos/contagem', pedidoController.contarPedidosAdmin);
 // Pedido lancado manualmente pelo garcom/atendimento (balcao/mesa) --
 // ja entra direto em preparo, sem precisar do aceite do administrador.
 router.post('/pedidos', exigirPermissao('criar_pedidos'), pedidoController.criarPedidoManual);
+
+// Comandas (mesa/cliente do app do garcom): abre, recebe rodadas de itens
+// (vao pra cozinha na hora) e so fecha/cobra no final. O historico de
+// comandas fechadas e permanente -- so proprietario/administrador exclui.
+router.post('/comandas', exigirPermissao('criar_pedidos'), comandaController.abrir);
+router.get('/comandas', exigirPermissao('criar_pedidos'), comandaController.listar);
+router.get('/comandas/:id', exigirPermissao('criar_pedidos'), comandaController.detalhe);
+router.post('/comandas/:id/itens', exigirPermissao('criar_pedidos'), comandaController.adicionarItens);
+router.post('/comandas/:id/fechar', exigirPermissao('criar_pedidos'), comandaController.fechar);
+router.delete('/comandas/:id', exigirCargoAdministrativo, comandaController.excluir);
 
 // Caixa geral - resumo dos valores das entregas concluidas. So gerente e
 // administrador (ou quem tiver a permissao marcada) tem acesso.
