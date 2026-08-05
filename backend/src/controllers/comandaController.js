@@ -213,4 +213,38 @@ async function excluir(req, res) {
   }
 }
 
-module.exports = { abrir, listar, detalhe, adicionarItens, fechar, excluir };
+// Confirma senha de gerente/administrador E ja fecha a comanda como paga
+// no mesmo passo -- usado quando o pagamento Pix nao caiu pelo QR (ex:
+// cliente pagou por transferencia direta) e alguem com autoridade precisa
+// assumir isso manualmente.
+async function confirmarPagamentoManual(req, res) {
+  try {
+    const { id } = req.params;
+    const { login, senha } = req.body;
+
+    const { verificarCredenciaisSupervisor, registrarAuditoria } = require('./funcionarioController');
+    const supervisor = await verificarCredenciaisSupervisor(req.estabelecimentoId, login, senha);
+
+    const comandaRes = await query('SELECT * FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
+    if (comandaRes.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
+    const comanda = comandaRes.rows[0];
+    if (comanda.status === 'fechada') return res.status(400).json({ erro: 'Essa comanda ja esta fechada.' });
+
+    const fechado = await query(
+      `UPDATE comandas SET status = 'fechada', status_pagamento = 'pago', fechada_em = NOW(),
+                            fechada_por_funcionario_id = $1, fechada_por_funcionario_nome = $2
+       WHERE id = $3 RETURNING *`,
+      [req.funcionarioId || null, `${req.funcionarioNome} (confirmado por ${supervisor.nome})`, id]
+    );
+
+    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'CONFIRMAR_PAGAMENTO_MANUAL_COMANDA', 'comandas', id, comanda, { autorizado_por: supervisor.nome }, req.ip);
+
+    res.json({ comanda: fechado.rows[0] });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ erro: error.message });
+    console.error('Erro ao confirmar pagamento manual da comanda:', error);
+    res.status(500).json({ erro: 'Erro ao confirmar pagamento manual.' });
+  }
+}
+
+module.exports = { abrir, listar, detalhe, adicionarItens, fechar, excluir, confirmarPagamentoManual };
