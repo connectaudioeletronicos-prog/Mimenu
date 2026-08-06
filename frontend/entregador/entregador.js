@@ -125,6 +125,50 @@ function aplicarFormaPagamento(pedido, elBadge, elBlocoTroco, elTrocoPara, elTro
   }
 }
 
+// -------------------- Mostrar/ocultar senha --------------------
+document.getElementById('botao-mostrar-senha').addEventListener('click', () => {
+  const campo = document.getElementById('login-senha');
+  const mostrando = campo.type === 'text';
+  campo.type = mostrando ? 'password' : 'text';
+  document.getElementById('icone-olho-aberto').classList.toggle('oculto', !mostrando);
+  document.getElementById('icone-olho-fechado').classList.toggle('oculto', mostrando);
+  document.getElementById('botao-mostrar-senha').setAttribute('aria-pressed', String(!mostrando));
+});
+
+// -------------------- Logo dinamica por loja (busca pelo slug digitado) --------------------
+let timeoutBuscaLogo = null;
+function agendarBuscaLogoDaLoja() {
+  clearTimeout(timeoutBuscaLogo);
+  timeoutBuscaLogo = setTimeout(buscarLogoDaLoja, 500);
+}
+async function buscarLogoDaLoja() {
+  const slug = document.getElementById('login-slug').value.trim();
+  const imagemEl = document.getElementById('logo-entrada-imagem');
+  const placeholderEl = document.getElementById('logo-entrada-placeholder');
+  if (!slug) {
+    imagemEl.classList.add('oculto');
+    placeholderEl.classList.remove('oculto');
+    return;
+  }
+  try {
+    const resposta = await fetch(`${API_BASE_URL}/publico/${encodeURIComponent(slug)}`);
+    const dados = await resposta.json();
+    if (resposta.ok && dados.logo_url) {
+      imagemEl.src = dados.logo_url;
+      imagemEl.alt = `Logo ${dados.nome || slug}`;
+      imagemEl.classList.remove('oculto');
+      placeholderEl.classList.add('oculto');
+      return;
+    }
+  } catch {
+    // Sem internet/slug invalido -- so mantem o placeholder, sem travar o login.
+  }
+  imagemEl.classList.add('oculto');
+  placeholderEl.classList.remove('oculto');
+}
+document.getElementById('login-slug').addEventListener('input', agendarBuscaLogoDaLoja);
+document.getElementById('login-slug').addEventListener('blur', buscarLogoDaLoja);
+
 // -------------------- Login --------------------
 document.getElementById('form-login').addEventListener('submit', async (evento) => {
   evento.preventDefault();
