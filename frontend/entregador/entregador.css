@@ -462,23 +462,46 @@ input[type="text"], input[type="password"] {
 .botao-menu-discreto:hover,
 .botao-menu-discreto:active { background: rgba(0,0,0,0.06); color: var(--cor-texto); }
 
-/* ===================== LOGO DE ENTRADA (login) ===================== */
+/* ===================== LOGO DE ENTRADA (login, dinamica por loja) ===================== */
 
 .logo-entrada {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
   margin-bottom: 18px;
 }
-.logo-entrada__icone { width: 42px; height: 42px; object-fit: contain; }
-.logo-entrada__texto {
-  font-weight: 800;
-  font-size: 26px;
-  letter-spacing: -0.4px;
-  color: var(--cor-texto);
+.logo-entrada__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 108px;
+  padding: 14px 10px;
+  border: 1.5px dashed var(--cor-borda);
+  border-radius: var(--raio-borda);
+  color: var(--cor-texto-claro);
 }
-.logo-entrada__destaque { color: var(--cor-laranja); }
+.logo-entrada__placeholder span { font-size: 11px; font-weight: 600; text-align: center; }
+.logo-entrada__imagem { max-width: 220px; max-height: 64px; object-fit: contain; }
+
+/* ===================== CAMPO DE SENHA COM OLHO (mostrar/ocultar) ===================== */
+
+.campo-senha { position: relative; }
+.campo-senha input { padding-right: 42px; width: 100%; }
+.botao-olho-senha {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 4px;
+  color: var(--cor-texto-claro);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.botao-olho-senha:hover { color: var(--cor-texto); }
 
 /* ===================== CABECALHO COM LOGO + SAUDACAO ===================== */
 
