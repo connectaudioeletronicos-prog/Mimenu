@@ -157,23 +157,30 @@ document.getElementById('form-login').addEventListener('submit', async (evento) 
   }
 });
 
-// Olho de mostrar/ocultar senha -- funciona em qualquer campo marcado com
-// data-alvo-senha apontando pro id do input correspondente.
+// Olho de mostrar/ocultar senha -- comeca "fechado" (senha oculta) e vira
+// "aberto" (senha visivel) quando clicado. Mesmo par de icones em qualquer
+// campo marcado com data-alvo-senha, em qualquer tela do app.
+const ICONE_OLHO_FECHADO = '<svg class="icone-olho" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+const ICONE_OLHO_ABERTO = '<svg class="icone-olho" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>';
+
 document.querySelectorAll('.botao-olho-senha').forEach(botao => {
   botao.addEventListener('click', () => {
     const campo = document.getElementById(botao.dataset.alvoSenha);
-    const mostrando = campo.type === 'text';
-    campo.type = mostrando ? 'password' : 'text';
-    botao.textContent = mostrando ? '👁️' : '🙈';
+    const vaiMostrar = campo.type === 'password';
+    campo.type = vaiMostrar ? 'text' : 'password';
+    botao.innerHTML = vaiMostrar ? ICONE_OLHO_ABERTO : ICONE_OLHO_FECHADO;
   });
 });
 
 // Busca o logo da loja pelo slug assim que o garcom sai do campo, antes
-// mesmo de logar (usa a rota publica, nao precisa de sessao).
+// mesmo de logar (usa a rota publica, nao precisa de sessao). Enquanto nao
+// acha nenhum, mostra so um icone generico de prato -- nunca a marca
+// "Palatos" (que e a plataforma, nao o restaurante do cliente).
 document.getElementById('login-slug').addEventListener('blur', async (evento) => {
   const slug = evento.target.value.trim();
   const imgLogo = document.getElementById('logo-loja-login');
-  if (!slug) { imgLogo.classList.add('oculto'); return; }
+  const iconeGenerico = document.getElementById('logo-login-generico');
+  if (!slug) { imgLogo.classList.add('oculto'); iconeGenerico.classList.remove('oculto'); return; }
   try {
     const resposta = await fetch(`${API_BASE_URL}/publico/${slug}`);
     if (!resposta.ok) throw new Error();
@@ -181,11 +188,14 @@ document.getElementById('login-slug').addEventListener('blur', async (evento) =>
     if (dados.logo_url) {
       imgLogo.src = dados.logo_url;
       imgLogo.classList.remove('oculto');
+      iconeGenerico.classList.add('oculto');
     } else {
       imgLogo.classList.add('oculto');
+      iconeGenerico.classList.remove('oculto');
     }
   } catch (erro) {
     imgLogo.classList.add('oculto');
+    iconeGenerico.classList.remove('oculto');
   }
 });
 
