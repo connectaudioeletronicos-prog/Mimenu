@@ -152,6 +152,18 @@ async function fechar(req, res) {
     if (comanda.status !== 'aberta') return res.status(400).json({ erro: 'Essa comanda ja foi fechada.' });
     if (Number(comanda.subtotal) <= 0) return res.status(400).json({ erro: 'Essa comanda ainda nao tem nenhum item enviado pra cozinha.' });
 
+    // Enquanto a loja nao configurar a chave de pagamento (Configuracoes >
+    // Pagamento), so aceita Dinheiro no fechamento -- Pix, credito e debito
+    // ficam bloqueados (mesmo credito/debito nao dependendo do Pix hoje,
+    // no futuro tambem vao passar pela maquininha integrada via Mercado
+    // Pago Point, entao a mesma chave vai valer pra eles).
+    if (forma_pagamento !== 'dinheiro') {
+      const estConfigRes = await query('SELECT mp_access_token FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
+      if (!estConfigRes.rows[0]?.mp_access_token) {
+        return res.status(400).json({ erro: 'Essa loja ainda nao configurou a chave de pagamento em Configurações > Pagamento. Por enquanto, só é possível cobrar em Dinheiro.' });
+      }
+    }
+
     const totalFinal = Number(comanda.subtotal) + gorjetaValor;
 
     if (forma_pagamento === 'pix') {
