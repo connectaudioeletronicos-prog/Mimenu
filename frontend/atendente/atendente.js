@@ -14,7 +14,7 @@ let categoriaSelecionada = null;
 let termoBusca = '';
 
 // Comanda em atendimento agora (null = ainda nao aberta/escolhida nessa tela).
-let comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0 };
+let comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
 // Itens dessa rodada (ainda NAO enviados pra cozinha).
 let draftItens = [];
 
@@ -34,6 +34,49 @@ function mostrarToast(mensagem, ehErro) {
   clearTimeout(mostrarToast._t);
   mostrarToast._t = setTimeout(() => toast.classList.add('oculto'), 3200);
 }
+
+function formatarHora(isoString) {
+  if (!isoString) return '-';
+  const data = new Date(isoString);
+  return data.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+// Monta a "árvore": uma rodada por bloco (com horário), itens dela embaixo.
+// Usada tanto no painel da comanda (itens ja enviados) quanto no modal de
+// cobranca (conferencia antes de fechar).
+function construirArvoreHtml(rodadas) {
+  if (!Array.isArray(rodadas) || rodadas.length === 0) {
+    return '<p class="ajuda" style="padding:6px 0;">Nenhum item enviado ainda.</p>';
+  }
+  return rodadas.map(r => `
+    <div class="rodada-arvore">
+      <div class="rodada-arvore__cabecalho">${formatarHora(r.criado_em)} · R$ ${formatarMoeda(r.subtotal)}</div>
+      ${(Array.isArray(r.itens) ? r.itens : []).map(item => `
+        <div class="rodada-arvore__item"><span>${item.quantidade}x ${escaparHtml(item.nome)}</span><span>R$ ${formatarMoeda(item.preco * item.quantidade)}</span></div>
+      `).join('')}
+      ${r.observacoes ? `<div class="rodada-arvore__obs">Obs: ${escaparHtml(r.observacoes)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function renderizarItensEnviados() {
+  const secao = document.getElementById('secao-itens-enviados');
+  if (!comandaAtual.id || !comandaAtual.rodadas || comandaAtual.rodadas.length === 0) {
+    secao.classList.add('oculto');
+    return;
+  }
+  secao.classList.remove('oculto');
+  document.getElementById('valor-ja-enviado').textContent = `R$ ${formatarMoeda(comandaAtual.subtotalEnviado)}`;
+  document.getElementById('arvore-itens-enviados').innerHTML = construirArvoreHtml(comandaAtual.rodadas);
+}
+
+document.getElementById('botao-toggle-itens-enviados').addEventListener('click', () => {
+  const arvore = document.getElementById('arvore-itens-enviados');
+  const seta = document.getElementById('seta-arvore');
+  const estaAberta = !arvore.classList.contains('oculto');
+  arvore.classList.toggle('oculto', estaAberta);
+  seta.textContent = estaAberta ? '▸' : '▾';
+});
 
 // ===================== Chamadas de API =====================
 
@@ -227,14 +270,7 @@ function calcularSubtotalRodada() {
 
 function renderizarComanda() {
   document.getElementById('rotulo-mesa-cliente').textContent = comandaAtual.mesaCliente || 'Mesa / Cliente';
-
-  const resumoEnviado = document.getElementById('resumo-comanda-enviada');
-  if (comandaAtual.id && comandaAtual.subtotalEnviado > 0) {
-    resumoEnviado.classList.remove('oculto');
-    document.getElementById('valor-ja-enviado').textContent = `R$ ${formatarMoeda(comandaAtual.subtotalEnviado)}`;
-  } else {
-    resumoEnviado.classList.add('oculto');
-  }
+  renderizarItensEnviados();
 
   const lista = document.getElementById('lista-itens-comanda');
   if (draftItens.length === 0) {
@@ -292,12 +328,12 @@ async function abrirModalMesa() {
     } else {
       container.innerHTML = abertas.map(c => `
         <div class="item-comanda-modal">
-          <span>${escaparHtml(c.mesa_cliente)} · R$ ${formatarMoeda(c.subtotal)}</span>
-          <button type="button" data-selecionar-comanda="${c.id}" data-mesa="${escaparHtml(c.mesa_cliente)}" data-subtotal="${c.subtotal}">Abrir</button>
+          <span>${escaparHtml(c.mesa_cliente)} · aberta às ${formatarHora(c.aberta_em)} · R$ ${formatarMoeda(c.subtotal)}</span>
+          <button type="button" data-selecionar-comanda="${c.id}">Abrir</button>
         </div>
       `).join('');
       container.querySelectorAll('[data-selecionar-comanda]').forEach(botao => {
-        botao.addEventListener('click', () => selecionarComandaExistente(botao.dataset.selecionarComanda, botao.dataset.mesa, parseFloat(botao.dataset.subtotal)));
+        botao.addEventListener('click', () => selecionarComanda(botao.dataset.selecionarComanda, fecharModalMesa));
       });
     }
   } catch (erro) {
@@ -305,19 +341,33 @@ async function abrirModalMesa() {
   }
 }
 
-function trocarComandaAtual(nova) {
+// Troca pra outra comanda (ou define uma recem-criada) buscando o detalhe
+// completo dela no servidor -- assim o painel sempre mostra TODOS os itens
+// ja enviados pra cozinha antes de ele adicionar mais coisa ou cobrar,
+// nunca so um numero de subtotal sem explicacao.
+function definirComandaAtual(comanda) {
   if (draftItens.length > 0 && !confirm('Você tem itens dessa rodada ainda não enviados pra cozinha. Descartar e trocar de comanda?')) {
     return false;
   }
   draftItens = [];
-  comandaAtual = nova;
+  comandaAtual = {
+    id: comanda.id,
+    mesaCliente: comanda.mesa_cliente,
+    subtotalEnviado: parseFloat(comanda.subtotal) || 0,
+    rodadas: comanda.rodadas || []
+  };
   renderizarComanda();
   return true;
 }
 
-function selecionarComandaExistente(id, mesaCliente, subtotal) {
-  if (!trocarComandaAtual({ id, mesaCliente, subtotalEnviado: subtotal })) return;
-  fecharModalMesa();
+async function selecionarComanda(id, aoTerminar) {
+  try {
+    const comanda = await chamarApi(`/comandas/${id}`);
+    if (!definirComandaAtual(comanda)) return;
+    if (aoTerminar) aoTerminar();
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
 }
 
 document.getElementById('botao-mesa-cliente').addEventListener('click', abrirModalMesa);
@@ -331,7 +381,7 @@ document.getElementById('botao-confirmar-mesa').addEventListener('click', async 
   if (!mesaCliente) return mostrarToast('Informe a mesa ou o nome do cliente.', true);
   try {
     const nova = await chamarApi('/comandas', { method: 'POST', body: JSON.stringify({ mesa_cliente: mesaCliente }) });
-    if (!trocarComandaAtual({ id: nova.id, mesaCliente: nova.mesa_cliente, subtotalEnviado: 0 })) return;
+    if (!definirComandaAtual({ ...nova, rodadas: [] })) return;
     fecharModalMesa();
     mostrarToast(`Comanda "${mesaCliente}" aberta.`);
   } catch (erro) {
@@ -346,7 +396,7 @@ document.getElementById('botao-enviar-cozinha').addEventListener('click', async 
   if (draftItens.length === 0) return mostrarToast('Adicione itens antes de enviar.', true);
 
   try {
-    await chamarApi(`/comandas/${comandaAtual.id}/itens`, {
+    const novoPedido = await chamarApi(`/comandas/${comandaAtual.id}/itens`, {
       method: 'POST',
       body: JSON.stringify({
         itens: draftItens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade })),
@@ -354,6 +404,7 @@ document.getElementById('botao-enviar-cozinha').addEventListener('click', async 
       })
     });
     comandaAtual.subtotalEnviado += calcularSubtotalRodada();
+    comandaAtual.rodadas.push(novoPedido);
     draftItens = [];
     document.getElementById('observacao-comanda').value = '';
     renderizarComanda();
@@ -383,6 +434,7 @@ document.getElementById('botao-cobrar-comanda').addEventListener('click', () => 
   document.querySelectorAll('.opcao-pagamento').forEach(b => b.classList.remove('opcao-pagamento--selecionada'));
   document.getElementById('botao-confirmar-pagamento').disabled = true;
   document.getElementById('pagamento-mesa-nome').textContent = comandaAtual.mesaCliente;
+  document.getElementById('arvore-conferencia-pagamento').innerHTML = construirArvoreHtml(comandaAtual.rodadas);
   document.getElementById('input-gorjeta').value = '0';
   atualizarTotalPagamento();
   document.getElementById('fundo-modal-pagamento').classList.remove('oculto');
@@ -427,7 +479,7 @@ document.getElementById('botao-confirmar-pagamento').addEventListener('click', a
       abrirModalPix(comandaId, resposta.pagamento, mesaCliente);
     } else {
       mostrarToast(`Comanda "${mesaCliente}" fechada e paga!`);
-      comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0 };
+      comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
       renderizarComanda();
     }
   } catch (erro) {
@@ -456,7 +508,7 @@ function abrirModalPix(comandaId, pagamento, mesaCliente) {
         clearInterval(intervaloChecagemPix);
         statusEl.textContent = '✅ Pagamento confirmado!';
         statusEl.className = 'pix-status pix-status--pago';
-        comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0 };
+        comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
         renderizarComanda();
         setTimeout(fecharModalPix, 1800);
       } else if (comanda.status_pagamento === 'recusado') {
@@ -514,7 +566,7 @@ document.getElementById('botao-confirmar-supervisor').addEventListener('click', 
     await chamarApi(`/comandas/${comandaId}/confirmar-manual`, { method: 'POST', body: JSON.stringify({ login, senha }) });
     fecharModalSupervisor();
     mostrarToast('Comanda confirmada como paga manualmente.');
-    if (comandaAtual.id === comandaId) comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0 };
+    if (comandaAtual.id === comandaId) comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
     renderizarComanda();
   } catch (erro) {
     erroEl.textContent = erro.message;
@@ -551,15 +603,12 @@ async function renderizarMenuLateral(secao) {
       } else {
         container.innerHTML = abertas.map(c => `
           <div class="item-venda-resumo">
-            <span>${escaparHtml(c.mesa_cliente)} · R$ ${formatarMoeda(c.subtotal)}</span>
-            <button type="button" class="botao-mesa-cliente" data-abrir-comanda="${c.id}" data-mesa="${escaparHtml(c.mesa_cliente)}" data-subtotal="${c.subtotal}">Abrir</button>
+            <span>${escaparHtml(c.mesa_cliente)} · aberta às ${formatarHora(c.aberta_em)} · R$ ${formatarMoeda(c.subtotal)}</span>
+            <button type="button" class="botao-mesa-cliente" data-abrir-comanda="${c.id}">Abrir</button>
           </div>
         `).join('');
         container.querySelectorAll('[data-abrir-comanda]').forEach(botao => {
-          botao.addEventListener('click', () => {
-            if (!trocarComandaAtual({ id: botao.dataset.abrirComanda, mesaCliente: botao.dataset.mesa, subtotalEnviado: parseFloat(botao.dataset.subtotal) })) return;
-            fecharMenuLateral();
-          });
+          botao.addEventListener('click', () => selecionarComanda(botao.dataset.abrirComanda, fecharMenuLateral));
         });
       }
     } catch (erro) {
@@ -575,7 +624,7 @@ async function renderizarMenuLateral(secao) {
       } else {
         container.innerHTML = fechadas.map(c => `
           <div class="item-venda-resumo">
-            <span>${escaparHtml(c.mesa_cliente)}</span>
+            <span>${escaparHtml(c.mesa_cliente)} · fechada às ${formatarHora(c.fechada_em)}</span>
             <button type="button" class="botao-mesa-cliente" data-ver-historico="${c.id}">R$ ${formatarMoeda(c.total)}</button>
           </div>
         `).join('');
@@ -590,12 +639,6 @@ async function renderizarMenuLateral(secao) {
 }
 
 // ===================== Detalhe do histórico =====================
-
-function formatarHora(isoString) {
-  if (!isoString) return '-';
-  const data = new Date(isoString);
-  return data.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
 
 async function abrirDetalheHistorico(comandaId) {
   const conteudo = document.getElementById('historico-conteudo');
