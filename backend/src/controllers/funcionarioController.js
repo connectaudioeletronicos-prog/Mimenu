@@ -61,10 +61,12 @@ async function loginFuncionario(req, res) {
       return res.status(400).json({ erro: 'Login, senha e slug sao obrigatorios.' });
     }
 
-    const estRes = await query('SELECT id, nome FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
+    const estRes = await query('SELECT id, nome, logo_url, mp_access_token FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
     if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
     const estabelecimentoId = estRes.rows[0].id;
     const estabelecimentoNome = estRes.rows[0].nome;
+    const estabelecimentoLogoUrl = estRes.rows[0].logo_url;
+    const pagamentoConfigurado = !!estRes.rows[0].mp_access_token;
 
     const resultado = await query(
       `SELECT id, nome, email, username, senha_hash, cargo, permissoes, ativo,
@@ -90,7 +92,7 @@ async function loginFuncionario(req, res) {
       token,
       funcionario: {
         id: funcionario.id, nome: funcionario.nome, cargo: funcionario.cargo, permissoes, slug,
-        estabelecimentoNome,
+        estabelecimentoNome, estabelecimentoLogoUrl, pagamentoConfigurado,
         formaPagamentoEntrega: funcionario.forma_pagamento_entrega,
         valorPorEntrega: funcionario.valor_por_entrega,
         valorPorKm: funcionario.valor_por_km
@@ -111,7 +113,8 @@ async function acessarPorLink(req, res) {
     const resultado = await query(
       `SELECT f.id, f.nome, f.cargo, f.permissoes, f.ativo,
               f.forma_pagamento_entrega, f.valor_por_entrega, f.valor_por_km,
-              e.id AS estabelecimento_id, e.slug, e.nome AS estabelecimento_nome
+              e.id AS estabelecimento_id, e.slug, e.nome AS estabelecimento_nome,
+              e.logo_url AS estabelecimento_logo_url, e.mp_access_token
        FROM funcionarios f JOIN estabelecimentos e ON e.id = f.estabelecimento_id
        WHERE f.token_acesso = $1`,
       [token]
@@ -127,6 +130,7 @@ async function acessarPorLink(req, res) {
       token: tokenSessao,
       funcionario: {
         id: f.id, nome: f.nome, cargo: f.cargo, permissoes, slug: f.slug, estabelecimentoNome: f.estabelecimento_nome,
+        estabelecimentoLogoUrl: f.estabelecimento_logo_url, pagamentoConfigurado: !!f.mp_access_token,
         formaPagamentoEntrega: f.forma_pagamento_entrega, valorPorEntrega: f.valor_por_entrega, valorPorKm: f.valor_por_km
       }
     });
