@@ -35,7 +35,7 @@ async function criarPedido(req, res) {
     const { slug } = req.params;
     const {
       cliente_nome, cliente_telefone, cliente_endereco, cliente_cep,
-      observacoes, forma_pagamento, taxa_entrega, gorjeta, tipo_pedido, itens, troco_para
+      observacoes, forma_pagamento, taxa_entrega, gorjeta, tipo_pedido, itens
     } = req.body;
 
     const tipoPedidoFinal = tipo_pedido === 'retirada' ? 'retirada' : 'entrega';
@@ -95,25 +95,14 @@ async function criarPedido(req, res) {
     const gorjetaFinal = parseFloat(gorjeta || 0);
     const total = subtotal + taxaEntregaFinal + gorjetaFinal;
 
-    // Troco: so faz sentido pra pagamento em dinheiro. Se o cliente informou
-    // quanto vai pagar em especie, valida que cobre o total do pedido (senao
-    // nao tem troco a calcular, e sim pedido a mais).
-    let trocoParaFinal = null;
-    if (forma_pagamento === 'dinheiro' && troco_para !== undefined && troco_para !== null && troco_para !== '') {
-      trocoParaFinal = parseFloat(troco_para);
-      if (isNaN(trocoParaFinal) || trocoParaFinal < total) {
-        return res.status(400).json({ erro: 'O valor para troco deve ser maior ou igual ao total do pedido.' });
-      }
-    }
-
     // Canal da venda, independente do tipo_pedido ja existente -- usado
     // pelos relatorios/dashboard de estoque e vendas por canal.
     const canalVenda = ehRetirada ? 'retirada' : 'delivery';
 
     const pedidoRes = await query(
-      `INSERT INTO pedidos (estabelecimento_id, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes, forma_pagamento, itens, subtotal, taxa_entrega, gorjeta, total, tipo_pedido, canal_venda, troco_para, status_pedido, status_pagamento)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'novo','pendente') RETURNING *`,
-      [estabelecimentoId, cliente_nome, cliente_telefone, ehRetirada ? null : cliente_endereco, ehRetirada ? null : cliente_cep, observacoes || '', forma_pagamento, JSON.stringify(itensValidados), subtotal, taxaEntregaFinal, gorjetaFinal, total, tipoPedidoFinal, canalVenda, trocoParaFinal]
+      `INSERT INTO pedidos (estabelecimento_id, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes, forma_pagamento, itens, subtotal, taxa_entrega, gorjeta, total, tipo_pedido, canal_venda, status_pedido, status_pagamento)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'novo','pendente') RETURNING *`,
+      [estabelecimentoId, cliente_nome, cliente_telefone, ehRetirada ? null : cliente_endereco, ehRetirada ? null : cliente_cep, observacoes || '', forma_pagamento, JSON.stringify(itensValidados), subtotal, taxaEntregaFinal, gorjetaFinal, total, tipoPedidoFinal, canalVenda]
     );
     const pedido = pedidoRes.rows[0];
 
@@ -668,6 +657,15 @@ async function criarPedidoManual(req, res) {
       ? 'delivery'
       : (canaisValidos.includes(canal_venda) ? canal_venda : 'balcao');
 
+    // Enquanto a loja nao configurar a chave de pagamento, so aceita
+    // Dinheiro por aqui tambem (mesma regra do fechamento de comanda).
+    if (forma_pagamento !== 'dinheiro') {
+      const estConfigRes = await query('SELECT mp_access_token FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
+      if (!estConfigRes.rows[0]?.mp_access_token) {
+        return res.status(400).json({ erro: 'Essa loja ainda nao configurou a chave de pagamento em Configurações > Pagamento. Por enquanto, só é possível cobrar em Dinheiro.' });
+      }
+    }
+
     // Pix precisa esperar a confirmacao de pagamento antes de ir pra
     // cozinha: entra como 'novo' + 'pendente' e so vira 'preparando' + 'pago'
     // quando o webhook do Mercado Pago confirmar. Dinheiro/cartao continuam
@@ -727,7 +725,7 @@ async function criarPedidoManual(req, res) {
 async function listarEntregaPendente(req, res) {
   try {
     const resultado = await query(
-      `SELECT id, cliente_nome, cliente_telefone, cliente_endereco, total, forma_pagamento, troco_para, criado_em
+      `SELECT id, cliente_nome, cliente_telefone, cliente_endereco, total, forma_pagamento, criado_em
        FROM pedidos
        WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_convite_entrega = 'pendente'
        ORDER BY horario_pronto ASC LIMIT 1`,
@@ -844,7 +842,7 @@ async function encerrarEntrega(req, res) {
     const { distancia_km } = req.body;
 
     const plantaoAberto = await query(
-      'SELECT id FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
+      'SELECT id FROM plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
       [req.funcionarioId]
     );
     const plantaoId = plantaoAberto.rows[0]?.id || null;
@@ -878,53 +876,6 @@ async function encerrarEntrega(req, res) {
   }
 }
 
-// Entregas concluidas HOJE pelo proprio entregador, com o detalhe de cada
-// rota (horario, valor da entrega/comissao, forma de pagamento + troco
-// quando for dinheiro, caixinha) -- usado na secao "Resumo de rotas" do
-// menu lateral do app.
-async function minhasEntregasHoje(req, res) {
-  try {
-    const funcionario = await query(
-      'SELECT forma_pagamento_entrega, valor_por_entrega, valor_por_km FROM funcionarios WHERE id = $1',
-      [req.funcionarioId]
-    );
-    const f = funcionario.rows[0] || {};
-
-    const resultado = await query(
-      `SELECT id, cliente_nome, cliente_endereco, total, forma_pagamento, troco_para, gorjeta,
-              distancia_km, horario_entregue
-       FROM pedidos
-       WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_pedido = 'entregue'
-         AND horario_entregue >= CURRENT_DATE
-       ORDER BY horario_entregue DESC`,
-      [req.estabelecimentoId, req.funcionarioId]
-    );
-
-    const entregas = resultado.rows.map((p) => {
-      const comissao = f.forma_pagamento_entrega === 'km'
-        ? (Number(p.distancia_km) || 0) * (Number(f.valor_por_km) || 0)
-        : (Number(f.valor_por_entrega) || 0);
-      return {
-        id: p.id,
-        cliente_nome: p.cliente_nome,
-        cliente_endereco: p.cliente_endereco,
-        total_pedido: Number(p.total) || 0,
-        forma_pagamento: p.forma_pagamento,
-        troco_para: p.troco_para !== null ? Number(p.troco_para) : null,
-        troco: p.troco_para !== null ? Number(p.troco_para) - Number(p.total) : null,
-        gorjeta: Number(p.gorjeta) || 0,
-        valor_rota: comissao,
-        horario_entregue: p.horario_entregue
-      };
-    });
-
-    res.json({ entregas });
-  } catch (error) {
-    console.error('Erro ao buscar entregas de hoje:', error);
-    res.status(500).json({ erro: 'Erro ao buscar entregas de hoje.' });
-  }
-}
-
 module.exports = {
   criarPedido,
   criarPedidoManual,
@@ -935,7 +886,6 @@ module.exports = {
   atualizarStatusPedido,
   corrigirValoresPedido,
   listarPedidosCliente,
-  minhasEntregasHoje,
   obterCaixaGeral,
   tentarOfertarPedidosPendentes,
   posicaoNaFila,
