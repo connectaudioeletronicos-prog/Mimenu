@@ -338,14 +338,6 @@ body.menu-lateral--aberto .conteudo-principal { transform: translateX(-300px); }
 .item-venda-resumo strong { color: var(--at-verde-forte); }
 
 .botao-cobrar { background: var(--at-laranja); }
-.resumo-comanda-enviada {
-  background: var(--at-verde-claro);
-  color: var(--at-verde-forte);
-  font-size: 0.82rem;
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-weight: 600;
-}
 .lista-comandas-modal { max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .item-comanda-modal {
   display: flex; justify-content: space-between; align-items: center;
