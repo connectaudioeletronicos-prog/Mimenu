@@ -3,219 +3,287 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>App do Garçom - Palatos</title>
-<link rel="stylesheet" href="atendente.css?v=20260806d">
+<title>App do Entregador</title>
+<link rel="stylesheet" href="entregador.css">
 </head>
 <body>
 
   <!-- ===================== TELA: LOGIN ===================== -->
   <section id="tela-login" class="tela">
-    <div class="cartao-login">
-      <img id="logo-loja-login" class="logo-loja-login oculto" alt="Logo da loja">
-      <div id="logo-login-generico" class="logo-login-generico">🍽️</div>
-      <h1>Entrar como garçom</h1>
-      <p class="ajuda">Peça o "slug" da loja ao seu gestor, se não souber.</p>
+    <div class="cartao">
+      <div class="logo-entrada" id="logo-entrada">
+        <div class="logo-entrada__placeholder" id="logo-entrada-placeholder">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"></rect><circle cx="8.5" cy="9" r="1.5"></circle><path d="M21 15l-5-5-9 9"></path></svg>
+          <span>Logo da loja</span>
+        </div>
+        <img id="logo-entrada-imagem" class="logo-entrada__imagem oculto" alt="Logo da loja">
+      </div>
+      <h1>Entrar como entregador</h1>
+      <p class="ajuda">Peça o "slug" da loja para o seu gestor, se não souber.</p>
       <form id="form-login">
         <label>Slug da loja</label>
         <input type="text" id="login-slug" required autocomplete="off">
+
         <label>Login (e-mail ou usuário)</label>
         <input type="text" id="login-usuario" required autocomplete="username">
+
         <label>Senha</label>
         <div class="campo-senha">
           <input type="password" id="login-senha" required autocomplete="current-password">
-          <button type="button" class="botao-olho-senha" data-alvo-senha="login-senha" aria-label="Mostrar senha"><svg class="icone-olho" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg></button>
+          <button type="button" id="botao-mostrar-senha" class="botao-olho-senha" aria-label="Mostrar senha" aria-pressed="false">
+            <svg id="icone-olho-aberto" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <svg id="icone-olho-fechado" class="oculto" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.06 21.06 0 0 1 5.06-6.06M9.9 4.24A10.9 10.9 0 0 1 12 4c7 0 11 8 11 8a21.1 21.1 0 0 1-2.61 3.87M14.12 14.12a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+          </button>
         </div>
+
         <button type="submit" class="botao botao-principal">Entrar</button>
         <p id="login-erro" class="erro oculto"></p>
       </form>
     </div>
   </section>
 
-  <!-- ===================== TELA: APP (VENDA) ===================== -->
-  <div id="conteudo-principal" class="conteudo-principal">
-    <section id="tela-app" class="tela oculto">
-      <header class="cabecalho-atendente">
-        <div class="cabecalho-atendente__identidade">
-          <img id="logo-loja-header" class="logo-loja-header oculto" alt="Logo da loja">
-          <div class="cabecalho-atendente__saudacao">
-            <div id="saudacao-atendente">Olá, garçom!</div>
-            <div class="cabecalho-atendente__sub">Bem-vindo ao Palatos</div>
+  <!-- ===================== TELA: CHECKIN (QR DO DIA) ===================== -->
+  <section id="tela-checkin" class="tela oculto">
+    <div class="cartao">
+      <h1>Bater o ponto de hoje</h1>
+      <p class="ajuda">Aponte a câmera para o QR Code exibido na loja para entrar na fila de entregas de hoje.</p>
+      <div id="leitor-qr-container">
+        <video id="video-qr" playsinline></video>
+      </div>
+      <p id="checkin-status" class="ajuda"></p>
+      <p id="checkin-erro" class="erro oculto"></p>
+      <button id="botao-nao-consigo-escanear" class="botao botao-secundario">Não consigo usar a câmera</button>
+      <div id="checkin-manual" class="oculto" style="margin-top:12px;">
+        <label>Peça o código de hoje ao seu gestor</label>
+        <input type="text" id="checkin-codigo-manual" placeholder="Cole ou digite o código aqui">
+        <button id="botao-confirmar-codigo-manual" class="botao botao-principal">Confirmar checkin</button>
+      </div>
+      <button id="botao-sair-checkin" class="botao botao-secundario">Sair</button>
+    </div>
+  </section>
+
+  <!-- ===================== TELA: AGUARDANDO PEDIDO ===================== -->
+  <section id="tela-aguardando" class="tela tela-painel oculto">
+    <div class="barra-topo">
+      <button id="botao-abrir-menu-aguardando" class="botao-menu-discreto" aria-label="Abrir menu">⋮</button>
+    </div>
+    <div class="conteudo-painel conteudo-painel--centro">
+      <div class="cartao cartao-centro cartao-fila">
+        <div class="icone-fila">
+          <svg class="icone-fila__anel" viewBox="0 0 100 100">
+            <circle class="icone-fila__trilho" cx="50" cy="50" r="45"></circle>
+            <circle class="icone-fila__progresso" cx="50" cy="50" r="45"></circle>
+          </svg>
+          <span class="icone-fila__simbolo">🔔</span>
+        </div>
+        <h2>Você está <span class="texto-destaque">na fila</span></h2>
+        <p class="ajuda">Assim que um pedido ficar pronto e for sua vez, você vai receber a oferta aqui.</p>
+        <div class="caixa-fila-posicao oculto" id="fila-posicao-box">
+          <span class="caixa-fila-posicao__icone">👥</span>
+          <div>
+            <strong id="fila-posicao-linha1">Há pessoas na sua frente.</strong>
+            <p id="fila-posicao-linha2">Aguarde, em breve é a sua vez!</p>
           </div>
         </div>
-        <button id="botao-abrir-menu" class="botao-menu-hamburguer" aria-label="Abrir menu">☰</button>
-      </header>
-
-      <div class="busca-atendente">
-        <input type="text" id="campo-busca-produto" placeholder="Buscar produto...">
+        <button id="botao-sair-aguardando" class="botao botao-principal botao-com-icone">
+          <span aria-hidden="true">⇦</span> Encerrar plantão
+        </button>
       </div>
+    </div>
+  </section>
 
-      <div class="corpo-atendente">
-        <div class="painel-produtos">
-          <div class="categorias-linha">
-            <div class="titulo-secao">Categorias</div>
-          </div>
-          <div id="lista-categorias" class="lista-categorias"></div>
-          <div class="titulo-secao" style="margin-top:14px;">Produtos</div>
-          <div id="grade-produtos" class="grade-produtos"></div>
+  <!-- ===================== TELA: OFERTA DE ENTREGA (ACEITAR/RECUSAR) ===================== -->
+  <section id="tela-oferta" class="tela oculto">
+    <div class="cartao">
+      <h2>Nova entrega disponível!</h2>
+      <div class="detalhes-pedido">
+        <p><strong>Cliente:</strong> <span id="oferta-cliente"></span></p>
+        <p><strong>Endereço:</strong> <span id="oferta-endereco"></span></p>
+        <p><strong>Telefone:</strong> <span id="oferta-telefone"></span></p>
+        <p><strong>Total:</strong> <span id="oferta-total"></span></p>
+        <p><strong>Pagamento:</strong> <span id="oferta-pagamento"></span></p>
+        <p id="oferta-troco-linha" class="oculto"><strong>Troco para:</strong> <span id="oferta-troco"></span></p>
+      </div>
+      <div class="botoes-linha">
+        <button id="botao-recusar" class="botao botao-recusar">Recusar</button>
+        <button id="botao-aceitar" class="botao botao-principal">Aceitar entrega</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TELA: ROTA EM ANDAMENTO (1+ ENTREGAS) ===================== -->
+  <section id="tela-rota" class="tela tela-painel oculto">
+    <header class="cabecalho-app">
+      <div class="cabecalho-app__logo">
+        <img src="../img/logo-icone.png" class="cabecalho-app__logo-icone" alt="Palatos">
+        <span class="cabecalho-app__logo-texto">pal<span class="cabecalho-app__logo-destaque">a</span>tos</span>
+      </div>
+      <div class="cabecalho-app__direita">
+        <span class="badge-online">● Online</span>
+        <button id="botao-abrir-menu-rota" class="botao-menu-discreto" aria-label="Abrir menu">⋮</button>
+      </div>
+    </header>
+    <div class="saudacao-bloco">
+      <div class="saudacao-bloco__titulo" id="saudacao-rota">Olá, Entregador! 👋</div>
+      <div class="saudacao-bloco__sub">Vamos nessa!</div>
+    </div>
+
+    <div class="conteudo-painel">
+      <div class="cartao-painel">
+        <div class="cartao-painel__topo">
+          <strong>ROTA EM ANDAMENTO</strong>
+          <span class="badge-contador" id="rota-contador">1 de 1 entregas</span>
         </div>
-
-        <aside id="painel-comanda" class="painel-comanda">
-          <div class="painel-comanda__topo">
-            <strong>Comanda</strong>
-            <button id="botao-mesa-cliente" class="botao-mesa-cliente" type="button">
-              <span id="rotulo-mesa-cliente">Mesa / Cliente</span> 👤
-            </button>
-          </div>
-
-          <div id="secao-itens-enviados" class="secao-itens-enviados oculto">
-            <button type="button" id="botao-toggle-itens-enviados" class="toggle-arvore">
-              <span>🧾 Itens já enviados pra cozinha</span>
-              <span><strong id="valor-ja-enviado">R$ 0,00</strong> <span id="seta-arvore">▾</span></span>
-            </button>
-            <div id="arvore-itens-enviados" class="arvore-itens-enviados"></div>
-          </div>
-
-          <div class="titulo-secao" style="margin-top:6px;">Nova rodada</div>
-          <div id="lista-itens-comanda" class="lista-itens-comanda">
-            <p class="comanda-vazia">Nenhum item adicionado ainda.</p>
-          </div>
-
-          <div class="observacao-comanda">
-            <label>Observação dessa rodada</label>
-            <textarea id="observacao-comanda" placeholder="Adicione uma observação..." rows="2"></textarea>
-          </div>
-
-          <div class="resumo-comanda">
-            <div class="resumo-comanda__linha"><span>Subtotal da rodada</span><span id="comanda-subtotal">R$ 0,00</span></div>
-          </div>
-
-          <button id="botao-enviar-cozinha" class="botao botao-principal">🍳 Enviar para cozinha</button>
-          <button id="botao-limpar-comanda" class="botao botao-perigo">🗑️ Limpar rodada</button>
-          <hr style="margin:14px 0;border:none;border-top:1px solid var(--at-borda);">
-          <button id="botao-cobrar-comanda" class="botao botao-principal botao-cobrar">💳 Cobrar comanda</button>
-        </aside>
+        <div class="mapa-rota" id="mapa-rota-visual"></div>
       </div>
 
-      <button id="botao-flutuante-comanda" class="botao-flutuante-comanda oculto">
-        🛒 <span id="flutuante-contagem">0</span> itens · <span id="flutuante-total">R$ 0,00</span>
-      </button>
-    </section>
-  </div>
+      <div class="cartao-painel">
+        <div class="cartao-painel__topo"><strong>PRÓXIMA ENTREGA</strong></div>
+        <p class="rota-endereco-cliente" id="rota-proxima-cliente"></p>
+        <p class="rota-endereco" id="rota-proxima-endereco"></p>
+        <div class="rota-previsao-e-botao">
+          <div class="rota-previsao-grade">
+            <div><span class="rotulo-detalhe">Previsão de chegada</span><span id="rota-previsao-chegada">—</span></div>
+            <div><span class="rotulo-detalhe">Distância restante</span><span id="rota-distancia-restante">—</span></div>
+          </div>
+          <div class="rota-navegacao">
+            <a id="rota-botao-navegar" class="botao botao-principal botao-navegar" target="_blank" rel="noopener">📍 Iniciar navegação</a>
+          </div>
+        </div>
+      </div>
 
-  <!-- ===================== MODAL: MESA / CLIENTE ===================== -->
-  <div id="fundo-modal-mesa" class="fundo-modal oculto"></div>
-  <div id="modal-mesa" class="modal oculto">
-    <h2>Mesa / Cliente</h2>
-    <p class="ajuda">Escolha uma comanda já aberta ou identifique uma nova.</p>
+      <div class="cartao-painel">
+        <div class="cartao-painel__topo"><strong>DETALHES DA ROTA ATUAL</strong></div>
+        <div class="grade-detalhes grade-detalhes--4">
+          <div><span class="rotulo-detalhe">Data</span><span id="rota-data"></span></div>
+          <div><span class="rotulo-detalhe">Início da rota</span><span id="rota-inicio"></span></div>
+          <div><span class="rotulo-detalhe">Previsão total</span><span id="rota-previsao-total">—</span></div>
+          <div><span class="rotulo-detalhe">Valor da rota</span><span id="rota-valor-total"></span></div>
+        </div>
+      </div>
 
-    <div class="titulo-secao" style="margin-top:10px;">Comandas abertas</div>
-    <div id="lista-comandas-abertas-modal" class="lista-comandas-modal">
-      <p class="ajuda">Nenhuma comanda aberta no momento.</p>
+      <div class="cartao-painel cartao-painel--destaque">
+        <div class="linha-espacada">
+          <div>
+            <span class="rotulo-detalhe">A receber do cliente</span>
+            <div class="valor-grande" id="rota-proxima-total"></div>
+          </div>
+          <div class="icone-carteira">👛</div>
+        </div>
+        <div class="linha-espacada linha-espacada--pago">
+          <span class="rotulo-detalhe">Pago até o momento</span>
+          <strong id="rota-pago-momento">R$ 0,00</strong>
+        </div>
+        <div class="forma-pagamento-linha">
+          <span class="rotulo-detalhe">Pagamento</span>
+          <span class="badge-pagamento" id="rota-proxima-pagamento"></span>
+        </div>
+        <div class="troco-linha oculto" id="rota-troco-bloco">
+          <span>💵 Troco para <strong id="rota-troco-para"></strong></span>
+          <span class="troco-valor" id="rota-troco-valor"></span>
+        </div>
+      </div>
+
+      <div class="cartao-painel">
+        <div class="cartao-painel__topo"><strong>RESUMO DO DIA</strong></div>
+        <div class="grade-resumo-dia grade-resumo-dia--4">
+          <div class="resumo-dia-item">
+            <div class="resumo-dia-item__topo"><span class="resumo-dia-item__icone resumo-dia-item__icone--verde">🔄</span><small>Em andamento</small></div>
+            <span id="rota-resumo-andamento"></span>
+            <div class="resumo-dia-item__valor" id="rota-resumo-andamento-valor"></div>
+          </div>
+          <div class="resumo-dia-item">
+            <div class="resumo-dia-item__topo"><span class="resumo-dia-item__icone resumo-dia-item__icone--azul">✅</span><small>Realizadas</small></div>
+            <span id="rota-resumo-realizadas"></span>
+            <div class="resumo-dia-item__valor" id="rota-resumo-realizadas-valor"></div>
+          </div>
+          <div class="resumo-dia-item">
+            <div class="resumo-dia-item__topo"><span class="resumo-dia-item__icone resumo-dia-item__icone--roxo">💲</span><small>Total de rotas</small></div>
+            <span id="rota-resumo-totalrotas"></span>
+            <div class="resumo-dia-item__valor" id="rota-resumo-totalrotas-valor"></div>
+          </div>
+          <div class="resumo-dia-item">
+            <div class="resumo-dia-item__topo"><span class="resumo-dia-item__icone resumo-dia-item__icone--laranja">👛</span><small>A receber</small></div>
+            <span id="rota-resumo-a-receber"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="cartao-painel">
+        <div class="cartao-painel__topo"><strong>INFORMAÇÕES DA ROTA</strong></div>
+        <div class="grade-detalhes">
+          <div><span class="rotulo-detalhe">Hora de início</span><span id="rota-info-hora"></span></div>
+          <div><span class="rotulo-detalhe">Data</span><span id="rota-info-data"></span></div>
+        </div>
+      </div>
+
+      <div id="lista-paradas-restantes"></div>
+
+      <button id="botao-encerrar" class="botao botao-principal">Marcar entrega como concluída</button>
+
+      <p class="rodape-app__slogan">
+        <span class="rodape-app__traco rodape-app__traco--verde"></span>
+        <span class="rodape-app__verde">Mais sabor,</span>
+        <span class="rodape-app__laranja">mais praticidade.</span>
+        <span class="rodape-app__traco rodape-app__traco--laranja"></span>
+      </p>
     </div>
+  </section>
 
-    <div class="titulo-secao" style="margin-top:14px;">Abrir nova</div>
-    <input type="text" id="input-mesa-cliente" placeholder="Ex: Mesa 5, ou nome do cliente">
-    <div class="botoes-linha">
-      <button id="botao-cancelar-mesa" class="botao botao-secundario" type="button">Cancelar</button>
-      <button id="botao-confirmar-mesa" class="botao botao-principal" type="button">Abrir nova comanda</button>
-    </div>
-  </div>
-
-  <!-- ===================== MODAL: COBRANÇA (fechar comanda) ===================== -->
-  <div id="fundo-modal-pagamento" class="fundo-modal oculto"></div>
-  <div id="modal-pagamento" class="modal oculto">
-    <h2>Cobrar comanda</h2>
-    <p class="ajuda"><span id="pagamento-mesa-nome">-</span></p>
-
-    <div class="titulo-secao" style="margin-top:10px;">Itens dessa comanda (conferência)</div>
-    <div id="arvore-conferencia-pagamento" class="arvore-itens-enviados arvore-itens-enviados--conferencia"></div>
-
-    <label>Gorjeta / Caixinha (R$) — opcional</label>
-    <input type="number" id="input-gorjeta" min="0" step="0.01" placeholder="0,00" value="0">
-
-    <p class="ajuda" style="margin-top:12px;">Total a cobrar: <strong id="pagamento-total">R$ 0,00</strong></p>
-    <div class="grade-pagamento">
-      <button type="button" class="opcao-pagamento" data-forma="dinheiro">💵 Dinheiro</button>
-      <button type="button" class="opcao-pagamento" data-forma="cartao_credito">💳 Cartão Crédito</button>
-      <button type="button" class="opcao-pagamento" data-forma="cartao_debito">💳 Cartão Débito</button>
-      <button type="button" class="opcao-pagamento" data-forma="pix">📱 PIX</button>
-    </div>
-    <p id="aviso-pagamento-nao-configurado" class="aviso-pix oculto">🔒 Essa loja ainda não configurou a chave de pagamento. Por enquanto, só é possível cobrar em Dinheiro.</p>
-    <div class="botoes-linha">
-      <button id="botao-cancelar-pagamento" class="botao botao-secundario" type="button">Cancelar</button>
-      <button id="botao-confirmar-pagamento" class="botao botao-principal" type="button" disabled>Confirmar e fechar</button>
-    </div>
-  </div>
-
-  <!-- ===================== MODAL: PIX (QR Code / aguardando pagamento) ===================== -->
-  <div id="fundo-modal-pix" class="fundo-modal oculto"></div>
-  <div id="modal-pix" class="modal oculto">
-    <h2>📱 Aguardando pagamento</h2>
-    <p class="ajuda">Peça pro cliente escanear o QR ou usar o "Pix Copia e Cola".</p>
-    <div class="pix-qr-imagem-wrap"><img id="pix-qr-imagem" alt="QR Code Pix"></div>
-    <label>Pix Copia e Cola</label>
-    <div class="pix-copia-cola-linha">
-      <input type="text" id="pix-copia-cola" readonly>
-      <button type="button" id="botao-copiar-pix" class="botao-copiar-pix">Copiar</button>
-    </div>
-    <p id="pix-status" class="pix-status">Aguardando confirmação do pagamento...</p>
-    <div class="botoes-linha">
-      <button id="botao-cancelar-pix" class="botao botao-secundario" type="button">Fechar</button>
-      <button id="botao-confirmar-pix-manual" class="botao botao-principal" type="button">Já recebi por fora</button>
-    </div>
-  </div>
-
-  <!-- ===================== MODAL: PROBLEMA NO PAGAMENTO (senha supervisor) ===================== -->
-  <div id="fundo-modal-supervisor" class="fundo-modal oculto"></div>
-  <div id="modal-supervisor" class="modal oculto">
-    <h2>⚠️ Problema no pagamento</h2>
-    <p class="ajuda">Peça pro gerente ou administrador digitar a própria senha pra liberar essa ação.</p>
-    <label>Login do gerente/administrador</label>
-    <input type="text" id="supervisor-login" autocomplete="off">
-    <label>Senha</label>
-    <div class="campo-senha">
-      <input type="password" id="supervisor-senha" autocomplete="off">
-      <button type="button" class="botao-olho-senha" data-alvo-senha="supervisor-senha" aria-label="Mostrar senha"><svg class="icone-olho" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg></button>
-    </div>
-    <p id="supervisor-erro" class="erro oculto"></p>
-    <div class="botoes-linha">
-      <button id="botao-cancelar-supervisor" class="botao botao-secundario" type="button">Cancelar</button>
-      <button id="botao-confirmar-supervisor" class="botao botao-principal" type="button">Autorizar</button>
-    </div>
-  </div>
-
-  <!-- ===================== MODAL: DETALHE DO HISTÓRICO ===================== -->
-  <div id="fundo-modal-historico" class="fundo-modal oculto"></div>
-  <div id="modal-historico" class="modal modal-historico oculto">
-    <h2 id="historico-titulo">Comanda</h2>
-    <div id="historico-conteudo"></div>
-    <div class="botoes-linha">
-      <button id="botao-fechar-historico" class="botao botao-secundario" type="button">Fechar</button>
-    </div>
-  </div>
-
-  <!-- ===================== MENU LATERAL (drawer que empurra o layout) ===================== -->
-  <aside id="menu-lateral" class="menu-lateral">
+  <!-- ===================== MENU LATERAL (PAINEL DESLIZANTE) ===================== -->
+  <div id="fundo-menu-lateral" class="fundo-menu-lateral oculto"></div>
+  <aside id="menu-lateral" class="menu-lateral oculto">
     <div class="menu-lateral__topo">
-      <span class="menu-lateral__logo">🍽️ Palatos</span>
+      <span class="menu-lateral__logo">
+        <img src="../img/logo-icone.png" class="menu-lateral__logo-icone" alt="Palatos">
+        pal<span class="menu-lateral__logo-destaque">a</span>tos
+      </span>
       <button id="botao-fechar-menu" class="botao-fechar-menu" aria-label="Fechar menu">✕</button>
     </div>
-    <div class="menu-lateral__identificacao">
-      <div class="identificacao-nome" id="menu-nome-funcionario">-</div>
-      <div class="identificacao-cargo" id="menu-cargo-funcionario">-</div>
-    </div>
+
     <nav class="menu-lateral__nav">
-      <button type="button" class="menu-lateral__item menu-lateral__item--ativo" data-menu-secao="comandas">📋 Comandas abertas</button>
-      <button type="button" class="menu-lateral__item" data-menu-secao="historico">🧾 Histórico</button>
+      <button type="button" class="menu-lateral__item menu-lateral__item--ativo" data-menu-secao="atual"><span class="menu-lateral__item-icone">🔄</span>Rota em andamento</button>
+      <button type="button" class="menu-lateral__item" data-menu-secao="historico"><span class="menu-lateral__item-icone">✅</span>Rotas realizadas</button>
+      <button type="button" class="menu-lateral__item" data-menu-secao="resumo-rotas"><span class="menu-lateral__item-icone">📊</span>Resumo de rotas</button>
+      <button type="button" class="menu-lateral__item" data-menu-secao="caixinha"><span class="menu-lateral__item-icone">📦</span>Caixinha recebida</button>
+      <button type="button" class="menu-lateral__item" data-menu-secao="recebimento"><span class="menu-lateral__item-icone">👛</span>Recebimento</button>
     </nav>
-    <div class="menu-lateral__conteudo" id="menu-lateral-conteudo"></div>
-    <button id="botao-sair-menu" class="botao botao-secundario" style="margin:14px;">Sair</button>
+
+    <div class="menu-lateral__conteudo" id="menu-lateral-conteudo">
+      <p class="ajuda">Carregando...</p>
+    </div>
+
+    <div class="menu-lateral__rodape" id="menu-lateral-rodape"></div>
   </aside>
+
+  <!-- ===================== TELA: FORA DO EXPEDIENTE ===================== -->
+  <section id="tela-fora-horario" class="tela oculto">
+    <div class="cartao cartao-centro">
+      <h2>Fora do horário de expediente</h2>
+      <p class="ajuda">Seu acesso ao app está liberado só durante o seu horário cadastrado. Se precisar entrar agora (hora extra), peça ao seu gestor pra liberar.</p>
+      <button id="botao-sair-fora-horario" class="botao botao-secundario">Sair</button>
+    </div>
+  </section>
+
+  <!-- ===================== TELA: RESUMO DO PLANTAO ===================== -->
+  <section id="tela-resumo-plantao" class="tela oculto">
+    <div class="cartao cartao-centro">
+      <h2>Resumo do plantão</h2>
+      <p class="ajuda">Foi um bom plantão! Aqui está o fechamento de hoje.</p>
+      <div class="detalhes-pedido">
+        <p><strong>Entregas realizadas:</strong> <span id="resumo-total-entregas"></span></p>
+        <p id="resumo-linha-km"><strong>Km rodados:</strong> <span id="resumo-total-km"></span></p>
+        <p><strong>Valor a receber:</strong> <span id="resumo-valor-total"></span></p>
+      </div>
+      <button id="botao-sair-resumo-plantao" class="botao botao-principal">Sair</button>
+    </div>
+  </section>
 
   <div id="toast" class="toast oculto"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="../js/config.js"></script>
   <script src="../js/utils.js"></script>
-  <script src="atendente.js?v=20260806d"></script>
+  <script src="entregador.js"></script>
 </body>
 </html>
