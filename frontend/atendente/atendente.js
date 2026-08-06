@@ -157,6 +157,38 @@ document.getElementById('form-login').addEventListener('submit', async (evento) 
   }
 });
 
+// Olho de mostrar/ocultar senha -- funciona em qualquer campo marcado com
+// data-alvo-senha apontando pro id do input correspondente.
+document.querySelectorAll('.botao-olho-senha').forEach(botao => {
+  botao.addEventListener('click', () => {
+    const campo = document.getElementById(botao.dataset.alvoSenha);
+    const mostrando = campo.type === 'text';
+    campo.type = mostrando ? 'password' : 'text';
+    botao.textContent = mostrando ? '👁️' : '🙈';
+  });
+});
+
+// Busca o logo da loja pelo slug assim que o garcom sai do campo, antes
+// mesmo de logar (usa a rota publica, nao precisa de sessao).
+document.getElementById('login-slug').addEventListener('blur', async (evento) => {
+  const slug = evento.target.value.trim();
+  const imgLogo = document.getElementById('logo-loja-login');
+  if (!slug) { imgLogo.classList.add('oculto'); return; }
+  try {
+    const resposta = await fetch(`${API_BASE_URL}/publico/${slug}`);
+    if (!resposta.ok) throw new Error();
+    const dados = await resposta.json();
+    if (dados.logo_url) {
+      imgLogo.src = dados.logo_url;
+      imgLogo.classList.remove('oculto');
+    } else {
+      imgLogo.classList.add('oculto');
+    }
+  } catch (erro) {
+    imgLogo.classList.add('oculto');
+  }
+});
+
 document.getElementById('botao-sair-menu').addEventListener('click', () => {
   fecharMenuLateral();
   encerrarSessao();
@@ -171,6 +203,14 @@ async function mostrarApp() {
   document.getElementById('saudacao-atendente').textContent = `Olá, ${dados.nome.split(' ')[0]}!`;
   document.getElementById('menu-nome-funcionario').textContent = dados.nome;
   document.getElementById('menu-cargo-funcionario').textContent = 'Garçom';
+
+  const logoHeader = document.getElementById('logo-loja-header');
+  if (dados.estabelecimentoLogoUrl) {
+    logoHeader.src = dados.estabelecimentoLogoUrl;
+    logoHeader.classList.remove('oculto');
+  } else {
+    logoHeader.classList.add('oculto');
+  }
 
   try {
     const [listaCategorias, listaProdutos] = await Promise.all([
@@ -437,6 +477,7 @@ document.getElementById('botao-cobrar-comanda').addEventListener('click', () => 
   document.getElementById('arvore-conferencia-pagamento').innerHTML = construirArvoreHtml(comandaAtual.rodadas);
   document.getElementById('input-gorjeta').value = '0';
   atualizarTotalPagamento();
+  aplicarBloqueioFormasPagamento();
   document.getElementById('fundo-modal-pagamento').classList.remove('oculto');
   document.getElementById('modal-pagamento').classList.remove('oculto');
 });
@@ -447,6 +488,22 @@ function atualizarTotalPagamento() {
   document.getElementById('pagamento-total').textContent = `R$ ${formatarMoeda(total)}`;
 }
 document.getElementById('input-gorjeta').addEventListener('input', atualizarTotalPagamento);
+
+// Enquanto a loja nao configurar a chave de pagamento (Configuracoes >
+// Pagamento), so "Dinheiro" fica clicavel -- Pix/Credito/Debito ficam
+// visivelmente desabilitados, com aviso do motivo. O servidor tambem
+// bloqueia isso por conta propria (essa checagem aqui e so pra nao deixar
+// o garcom perder tempo escolhendo algo que vai ser recusado).
+function aplicarBloqueioFormasPagamento() {
+  const dados = JSON.parse(sessionStorage.getItem(CHAVE_DADOS) || '{}');
+  const configurado = !!dados.pagamentoConfigurado;
+  document.querySelectorAll('.opcao-pagamento').forEach(botao => {
+    const bloqueado = !configurado && botao.dataset.forma !== 'dinheiro';
+    botao.disabled = bloqueado;
+    botao.classList.toggle('opcao-pagamento--bloqueada', bloqueado);
+  });
+  document.getElementById('aviso-pagamento-nao-configurado').classList.toggle('oculto', configurado);
+}
 
 function fecharModalPagamento() {
   document.getElementById('fundo-modal-pagamento').classList.add('oculto');
