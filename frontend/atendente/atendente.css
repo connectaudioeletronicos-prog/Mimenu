@@ -263,6 +263,7 @@ input, textarea { font-family: inherit; }
   font-size: 0.85rem;
 }
 .opcao-pagamento--selecionada { border-color: var(--at-verde-forte); background: var(--at-verde-claro); color: var(--at-verde-forte); }
+.opcao-pagamento--bloqueada { opacity: 0.4; }
 
 .aviso-pix {
   margin-top: 12px;
@@ -363,6 +364,16 @@ body.menu-lateral--aberto .conteudo-principal { transform: translateX(-300px); }
 .rodada-arvore__cabecalho { font-size: 0.75rem; color: var(--at-texto-claro); font-weight: 700; margin-bottom: 4px; }
 .rodada-arvore__item { display: flex; justify-content: space-between; font-size: 0.82rem; padding: 2px 0 2px 10px; }
 .rodada-arvore__obs { font-size: 0.75rem; color: var(--at-texto-claro); padding-left: 10px; margin-top: 2px; }
+
+.logo-loja-login { display: block; margin: 0 auto 10px; max-width: 140px; max-height: 70px; object-fit: contain; }
+.campo-senha { position: relative; }
+.campo-senha input { width: 100%; padding-right: 40px; }
+.botao-olho-senha {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; font-size: 1.05rem; padding: 4px;
+}
+.logo-loja-header { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; margin-right: 10px; background: #fff; }
+.cabecalho-atendente__identidade { display: flex; align-items: center; }
 
 /* ===================== TOAST ===================== */
 .toast {
