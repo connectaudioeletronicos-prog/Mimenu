@@ -4,13 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>App do Garçom - Palatos</title>
-<link rel="stylesheet" href="atendente.css?v=20260806">
+<link rel="stylesheet" href="atendente.css?v=20260806b">
 </head>
 <body>
 
   <!-- ===================== TELA: LOGIN ===================== -->
   <section id="tela-login" class="tela">
     <div class="cartao-login">
+      <img id="logo-loja-login" class="logo-loja-login oculto" alt="Logo da loja">
       <div class="logo-login">🍽️ Palatos</div>
       <h1>Entrar como garçom</h1>
       <p class="ajuda">Peça o "slug" da loja ao seu gestor, se não souber.</p>
@@ -20,7 +21,10 @@
         <label>Login (e-mail ou usuário)</label>
         <input type="text" id="login-usuario" required autocomplete="username">
         <label>Senha</label>
-        <input type="password" id="login-senha" required autocomplete="current-password">
+        <div class="campo-senha">
+          <input type="password" id="login-senha" required autocomplete="current-password">
+          <button type="button" class="botao-olho-senha" data-alvo-senha="login-senha" aria-label="Mostrar senha">👁️</button>
+        </div>
         <button type="submit" class="botao botao-principal">Entrar</button>
         <p id="login-erro" class="erro oculto"></p>
       </form>
@@ -31,9 +35,12 @@
   <div id="conteudo-principal" class="conteudo-principal">
     <section id="tela-app" class="tela oculto">
       <header class="cabecalho-atendente">
-        <div class="cabecalho-atendente__saudacao">
-          <div id="saudacao-atendente">Olá, garçom!</div>
-          <div class="cabecalho-atendente__sub">Bem-vindo ao Palatos</div>
+        <div class="cabecalho-atendente__identidade">
+          <img id="logo-loja-header" class="logo-loja-header oculto" alt="Logo da loja">
+          <div class="cabecalho-atendente__saudacao">
+            <div id="saudacao-atendente">Olá, garçom!</div>
+            <div class="cabecalho-atendente__sub">Bem-vindo ao Palatos</div>
+          </div>
         </div>
         <button id="botao-abrir-menu" class="botao-menu-hamburguer" aria-label="Abrir menu">☰</button>
       </header>
@@ -133,6 +140,7 @@
       <button type="button" class="opcao-pagamento" data-forma="cartao_debito">💳 Cartão Débito</button>
       <button type="button" class="opcao-pagamento" data-forma="pix">📱 PIX</button>
     </div>
+    <p id="aviso-pagamento-nao-configurado" class="aviso-pix oculto">🔒 Essa loja ainda não configurou a chave de pagamento. Por enquanto, só é possível cobrar em Dinheiro.</p>
     <div class="botoes-linha">
       <button id="botao-cancelar-pagamento" class="botao botao-secundario" type="button">Cancelar</button>
       <button id="botao-confirmar-pagamento" class="botao botao-principal" type="button" disabled>Confirmar e fechar</button>
@@ -165,7 +173,10 @@
     <label>Login do gerente/administrador</label>
     <input type="text" id="supervisor-login" autocomplete="off">
     <label>Senha</label>
-    <input type="password" id="supervisor-senha" autocomplete="off">
+    <div class="campo-senha">
+      <input type="password" id="supervisor-senha" autocomplete="off">
+      <button type="button" class="botao-olho-senha" data-alvo-senha="supervisor-senha" aria-label="Mostrar senha">👁️</button>
+    </div>
     <p id="supervisor-erro" class="erro oculto"></p>
     <div class="botoes-linha">
       <button id="botao-cancelar-supervisor" class="botao botao-secundario" type="button">Cancelar</button>
@@ -205,6 +216,6 @@
 
   <script src="../js/config.js"></script>
   <script src="../js/utils.js"></script>
-  <script src="atendente.js?v=20260806"></script>
+  <script src="atendente.js?v=20260806b"></script>
 </body>
 </html>
