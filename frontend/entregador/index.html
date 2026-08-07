@@ -11,9 +11,12 @@
   <!-- ===================== TELA: LOGIN ===================== -->
   <section id="tela-login" class="tela">
     <div class="cartao">
-      <div class="logo-entrada">
-        <img src="../img/logo-icone.png" class="logo-entrada__icone" alt="Palatos">
-        <span class="logo-entrada__texto">pal<span class="logo-entrada__destaque">a</span>tos</span>
+      <div class="logo-entrada" id="logo-entrada">
+        <div class="logo-entrada__placeholder" id="logo-entrada-placeholder">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"></rect><circle cx="8.5" cy="9" r="1.5"></circle><path d="M21 15l-5-5-9 9"></path></svg>
+          <span>Logo da loja</span>
+        </div>
+        <img id="logo-entrada-imagem" class="logo-entrada__imagem oculto" alt="Logo da loja">
       </div>
       <h1>Entrar como entregador</h1>
       <p class="ajuda">Peça o "slug" da loja para o seu gestor, se não souber.</p>
@@ -25,7 +28,13 @@
         <input type="text" id="login-usuario" required autocomplete="username">
 
         <label>Senha</label>
-        <input type="password" id="login-senha" required autocomplete="current-password">
+        <div class="campo-senha">
+          <input type="password" id="login-senha" required autocomplete="current-password">
+          <button type="button" id="botao-mostrar-senha" class="botao-olho-senha" aria-label="Mostrar senha" aria-pressed="false">
+            <svg id="icone-olho-aberto" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <svg id="icone-olho-fechado" class="oculto" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.06 21.06 0 0 1 5.06-6.06M9.9 4.24A10.9 10.9 0 0 1 12 4c7 0 11 8 11 8a21.1 21.1 0 0 1-2.61 3.87M14.12 14.12a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+          </button>
+        </div>
 
         <button type="submit" class="botao botao-principal">Entrar</button>
         <p id="login-erro" class="erro oculto"></p>
