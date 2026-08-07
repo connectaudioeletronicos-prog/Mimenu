@@ -401,12 +401,6 @@ input[type="text"], input[type="password"] {
   flex: 1;
 }
 
-.menu-lateral__rodape {
-  padding: 14px 16px 18px;
-  border-top: 1px solid var(--cor-borda);
-  flex-shrink: 0;
-}
-
 .resumo-geral-titulo {
   font-size: 12px;
   font-weight: 700;
@@ -772,46 +766,6 @@ input[type="text"], input[type="password"] {
   gap: 12px;
 }
 .menu-lateral__item-icone { font-size: 16px; width: 20px; text-align: center; }
-
-.resumo-geral-bloco { margin-bottom: 4px; }
-.resumo-geral-bloco__linha-topo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
-  color: var(--cor-texto);
-  margin-bottom: 2px;
-}
-.resumo-geral-bloco__linha-topo strong { font-size: 14px; }
-.resumo-geral-bloco__valor {
-  font-size: 21px;
-  font-weight: 800;
-  color: var(--cor-principal);
-  margin: 0 0 16px;
-}
-
-.ultima-atualizacao-linha {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--cor-texto);
-  margin: 6px 0;
-}
-.ultima-atualizacao-bloco {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.botao-atualizar-resumo {
-  background: var(--cor-fundo);
-  border: 1px solid var(--cor-borda);
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  cursor: pointer;
-  font-size: 14px;
-}
 
 /* ===================== LISTA DE ENTREGAS (Resumo de rotas / Caixinha / Recebimento) ===================== */
 
