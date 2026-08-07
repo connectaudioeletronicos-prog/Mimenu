@@ -18,7 +18,7 @@ async function buscarPorSlug(req, res) {
     const { slug } = req.params;
 
     const estabelecimentoResult = await query(
-      `SELECT id, slug, nome, logo_url, banner_url, cor_principal, cor_secundaria,
+      `SELECT id, slug, nome, logo_url, logo_apps_url, banner_url, cor_principal, cor_secundaria,
               cor_botoes, fonte, tema, texto_apresentacao, whatsapp, telefone,
               endereco, instagram, facebook, linkedin, email_contato,
               horario_funcionamento, mp_public_key, ativo, tempo_preparo_min,
@@ -110,7 +110,7 @@ async function buscarPorSlug(req, res) {
 async function buscarMeuEstabelecimento(req, res) {
   try {
     const resultado = await query(
-      `SELECT id, slug, nome, email, logo_url, banner_url, cor_principal, cor_secundaria,
+      `SELECT id, slug, nome, email, logo_url, logo_apps_url, banner_url, cor_principal, cor_secundaria,
               cor_botoes, fonte, tema, texto_apresentacao, whatsapp, telefone,
               endereco, instagram, facebook, linkedin, email_contato,
               horario_funcionamento, dominio_proprio,
@@ -195,10 +195,25 @@ async function uploadBanner(req, res) {
   }
 }
 
+async function uploadLogoApps(req, res) {
+  try {
+    if (!req.file) return res.status(400).json({ erro: 'Nenhuma imagem enviada.' });
+
+    const url = await uploadImagem(req.file.buffer, req.file.mimetype, 'logos-apps');
+    await query('UPDATE estabelecimentos SET logo_apps_url = $1 WHERE id = $2', [url, req.estabelecimentoId]);
+
+    res.json({ mensagem: 'Logo dos apps atualizada com sucesso.', logo_apps_url: url });
+  } catch (error) {
+    console.error('Erro ao enviar logo dos apps:', error);
+    res.status(500).json({ erro: 'Erro ao enviar imagem.' });
+  }
+}
+
 module.exports = {
   buscarPorSlug,
   buscarMeuEstabelecimento,
   atualizarConfiguracoes,
   uploadLogo,
+  uploadLogoApps,
   uploadBanner
 };
