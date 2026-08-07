@@ -15,6 +15,12 @@ let termoBusca = '';
 
 // Comanda em atendimento agora (null = ainda nao aberta/escolhida nessa tela).
 let comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+// So controla a tela cheia da comanda NO CELULAR (no desktop ela fica
+// sempre visivel do lado, essa flag nao se aplica). Comeca fechada; abre
+// sozinha so quando o garcom escolhe uma comanda JA existente (pra
+// conferir os itens na hora), e a partir dai fica manual (botao flutuante
+// abre, X fecha) -- nunca reabre sozinha so por causa de um novo render.
+let painelMobileAberto = false;
 // Itens dessa rodada (ainda NAO enviados pra cozinha).
 let draftItens = [];
 
@@ -150,6 +156,7 @@ document.getElementById('form-login').addEventListener('submit', async (evento) 
   try {
     const dados = await chamarApiFuncionarios('/login', { method: 'POST', body: JSON.stringify({ slug, login, senha }) });
     iniciarSessao(dados.token, dados.funcionario);
+    localStorage.setItem(CHAVE_ULTIMO_SLUG, slug);
     mostrarApp();
   } catch (erro) {
     erroEl.textContent = erro.message;
@@ -176,8 +183,9 @@ document.querySelectorAll('.botao-olho-senha').forEach(botao => {
 // mesmo de logar (usa a rota publica, nao precisa de sessao). Enquanto nao
 // acha nenhum, mostra so um icone generico de prato -- nunca a marca
 // "Palatos" (que e a plataforma, nao o restaurante do cliente).
-document.getElementById('login-slug').addEventListener('blur', async (evento) => {
-  const slug = evento.target.value.trim();
+const CHAVE_ULTIMO_SLUG = 'garcom_ultimo_slug';
+
+async function buscarLogoDaLoja(slug) {
   const imgLogo = document.getElementById('logo-loja-login');
   const iconeGenerico = document.getElementById('logo-login-generico');
   if (!slug) { imgLogo.classList.add('oculto'); iconeGenerico.classList.remove('oculto'); return; }
@@ -197,6 +205,21 @@ document.getElementById('login-slug').addEventListener('blur', async (evento) =>
     imgLogo.classList.add('oculto');
     iconeGenerico.classList.remove('oculto');
   }
+}
+
+// Assim que a tela de login abre, ja preenche com o ultimo slug usado
+// nesse aparelho (localStorage, sobrevive a fechar o navegador) e busca o
+// logo na hora -- sem precisar digitar/sair do campo primeiro.
+(function preencherUltimoSlug() {
+  const ultimoSlug = localStorage.getItem(CHAVE_ULTIMO_SLUG);
+  if (ultimoSlug) {
+    document.getElementById('login-slug').value = ultimoSlug;
+    buscarLogoDaLoja(ultimoSlug);
+  }
+})();
+
+document.getElementById('login-slug').addEventListener('blur', (evento) => {
+  buscarLogoDaLoja(evento.target.value.trim());
 });
 
 document.getElementById('botao-sair-menu').addEventListener('click', () => {
@@ -351,11 +374,12 @@ function renderizarComanda() {
 
   const contagem = draftItens.reduce((s, i) => s + i.quantidade, 0);
   const ehDesktop = window.matchMedia('(min-width: 900px)').matches;
-  // Mostra o painel (e o botao flutuante no celular) sempre que ha uma
-  // comanda selecionada -- mesmo com a rodada nova vazia -- pra dar pra
-  // conferir os itens ja enviados. Antes so considerava "contagem" (itens
-  // da rodada nova), entao no celular sumia o painel inteiro ao abrir uma
-  // comanda existente sem adicionar nada novo ainda.
+  // No celular, o botao flutuante fica visivel sempre que ha algo pra
+  // conferir (rodada nova OU comanda selecionada) -- mas o PAINEL so abre
+  // em tela cheia por causa da flag painelMobileAberto (setada manualmente
+  // pelo botao flutuante/X, ou automaticamente so ao ESCOLHER uma comanda
+  // ja existente). No desktop, sempre visivel (a media query cuida disso
+  // com !important, a classe aqui nao importa pra ele).
   const temAlgoParaMostrar = contagem > 0 || !!comandaAtual.id;
   const botaoFlutuante = document.getElementById('botao-flutuante-comanda');
   botaoFlutuante.classList.toggle('oculto', !temAlgoParaMostrar || ehDesktop);
@@ -364,12 +388,16 @@ function renderizarComanda() {
   } else if (comandaAtual.id) {
     botaoFlutuante.innerHTML = `📋 Ver comanda: ${escaparHtml(comandaAtual.mesaCliente)}`;
   }
-  document.getElementById('painel-comanda').classList.toggle('painel-comanda--aberto', temAlgoParaMostrar || ehDesktop);
+  document.getElementById('painel-comanda').classList.toggle('painel-comanda--aberto', ehDesktop || painelMobileAberto);
 }
 
 document.getElementById('botao-flutuante-comanda').addEventListener('click', () => {
+  painelMobileAberto = true;
   document.getElementById('painel-comanda').classList.add('painel-comanda--aberto');
-  document.getElementById('painel-comanda').scrollIntoView({ behavior: 'smooth' });
+});
+document.getElementById('botao-fechar-painel-comanda').addEventListener('click', () => {
+  painelMobileAberto = false;
+  document.getElementById('painel-comanda').classList.remove('painel-comanda--aberto');
 });
 
 // ===================== Modal Mesa/Cliente (abrir ou escolher comanda) =====================
@@ -424,6 +452,8 @@ async function selecionarComanda(id, aoTerminar) {
   try {
     const comanda = await chamarApi(`/comandas/${id}`);
     if (!definirComandaAtual(comanda)) return;
+    painelMobileAberto = true; // escolheu uma comanda existente -- abre ja mostrando os itens dela
+    renderizarComanda();
     if (aoTerminar) aoTerminar();
   } catch (erro) {
     mostrarToast(erro.message, true);
