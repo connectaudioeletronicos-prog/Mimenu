@@ -4,6 +4,44 @@
 > implementado fica registrado aqui, organizado por área, pra não se perder
 > ao longo das conversas. Marque com `[x]` conforme for implementado.
 
+## ⚠️ Sobre a pasta `backend/src/migrations/`
+- **O que é:** cada arquivo `.sql` ali é um passo de alteração do banco
+  (criar tabela, adicionar coluna, mover pra outro schema, etc.). O backend
+  roda **todos automaticamente sozinho**, na ordem alfabética do nome do
+  arquivo, toda vez que o servidor sobe — não precisa rodar nada manual.
+  Ele guarda quais já rodaram numa tabela `schema_migrations`, então cada
+  arquivo só é executado **uma vez**, mesmo reiniciando o servidor várias
+  vezes.
+- **Por que o nome do arquivo importa:** como a ordem é alfabética, quando
+  uma migration depende de outra ter rodado antes (ex: mover uma tabela de
+  schema só pode acontecer depois dela existir), o nome do arquivo é
+  prefixado (`zz_...`, `zzz_...`) só pra forçar ele a rodar por último.
+- **REGRA DE OURO (aprendida com dor, 07/08):** se um arquivo dessa pasta
+  não está no repositório que está de fato no ar (Render), a coluna/tabela
+  que ele criaria **simplesmente não existe** no banco — e qualquer rota
+  que precise dela quebra com erro genérico ("Erro ao fazer checkin",
+  "Erro ao obter histórico de plantões", etc.), sem avisar claramente que
+  o motivo é "faltou subir uma migration". Isso já causou pelo menos 2 bugs
+  de produção difíceis de rastrear (schema `entregador` e coluna
+  `total_gorjetas` ausentes). **Sempre que um arquivo novo dessa pasta for
+  entregue, ele precisa ser adicionado ao repositório de verdade — nunca
+  só copiado/testado localmente.**
+- **Migrations específicas do app do entregador** (todas em
+  `backend/src/migrations/`), pra checagem rápida de que estão todas lá:
+  - `plantoes_entregador.sql` — cria a tabela de turnos/plantões
+  - `plantoes_entregador_gorjetas.sql` — adiciona a coluna `total_gorjetas`
+  - `pedidos_entregador_horarios.sql` — horários de saída/entrega do pedido
+  - `pedidos_troco.sql` — coluna `troco_para` (pagamento em dinheiro)
+  - `zz_entregador_schema_dedicado.sql` — move `plantoes_entregador` pro
+    schema próprio `entregador` (banco "separado" do app do entregador)
+  - `zzz_plantoes_total_gorjetas_fix.sql` — reforça a coluna `total_gorjetas`
+    já qualificada no schema novo (correção depois do bug de 07/08)
+- **Sobre editar isso pelo celular/GitHub:** se aparecer "You need to fork
+  this repository to propose changes", a conta logada no GitHub não tem
+  permissão de escrita nesse repositório — precisa logar com a conta dona
+  ou pedir pra ser adicionado como colaborador (não é um problema de
+  código, é permissão de acesso).
+
 ## Bugs conhecidos (reportados 22/07)
 - [x] Lista de pedidos (cliente e/ou dashboard do lojista) mostra só a data,
       falta o horário — corrigido em `frontend/js/cardapio.js`
