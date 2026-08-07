@@ -653,7 +653,6 @@ function abrirMenuLateral() {
   document.getElementById('menu-lateral').classList.remove('oculto');
   document.getElementById('fundo-menu-lateral').classList.remove('oculto');
   exibirSecaoMenu('atual');
-  renderizarRodapeMenu();
 }
 function fecharMenuLateral() {
   document.getElementById('menu-lateral').classList.add('oculto');
@@ -818,41 +817,6 @@ function exibirSecaoMenu(secao) {
     }).catch(erro => {
       conteudo.innerHTML = `<p class="erro">${erro.message}</p>`;
     });
-  }
-}
-
-// Bloco fixo no rodape do menu lateral (RESUMO GERAL + ÚLTIMA ATUALIZAÇÃO),
-// sempre visivel independente da secao de navegacao selecionada.
-async function renderizarRodapeMenu() {
-  const rodape = document.getElementById('menu-lateral-rodape');
-  rodape.innerHTML = '<p class="ajuda">Carregando...</p>';
-  try {
-    const dados = await chamarApi('/plantao/meu-historico');
-    const r = dados.resumo || {};
-    const gorjetaHoje = plantaoAtualCache?.total_gorjetas ?? 0;
-    const agora = new Date();
-    rodape.innerHTML = `
-      <div class="resumo-geral-bloco">
-        <p class="resumo-geral-titulo">RESUMO GERAL</p>
-        <div class="resumo-geral-bloco__linha-topo"><span>Total de rotas</span><strong>${String(r.total_entregas ?? 0).padStart(2, '0')}</strong></div>
-        <div class="resumo-geral-bloco__valor">${formatarMoeda(r.valor_total)}</div>
-        <div class="resumo-geral-bloco__linha-topo"><span>A receber</span></div>
-        <div class="resumo-geral-bloco__valor">${formatarMoeda(r.valor_total)}</div>
-        <div class="resumo-geral-bloco__linha-topo"><span>Recebido hoje</span></div>
-        <div class="resumo-geral-bloco__valor">${formatarMoeda(gorjetaHoje)}</div>
-      </div>
-      <p class="resumo-geral-titulo">ÚLTIMA ATUALIZAÇÃO</p>
-      <div class="ultima-atualizacao-bloco">
-        <div>
-          <div class="ultima-atualizacao-linha">📅 ${agora.toLocaleDateString('pt-BR')}</div>
-          <div class="ultima-atualizacao-linha">🕐 ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
-        </div>
-        <button type="button" class="botao-atualizar-resumo" id="botao-atualizar-resumo-menu" aria-label="Atualizar">🔄</button>
-      </div>
-    `;
-    document.getElementById('botao-atualizar-resumo-menu')?.addEventListener('click', renderizarRodapeMenu);
-  } catch (erro) {
-    rodape.innerHTML = `<p class="erro">${erro.message}</p>`;
   }
 }
 
