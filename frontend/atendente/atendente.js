@@ -1,289 +1,760 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>App do Entregador</title>
-<link rel="stylesheet" href="entregador.css">
-</head>
-<body>
+// ===================================================================
+// App do Garcom. Fluxo de comanda: abre uma comanda por mesa/cliente,
+// cada rodada de itens vai pra cozinha na hora (nao espera cobranca), e
+// so fecha/cobra no final, quando o cliente pede a conta. Historico de
+// comandas fechadas fica salvo no servidor (permanente).
+// ===================================================================
 
-  <!-- ===================== TELA: LOGIN ===================== -->
-  <section id="tela-login" class="tela">
-    <div class="cartao">
-      <div class="logo-entrada" id="logo-entrada">
-        <div class="logo-entrada__placeholder" id="logo-entrada-placeholder">
-          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"></rect><circle cx="8.5" cy="9" r="1.5"></circle><path d="M21 15l-5-5-9 9"></path></svg>
-          <span>Logo da loja</span>
-        </div>
-        <img id="logo-entrada-imagem" class="logo-entrada__imagem oculto" alt="Logo da loja">
-      </div>
-      <h1>Entrar como entregador</h1>
-      <p class="ajuda">Peça o "slug" da loja para o seu gestor, se não souber.</p>
-      <form id="form-login">
-        <label>Slug da loja</label>
-        <input type="text" id="login-slug" required autocomplete="off">
+const CHAVE_TOKEN = 'garcom_token';
+const CHAVE_DADOS = 'garcom_dados';
 
-        <label>Login (e-mail ou usuário)</label>
-        <input type="text" id="login-usuario" required autocomplete="username">
+let categorias = [];
+let produtos = [];
+let categoriaSelecionada = null;
+let termoBusca = '';
 
-        <label>Senha</label>
-        <div class="campo-senha">
-          <input type="password" id="login-senha" required autocomplete="current-password">
-          <button type="button" id="botao-mostrar-senha" class="botao-olho-senha" aria-label="Mostrar senha" aria-pressed="false">
-            <svg id="icone-olho-aberto" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            <svg id="icone-olho-fechado" class="oculto" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.06 21.06 0 0 1 5.06-6.06M9.9 4.24A10.9 10.9 0 0 1 12 4c7 0 11 8 11 8a21.1 21.1 0 0 1-2.61 3.87M14.12 14.12a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
-          </button>
-        </div>
+// Comanda em atendimento agora (null = ainda nao aberta/escolhida nessa tela).
+let comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+// Itens dessa rodada (ainda NAO enviados pra cozinha).
+let draftItens = [];
 
-        <button type="submit" class="botao botao-principal">Entrar</button>
-        <p id="login-erro" class="erro oculto"></p>
-      </form>
+// ===================== Utilitarios =====================
+
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto ?? '';
+  return div.innerHTML;
+}
+
+function mostrarToast(mensagem, ehErro) {
+  const toast = document.getElementById('toast');
+  toast.textContent = mensagem;
+  toast.classList.toggle('erro-toast', !!ehErro);
+  toast.classList.remove('oculto');
+  clearTimeout(mostrarToast._t);
+  mostrarToast._t = setTimeout(() => toast.classList.add('oculto'), 3200);
+}
+
+function formatarHora(isoString) {
+  if (!isoString) return '-';
+  const data = new Date(isoString);
+  return data.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+// Monta a "árvore": uma rodada por bloco (com horário), itens dela embaixo.
+// Usada tanto no painel da comanda (itens ja enviados) quanto no modal de
+// cobranca (conferencia antes de fechar).
+function construirArvoreHtml(rodadas) {
+  if (!Array.isArray(rodadas) || rodadas.length === 0) {
+    return '<p class="ajuda" style="padding:6px 0;">Nenhum item enviado ainda.</p>';
+  }
+  return rodadas.map(r => `
+    <div class="rodada-arvore">
+      <div class="rodada-arvore__cabecalho">${formatarHora(r.criado_em)} · R$ ${formatarMoeda(r.subtotal)}</div>
+      ${(Array.isArray(r.itens) ? r.itens : []).map(item => `
+        <div class="rodada-arvore__item"><span>${item.quantidade}x ${escaparHtml(item.nome)}</span><span>R$ ${formatarMoeda(item.preco * item.quantidade)}</span></div>
+      `).join('')}
+      ${r.observacoes ? `<div class="rodada-arvore__obs">Obs: ${escaparHtml(r.observacoes)}</div>` : ''}
     </div>
-  </section>
+  `).join('');
+}
 
-  <!-- ===================== TELA: CHECKIN (QR DO DIA) ===================== -->
-  <section id="tela-checkin" class="tela oculto">
-    <div class="cartao">
-      <h1>Bater o ponto de hoje</h1>
-      <p class="ajuda">Aponte a câmera para o QR Code exibido na loja para entrar na fila de entregas de hoje.</p>
-      <div id="leitor-qr-container">
-        <video id="video-qr" playsinline></video>
-      </div>
-      <p id="checkin-status" class="ajuda"></p>
-      <p id="checkin-erro" class="erro oculto"></p>
-      <button id="botao-nao-consigo-escanear" class="botao botao-secundario">Não consigo usar a câmera</button>
-      <div id="checkin-manual" class="oculto" style="margin-top:12px;">
-        <label>Peça o código de hoje ao seu gestor</label>
-        <input type="text" id="checkin-codigo-manual" placeholder="Cole ou digite o código aqui">
-        <button id="botao-confirmar-codigo-manual" class="botao botao-principal">Confirmar checkin</button>
-      </div>
-      <button id="botao-sair-checkin" class="botao botao-secundario">Sair</button>
-    </div>
-  </section>
+function renderizarItensEnviados() {
+  const secao = document.getElementById('secao-itens-enviados');
+  if (!comandaAtual.id || !comandaAtual.rodadas || comandaAtual.rodadas.length === 0) {
+    secao.classList.add('oculto');
+    return;
+  }
+  secao.classList.remove('oculto');
+  document.getElementById('valor-ja-enviado').textContent = `R$ ${formatarMoeda(comandaAtual.subtotalEnviado)}`;
+  document.getElementById('arvore-itens-enviados').innerHTML = construirArvoreHtml(comandaAtual.rodadas);
+}
 
-  <!-- ===================== TELA: AGUARDANDO PEDIDO ===================== -->
-  <section id="tela-aguardando" class="tela tela-painel oculto">
-    <div class="barra-topo">
-      <button id="botao-abrir-menu-aguardando" class="botao-menu-discreto" aria-label="Abrir menu">⋮</button>
-    </div>
-    <div class="conteudo-painel conteudo-painel--centro">
-      <div class="cartao cartao-centro cartao-fila">
-        <div class="icone-fila">
-          <svg class="icone-fila__anel" viewBox="0 0 100 100">
-            <circle class="icone-fila__trilho" cx="50" cy="50" r="45"></circle>
-            <circle class="icone-fila__progresso" cx="50" cy="50" r="45"></circle>
-          </svg>
-          <span class="icone-fila__simbolo">🔔</span>
+document.getElementById('botao-toggle-itens-enviados').addEventListener('click', () => {
+  const arvore = document.getElementById('arvore-itens-enviados');
+  const seta = document.getElementById('seta-arvore');
+  const estaAberta = !arvore.classList.contains('oculto');
+  arvore.classList.toggle('oculto', estaAberta);
+  seta.textContent = estaAberta ? '▸' : '▾';
+});
+
+// ===================== Chamadas de API =====================
+
+async function chamarApi(caminho, opcoes = {}) {
+  const token = sessionStorage.getItem(CHAVE_TOKEN);
+  const resposta = await fetch(`${API_BASE_URL}/admin${caminho}`, {
+    ...opcoes,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(opcoes.headers || {})
+    }
+  });
+  const dados = await resposta.json().catch(() => ({}));
+  if (resposta.status === 401) {
+    encerrarSessao();
+    throw new Error('Sessao expirada. Entre novamente.');
+  }
+  if (!resposta.ok) throw new Error(dados.erro || 'Erro ao comunicar com o servidor.');
+  return dados;
+}
+
+async function chamarApiFuncionarios(caminho, opcoes = {}) {
+  const resposta = await fetch(`${API_BASE_URL}/funcionarios${caminho}`, {
+    ...opcoes,
+    headers: { 'Content-Type': 'application/json', ...(opcoes.headers || {}) }
+  });
+  const dados = await resposta.json().catch(() => ({}));
+  if (!resposta.ok) throw new Error(dados.erro || 'Erro ao comunicar com o servidor.');
+  return dados;
+}
+
+// ===================== Sessao / Login =====================
+
+function iniciarSessao(token, funcionario) {
+  if (funcionario.cargo !== 'garcom') {
+    throw new Error('Este aplicativo e exclusivo para garcons.');
+  }
+  sessionStorage.setItem(CHAVE_TOKEN, token);
+  sessionStorage.setItem(CHAVE_DADOS, JSON.stringify(funcionario));
+}
+
+function encerrarSessao() {
+  sessionStorage.removeItem(CHAVE_TOKEN);
+  sessionStorage.removeItem(CHAVE_DADOS);
+  document.getElementById('tela-app').classList.add('oculto');
+  document.getElementById('tela-login').classList.remove('oculto');
+}
+
+async function tentarAcessoPorLink() {
+  const parametros = new URLSearchParams(window.location.search);
+  const token = parametros.get('acesso');
+  if (!token) return false;
+  try {
+    const dados = await chamarApiFuncionarios(`/acessar/${token}`);
+    iniciarSessao(dados.token, dados.funcionario);
+    return true;
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+    return false;
+  }
+}
+
+document.getElementById('form-login').addEventListener('submit', async (evento) => {
+  evento.preventDefault();
+  const erroEl = document.getElementById('login-erro');
+  erroEl.classList.add('oculto');
+  const slug = document.getElementById('login-slug').value.trim();
+  const login = document.getElementById('login-usuario').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  try {
+    const dados = await chamarApiFuncionarios('/login', { method: 'POST', body: JSON.stringify({ slug, login, senha }) });
+    iniciarSessao(dados.token, dados.funcionario);
+    mostrarApp();
+  } catch (erro) {
+    erroEl.textContent = erro.message;
+    erroEl.classList.remove('oculto');
+  }
+});
+
+// Olho de mostrar/ocultar senha -- comeca "fechado" (senha oculta) e vira
+// "aberto" (senha visivel) quando clicado. Mesmo par de icones em qualquer
+// campo marcado com data-alvo-senha, em qualquer tela do app.
+const ICONE_OLHO_FECHADO = '<svg class="icone-olho" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+const ICONE_OLHO_ABERTO = '<svg class="icone-olho" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>';
+
+document.querySelectorAll('.botao-olho-senha').forEach(botao => {
+  botao.addEventListener('click', () => {
+    const campo = document.getElementById(botao.dataset.alvoSenha);
+    const vaiMostrar = campo.type === 'password';
+    campo.type = vaiMostrar ? 'text' : 'password';
+    botao.innerHTML = vaiMostrar ? ICONE_OLHO_ABERTO : ICONE_OLHO_FECHADO;
+  });
+});
+
+// Busca o logo da loja pelo slug assim que o garcom sai do campo, antes
+// mesmo de logar (usa a rota publica, nao precisa de sessao). Enquanto nao
+// acha nenhum, mostra so um icone generico de prato -- nunca a marca
+// "Palatos" (que e a plataforma, nao o restaurante do cliente).
+document.getElementById('login-slug').addEventListener('blur', async (evento) => {
+  const slug = evento.target.value.trim();
+  const imgLogo = document.getElementById('logo-loja-login');
+  const iconeGenerico = document.getElementById('logo-login-generico');
+  if (!slug) { imgLogo.classList.add('oculto'); iconeGenerico.classList.remove('oculto'); return; }
+  try {
+    const resposta = await fetch(`${API_BASE_URL}/publico/${slug}`);
+    if (!resposta.ok) throw new Error();
+    const dados = await resposta.json();
+    if (dados.logo_url) {
+      imgLogo.src = dados.logo_url;
+      imgLogo.classList.remove('oculto');
+      iconeGenerico.classList.add('oculto');
+    } else {
+      imgLogo.classList.add('oculto');
+      iconeGenerico.classList.remove('oculto');
+    }
+  } catch (erro) {
+    imgLogo.classList.add('oculto');
+    iconeGenerico.classList.remove('oculto');
+  }
+});
+
+document.getElementById('botao-sair-menu').addEventListener('click', () => {
+  fecharMenuLateral();
+  encerrarSessao();
+});
+
+// ===================== Tela principal =====================
+
+async function mostrarApp() {
+  const dados = JSON.parse(sessionStorage.getItem(CHAVE_DADOS));
+  document.getElementById('tela-login').classList.add('oculto');
+  document.getElementById('tela-app').classList.remove('oculto');
+  document.getElementById('saudacao-atendente').textContent = `Olá, ${dados.nome.split(' ')[0]}!`;
+  document.getElementById('menu-nome-funcionario').textContent = dados.nome;
+  document.getElementById('menu-cargo-funcionario').textContent = 'Garçom';
+
+  const logoHeader = document.getElementById('logo-loja-header');
+  if (dados.estabelecimentoLogoUrl) {
+    logoHeader.src = dados.estabelecimentoLogoUrl;
+    logoHeader.classList.remove('oculto');
+  } else {
+    logoHeader.classList.add('oculto');
+  }
+
+  try {
+    const [listaCategorias, listaProdutos] = await Promise.all([
+      chamarApi('/categorias'),
+      chamarApi('/produtos')
+    ]);
+    categorias = listaCategorias;
+    produtos = listaProdutos;
+    renderizarCategorias();
+    renderizarProdutos();
+    renderizarComanda();
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
+}
+
+function renderizarCategorias() {
+  const container = document.getElementById('lista-categorias');
+  const chips = [{ id: null, nome: 'Todas', icone_url: null }, ...categorias];
+  container.innerHTML = chips.map(cat => `
+    <button type="button" class="categoria-chip ${categoriaSelecionada === cat.id ? 'categoria-chip--ativa' : ''}" data-categoria-id="${cat.id ?? ''}">
+      ${cat.icone_url ? `<img src="${cat.icone_url}" style="width:24px;height:24px;border-radius:6px;object-fit:cover;">` : `<span class="categoria-chip__icone">🍽️</span>`}
+      ${escaparHtml(cat.nome)}
+    </button>
+  `).join('');
+  container.querySelectorAll('[data-categoria-id]').forEach(botao => {
+    botao.addEventListener('click', () => {
+      categoriaSelecionada = botao.dataset.categoriaId || null;
+      renderizarCategorias();
+      renderizarProdutos();
+    });
+  });
+}
+
+function renderizarProdutos() {
+  const container = document.getElementById('grade-produtos');
+  const filtrados = produtos.filter(p => {
+    const bateCategoria = !categoriaSelecionada || p.categoria_id === categoriaSelecionada;
+    const bateBusca = !termoBusca || p.nome.toLowerCase().includes(termoBusca.toLowerCase());
+    return bateCategoria && bateBusca;
+  });
+  if (filtrados.length === 0) {
+    container.innerHTML = '<p class="lista-vazia">Nenhum produto encontrado.</p>';
+    return;
+  }
+  container.innerHTML = filtrados.map(p => {
+    const temPromo = p.preco_promocional && parseFloat(p.preco_promocional) < parseFloat(p.preco);
+    const precoExibido = temPromo ? p.preco_promocional : p.preco;
+    return `
+      <button type="button" class="produto-card ${!p.disponivel ? 'produto-card__indisponivel' : ''}" data-produto-id="${p.id}" ${!p.disponivel ? 'disabled' : ''}>
+        <img class="produto-card__imagem" src="${p.foto_url || '../img/sem-foto.png'}" alt="">
+        <div class="produto-card__corpo">
+          <div class="produto-card__nome">${escaparHtml(p.nome)}</div>
+          <div class="produto-card__preco">R$ ${formatarMoeda(precoExibido)}</div>
         </div>
-        <h2>Você está <span class="texto-destaque">na fila</span></h2>
-        <p class="ajuda">Assim que um pedido ficar pronto e for sua vez, você vai receber a oferta aqui.</p>
-        <div class="caixa-fila-posicao oculto" id="fila-posicao-box">
-          <span class="caixa-fila-posicao__icone">👥</span>
-          <div>
-            <strong id="fila-posicao-linha1">Há pessoas na sua frente.</strong>
-            <p id="fila-posicao-linha2">Aguarde, em breve é a sua vez!</p>
+      </button>
+    `;
+  }).join('');
+  container.querySelectorAll('[data-produto-id]').forEach(botao => {
+    botao.addEventListener('click', () => adicionarItemNaRodada(botao.dataset.produtoId));
+  });
+}
+
+document.getElementById('campo-busca-produto').addEventListener('input', (evento) => {
+  termoBusca = evento.target.value;
+  renderizarProdutos();
+});
+
+// ===================== Rodada atual (itens ainda nao enviados) =====================
+
+function adicionarItemNaRodada(produtoId) {
+  const produto = produtos.find(p => p.id === produtoId);
+  if (!produto || !produto.disponivel) return;
+  const existente = draftItens.find(i => i.produto_id === produtoId);
+  const temPromo = produto.preco_promocional && parseFloat(produto.preco_promocional) < parseFloat(produto.preco);
+  const preco = parseFloat(temPromo ? produto.preco_promocional : produto.preco);
+  if (existente) existente.quantidade += 1;
+  else draftItens.push({ produto_id: produto.id, nome: produto.nome, preco, foto_url: produto.foto_url, quantidade: 1 });
+  renderizarComanda();
+  mostrarToast(`${produto.nome} adicionado.`);
+}
+
+function alterarQuantidade(produtoId, delta) {
+  const item = draftItens.find(i => i.produto_id === produtoId);
+  if (!item) return;
+  item.quantidade += delta;
+  if (item.quantidade <= 0) draftItens = draftItens.filter(i => i.produto_id !== produtoId);
+  renderizarComanda();
+}
+function removerItem(produtoId) {
+  draftItens = draftItens.filter(i => i.produto_id !== produtoId);
+  renderizarComanda();
+}
+function calcularSubtotalRodada() {
+  return draftItens.reduce((soma, item) => soma + item.preco * item.quantidade, 0);
+}
+
+function renderizarComanda() {
+  document.getElementById('rotulo-mesa-cliente').textContent = comandaAtual.mesaCliente || 'Mesa / Cliente';
+  renderizarItensEnviados();
+
+  const lista = document.getElementById('lista-itens-comanda');
+  if (draftItens.length === 0) {
+    lista.innerHTML = '<p class="comanda-vazia">Nenhum item adicionado ainda.</p>';
+  } else {
+    lista.innerHTML = draftItens.map(item => `
+      <div class="item-comanda">
+        <img class="item-comanda__imagem" src="${item.foto_url || '../img/sem-foto.png'}" alt="">
+        <div class="item-comanda__info">
+          <div class="item-comanda__nome">${escaparHtml(item.nome)}</div>
+          <div class="item-comanda__preco">R$ ${formatarMoeda(item.preco)}</div>
+        </div>
+        <div class="item-comanda__qtd">
+          <button type="button" data-qtd-menos="${item.produto_id}">−</button>
+          <span>${item.quantidade}</span>
+          <button type="button" data-qtd-mais="${item.produto_id}">+</button>
+        </div>
+        <button type="button" class="item-comanda__excluir" data-excluir="${item.produto_id}">🗑️</button>
+      </div>
+    `).join('');
+    lista.querySelectorAll('[data-qtd-mais]').forEach(b => b.addEventListener('click', () => alterarQuantidade(b.dataset.qtdMais, 1)));
+    lista.querySelectorAll('[data-qtd-menos]').forEach(b => b.addEventListener('click', () => alterarQuantidade(b.dataset.qtdMenos, -1)));
+    lista.querySelectorAll('[data-excluir]').forEach(b => b.addEventListener('click', () => removerItem(b.dataset.excluir)));
+  }
+
+  const subtotalRodada = calcularSubtotalRodada();
+  document.getElementById('comanda-subtotal').textContent = `R$ ${formatarMoeda(subtotalRodada)}`;
+
+  const contagem = draftItens.reduce((s, i) => s + i.quantidade, 0);
+  document.getElementById('flutuante-contagem').textContent = contagem;
+  document.getElementById('flutuante-total').textContent = `R$ ${formatarMoeda(subtotalRodada)}`;
+  const ehDesktop = window.matchMedia('(min-width: 900px)').matches;
+  document.getElementById('botao-flutuante-comanda').classList.toggle('oculto', contagem === 0 || ehDesktop);
+  document.getElementById('painel-comanda').classList.toggle('painel-comanda--aberto', contagem > 0 || ehDesktop);
+}
+
+document.getElementById('botao-flutuante-comanda').addEventListener('click', () => {
+  document.getElementById('painel-comanda').classList.add('painel-comanda--aberto');
+  document.getElementById('painel-comanda').scrollIntoView({ behavior: 'smooth' });
+});
+
+// ===================== Modal Mesa/Cliente (abrir ou escolher comanda) =====================
+
+async function abrirModalMesa() {
+  document.getElementById('input-mesa-cliente').value = '';
+  document.getElementById('fundo-modal-mesa').classList.remove('oculto');
+  document.getElementById('modal-mesa').classList.remove('oculto');
+
+  const container = document.getElementById('lista-comandas-abertas-modal');
+  container.innerHTML = '<p class="ajuda">Carregando...</p>';
+  try {
+    const abertas = await chamarApi('/comandas?status=aberta');
+    if (abertas.length === 0) {
+      container.innerHTML = '<p class="ajuda">Nenhuma comanda aberta no momento.</p>';
+    } else {
+      container.innerHTML = abertas.map(c => `
+        <div class="item-comanda-modal">
+          <span>${escaparHtml(c.mesa_cliente)} · aberta às ${formatarHora(c.aberta_em)} · R$ ${formatarMoeda(c.subtotal)}</span>
+          <button type="button" data-selecionar-comanda="${c.id}">Abrir</button>
+        </div>
+      `).join('');
+      container.querySelectorAll('[data-selecionar-comanda]').forEach(botao => {
+        botao.addEventListener('click', () => selecionarComanda(botao.dataset.selecionarComanda, fecharModalMesa));
+      });
+    }
+  } catch (erro) {
+    container.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
+  }
+}
+
+// Troca pra outra comanda (ou define uma recem-criada) buscando o detalhe
+// completo dela no servidor -- assim o painel sempre mostra TODOS os itens
+// ja enviados pra cozinha antes de ele adicionar mais coisa ou cobrar,
+// nunca so um numero de subtotal sem explicacao.
+function definirComandaAtual(comanda) {
+  if (draftItens.length > 0 && !confirm('Você tem itens dessa rodada ainda não enviados pra cozinha. Descartar e trocar de comanda?')) {
+    return false;
+  }
+  draftItens = [];
+  comandaAtual = {
+    id: comanda.id,
+    mesaCliente: comanda.mesa_cliente,
+    subtotalEnviado: parseFloat(comanda.subtotal) || 0,
+    rodadas: comanda.rodadas || []
+  };
+  renderizarComanda();
+  return true;
+}
+
+async function selecionarComanda(id, aoTerminar) {
+  try {
+    const comanda = await chamarApi(`/comandas/${id}`);
+    if (!definirComandaAtual(comanda)) return;
+    if (aoTerminar) aoTerminar();
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
+}
+
+document.getElementById('botao-mesa-cliente').addEventListener('click', abrirModalMesa);
+function fecharModalMesa() {
+  document.getElementById('fundo-modal-mesa').classList.add('oculto');
+  document.getElementById('modal-mesa').classList.add('oculto');
+}
+document.getElementById('botao-cancelar-mesa').addEventListener('click', fecharModalMesa);
+document.getElementById('botao-confirmar-mesa').addEventListener('click', async () => {
+  const mesaCliente = document.getElementById('input-mesa-cliente').value.trim();
+  if (!mesaCliente) return mostrarToast('Informe a mesa ou o nome do cliente.', true);
+  try {
+    const nova = await chamarApi('/comandas', { method: 'POST', body: JSON.stringify({ mesa_cliente: mesaCliente }) });
+    if (!definirComandaAtual({ ...nova, rodadas: [] })) return;
+    fecharModalMesa();
+    mostrarToast(`Comanda "${mesaCliente}" aberta.`);
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
+});
+
+// ===================== Enviar rodada pra cozinha =====================
+
+document.getElementById('botao-enviar-cozinha').addEventListener('click', async () => {
+  if (!comandaAtual.id) { mostrarToast('Identifique a mesa/cliente antes de enviar.', true); return abrirModalMesa(); }
+  if (draftItens.length === 0) return mostrarToast('Adicione itens antes de enviar.', true);
+
+  try {
+    const novoPedido = await chamarApi(`/comandas/${comandaAtual.id}/itens`, {
+      method: 'POST',
+      body: JSON.stringify({
+        itens: draftItens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade })),
+        observacoes: document.getElementById('observacao-comanda').value || null
+      })
+    });
+    comandaAtual.subtotalEnviado += calcularSubtotalRodada();
+    comandaAtual.rodadas.push(novoPedido);
+    draftItens = [];
+    document.getElementById('observacao-comanda').value = '';
+    renderizarComanda();
+    mostrarToast(`Rodada enviada pra cozinha! (Mesa: ${comandaAtual.mesaCliente})`);
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
+});
+
+document.getElementById('botao-limpar-comanda').addEventListener('click', () => {
+  if (draftItens.length === 0) return;
+  if (!confirm('Limpar os itens dessa rodada (ainda não enviados)?')) return;
+  draftItens = [];
+  renderizarComanda();
+});
+
+// ===================== Cobrar / Fechar comanda =====================
+
+let formaPagamentoSelecionada = null;
+
+document.getElementById('botao-cobrar-comanda').addEventListener('click', () => {
+  if (!comandaAtual.id) { mostrarToast('Escolha uma comanda primeiro.', true); return abrirModalMesa(); }
+  if (draftItens.length > 0) return mostrarToast('Envie a rodada atual pra cozinha antes de cobrar.', true);
+  if (comandaAtual.subtotalEnviado <= 0) return mostrarToast('Essa comanda ainda não tem nenhum item enviado.', true);
+
+  formaPagamentoSelecionada = null;
+  document.querySelectorAll('.opcao-pagamento').forEach(b => b.classList.remove('opcao-pagamento--selecionada'));
+  document.getElementById('botao-confirmar-pagamento').disabled = true;
+  document.getElementById('pagamento-mesa-nome').textContent = comandaAtual.mesaCliente;
+  document.getElementById('arvore-conferencia-pagamento').innerHTML = construirArvoreHtml(comandaAtual.rodadas);
+  document.getElementById('input-gorjeta').value = '0';
+  atualizarTotalPagamento();
+  aplicarBloqueioFormasPagamento();
+  document.getElementById('fundo-modal-pagamento').classList.remove('oculto');
+  document.getElementById('modal-pagamento').classList.remove('oculto');
+});
+
+function atualizarTotalPagamento() {
+  const gorjeta = parseFloat(document.getElementById('input-gorjeta').value) || 0;
+  const total = comandaAtual.subtotalEnviado + gorjeta;
+  document.getElementById('pagamento-total').textContent = `R$ ${formatarMoeda(total)}`;
+}
+document.getElementById('input-gorjeta').addEventListener('input', atualizarTotalPagamento);
+
+// Enquanto a loja nao configurar a chave de pagamento (Configuracoes >
+// Pagamento), so "Dinheiro" fica clicavel -- Pix/Credito/Debito ficam
+// visivelmente desabilitados, com aviso do motivo. O servidor tambem
+// bloqueia isso por conta propria (essa checagem aqui e so pra nao deixar
+// o garcom perder tempo escolhendo algo que vai ser recusado).
+function aplicarBloqueioFormasPagamento() {
+  const dados = JSON.parse(sessionStorage.getItem(CHAVE_DADOS) || '{}');
+  const configurado = !!dados.pagamentoConfigurado;
+  document.querySelectorAll('.opcao-pagamento').forEach(botao => {
+    const bloqueado = !configurado && botao.dataset.forma !== 'dinheiro';
+    botao.disabled = bloqueado;
+    botao.classList.toggle('opcao-pagamento--bloqueada', bloqueado);
+  });
+  document.getElementById('aviso-pagamento-nao-configurado').classList.toggle('oculto', configurado);
+}
+
+function fecharModalPagamento() {
+  document.getElementById('fundo-modal-pagamento').classList.add('oculto');
+  document.getElementById('modal-pagamento').classList.add('oculto');
+}
+document.getElementById('botao-cancelar-pagamento').addEventListener('click', fecharModalPagamento);
+document.querySelectorAll('.opcao-pagamento').forEach(botao => {
+  botao.addEventListener('click', () => {
+    formaPagamentoSelecionada = botao.dataset.forma;
+    document.querySelectorAll('.opcao-pagamento').forEach(b => b.classList.remove('opcao-pagamento--selecionada'));
+    botao.classList.add('opcao-pagamento--selecionada');
+    document.getElementById('botao-confirmar-pagamento').disabled = false;
+  });
+});
+
+document.getElementById('botao-confirmar-pagamento').addEventListener('click', async () => {
+  if (!formaPagamentoSelecionada) return;
+  const gorjeta = parseFloat(document.getElementById('input-gorjeta').value) || 0;
+  const mesaCliente = comandaAtual.mesaCliente;
+  const comandaId = comandaAtual.id;
+
+  try {
+    const resposta = await chamarApi(`/comandas/${comandaId}/fechar`, {
+      method: 'POST',
+      body: JSON.stringify({ forma_pagamento: formaPagamentoSelecionada, gorjeta })
+    });
+    fecharModalPagamento();
+
+    if (resposta.pagamento) {
+      abrirModalPix(comandaId, resposta.pagamento, mesaCliente);
+    } else {
+      mostrarToast(`Comanda "${mesaCliente}" fechada e paga!`);
+      comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+      renderizarComanda();
+    }
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
+});
+
+// ===================== Modal Pix (QR + acompanhamento) =====================
+
+let intervaloChecagemPix = null;
+
+function abrirModalPix(comandaId, pagamento, mesaCliente) {
+  document.getElementById('pix-qr-imagem').src = `data:image/png;base64,${pagamento.qr_code_base64}`;
+  document.getElementById('pix-copia-cola').value = pagamento.qr_code || '';
+  const statusEl = document.getElementById('pix-status');
+  statusEl.textContent = 'Aguardando confirmação do pagamento...';
+  statusEl.className = 'pix-status';
+  document.getElementById('fundo-modal-pix').classList.remove('oculto');
+  document.getElementById('modal-pix').classList.remove('oculto');
+
+  clearInterval(intervaloChecagemPix);
+  intervaloChecagemPix = setInterval(async () => {
+    try {
+      const comanda = await chamarApi(`/comandas/${comandaId}`);
+      if (comanda.status === 'fechada' && comanda.status_pagamento === 'pago') {
+        clearInterval(intervaloChecagemPix);
+        statusEl.textContent = '✅ Pagamento confirmado!';
+        statusEl.className = 'pix-status pix-status--pago';
+        comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+        renderizarComanda();
+        setTimeout(fecharModalPix, 1800);
+      } else if (comanda.status_pagamento === 'recusado') {
+        clearInterval(intervaloChecagemPix);
+        statusEl.textContent = '❌ Pagamento recusado. Tente outra forma de pagamento.';
+        statusEl.className = 'pix-status pix-status--recusado';
+      }
+    } catch (erro) { /* tenta de novo no proximo ciclo */ }
+  }, 4000);
+
+  window._comandaPixEmAndamento = comandaId;
+}
+function fecharModalPix() {
+  clearInterval(intervaloChecagemPix);
+  document.getElementById('fundo-modal-pix').classList.add('oculto');
+  document.getElementById('modal-pix').classList.add('oculto');
+}
+document.getElementById('botao-cancelar-pix').addEventListener('click', fecharModalPix);
+document.getElementById('botao-copiar-pix').addEventListener('click', () => {
+  const campo = document.getElementById('pix-copia-cola');
+  campo.select();
+  navigator.clipboard?.writeText(campo.value).catch(() => {});
+  mostrarToast('Código copiado.');
+});
+document.getElementById('botao-confirmar-pix-manual').addEventListener('click', () => {
+  fecharModalPix();
+  abrirModalSupervisor();
+});
+
+// ===================== Problema no pagamento (senha supervisor) =====================
+
+function abrirModalSupervisor() {
+  document.getElementById('supervisor-login').value = '';
+  document.getElementById('supervisor-senha').value = '';
+  document.getElementById('supervisor-erro').classList.add('oculto');
+  document.getElementById('fundo-modal-supervisor').classList.remove('oculto');
+  document.getElementById('modal-supervisor').classList.remove('oculto');
+}
+function fecharModalSupervisor() {
+  document.getElementById('fundo-modal-supervisor').classList.add('oculto');
+  document.getElementById('modal-supervisor').classList.add('oculto');
+}
+document.getElementById('botao-cancelar-supervisor').addEventListener('click', fecharModalSupervisor);
+document.getElementById('botao-confirmar-supervisor').addEventListener('click', async () => {
+  const login = document.getElementById('supervisor-login').value.trim();
+  const senha = document.getElementById('supervisor-senha').value;
+  const erroEl = document.getElementById('supervisor-erro');
+  erroEl.classList.add('oculto');
+  if (!login || !senha) { erroEl.textContent = 'Informe login e senha.'; erroEl.classList.remove('oculto'); return; }
+
+  const comandaId = window._comandaPixEmAndamento;
+  if (!comandaId) { erroEl.textContent = 'Nenhuma comanda pendente encontrada.'; erroEl.classList.remove('oculto'); return; }
+
+  try {
+    await chamarApi(`/comandas/${comandaId}/confirmar-manual`, { method: 'POST', body: JSON.stringify({ login, senha }) });
+    fecharModalSupervisor();
+    mostrarToast('Comanda confirmada como paga manualmente.');
+    if (comandaAtual.id === comandaId) comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+    renderizarComanda();
+  } catch (erro) {
+    erroEl.textContent = erro.message;
+    erroEl.classList.remove('oculto');
+  }
+});
+
+// ===================== Menu lateral (drawer) =====================
+
+function abrirMenuLateral() {
+  document.body.classList.add('menu-lateral--aberto');
+  renderizarMenuLateral('comandas');
+}
+function fecharMenuLateral() { document.body.classList.remove('menu-lateral--aberto'); }
+document.getElementById('botao-abrir-menu').addEventListener('click', abrirMenuLateral);
+document.getElementById('botao-fechar-menu').addEventListener('click', fecharMenuLateral);
+document.querySelectorAll('.menu-lateral__item').forEach(botao => {
+  botao.addEventListener('click', () => {
+    document.querySelectorAll('.menu-lateral__item').forEach(b => b.classList.remove('menu-lateral__item--ativo'));
+    botao.classList.add('menu-lateral__item--ativo');
+    renderizarMenuLateral(botao.dataset.menuSecao);
+  });
+});
+
+async function renderizarMenuLateral(secao) {
+  const container = document.getElementById('menu-lateral-conteudo');
+  container.innerHTML = '<p class="ajuda">Carregando...</p>';
+
+  if (secao === 'comandas') {
+    try {
+      const abertas = await chamarApi('/comandas?status=aberta');
+      if (abertas.length === 0) {
+        container.innerHTML = '<p class="ajuda" style="padding:12px 0;">Nenhuma comanda aberta no momento.</p>';
+      } else {
+        container.innerHTML = abertas.map(c => `
+          <div class="item-venda-resumo">
+            <span>${escaparHtml(c.mesa_cliente)} · aberta às ${formatarHora(c.aberta_em)} · R$ ${formatarMoeda(c.subtotal)}</span>
+            <button type="button" class="botao-mesa-cliente" data-abrir-comanda="${c.id}">Abrir</button>
           </div>
-        </div>
-        <button id="botao-sair-aguardando" class="botao botao-principal botao-com-icone">
-          <span aria-hidden="true">⇦</span> Encerrar plantão
-        </button>
-      </div>
-    </div>
-  </section>
+        `).join('');
+        container.querySelectorAll('[data-abrir-comanda]').forEach(botao => {
+          botao.addEventListener('click', () => selecionarComanda(botao.dataset.abrirComanda, fecharMenuLateral));
+        });
+      }
+    } catch (erro) {
+      container.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
+    }
+  }
 
-  <!-- ===================== TELA: OFERTA DE ENTREGA (ACEITAR/RECUSAR) ===================== -->
-  <section id="tela-oferta" class="tela oculto">
-    <div class="cartao">
-      <h2>Nova entrega disponível!</h2>
-      <div class="detalhes-pedido">
-        <p><strong>Cliente:</strong> <span id="oferta-cliente"></span></p>
-        <p><strong>Endereço:</strong> <span id="oferta-endereco"></span></p>
-        <p><strong>Telefone:</strong> <span id="oferta-telefone"></span></p>
-        <p><strong>Total:</strong> <span id="oferta-total"></span></p>
-        <p><strong>Pagamento:</strong> <span id="oferta-pagamento"></span></p>
-        <p id="oferta-troco-linha" class="oculto"><strong>Troco para:</strong> <span id="oferta-troco"></span></p>
-      </div>
-      <div class="botoes-linha">
-        <button id="botao-recusar" class="botao botao-recusar">Recusar</button>
-        <button id="botao-aceitar" class="botao botao-principal">Aceitar entrega</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== TELA: ROTA EM ANDAMENTO (1+ ENTREGAS) ===================== -->
-  <section id="tela-rota" class="tela tela-painel oculto">
-    <header class="cabecalho-app">
-      <div class="cabecalho-app__logo">
-        <img src="../img/logo-icone.png" class="cabecalho-app__logo-icone" alt="Palatos">
-        <span class="cabecalho-app__logo-texto">pal<span class="cabecalho-app__logo-destaque">a</span>tos</span>
-      </div>
-      <div class="cabecalho-app__direita">
-        <span class="badge-online">● Online</span>
-        <button id="botao-abrir-menu-rota" class="botao-menu-discreto" aria-label="Abrir menu">⋮</button>
-      </div>
-    </header>
-    <div class="saudacao-bloco">
-      <div class="saudacao-bloco__titulo" id="saudacao-rota">Olá, Entregador! 👋</div>
-      <div class="saudacao-bloco__sub">Vamos nessa!</div>
-    </div>
-
-    <div class="conteudo-painel">
-      <div class="cartao-painel">
-        <div class="cartao-painel__topo">
-          <strong>ROTA EM ANDAMENTO</strong>
-          <span class="badge-contador" id="rota-contador">1 de 1 entregas</span>
-        </div>
-        <div class="mapa-rota" id="mapa-rota-visual"></div>
-      </div>
-
-      <div class="cartao-painel">
-        <div class="cartao-painel__topo"><strong>PRÓXIMA ENTREGA</strong></div>
-        <p class="rota-endereco-cliente" id="rota-proxima-cliente"></p>
-        <p class="rota-endereco" id="rota-proxima-endereco"></p>
-        <div class="rota-previsao-e-botao">
-          <div class="rota-previsao-grade">
-            <div><span class="rotulo-detalhe">Previsão de chegada</span><span id="rota-previsao-chegada">—</span></div>
-            <div><span class="rotulo-detalhe">Distância restante</span><span id="rota-distancia-restante">—</span></div>
+  if (secao === 'historico') {
+    try {
+      const fechadas = await chamarApi('/comandas?status=fechada&limite=50');
+      if (fechadas.length === 0) {
+        container.innerHTML = '<p class="ajuda" style="padding:12px 0;">Nenhuma comanda fechada ainda.</p>';
+      } else {
+        container.innerHTML = fechadas.map(c => `
+          <div class="item-venda-resumo">
+            <span>${escaparHtml(c.mesa_cliente)} · fechada às ${formatarHora(c.fechada_em)}</span>
+            <button type="button" class="botao-mesa-cliente" data-ver-historico="${c.id}">R$ ${formatarMoeda(c.total)}</button>
           </div>
-          <div class="rota-navegacao">
-            <a id="rota-botao-navegar" class="botao botao-principal botao-navegar" target="_blank" rel="noopener">📍 Iniciar navegação</a>
-          </div>
+        `).join('');
+        container.querySelectorAll('[data-ver-historico]').forEach(botao => {
+          botao.addEventListener('click', () => abrirDetalheHistorico(botao.dataset.verHistorico));
+        });
+      }
+    } catch (erro) {
+      container.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
+    }
+  }
+}
+
+// ===================== Detalhe do histórico =====================
+
+async function abrirDetalheHistorico(comandaId) {
+  const conteudo = document.getElementById('historico-conteudo');
+  document.getElementById('historico-titulo').textContent = 'Carregando...';
+  conteudo.innerHTML = '';
+  document.getElementById('fundo-modal-historico').classList.remove('oculto');
+  document.getElementById('modal-historico').classList.remove('oculto');
+
+  try {
+    const comanda = await chamarApi(`/comandas/${comandaId}`);
+    document.getElementById('historico-titulo').textContent = comanda.mesa_cliente;
+
+    const formasLegenda = { dinheiro: 'Dinheiro', pix: 'PIX', cartao_credito: 'Cartão Crédito', cartao_debito: 'Cartão Débito' };
+    conteudo.innerHTML = `
+      <div class="historico-linha"><span>Aberta em</span><span>${formatarHora(comanda.aberta_em)}</span></div>
+      <div class="historico-linha"><span>Fechada em</span><span>${formatarHora(comanda.fechada_em)}</span></div>
+      <div class="historico-linha"><span>Forma de pagamento</span><span>${formasLegenda[comanda.forma_pagamento] || comanda.forma_pagamento || '-'}</span></div>
+      <div class="historico-linha"><span>Subtotal (pedidos)</span><span>R$ ${formatarMoeda(comanda.subtotal)}</span></div>
+      <div class="historico-linha"><span>Gorjeta / Caixinha</span><span>R$ ${formatarMoeda(comanda.gorjeta)}</span></div>
+      <div class="historico-linha"><strong>Total</strong><strong>R$ ${formatarMoeda(comanda.total)}</strong></div>
+      <div class="titulo-secao" style="margin-top:14px;">Itens pedidos</div>
+      ${(comanda.rodadas || []).map(rodada => `
+        <div class="historico-rodada">
+          <div class="historico-rodada__hora">${formatarHora(rodada.criado_em)}</div>
+          ${(Array.isArray(rodada.itens) ? rodada.itens : []).map(item => `
+            <div class="historico-linha" style="border:none;padding:2px 0;">
+              <span>${item.quantidade}x ${escaparHtml(item.nome)}</span>
+              <span>R$ ${formatarMoeda(item.preco * item.quantidade)}</span>
+            </div>
+          `).join('')}
+          ${rodada.observacoes ? `<div class="ajuda" style="margin-top:4px;">Obs: ${escaparHtml(rodada.observacoes)}</div>` : ''}
         </div>
-      </div>
+      `).join('')}
+    `;
+  } catch (erro) {
+    conteudo.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
+  }
+}
+document.getElementById('botao-fechar-historico').addEventListener('click', () => {
+  document.getElementById('fundo-modal-historico').classList.add('oculto');
+  document.getElementById('modal-historico').classList.add('oculto');
+});
 
-      <div class="cartao-painel">
-        <div class="cartao-painel__topo"><strong>DETALHES DA ROTA ATUAL</strong></div>
-        <div class="grade-detalhes grade-detalhes--4">
-          <div><span class="rotulo-detalhe">Data</span><span id="rota-data"></span></div>
-          <div><span class="rotulo-detalhe">Início da rota</span><span id="rota-inicio"></span></div>
-          <div><span class="rotulo-detalhe">Previsão total</span><span id="rota-previsao-total">—</span></div>
-          <div><span class="rotulo-detalhe">Valor da rota</span><span id="rota-valor-total"></span></div>
-        </div>
-      </div>
+// ===================== Inicializacao =====================
 
-      <div class="cartao-painel cartao-painel--destaque">
-        <div class="linha-espacada">
-          <div>
-            <span class="rotulo-detalhe">A receber do cliente</span>
-            <div class="valor-grande" id="rota-proxima-total"></div>
-          </div>
-          <div class="icone-carteira">👛</div>
-        </div>
-        <div class="linha-espacada linha-espacada--pago">
-          <span class="rotulo-detalhe">Pago até o momento</span>
-          <strong id="rota-pago-momento">R$ 0,00</strong>
-        </div>
-        <div class="forma-pagamento-linha">
-          <span class="rotulo-detalhe">Pagamento</span>
-          <span class="badge-pagamento" id="rota-proxima-pagamento"></span>
-        </div>
-        <div class="troco-linha oculto" id="rota-troco-bloco">
-          <span>💵 Troco para <strong id="rota-troco-para"></strong></span>
-          <span class="troco-valor" id="rota-troco-valor"></span>
-        </div>
-      </div>
-
-      <div class="cartao-painel">
-        <div class="cartao-painel__topo"><strong>RESUMO DO DIA</strong></div>
-        <div class="grade-resumo-dia grade-resumo-dia--4">
-          <div class="resumo-dia-item">
-            <div class="resumo-dia-item__topo"><span class="resumo-dia-item__icone resumo-dia-item__icone--verde">🔄</span><small>Em andamento</small></div>
-            <span id="rota-resumo-andamento"></span>
-            <div class="resumo-dia-item__valor" id="rota-resumo-andamento-valor"></div>
-          </div>
-          <div class="resumo-dia-item">
-            <div class="resumo-dia-item__topo"><span class="resumo-dia-item__icone resumo-dia-item__icone--azul">✅</span><small>Realizadas</small></div>
-            <span id="rota-resumo-realizadas"></span>
-            <div class="resumo-dia-item__valor" id="rota-resumo-realizadas-valor"></div>
-          </div>
-          <div class="resumo-dia-item">
-            <div class="resumo-dia-item__topo"><span class="resumo-dia-item__icone resumo-dia-item__icone--roxo">💲</span><small>Total de rotas</small></div>
-            <span id="rota-resumo-totalrotas"></span>
-            <div class="resumo-dia-item__valor" id="rota-resumo-totalrotas-valor"></div>
-          </div>
-          <div class="resumo-dia-item">
-            <div class="resumo-dia-item__topo"><span class="resumo-dia-item__icone resumo-dia-item__icone--laranja">👛</span><small>A receber</small></div>
-            <span id="rota-resumo-a-receber"></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="cartao-painel">
-        <div class="cartao-painel__topo"><strong>INFORMAÇÕES DA ROTA</strong></div>
-        <div class="grade-detalhes">
-          <div><span class="rotulo-detalhe">Hora de início</span><span id="rota-info-hora"></span></div>
-          <div><span class="rotulo-detalhe">Data</span><span id="rota-info-data"></span></div>
-        </div>
-      </div>
-
-      <div id="lista-paradas-restantes"></div>
-
-      <button id="botao-encerrar" class="botao botao-principal">Marcar entrega como concluída</button>
-
-      <p class="rodape-app__slogan">
-        <span class="rodape-app__traco rodape-app__traco--verde"></span>
-        <span class="rodape-app__verde">Mais sabor,</span>
-        <span class="rodape-app__laranja">mais praticidade.</span>
-        <span class="rodape-app__traco rodape-app__traco--laranja"></span>
-      </p>
-    </div>
-  </section>
-
-  <!-- ===================== MENU LATERAL (PAINEL DESLIZANTE) ===================== -->
-  <div id="fundo-menu-lateral" class="fundo-menu-lateral oculto"></div>
-  <aside id="menu-lateral" class="menu-lateral oculto">
-    <div class="menu-lateral__topo">
-      <span class="menu-lateral__logo">
-        <img src="../img/logo-icone.png" class="menu-lateral__logo-icone" alt="Palatos">
-        pal<span class="menu-lateral__logo-destaque">a</span>tos
-      </span>
-      <button id="botao-fechar-menu" class="botao-fechar-menu" aria-label="Fechar menu">✕</button>
-    </div>
-
-    <nav class="menu-lateral__nav">
-      <button type="button" class="menu-lateral__item menu-lateral__item--ativo" data-menu-secao="atual"><span class="menu-lateral__item-icone">🔄</span>Rota em andamento</button>
-      <button type="button" class="menu-lateral__item" data-menu-secao="historico"><span class="menu-lateral__item-icone">✅</span>Rotas realizadas</button>
-      <button type="button" class="menu-lateral__item" data-menu-secao="resumo-rotas"><span class="menu-lateral__item-icone">📊</span>Resumo de rotas</button>
-      <button type="button" class="menu-lateral__item" data-menu-secao="caixinha"><span class="menu-lateral__item-icone">📦</span>Caixinha recebida</button>
-      <button type="button" class="menu-lateral__item" data-menu-secao="recebimento"><span class="menu-lateral__item-icone">👛</span>Recebimento</button>
-    </nav>
-
-    <div class="menu-lateral__conteudo" id="menu-lateral-conteudo">
-      <p class="ajuda">Carregando...</p>
-    </div>
-
-    <div class="menu-lateral__rodape" id="menu-lateral-rodape"></div>
-  </aside>
-
-  <!-- ===================== TELA: FORA DO EXPEDIENTE ===================== -->
-  <section id="tela-fora-horario" class="tela oculto">
-    <div class="cartao cartao-centro">
-      <h2>Fora do horário de expediente</h2>
-      <p class="ajuda">Seu acesso ao app está liberado só durante o seu horário cadastrado. Se precisar entrar agora (hora extra), peça ao seu gestor pra liberar.</p>
-      <button id="botao-sair-fora-horario" class="botao botao-secundario">Sair</button>
-    </div>
-  </section>
-
-  <!-- ===================== TELA: RESUMO DO PLANTAO ===================== -->
-  <section id="tela-resumo-plantao" class="tela oculto">
-    <div class="cartao cartao-centro">
-      <h2>Resumo do plantão</h2>
-      <p class="ajuda">Foi um bom plantão! Aqui está o fechamento de hoje.</p>
-      <div class="detalhes-pedido">
-        <p><strong>Entregas realizadas:</strong> <span id="resumo-total-entregas"></span></p>
-        <p id="resumo-linha-km"><strong>Km rodados:</strong> <span id="resumo-total-km"></span></p>
-        <p><strong>Valor a receber:</strong> <span id="resumo-valor-total"></span></p>
-      </div>
-      <button id="botao-sair-resumo-plantao" class="botao botao-principal">Sair</button>
-    </div>
-  </section>
-
-  <div id="toast" class="toast oculto"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-  <script src="../js/config.js"></script>
-  <script src="../js/utils.js"></script>
-  <script src="entregador.js"></script>
-</body>
-</html>
+(async function iniciar() {
+  const acessouPorLink = await tentarAcessoPorLink();
+  const tokenSalvo = sessionStorage.getItem(CHAVE_TOKEN);
+  if (acessouPorLink || tokenSalvo) {
+    try { await mostrarApp(); } catch (erro) { mostrarToast(erro.message, true); }
+  }
+})();
