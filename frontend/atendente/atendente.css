@@ -111,6 +111,29 @@ input, textarea { font-family: inherit; }
   .painel-produtos { flex: 1; min-width: 0; }
   .painel-comanda { width: 360px; flex-shrink: 0; position: sticky; top: 16px; display: flex !important; }
   #botao-flutuante-comanda { display: none !important; }
+  .botao-fechar-painel-comanda { display: none !important; }
+}
+
+/* No celular, ao abrir a comanda ela vira uma tela cheia por cima de tudo
+   (nao um bloco no fim da pagina que precisa rolar ate la -- numa loja com
+   muitos produtos isso era um problema real). */
+@media (max-width: 899px) {
+  .painel-comanda--aberto {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    border-radius: 0;
+    margin: 0;
+    overflow-y: auto;
+  }
+}
+.botao-fechar-painel-comanda {
+  background: var(--at-fundo);
+  border: none;
+  border-radius: 8px;
+  width: 30px; height: 30px;
+  font-size: 1rem;
+  margin-right: 6px;
 }
 
 .titulo-secao { font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; }
