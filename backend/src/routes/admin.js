@@ -40,6 +40,7 @@ router.use((req, res, next) => {
 router.get('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimentoController.buscarMeuEstabelecimento);
 router.put('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimentoController.atualizarConfiguracoes);
 router.post('/estabelecimento/logo', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadLogo);
+router.post('/estabelecimento/logo-apps', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadLogoApps);
 router.post('/estabelecimento/banner', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadBanner);
 
 // Configuracoes / Reserva de mesa (opcional, liga/desliga por loja)
