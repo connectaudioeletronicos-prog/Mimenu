@@ -350,11 +350,21 @@ function renderizarComanda() {
   document.getElementById('comanda-subtotal').textContent = `R$ ${formatarMoeda(subtotalRodada)}`;
 
   const contagem = draftItens.reduce((s, i) => s + i.quantidade, 0);
-  document.getElementById('flutuante-contagem').textContent = contagem;
-  document.getElementById('flutuante-total').textContent = `R$ ${formatarMoeda(subtotalRodada)}`;
   const ehDesktop = window.matchMedia('(min-width: 900px)').matches;
-  document.getElementById('botao-flutuante-comanda').classList.toggle('oculto', contagem === 0 || ehDesktop);
-  document.getElementById('painel-comanda').classList.toggle('painel-comanda--aberto', contagem > 0 || ehDesktop);
+  // Mostra o painel (e o botao flutuante no celular) sempre que ha uma
+  // comanda selecionada -- mesmo com a rodada nova vazia -- pra dar pra
+  // conferir os itens ja enviados. Antes so considerava "contagem" (itens
+  // da rodada nova), entao no celular sumia o painel inteiro ao abrir uma
+  // comanda existente sem adicionar nada novo ainda.
+  const temAlgoParaMostrar = contagem > 0 || !!comandaAtual.id;
+  const botaoFlutuante = document.getElementById('botao-flutuante-comanda');
+  botaoFlutuante.classList.toggle('oculto', !temAlgoParaMostrar || ehDesktop);
+  if (contagem > 0) {
+    botaoFlutuante.innerHTML = `🛒 <span>${contagem}</span> itens · <span>R$ ${formatarMoeda(subtotalRodada)}</span>`;
+  } else if (comandaAtual.id) {
+    botaoFlutuante.innerHTML = `📋 Ver comanda: ${escaparHtml(comandaAtual.mesaCliente)}`;
+  }
+  document.getElementById('painel-comanda').classList.toggle('painel-comanda--aberto', temAlgoParaMostrar || ehDesktop);
 }
 
 document.getElementById('botao-flutuante-comanda').addEventListener('click', () => {
