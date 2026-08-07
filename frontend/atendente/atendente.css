@@ -241,19 +241,32 @@ input, textarea { font-family: inherit; }
 .resumo-comanda__linha { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 3px 0; color: var(--at-texto-claro); }
 .resumo-comanda__total { color: var(--at-texto); font-weight: 800; font-size: 1.05rem; }
 
-/* ---------- Botão flutuante (mobile) ---------- */
-.botao-flutuante-comanda {
-  position: fixed;
-  left: 16px; right: 16px; bottom: 16px;
-  background: var(--at-verde-forte);
-  color: #fff;
+/* ---------- Botão da comanda no cabeçalho (mobile, discreto) ---------- */
+.cabecalho-atendente__acoes { display: flex; align-items: center; gap: 6px; }
+.botao-comanda-discreta {
+  position: relative;
+  background: none;
   border: none;
-  border-radius: 12px;
-  padding: 14px;
-  font-weight: 700;
-  font-size: 0.9rem;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-  z-index: 20;
+  color: #fff;
+  font-size: 1.2rem;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+}
+.badge-comanda-discreta {
+  position: absolute;
+  top: -2px; right: -2px;
+  background: var(--at-laranja);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  min-width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
 }
 
 /* ===================== MODAIS ===================== */
