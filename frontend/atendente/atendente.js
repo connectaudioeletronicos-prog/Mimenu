@@ -193,8 +193,8 @@ async function buscarLogoDaLoja(slug) {
     const resposta = await fetch(`${API_BASE_URL}/publico/${slug}`);
     if (!resposta.ok) throw new Error();
     const dados = await resposta.json();
-    if (dados.logo_url) {
-      imgLogo.src = dados.logo_url;
+    if (dados.logo_apps_url) {
+      imgLogo.src = dados.logo_apps_url;
       imgLogo.classList.remove('oculto');
       iconeGenerico.classList.add('oculto');
     } else {
@@ -238,8 +238,8 @@ async function mostrarApp() {
   document.getElementById('menu-cargo-funcionario').textContent = 'Garçom';
 
   const logoHeader = document.getElementById('logo-loja-header');
-  if (dados.estabelecimentoLogoUrl) {
-    logoHeader.src = dados.estabelecimentoLogoUrl;
+  if (dados.estabelecimentoLogoAppsUrl) {
+    logoHeader.src = dados.estabelecimentoLogoAppsUrl;
     logoHeader.classList.remove('oculto');
   } else {
     logoHeader.classList.add('oculto');
@@ -382,11 +382,16 @@ function renderizarComanda() {
   // com !important, a classe aqui nao importa pra ele).
   const temAlgoParaMostrar = contagem > 0 || !!comandaAtual.id;
   const botaoFlutuante = document.getElementById('botao-flutuante-comanda');
+  const badge = document.getElementById('badge-comanda-discreta');
   botaoFlutuante.classList.toggle('oculto', !temAlgoParaMostrar || ehDesktop);
   if (contagem > 0) {
-    botaoFlutuante.innerHTML = `🛒 <span>${contagem}</span> itens · <span>R$ ${formatarMoeda(subtotalRodada)}</span>`;
+    badge.textContent = contagem;
+    badge.classList.remove('oculto');
   } else if (comandaAtual.id) {
-    botaoFlutuante.innerHTML = `📋 Ver comanda: ${escaparHtml(comandaAtual.mesaCliente)}`;
+    badge.textContent = '•';
+    badge.classList.remove('oculto');
+  } else {
+    badge.classList.add('oculto');
   }
   document.getElementById('painel-comanda').classList.toggle('painel-comanda--aberto', ehDesktop || painelMobileAberto);
 }
