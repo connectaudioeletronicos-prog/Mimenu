@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>App do Garçom - Palatos</title>
-<link rel="stylesheet" href="atendente.css?v=20260807">
+<link rel="stylesheet" href="atendente.css?v=20260807b">
 </head>
 <body>
 
@@ -42,7 +42,12 @@
             <div class="cabecalho-atendente__sub">Bem-vindo ao Palatos</div>
           </div>
         </div>
-        <button id="botao-abrir-menu" class="botao-menu-hamburguer" aria-label="Abrir menu">☰</button>
+        <div class="cabecalho-atendente__acoes">
+          <button id="botao-flutuante-comanda" class="botao-comanda-discreta oculto" aria-label="Ver comanda">
+            📋<span id="badge-comanda-discreta" class="badge-comanda-discreta oculto">•</span>
+          </button>
+          <button id="botao-abrir-menu" class="botao-menu-hamburguer" aria-label="Abrir menu">☰</button>
+        </div>
       </header>
 
       <div class="busca-atendente">
@@ -97,7 +102,6 @@
         </aside>
       </div>
 
-      <button id="botao-flutuante-comanda" class="botao-flutuante-comanda oculto"></button>
     </section>
   </div>
 
@@ -215,6 +219,6 @@
 
   <script src="../js/config.js"></script>
   <script src="../js/utils.js"></script>
-  <script src="atendente.js?v=20260807"></script>
+  <script src="atendente.js?v=20260807b"></script>
 </body>
 </html>
