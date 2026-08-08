@@ -900,15 +900,48 @@
               <div id="lista-equipe-entregadores" class="lista-itens-admin"></div>
             </div>
 
-            <div class="equipe-secao" data-secao-cargo="atendimento">
+            <div class="equipe-secao" data-secao-cargo="gerente">
               <div class="equipe-secao__cabecalho">
                 <span class="equipe-secao__icone">🧑‍💼</span>
                 <div>
-                  <div class="equipe-secao__titulo">Atendimento</div>
-                  <div class="equipe-secao__subtitulo">Garcom, caixa e colaboradores</div>
+                  <div class="equipe-secao__titulo">Gerente</div>
+                  <div class="equipe-secao__subtitulo">Clique num funcionário pra ver o resumo de operação (senha de administrador)</div>
                 </div>
               </div>
-              <div id="lista-equipe-atendimento" class="lista-itens-admin"></div>
+              <div id="lista-equipe-gerente" class="lista-itens-admin"></div>
+            </div>
+
+            <div class="equipe-secao" data-secao-cargo="caixa">
+              <div class="equipe-secao__cabecalho">
+                <span class="equipe-secao__icone">💰</span>
+                <div>
+                  <div class="equipe-secao__titulo">Caixa</div>
+                  <div class="equipe-secao__subtitulo">Clique num funcionário pra ver o resumo de operação (senha de administrador)</div>
+                </div>
+              </div>
+              <div id="lista-equipe-caixa" class="lista-itens-admin"></div>
+            </div>
+
+            <div class="equipe-secao" data-secao-cargo="garcom">
+              <div class="equipe-secao__cabecalho">
+                <span class="equipe-secao__icone">🍽️</span>
+                <div>
+                  <div class="equipe-secao__titulo">Garçom</div>
+                  <div class="equipe-secao__subtitulo">Clique num funcionário pra ver o resumo de operação (senha de administrador)</div>
+                </div>
+              </div>
+              <div id="lista-equipe-garcom" class="lista-itens-admin"></div>
+            </div>
+
+            <div class="equipe-secao" data-secao-cargo="colaborador">
+              <div class="equipe-secao__cabecalho">
+                <span class="equipe-secao__icone">🙋</span>
+                <div>
+                  <div class="equipe-secao__titulo">Colaborador</div>
+                  <div class="equipe-secao__subtitulo">Clique num funcionário pra ver o resumo de operação (senha de administrador)</div>
+                </div>
+              </div>
+              <div id="lista-equipe-colaborador" class="lista-itens-admin"></div>
             </div>
           </div>
         </div>
@@ -1026,6 +1059,112 @@
         </div>
       </section>
 
+      <!-- ============================================================
+           PAGINA: RESUMO DO FUNCIONARIO
+           Nao fica no menu lateral -- so abre clicando num funcionario
+           (Gerente/Caixa/Garcom/Colaborador) na aba Equipe, depois de
+           confirmar a senha de administrador. No celular vira 2 telas
+           (Pedidos / Caixa), alternadas pelo botao no topo.
+      ============================================================= -->
+      <section id="aba-resumo-funcionario" class="aba oculto resumo-funcionario">
+        <div class="resumo-funcionario__topo">
+          <div class="resumo-funcionario__marca">
+            <img id="resumo-funcionario-logo" class="resumo-funcionario__logo oculto" alt="Logo">
+            <span id="resumo-funcionario-logo-generico" class="resumo-funcionario__logo-generico">🍽️</span>
+          </div>
+          <div class="resumo-funcionario__identificacao">
+            <div class="resumo-funcionario__label">Funcionário</div>
+            <div id="resumo-funcionario-nome" class="resumo-funcionario__nome">-</div>
+            <div id="resumo-funcionario-status" class="resumo-funcionario__status">● Online</div>
+          </div>
+          <div class="resumo-funcionario__data">
+            <div id="resumo-funcionario-data">-</div>
+          </div>
+          <button type="button" id="botao-voltar-resumo-funcionario" class="botao-secundario">← Voltar pra Equipe</button>
+        </div>
+
+        <!-- So aparece no celular -->
+        <div class="resumo-funcionario__alternador">
+          <button type="button" class="resumo-funcionario__aba-btn ativo" data-tela-resumo="pedidos">📋 Pedidos</button>
+          <button type="button" class="resumo-funcionario__aba-btn" data-tela-resumo="caixa">💰 Caixa</button>
+        </div>
+
+        <div id="resumo-funcionario-sem-dados" class="resumo-funcionario__sem-dados oculto">
+          <p class="aba__descricao">Esse cargo ainda não gera dados de movimentação própria (só garçom, por enquanto). A identificação acima já confirma que o acesso foi autorizado.</p>
+        </div>
+
+        <div id="resumo-funcionario-conteudo" class="resumo-funcionario__corpo">
+          <!-- TELA "CAIXA" (cards + fechamento + identificacao) -->
+          <div id="tela-resumo-caixa" class="resumo-funcionario__tela">
+            <div class="resumo-funcionario__cards">
+              <div class="resumo-card">
+                <div class="resumo-card__icone">📈</div>
+                <div class="resumo-card__label">Vendas do dia</div>
+                <div id="card-vendas-do-dia" class="resumo-card__valor">R$ 0,00</div>
+              </div>
+              <div class="resumo-card">
+                <div class="resumo-card__icone">🧾</div>
+                <div class="resumo-card__label">Pedidos</div>
+                <div id="card-pedidos-hoje" class="resumo-card__valor">0</div>
+              </div>
+              <div class="resumo-card">
+                <div class="resumo-card__icone">📋</div>
+                <div class="resumo-card__label">Comandas abertas</div>
+                <div id="card-comandas-abertas" class="resumo-card__valor">0</div>
+              </div>
+              <div class="resumo-card">
+                <div class="resumo-card__icone">🍽️</div>
+                <div class="resumo-card__label">Mesas atendidas</div>
+                <div id="card-mesas-atendidas" class="resumo-card__valor">0</div>
+              </div>
+              <div class="resumo-card">
+                <div class="resumo-card__icone">🎯</div>
+                <div class="resumo-card__label">Ticket médio</div>
+                <div id="card-ticket-medio" class="resumo-card__valor">R$ 0,00</div>
+              </div>
+            </div>
+
+            <div class="resumo-funcionario__caixa-grid">
+              <div class="painel-fechamento-caixa">
+                <div class="painel-fechamento-caixa__titulo">FECHAMENTO DE CAIXA</div>
+                <div id="fechamento-total-recebido" class="painel-fechamento-caixa__total">R$ 0,00</div>
+                <div class="painel-fechamento-caixa__linha"><span>Total em dinheiro</span><strong id="fechamento-dinheiro">R$ 0,00</strong></div>
+                <div class="painel-fechamento-caixa__linha"><span>Total em cartão</span><strong id="fechamento-cartao">R$ 0,00</strong></div>
+                <div class="painel-fechamento-caixa__linha painel-fechamento-caixa__sub"><span>• Crédito</span><span id="fechamento-credito">R$ 0,00</span></div>
+                <div class="painel-fechamento-caixa__linha painel-fechamento-caixa__sub"><span>• Débito</span><span id="fechamento-debito">R$ 0,00</span></div>
+                <div class="painel-fechamento-caixa__linha"><span>Total em Pix</span><strong id="fechamento-pix">R$ 0,00</strong></div>
+              </div>
+
+              <div class="painel-resumo-cartoes">
+                <div class="painel-resumo-cartoes__card painel-resumo-cartoes__card--credito">
+                  <div>CRÉDITO</div>
+                  <strong id="resumo-cartao-credito-valor">R$ 0,00</strong>
+                  <span id="resumo-cartao-credito-qtd">0 transações</span>
+                </div>
+                <div class="painel-resumo-cartoes__card painel-resumo-cartoes__card--debito">
+                  <div>DÉBITO</div>
+                  <strong id="resumo-cartao-debito-valor">R$ 0,00</strong>
+                  <span id="resumo-cartao-debito-qtd">0 transações</span>
+                </div>
+              </div>
+
+              <div class="painel-identificacao-funcionario">
+                <div class="painel-identificacao-funcionario__titulo">IDENTIFICAÇÃO</div>
+                <div id="identificacao-nome-completo" class="painel-identificacao-funcionario__nome">-</div>
+                <div id="identificacao-cargo" class="painel-identificacao-funcionario__cargo">-</div>
+                <div id="identificacao-email" class="painel-identificacao-funcionario__email">-</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TELA "PEDIDOS" (movimentacao por mesa/comanda) -->
+          <div id="tela-resumo-pedidos" class="resumo-funcionario__tela">
+            <div class="resumo-funcionario__secao-titulo">MOVIMENTAÇÃO POR MESA / COMANDA (hoje)</div>
+            <div id="lista-movimentacao-comandas"></div>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -1041,6 +1180,42 @@
         <a id="codigo-qrcode-entregador" href="#" target="_blank" rel="noopener"></a>
       </p>
       <button type="button" id="botao-copiar-link-acesso" class="botao-secundario">📋 Copiar link</button>
+    </div>
+  </div>
+
+  <div id="modal-senha-admin" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa" style="max-width:360px;">
+      <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+      <h3>🔒 Senha de administrador</h3>
+      <p class="aba__descricao" id="modal-senha-admin-descricao">Confirme sua senha pra ver o resumo de operação.</p>
+      <label class="campo-label">Sua senha</label>
+      <input type="password" id="input-senha-admin" autocomplete="current-password">
+      <p id="erro-senha-admin" class="erro-form oculto"></p>
+      <div class="botoes-linha-admin" style="margin-top:14px;">
+        <button type="button" class="botao-secundario" data-fechar-modal-admin>Cancelar</button>
+        <button type="button" id="botao-confirmar-senha-admin" class="botao-primario">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-corrigir-comanda" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa" style="max-width:360px;">
+      <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+      <h3>✏️ Corrigir valores da comanda</h3>
+      <p class="aba__descricao" id="modal-corrigir-comanda-descricao">-</p>
+      <label class="campo-label">Subtotal (R$)</label>
+      <input type="number" id="input-corrigir-subtotal" min="0" step="0.01">
+      <label class="campo-label">Gorjeta / Caixinha (R$)</label>
+      <input type="number" id="input-corrigir-gorjeta" min="0" step="0.01">
+      <label class="campo-label">Motivo da correção</label>
+      <input type="text" id="input-corrigir-motivo" placeholder="Ex: item cobrado errado">
+      <p id="erro-corrigir-comanda" class="erro-form oculto"></p>
+      <div class="botoes-linha-admin" style="margin-top:14px;">
+        <button type="button" class="botao-secundario" data-fechar-modal-admin>Cancelar</button>
+        <button type="button" id="botao-confirmar-corrigir-comanda" class="botao-primario">Salvar correção</button>
+      </div>
     </div>
   </div>
 
