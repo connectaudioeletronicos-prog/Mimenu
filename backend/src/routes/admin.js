@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { autenticar, exigirPermissao, exigirCargoAdministrativo } = require('../middlewares/auth');
+const { autenticar, exigirPermissao, exigirCargoAdministrativo, exigirAdministradorOuGerente } = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
 
 const estabelecimentoController = require('../controllers/estabelecimentoController');
@@ -103,10 +103,10 @@ router.post('/comandas/:id/itens', exigirPermissao('criar_pedidos'), comandaCont
 router.post('/comandas/:id/fechar', exigirPermissao('criar_pedidos'), comandaController.fechar);
 router.post('/comandas/:id/confirmar-manual', exigirPermissao('criar_pedidos'), comandaController.confirmarPagamentoManual);
 router.delete('/comandas/:id', exigirCargoAdministrativo, comandaController.excluir);
-router.put('/comandas/:id/corrigir', exigirCargoAdministrativo, comandaController.corrigirValores);
+router.put('/comandas/:id/corrigir', exigirAdministradorOuGerente, comandaController.corrigirValores);
 
 // Resumo do dia de um funcionario (tela "Resumo do [Cargo]" na aba Equipe).
-router.get('/funcionarios/:id/resumo', exigirCargoAdministrativo, comandaController.resumoFuncionario);
+router.get('/funcionarios/:id/resumo', exigirAdministradorOuGerente, comandaController.resumoFuncionario);
 
 // Caixa geral - resumo dos valores das entregas concluidas. So gerente e
 // administrador (ou quem tiver a permissao marcada) tem acesso.
