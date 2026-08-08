@@ -543,10 +543,10 @@ async function checkinEntregador(req, res) {
     // (ON CONFLICT protege contra o indice unico de plantao aberto, caso
     // duas chamadas cheguem quase juntas).
     await query(
-      `INSERT INTO plantoes_entregador (estabelecimento_id, funcionario_id)
+      `INSERT INTO entregador.plantoes_entregador (estabelecimento_id, funcionario_id)
        SELECT $1, $2
        WHERE NOT EXISTS (
-         SELECT 1 FROM plantoes_entregador WHERE funcionario_id = $2 AND fim IS NULL
+         SELECT 1 FROM entregador.plantoes_entregador WHERE funcionario_id = $2 AND fim IS NULL
        )`,
       [req.estabelecimentoId, req.funcionarioId]
     );
@@ -665,7 +665,7 @@ async function gerarQrcodeGenerico(req, res) {
 async function obterPlantaoAtual(req, res) {
   try {
     const aberto = await query(
-      'SELECT * FROM plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
+      'SELECT * FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
       [req.funcionarioId]
     );
     if (aberto.rows.length === 0) return res.json(null);
@@ -702,14 +702,15 @@ async function calcularResumoPlantao(plantaoId, funcionarioId) {
     ? totalKm * (Number(f.valor_por_km) || 0)
     : totalEntregas * (Number(f.valor_por_entrega) || 0);
 
-  // Valor so da ULTIMA entrega concluida (comissao dela + a caixinha dela),
-  // separado do total acumulado do plantao -- usado no card "valor da
-  // ultima rota" do app.
+  // Valor so da ULTIMA entrega concluida pelo entregador (comissao dela +
+  // a caixinha dela), independente do plantao -- e "minha ultima corrida",
+  // nao "ultima corrida DESSE plantao" (se o plantao atual ainda nao teve
+  // nenhuma entrega concluida, mostrar em branco seria confuso).
   const ultima = await query(
     `SELECT gorjeta, distancia_km FROM pedidos
-     WHERE plantao_id = $1 AND status_pedido = 'entregue'
+     WHERE entregador_id = $1 AND status_pedido = 'entregue'
      ORDER BY horario_entregue DESC LIMIT 1`,
-    [plantaoId]
+    [funcionarioId]
   );
   let valorUltimaRota = null;
   if (ultima.rows.length > 0) {
@@ -738,7 +739,7 @@ async function calcularResumoPlantao(plantaoId, funcionarioId) {
 async function encerrarPlantao(req, res) {
   try {
     const aberto = await query(
-      'SELECT id FROM plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
+      'SELECT id FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
       [req.funcionarioId]
     );
     if (aberto.rows.length === 0) return res.status(404).json({ erro: 'Nenhum plantao aberto no momento.' });
@@ -747,7 +748,7 @@ async function encerrarPlantao(req, res) {
     const resumo = await calcularResumoPlantao(plantaoId, req.funcionarioId);
 
     const fechado = await query(
-      `UPDATE plantoes_entregador SET fim = NOW(), total_entregas = $1, total_km = $2, valor_total = $3, total_gorjetas = $4
+      `UPDATE entregador.plantoes_entregador SET fim = NOW(), total_entregas = $1, total_km = $2, valor_total = $3, total_gorjetas = $4
        WHERE id = $5 RETURNING *`,
       [resumo.total_entregas, resumo.total_km, resumo.valor_total, resumo.total_gorjetas, plantaoId]
     );
@@ -767,7 +768,7 @@ async function meuHistoricoPlantoes(req, res) {
   try {
     const plantoes = await query(
       `SELECT id, inicio, fim, total_entregas, total_km, valor_total, total_gorjetas
-       FROM plantoes_entregador
+       FROM entregador.plantoes_entregador
        WHERE funcionario_id = $1 AND fim IS NOT NULL
        ORDER BY fim DESC
        LIMIT 60`,
@@ -777,7 +778,7 @@ async function meuHistoricoPlantoes(req, res) {
     const resumo = await query(
       `SELECT COUNT(*) AS total_plantoes, COALESCE(SUM(total_entregas), 0) AS total_entregas,
               COALESCE(SUM(valor_total), 0) AS valor_total, COALESCE(SUM(total_gorjetas), 0) AS total_gorjetas
-       FROM plantoes_entregador WHERE funcionario_id = $1 AND fim IS NOT NULL`,
+       FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NOT NULL`,
       [req.funcionarioId]
     );
 
@@ -804,7 +805,7 @@ async function listarHistoricoPlantoes(req, res) {
     const { funcionario_id, limite } = req.query;
     let sql = `
       SELECT p.*, f.nome AS funcionario_nome
-      FROM plantoes_entregador p
+      FROM entregador.plantoes_entregador p
       JOIN funcionarios f ON f.id = p.funcionario_id
       WHERE p.estabelecimento_id = $1 AND p.fim IS NOT NULL`;
     const params = [req.estabelecimentoId];
