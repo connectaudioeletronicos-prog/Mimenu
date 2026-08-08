@@ -707,15 +707,14 @@ async function calcularResumoPlantao(plantaoId, funcionarioId) {
     ? totalKm * (Number(f.valor_por_km) || 0)
     : totalEntregas * (Number(f.valor_por_entrega) || 0);
 
-  // Valor so da ULTIMA entrega concluida pelo entregador (comissao dela +
-  // a caixinha dela), independente do plantao -- e "minha ultima corrida",
-  // nao "ultima corrida DESSE plantao" (se o plantao atual ainda nao teve
-  // nenhuma entrega concluida, mostrar em branco seria confuso).
+  // Valor so da ULTIMA entrega concluida (comissao dela + a caixinha dela),
+  // separado do total acumulado do plantao -- usado no card "valor da
+  // ultima rota" do app.
   const ultima = await query(
     `SELECT gorjeta, distancia_km FROM pedidos
-     WHERE entregador_id = $1 AND status_pedido = 'entregue'
+     WHERE plantao_id = $1 AND status_pedido = 'entregue'
      ORDER BY horario_entregue DESC LIMIT 1`,
-    [funcionarioId]
+    [plantaoId]
   );
   let valorUltimaRota = null;
   if (ultima.rows.length > 0) {
@@ -879,9 +878,8 @@ async function verificarSenhaSupervisor(req, res) {
 // Reautenticacao de quem ja esta logado no dashboard (pede a PROPRIA senha
 // de novo), usada como trava extra antes de abrir a pagina de "Resumo do
 // funcionario" (mostra movimentacao financeira detalhada e permite
-// corrigir valores de comanda). So autoriza se for administrador ou
-// proprietario -- gerente/outros cargos com acesso ao dashboard nao passam
-// por aqui, mesmo com senha correta.
+// corrigir valores de comanda). So autoriza administrador ou gerente --
+// caixa/garcom/colaborador nao passam por aqui, mesmo com senha correta.
 async function verificarSenhaAdministrador(req, res) {
   try {
     const { senha } = req.body;
@@ -889,8 +887,8 @@ async function verificarSenhaAdministrador(req, res) {
 
     let hashParaConferir;
     if (req.funcionarioId) {
-      if (req.cargo !== 'administrador') {
-        return res.status(403).json({ erro: 'Somente um administrador pode acessar essa pagina.' });
+      if (!['administrador', 'gerente'].includes(req.cargo)) {
+        return res.status(403).json({ erro: 'Somente administrador ou gerente pode acessar essa pagina.' });
       }
       const quem = await query('SELECT senha_hash FROM funcionarios WHERE id = $1', [req.funcionarioId]);
       if (quem.rows.length === 0) return res.status(401).json({ erro: 'Sessao invalida.' });
