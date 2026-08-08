@@ -718,6 +718,7 @@ function exibirSecaoMenu(secao) {
               <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
             </div>
             <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(e.cliente_nome || '-')}</span></div>
+            <div class="item-entrega-detalhe__linha"><span>Endereço</span><span>${escaparHtml(e.cliente_endereco || '-')}</span></div>
           </div>
         `).join('') + `</div>`;
       }
@@ -750,6 +751,7 @@ function exibirSecaoMenu(secao) {
               <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
             </div>
             <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(e.cliente_nome || '-')}</span></div>
+            <div class="item-entrega-detalhe__linha"><span>Endereço</span><span>${escaparHtml(e.cliente_endereco || '-')}</span></div>
           </div>
         `).join('') + `</div>`;
       }
@@ -780,15 +782,14 @@ function exibirSecaoMenu(secao) {
       if (entregasComCaixinha.length === 0) {
         html += '<p class="ajuda">Nenhuma caixinha recebida hoje ainda.</p>';
       } else {
-        html += entregasComCaixinha.map(e => `
+        html += `<div class="lista-com-rolagem">` + entregasComCaixinha.map((e, i) => `
           <div class="item-entrega-detalhe">
             <div class="item-entrega-detalhe__topo">
-              <span class="item-entrega-detalhe__horario">${formatarHora(e.horario_entregue)}</span>
+              <span class="item-entrega-detalhe__horario">#${i + 1} · ${new Date(e.horario_entregue).toLocaleDateString('pt-BR')} ${formatarHora(e.horario_entregue)}</span>
               <span class="item-entrega-detalhe__valor">${formatarMoeda(e.gorjeta)}</span>
             </div>
-            <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(e.cliente_nome || '-')}</span></div>
           </div>
-        `).join('');
+        `).join('') + `</div>`;
       }
       conteudo.innerHTML = html;
     }).catch(erro => {
