@@ -259,4 +259,125 @@ async function confirmarPagamentoManual(req, res) {
   }
 }
 
-module.exports = { abrir, listar, detalhe, adicionarItens, fechar, excluir, confirmarPagamentoManual };
+// Resumo do dia de um funcionario, pra tela "Resumo do [Cargo]" no admin.
+// So garcom tem dado de verdade pra mostrar aqui (e o unico cargo com app
+// proprio gerando comandas ate agora) -- os outros cargos voltam so com a
+// identificacao, sem inventar numero nenhum.
+async function resumoFuncionario(req, res) {
+  try {
+    const { id } = req.params;
+    const fRes = await query('SELECT id, nome, email, cargo FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
+    if (fRes.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
+    const funcionario = fRes.rows[0];
+
+    if (funcionario.cargo !== 'garcom') {
+      return res.json({ funcionario, tipo: 'sem_dados' });
+    }
+
+    const comandasHojeRes = await query(
+      `SELECT * FROM comandas WHERE estabelecimento_id = $1 AND funcionario_id = $2
+       AND (aberta_em::date = CURRENT_DATE OR fechada_em::date = CURRENT_DATE)
+       ORDER BY aberta_em DESC`,
+      [req.estabelecimentoId, id]
+    );
+
+    const comandaIds = comandasHojeRes.rows.map(c => c.id);
+    let rodadasRes = { rows: [] };
+    if (comandaIds.length > 0) {
+      rodadasRes = await query(
+        `SELECT comanda_id, itens, subtotal, observacoes, criado_em FROM pedidos
+         WHERE comanda_id = ANY($1::uuid[]) ORDER BY criado_em ASC`,
+        [comandaIds]
+      );
+    }
+    const comandasHoje = comandasHojeRes.rows.map(c => ({
+      ...c,
+      rodadas: rodadasRes.rows.filter(r => r.comanda_id === c.id)
+    }));
+
+    const abertasAgoraRes = await query(
+      `SELECT COUNT(*) FROM comandas WHERE estabelecimento_id = $1 AND funcionario_id = $2 AND status = 'aberta'`,
+      [req.estabelecimentoId, id]
+    );
+
+    const fechadasHoje = comandasHoje.filter(c => c.status === 'fechada');
+    const vendasDoDia = fechadasHoje.reduce((s, c) => s + Number(c.total), 0);
+    const pedidosHoje = comandasHoje.reduce((s, c) => s + c.rodadas.length, 0);
+    const ticketMedio = fechadasHoje.length > 0 ? vendasDoDia / fechadasHoje.length : 0;
+
+    const porForma = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
+    const transacoesPorForma = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
+    fechadasHoje.forEach(c => {
+      if (c.forma_pagamento && porForma.hasOwnProperty(c.forma_pagamento)) {
+        porForma[c.forma_pagamento] += Number(c.total);
+        transacoesPorForma[c.forma_pagamento] += 1;
+      }
+    });
+
+    res.json({
+      funcionario,
+      tipo: 'garcom',
+      resumo: {
+        vendas_do_dia: vendasDoDia,
+        pedidos_hoje: pedidosHoje,
+        comandas_abertas: parseInt(abertasAgoraRes.rows[0].count, 10),
+        mesas_atendidas_hoje: comandasHoje.length,
+        ticket_medio: ticketMedio
+      },
+      comandas_hoje: comandasHoje,
+      fechamento_caixa: {
+        total_dinheiro: porForma.dinheiro,
+        total_cartao_credito: porForma.cartao_credito,
+        total_cartao_debito: porForma.cartao_debito,
+        total_pix: porForma.pix,
+        transacoes_cartao_credito: transacoesPorForma.cartao_credito,
+        transacoes_cartao_debito: transacoesPorForma.cartao_debito,
+        total_recebido: vendasDoDia
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao obter resumo do funcionario:', error);
+    res.status(500).json({ erro: 'Erro ao obter resumo do funcionario.' });
+  }
+}
+
+// Corrige o valor de uma comanda ja fechada (ex: cobranca incorreta detectada
+// depois). Exige a permissao 'corrigir_valores_concluidos', ja pensada pra
+// esse tipo de ajuste. Registra em auditoria com o valor anterior, pra
+// manter rastro de quem mudou o que.
+async function corrigirValores(req, res) {
+  try {
+    const { id } = req.params;
+    const { subtotal, gorjeta, motivo } = req.body;
+
+    const comandaRes = await query('SELECT * FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
+    if (comandaRes.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
+    const anterior = comandaRes.rows[0];
+
+    const novoSubtotal = subtotal !== undefined && subtotal !== '' ? parseFloat(subtotal) : Number(anterior.subtotal);
+    const novaGorjeta = gorjeta !== undefined && gorjeta !== '' ? parseFloat(gorjeta) : Number(anterior.gorjeta);
+    if (isNaN(novoSubtotal) || novoSubtotal < 0 || isNaN(novaGorjeta) || novaGorjeta < 0) {
+      return res.status(400).json({ erro: 'Valores invalidos.' });
+    }
+
+    const atualizado = await query(
+      `UPDATE comandas SET subtotal = $1, gorjeta = $2, total = $1 + $2 WHERE id = $3 RETURNING *`,
+      [novoSubtotal, novaGorjeta, id]
+    );
+
+    const { registrarAuditoria } = require('./funcionarioController');
+    await registrarAuditoria(
+      req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'CORRIGIR_VALORES_COMANDA', 'comandas', id,
+      { subtotal: anterior.subtotal, gorjeta: anterior.gorjeta, total: anterior.total },
+      { subtotal: novoSubtotal, gorjeta: novaGorjeta, total: novoSubtotal + novaGorjeta, motivo: motivo || null },
+      req.ip
+    );
+
+    res.json(atualizado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao corrigir valores da comanda:', error);
+    res.status(500).json({ erro: 'Erro ao corrigir valores da comanda.' });
+  }
+}
+
+module.exports = { abrir, listar, detalhe, adicionarItens, fechar, excluir, confirmarPagamentoManual, resumoFuncionario, corrigirValores };
