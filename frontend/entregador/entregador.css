@@ -790,3 +790,12 @@ input[type="text"], input[type="password"] {
   color: var(--cor-texto-claro);
   margin-top: 2px;
 }
+
+/* Mostra pelo menos ~10 itens antes de precisar rolar (cada item tem
+   uns 76px de altura com a margem) -- usada em "Rotas realizadas" e
+   "Resumo de rotas". */
+.lista-com-rolagem {
+  max-height: 760px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
