@@ -103,11 +103,16 @@ router.post('/comandas/:id/itens', exigirPermissao('criar_pedidos'), comandaCont
 router.post('/comandas/:id/fechar', exigirPermissao('criar_pedidos'), comandaController.fechar);
 router.post('/comandas/:id/confirmar-manual', exigirPermissao('criar_pedidos'), comandaController.confirmarPagamentoManual);
 router.delete('/comandas/:id', exigirCargoAdministrativo, comandaController.excluir);
+router.put('/comandas/:id/corrigir', exigirPermissao('corrigir_valores_concluidos'), comandaController.corrigirValores);
+
+// Resumo do dia de um funcionario (tela "Resumo do [Cargo]" na aba Equipe).
+router.get('/funcionarios/:id/resumo', exigirPermissao('gerenciar_funcionarios'), comandaController.resumoFuncionario);
 
 // Caixa geral - resumo dos valores das entregas concluidas. So gerente e
 // administrador (ou quem tiver a permissao marcada) tem acesso.
 router.get('/caixa-geral', exigirPermissao('ver_caixa_geral'), pedidoController.obterCaixaGeral);
 router.put('/pedidos/:id/status', pedidoController.atualizarStatusPedido);
+router.put('/pedidos/:id/entregador', pedidoController.atribuirEntregadorManual);
 router.put('/pedidos/:id/valores', exigirPermissao('corrigir_valores_concluidos'), pedidoController.corrigirValoresPedido);
 
 // ===================================================================
