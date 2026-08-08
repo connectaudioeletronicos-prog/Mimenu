@@ -810,7 +810,7 @@ async function encerrarEntrega(req, res) {
     const { distancia_km } = req.body;
 
     const plantaoAberto = await query(
-      'SELECT id FROM entregador.entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
+      'SELECT id FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
       [req.funcionarioId]
     );
     const plantaoId = plantaoAberto.rows[0]?.id || null;
