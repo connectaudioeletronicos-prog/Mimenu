@@ -548,10 +548,10 @@ async function checkinEntregador(req, res) {
     // (ON CONFLICT protege contra o indice unico de plantao aberto, caso
     // duas chamadas cheguem quase juntas).
     await query(
-      `INSERT INTO plantoes_entregador (estabelecimento_id, funcionario_id)
+      `INSERT INTO entregador.plantoes_entregador (estabelecimento_id, funcionario_id)
        SELECT $1, $2
        WHERE NOT EXISTS (
-         SELECT 1 FROM plantoes_entregador WHERE funcionario_id = $2 AND fim IS NULL
+         SELECT 1 FROM entregador.plantoes_entregador WHERE funcionario_id = $2 AND fim IS NULL
        )`,
       [req.estabelecimentoId, req.funcionarioId]
     );
@@ -670,7 +670,7 @@ async function gerarQrcodeGenerico(req, res) {
 async function obterPlantaoAtual(req, res) {
   try {
     const aberto = await query(
-      'SELECT * FROM plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
+      'SELECT * FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
       [req.funcionarioId]
     );
     if (aberto.rows.length === 0) return res.json(null);
@@ -743,7 +743,7 @@ async function calcularResumoPlantao(plantaoId, funcionarioId) {
 async function encerrarPlantao(req, res) {
   try {
     const aberto = await query(
-      'SELECT id FROM plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
+      'SELECT id FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
       [req.funcionarioId]
     );
     if (aberto.rows.length === 0) return res.status(404).json({ erro: 'Nenhum plantao aberto no momento.' });
@@ -752,7 +752,7 @@ async function encerrarPlantao(req, res) {
     const resumo = await calcularResumoPlantao(plantaoId, req.funcionarioId);
 
     const fechado = await query(
-      `UPDATE plantoes_entregador SET fim = NOW(), total_entregas = $1, total_km = $2, valor_total = $3, total_gorjetas = $4
+      `UPDATE entregador.plantoes_entregador SET fim = NOW(), total_entregas = $1, total_km = $2, valor_total = $3, total_gorjetas = $4
        WHERE id = $5 RETURNING *`,
       [resumo.total_entregas, resumo.total_km, resumo.valor_total, resumo.total_gorjetas, plantaoId]
     );
@@ -772,7 +772,7 @@ async function meuHistoricoPlantoes(req, res) {
   try {
     const plantoes = await query(
       `SELECT id, inicio, fim, total_entregas, total_km, valor_total, total_gorjetas
-       FROM plantoes_entregador
+       FROM entregador.plantoes_entregador
        WHERE funcionario_id = $1 AND fim IS NOT NULL
        ORDER BY fim DESC
        LIMIT 60`,
@@ -782,7 +782,7 @@ async function meuHistoricoPlantoes(req, res) {
     const resumo = await query(
       `SELECT COUNT(*) AS total_plantoes, COALESCE(SUM(total_entregas), 0) AS total_entregas,
               COALESCE(SUM(valor_total), 0) AS valor_total, COALESCE(SUM(total_gorjetas), 0) AS total_gorjetas
-       FROM plantoes_entregador WHERE funcionario_id = $1 AND fim IS NOT NULL`,
+       FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NOT NULL`,
       [req.funcionarioId]
     );
 
@@ -809,7 +809,7 @@ async function listarHistoricoPlantoes(req, res) {
     const { funcionario_id, limite } = req.query;
     let sql = `
       SELECT p.*, f.nome AS funcionario_nome
-      FROM plantoes_entregador p
+      FROM entregador.plantoes_entregador p
       JOIN funcionarios f ON f.id = p.funcionario_id
       WHERE p.estabelecimento_id = $1 AND p.fim IS NOT NULL`;
     const params = [req.estabelecimentoId];
@@ -875,11 +875,48 @@ async function verificarSenhaSupervisor(req, res) {
   }
 }
 
+// Reautenticacao de quem ja esta logado no dashboard (pede a PROPRIA senha
+// de novo), usada como trava extra antes de abrir a pagina de "Resumo do
+// funcionario" (mostra movimentacao financeira detalhada e permite
+// corrigir valores de comanda). So autoriza se for administrador ou
+// proprietario -- gerente/outros cargos com acesso ao dashboard nao passam
+// por aqui, mesmo com senha correta.
+async function verificarSenhaAdministrador(req, res) {
+  try {
+    const { senha } = req.body;
+    if (!senha) return res.status(400).json({ erro: 'Informe a senha.' });
+
+    let hashParaConferir;
+    if (req.funcionarioId) {
+      if (req.cargo !== 'administrador') {
+        return res.status(403).json({ erro: 'Somente um administrador pode acessar essa pagina.' });
+      }
+      const quem = await query('SELECT senha_hash FROM funcionarios WHERE id = $1', [req.funcionarioId]);
+      if (quem.rows.length === 0) return res.status(401).json({ erro: 'Sessao invalida.' });
+      hashParaConferir = quem.rows[0].senha_hash;
+    } else {
+      // Sem funcionarioId == logado como proprietario (dono da conta).
+      const quem = await query('SELECT senha_hash FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
+      if (quem.rows.length === 0) return res.status(401).json({ erro: 'Sessao invalida.' });
+      hashParaConferir = quem.rows[0].senha_hash;
+    }
+
+    const senhaCorreta = await bcrypt.compare(senha, hashParaConferir);
+    if (!senhaCorreta) return res.status(401).json({ erro: 'Senha incorreta.' });
+
+    res.json({ autorizado: true });
+  } catch (error) {
+    console.error('Erro ao verificar senha de administrador:', error);
+    res.status(500).json({ erro: 'Erro ao verificar senha.' });
+  }
+}
+
 module.exports = {
   loginFuncionario, acessarPorLink, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir,
   listarEquipeOperacional, alternarDisponibilidadeEntregador,
   obterQrcodeDoDia, checkinEntregador, exigirDentroDoHorario, liberarHoraExtra, gerarQrcodeGenerico,
   obterPlantaoAtual, encerrarPlantao, listarHistoricoPlantoes, meuHistoricoPlantoes, calcularResumoPlantao,
   verificarSenhaSupervisor, verificarCredenciaisSupervisor,
+  verificarSenhaAdministrador,
   registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS
 };
