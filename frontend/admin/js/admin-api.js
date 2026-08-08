@@ -174,12 +174,16 @@ const apiTrocarSenhaFuncionario = (id, dados) => chamarApiFuncionarios(`/${id}/s
 const apiExcluirFuncionario = (id, senhaConfirmacao) => chamarApiFuncionarios(`/${id}`, { method: 'DELETE', body: { senhaConfirmacao } });
 const apiListarEquipeOperacional = () => chamarApiFuncionarios('/equipe');
 const apiAlternarDisponibilidadeEntregador = (id, disponivel_entrega) => chamarApiFuncionarios(`/${id}/disponibilidade`, { method: 'PUT', body: { disponivel_entrega } });
+const apiVerificarSenhaAdministrador = (senha) => chamarApiFuncionarios('/verificar-senha-administrador', { method: 'POST', body: { senha } });
+const apiResumoFuncionario = (id) => chamarApiAdmin(`/funcionarios/${id}/resumo`);
+const apiCorrigirValoresComanda = (id, dados) => chamarApiAdmin(`/comandas/${id}/corrigir`, { method: 'PUT', body: dados });
 
 const apiCorrigirValoresPedido = (id, dados) => chamarApiAdmin(`/pedidos/${id}/valores`, { method: 'PUT', body: dados });
 
 const apiListarPedidos = (status = '') => chamarApiAdmin(`/pedidos${status ? `?status=${status}` : ''}`);
 const apiContarPedidos = () => chamarApiAdmin('/pedidos/contagem');
 const apiAtualizarStatusPedido = (id, status_pedido) => chamarApiAdmin(`/pedidos/${id}/status`, { method: 'PUT', body: { status_pedido } });
+const apiAtribuirEntregador = (id, entregador_id) => chamarApiAdmin(`/pedidos/${id}/entregador`, { method: 'PUT', body: { entregador_id } });
 const apiCriarPedidoManual = (dados) => chamarApiAdmin('/pedidos', { method: 'POST', body: dados });
 
 const apiObterCaixaGeral = (dataInicio = '', dataFim = '') => {
