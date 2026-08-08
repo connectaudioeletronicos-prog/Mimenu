@@ -46,6 +46,7 @@ router.put('/entregas/:id/aceitar', funcionarioController.exigirDentroDoHorario,
 router.put('/entregas/:id/recusar', funcionarioController.exigirDentroDoHorario, pedidoController.recusarEntrega);
 router.put('/entregas/:id/encerrar', funcionarioController.exigirDentroDoHorario, pedidoController.encerrarEntrega);
 router.get('/entregas/minhas-hoje', funcionarioController.exigirDentroDoHorario, pedidoController.minhasEntregasHoje);
+router.get('/entregas/minhas-todas', funcionarioController.exigirDentroDoHorario, pedidoController.minhasEntregasTodas);
 
 // Plantao do entregador: abre automaticamente no checkin; o proprio
 // entregador encerra pelo app (tela de fim de expediente). Historico e
