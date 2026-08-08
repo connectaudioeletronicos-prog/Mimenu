@@ -23,6 +23,7 @@ router.use(autenticar);
 // trocar a sessao atual -- usado pelo app do atendente para liberar a
 // resolucao de um pagamento com problema.
 router.post('/verificar-senha-supervisor', funcionarioController.verificarSenhaSupervisor);
+router.post('/verificar-senha-administrador', funcionarioController.verificarSenhaAdministrador);
 
 // Gestor libera hora extra pra um funcionario (ignora a carga horaria dele
 // so no dia de hoje) e utilitario de QR Code generico pro painel.
@@ -45,8 +46,6 @@ router.get('/entregas/atual', funcionarioController.exigirDentroDoHorario, pedid
 router.put('/entregas/:id/aceitar', funcionarioController.exigirDentroDoHorario, pedidoController.aceitarEntrega);
 router.put('/entregas/:id/recusar', funcionarioController.exigirDentroDoHorario, pedidoController.recusarEntrega);
 router.put('/entregas/:id/encerrar', funcionarioController.exigirDentroDoHorario, pedidoController.encerrarEntrega);
-router.get('/entregas/minhas-hoje', funcionarioController.exigirDentroDoHorario, pedidoController.minhasEntregasHoje);
-router.get('/entregas/minhas-todas', funcionarioController.exigirDentroDoHorario, pedidoController.minhasEntregasTodas);
 
 // Plantao do entregador: abre automaticamente no checkin; o proprio
 // entregador encerra pelo app (tela de fim de expediente). Historico e
