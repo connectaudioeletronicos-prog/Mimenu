@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>App do Garçom - Palatos</title>
-<link rel="stylesheet" href="atendente.css?v=20260807b">
+<link rel="stylesheet" href="atendente.css?v=20260807c">
 </head>
 <body>
 
@@ -200,7 +200,10 @@
   <!-- ===================== MENU LATERAL (drawer que empurra o layout) ===================== -->
   <aside id="menu-lateral" class="menu-lateral">
     <div class="menu-lateral__topo">
-      <span class="menu-lateral__logo">🍽️ Palatos</span>
+      <div class="menu-lateral__marca">
+        <img id="logo-menu-lateral" class="logo-menu-lateral oculto" alt="Logo da loja">
+        <span id="logo-menu-lateral-generico" class="menu-lateral__logo">🍽️ Palatos</span>
+      </div>
       <button id="botao-fechar-menu" class="botao-fechar-menu" aria-label="Fechar menu">✕</button>
     </div>
     <div class="menu-lateral__identificacao">
@@ -219,6 +222,6 @@
 
   <script src="../js/config.js"></script>
   <script src="../js/utils.js"></script>
-  <script src="atendente.js?v=20260807b"></script>
+  <script src="atendente.js?v=20260807c"></script>
 </body>
 </html>
