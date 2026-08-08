@@ -193,8 +193,9 @@ async function buscarLogoDaLoja(slug) {
     const resposta = await fetch(`${API_BASE_URL}/publico/${slug}`);
     if (!resposta.ok) throw new Error();
     const dados = await resposta.json();
-    if (dados.logo_apps_url) {
-      imgLogo.src = dados.logo_apps_url;
+    const logoAppsUrl = dados.estabelecimento?.logo_apps_url;
+    if (logoAppsUrl) {
+      imgLogo.src = logoAppsUrl;
       imgLogo.classList.remove('oculto');
       iconeGenerico.classList.add('oculto');
     } else {
@@ -238,11 +239,18 @@ async function mostrarApp() {
   document.getElementById('menu-cargo-funcionario').textContent = 'Garçom';
 
   const logoHeader = document.getElementById('logo-loja-header');
+  const logoMenu = document.getElementById('logo-menu-lateral');
+  const logoMenuGenerico = document.getElementById('logo-menu-lateral-generico');
   if (dados.estabelecimentoLogoAppsUrl) {
     logoHeader.src = dados.estabelecimentoLogoAppsUrl;
     logoHeader.classList.remove('oculto');
+    logoMenu.src = dados.estabelecimentoLogoAppsUrl;
+    logoMenu.classList.remove('oculto');
+    logoMenuGenerico.classList.add('oculto');
   } else {
     logoHeader.classList.add('oculto');
+    logoMenu.classList.add('oculto');
+    logoMenuGenerico.classList.remove('oculto');
   }
 
   try {
