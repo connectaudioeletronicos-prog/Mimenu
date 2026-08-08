@@ -276,7 +276,10 @@ async function resumoFuncionario(req, res) {
 
     const comandasHojeRes = await query(
       `SELECT * FROM comandas WHERE estabelecimento_id = $1 AND funcionario_id = $2
-       AND (aberta_em::date = CURRENT_DATE OR fechada_em::date = CURRENT_DATE)
+       AND (
+         (aberta_em AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
+         OR (fechada_em AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
+       )
        ORDER BY aberta_em DESC`,
       [req.estabelecimentoId, id]
     );
@@ -302,6 +305,7 @@ async function resumoFuncionario(req, res) {
 
     const fechadasHoje = comandasHoje.filter(c => c.status === 'fechada');
     const vendasDoDia = fechadasHoje.reduce((s, c) => s + Number(c.total), 0);
+    const gorjetasDoDia = fechadasHoje.reduce((s, c) => s + Number(c.gorjeta || 0), 0);
     const pedidosHoje = comandasHoje.reduce((s, c) => s + c.rodadas.length, 0);
     const ticketMedio = fechadasHoje.length > 0 ? vendasDoDia / fechadasHoje.length : 0;
 
@@ -319,6 +323,7 @@ async function resumoFuncionario(req, res) {
       tipo: 'garcom',
       resumo: {
         vendas_do_dia: vendasDoDia,
+        gorjetas_do_dia: gorjetasDoDia,
         pedidos_hoje: pedidosHoje,
         comandas_abertas: parseInt(abertasAgoraRes.rows[0].count, 10),
         mesas_atendidas_hoje: comandasHoje.length,
