@@ -180,7 +180,6 @@ const apiCorrigirValoresPedido = (id, dados) => chamarApiAdmin(`/pedidos/${id}/v
 const apiListarPedidos = (status = '') => chamarApiAdmin(`/pedidos${status ? `?status=${status}` : ''}`);
 const apiContarPedidos = () => chamarApiAdmin('/pedidos/contagem');
 const apiAtualizarStatusPedido = (id, status_pedido) => chamarApiAdmin(`/pedidos/${id}/status`, { method: 'PUT', body: { status_pedido } });
-const apiAtribuirEntregador = (id, entregador_id) => chamarApiAdmin(`/pedidos/${id}/entregador`, { method: 'PUT', body: { entregador_id } });
 const apiCriarPedidoManual = (dados) => chamarApiAdmin('/pedidos', { method: 'POST', body: dados });
 
 const apiObterCaixaGeral = (dataInicio = '', dataFim = '') => {
