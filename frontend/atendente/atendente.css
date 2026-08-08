@@ -350,6 +350,8 @@ body.menu-lateral--aberto .conteudo-principal { transform: translateX(-300px); }
   color: #fff;
 }
 .menu-lateral__logo { font-weight: 800; }
+.menu-lateral__marca { display: flex; align-items: center; gap: 8px; }
+.logo-menu-lateral { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; background: #fff; }
 .botao-fechar-menu { background: none; border: none; color: #fff; font-size: 1.2rem; }
 
 .menu-lateral__identificacao { padding: 16px 18px; border-bottom: 1px solid var(--at-borda); }
