@@ -707,14 +707,15 @@ async function calcularResumoPlantao(plantaoId, funcionarioId) {
     ? totalKm * (Number(f.valor_por_km) || 0)
     : totalEntregas * (Number(f.valor_por_entrega) || 0);
 
-  // Valor so da ULTIMA entrega concluida (comissao dela + a caixinha dela),
-  // separado do total acumulado do plantao -- usado no card "valor da
-  // ultima rota" do app.
+  // Valor so da ULTIMA entrega concluida pelo entregador (comissao dela +
+  // a caixinha dela), independente do plantao -- e "minha ultima corrida",
+  // nao "ultima corrida DESSE plantao" (se o plantao atual ainda nao teve
+  // nenhuma entrega concluida, mostrar em branco seria confuso).
   const ultima = await query(
     `SELECT gorjeta, distancia_km FROM pedidos
-     WHERE plantao_id = $1 AND status_pedido = 'entregue'
+     WHERE entregador_id = $1 AND status_pedido = 'entregue'
      ORDER BY horario_entregue DESC LIMIT 1`,
-    [plantaoId]
+    [funcionarioId]
   );
   let valorUltimaRota = null;
   if (ultima.rows.length > 0) {
