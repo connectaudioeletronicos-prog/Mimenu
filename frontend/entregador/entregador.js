@@ -153,8 +153,13 @@ async function buscarLogoDaLoja() {
   try {
     const resposta = await fetch(`${API_BASE_URL}/publico/${encodeURIComponent(slug)}`);
     const dados = await resposta.json();
-    if (resposta.ok && dados.logo_url) {
-      imagemEl.src = dados.logo_url;
+    // logo_apps_url e a logo dedicada pros apps internos (entregador,
+    // atendente) -- separada da logo_url que aparece no cardapio do
+    // cliente. Se a loja ainda nao tiver configurado essa especifica,
+    // cai pra logo_url como reserva.
+    const logoParaUsar = dados.logo_apps_url || dados.logo_url;
+    if (resposta.ok && logoParaUsar) {
+      imagemEl.src = logoParaUsar;
       imagemEl.alt = `Logo ${dados.nome || slug}`;
       imagemEl.classList.remove('oculto');
       placeholderEl.classList.add('oculto');
@@ -691,25 +696,31 @@ function exibirSecaoMenu(secao) {
     return;
   }
 
+  // "Rotas realizadas": TODAS as entregas concluidas (nao depende de ter
+  // fechado o plantao -- "rota realizada" e a entrega em si).
   if (secao === 'historico') {
     conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
-    chamarApi('/plantao/meu-historico').then(dados => {
+    chamarApi('/entregas/minhas-todas').then(dados => {
       const r = dados.resumo || {};
+      const entregas = dados.entregas || [];
       let html = `
         <p class="resumo-geral-titulo">RESUMO GERAL</p>
-        <div class="resumo-geral-linha"><span>Total de plantões</span><strong>${r.total_plantoes ?? 0}</strong></div>
-        <div class="resumo-geral-linha"><span>Entregas realizadas</span><strong>${r.total_entregas ?? 0}</strong></div>
+        <div class="resumo-geral-linha"><span>Total de rotas realizadas</span><strong>${r.total_entregas ?? 0}</strong></div>
         <div class="resumo-geral-linha"><span>Total em caixinhas</span><strong>${formatarMoeda(r.total_gorjetas)}</strong></div>
         <div class="resumo-geral-linha"><span>Valor total a receber</span><strong>${formatarMoeda(r.valor_total)}</strong></div>
-        <p class="resumo-geral-titulo" style="margin-top:18px;">ROTAS (PLANTÕES) REALIZADAS</p>
+        <p class="resumo-geral-titulo" style="margin-top:18px;">ROTAS REALIZADAS</p>
       `;
-      if (!dados.plantoes || dados.plantoes.length === 0) {
-        html += '<p class="ajuda">Nenhum plantão encerrado ainda.</p>';
+      if (entregas.length === 0) {
+        html += '<p class="ajuda">Nenhuma rota concluída ainda.</p>';
       } else {
-        html += dados.plantoes.map(p => `
-          <div class="item-plantao-historico">
-            <div class="item-plantao-historico__data">${new Date(p.fim).toLocaleDateString('pt-BR')}</div>
-            <div class="item-plantao-historico__linha"><span>${p.total_entregas} entrega(s) · caixinha ${formatarMoeda(p.total_gorjetas)}</span><span>${formatarMoeda(p.valor_total)}</span></div>
+        html += entregas.map(e => `
+          <div class="item-entrega-detalhe">
+            <div class="item-entrega-detalhe__topo">
+              <span class="item-entrega-detalhe__horario">${new Date(e.horario_entregue).toLocaleDateString('pt-BR')} ${formatarHora(e.horario_entregue)}</span>
+              <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
+            </div>
+            <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(e.cliente_nome || '-')}</span></div>
+            <div class="item-entrega-detalhe__linha"><span>Caixinha</span><span>${formatarMoeda(e.gorjeta)}</span></div>
           </div>
         `).join('');
       }
@@ -761,16 +772,17 @@ function exibirSecaoMenu(secao) {
     return;
   }
 
-  // "Caixinha recebida": total de gorjetas de hoje + historico geral.
+  // "Caixinha recebida": total de gorjetas de hoje + acumulado de TODAS as
+  // entregas ja concluidas (nao so as de plantao fechado).
   if (secao === 'caixinha') {
     conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
     Promise.all([
       chamarApi('/entregas/minhas-hoje').catch(() => ({ entregas: [] })),
-      chamarApi('/plantao/meu-historico').catch(() => ({ resumo: {} }))
-    ]).then(([hoje, historico]) => {
+      chamarApi('/entregas/minhas-todas').catch(() => ({ resumo: {} }))
+    ]).then(([hoje, todas]) => {
       const entregasComCaixinha = (hoje.entregas || []).filter(e => (e.gorjeta || 0) > 0);
       const gorjetaHoje = (hoje.entregas || []).reduce((s, e) => s + (e.gorjeta || 0), 0);
-      const gorjetaTotal = historico.resumo?.total_gorjetas ?? 0;
+      const gorjetaTotal = todas.resumo?.total_gorjetas ?? 0;
       let html = `
         <p class="resumo-geral-titulo">CAIXINHA RECEBIDA</p>
         <div class="resumo-geral-linha"><span>Recebida hoje</span><strong>${formatarMoeda(gorjetaHoje)}</strong></div>
@@ -797,10 +809,11 @@ function exibirSecaoMenu(secao) {
     return;
   }
 
-  // "Recebimento": quanto ja recebeu vs. quanto ainda tem a receber.
+  // "Recebimento": quanto ja recebeu vs. quanto ainda tem a receber, com
+  // base em TODAS as entregas concluidas (independente de plantao fechado).
   if (secao === 'recebimento') {
     conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
-    chamarApi('/plantao/meu-historico').then(dados => {
+    chamarApi('/entregas/minhas-todas').then(dados => {
       const r = dados.resumo || {};
       const valorPendenteAtual = paradasRotaAtual.reduce((s, p) => s + (comissaoDaEntrega(p)), 0);
       const ganhoHoje = plantaoAtualCache?.valor_total ?? 0;
@@ -809,9 +822,9 @@ function exibirSecaoMenu(secao) {
         <div class="resumo-geral-linha"><span>Ganhos de hoje (plantão atual)</span><strong>${formatarMoeda(ganhoHoje)}</strong></div>
         <div class="resumo-geral-linha"><span>Em rota agora</span><strong>${formatarMoeda(valorPendenteAtual)}</strong></div>
         <p class="resumo-geral-titulo" style="margin-top:18px;">HISTÓRICO GERAL</p>
-        <div class="resumo-geral-linha"><span>Total de plantões encerrados</span><strong>${r.total_plantoes ?? 0}</strong></div>
+        <div class="resumo-geral-linha"><span>Total de rotas realizadas</span><strong>${r.total_entregas ?? 0}</strong></div>
         <div class="resumo-geral-linha"><span>Valor total a receber</span><strong>${formatarMoeda(r.valor_total)}</strong></div>
-        <p class="ajuda" style="margin-top:14px;">Os valores de plantões encerrados são fechados com o seu gestor conforme a política da loja.</p>
+        <p class="ajuda" style="margin-top:14px;">Os valores são fechados com o seu gestor conforme a política da loja.</p>
       `;
       conteudo.innerHTML = html;
     }).catch(erro => {
@@ -828,10 +841,22 @@ function fazerLogout() {
 }
 
 // -------------------- Inicializacao --------------------
-function iniciarAppLogado() {
-  // Sempre passa pelo checkin do dia ao entrar/recarregar a pagina; o
-  // proprio checkin de hoje ja feito nao tem problema em repetir (o
-  // backend so atualiza a data, e idempotente).
+// So mostra a tela de check-in (camera) quando realmente PRECISA checar in
+// hoje. Se o entregador ja fez check-in (tem plantao aberto), pula direto
+// pra tela de espera/rota -- assim recarregar a pagina no meio de uma
+// entrega nao manda ele de volta pra camera (ele pode estar longe da loja
+// nesse momento e nao ter como escanear o QR de novo).
+async function iniciarAppLogado() {
+  try {
+    const plantaoAtual = await chamarApi('/plantao/atual');
+    if (plantaoAtual) {
+      iniciarAguardandoPedido();
+      return;
+    }
+  } catch {
+    // Se der erro de rede/servidor, cai no fluxo normal de check-in abaixo
+    // (mais seguro do que travar a tela em branco).
+  }
   iniciarLeituraQR();
 }
 
