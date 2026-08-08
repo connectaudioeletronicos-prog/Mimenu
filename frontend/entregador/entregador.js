@@ -696,33 +696,30 @@ function exibirSecaoMenu(secao) {
     return;
   }
 
-  // "Rotas realizadas": TODAS as entregas concluidas (nao depende de ter
-  // fechado o plantao -- "rota realizada" e a entrega em si).
+  // "Rotas realizadas": SO as de HOJE (lista com rolagem, ~10 visiveis).
   if (secao === 'historico') {
     conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
-    chamarApi('/entregas/minhas-todas').then(dados => {
-      const r = dados.resumo || {};
+    chamarApi('/entregas/minhas-hoje').then(dados => {
       const entregas = dados.entregas || [];
+      const valorTotalHoje = entregas.reduce((s, e) => s + (e.valor_rota || 0), 0);
       let html = `
-        <p class="resumo-geral-titulo">RESUMO GERAL</p>
-        <div class="resumo-geral-linha"><span>Total de rotas realizadas</span><strong>${r.total_entregas ?? 0}</strong></div>
-        <div class="resumo-geral-linha"><span>Total em caixinhas</span><strong>${formatarMoeda(r.total_gorjetas)}</strong></div>
-        <div class="resumo-geral-linha"><span>Valor total a receber</span><strong>${formatarMoeda(r.valor_total)}</strong></div>
-        <p class="resumo-geral-titulo" style="margin-top:18px;">ROTAS REALIZADAS</p>
+        <p class="resumo-geral-titulo">ROTAS REALIZADAS HOJE</p>
+        <div class="resumo-geral-linha"><span>Quantidade de rotas</span><strong>${entregas.length}</strong></div>
+        <div class="resumo-geral-linha"><span>Valor a receber (hoje)</span><strong>${formatarMoeda(valorTotalHoje)}</strong></div>
+        <p class="resumo-geral-titulo" style="margin-top:18px;">ROTAS DE HOJE</p>
       `;
       if (entregas.length === 0) {
-        html += '<p class="ajuda">Nenhuma rota concluída ainda.</p>';
+        html += '<p class="ajuda">Nenhuma rota concluída hoje ainda.</p>';
       } else {
-        html += entregas.map(e => `
+        html += `<div class="lista-com-rolagem">` + entregas.map(e => `
           <div class="item-entrega-detalhe">
             <div class="item-entrega-detalhe__topo">
-              <span class="item-entrega-detalhe__horario">${new Date(e.horario_entregue).toLocaleDateString('pt-BR')} ${formatarHora(e.horario_entregue)}</span>
+              <span class="item-entrega-detalhe__horario">${formatarHora(e.horario_entregue)}</span>
               <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
             </div>
             <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(e.cliente_nome || '-')}</span></div>
-            <div class="item-entrega-detalhe__linha"><span>Caixinha</span><span>${formatarMoeda(e.gorjeta)}</span></div>
           </div>
-        `).join('');
+        `).join('') + `</div>`;
       }
       conteudo.innerHTML = html;
     }).catch(erro => {
@@ -731,39 +728,30 @@ function exibirSecaoMenu(secao) {
     return;
   }
 
-  // "Resumo de rotas": contagem de rotas do dia + detalhe de cada uma
-  // (valor, forma de pagamento, troco quando for dinheiro).
+  // "Resumo de rotas": TODO O PERIODO (lista com rolagem, ~10 visiveis).
   if (secao === 'resumo-rotas') {
     conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
-    chamarApi('/entregas/minhas-hoje').then(dados => {
+    chamarApi('/entregas/minhas-todas').then(dados => {
+      const r = dados.resumo || {};
       const entregas = dados.entregas || [];
-      const valorTotalHoje = entregas.reduce((s, e) => s + (e.valor_rota || 0), 0);
       let html = `
-        <p class="resumo-geral-titulo">ROTAS DE HOJE</p>
-        <div class="resumo-geral-linha"><span>Quantidade de rotas</span><strong>${entregas.length}</strong></div>
-        <div class="resumo-geral-linha"><span>Valor total do dia</span><strong>${formatarMoeda(valorTotalHoje)}</strong></div>
-        <p class="resumo-geral-titulo" style="margin-top:18px;">DETALHE DE CADA ROTA</p>
+        <p class="resumo-geral-titulo">RESUMO DE ROTAS (TODO O PERÍODO)</p>
+        <div class="resumo-geral-linha"><span>Total de rotas</span><strong>${r.total_entregas ?? 0}</strong></div>
+        <div class="resumo-geral-linha"><span>Valor a receber</span><strong>${formatarMoeda(r.total_comissao)}</strong></div>
+        <p class="resumo-geral-titulo" style="margin-top:18px;">TODAS AS ROTAS</p>
       `;
       if (entregas.length === 0) {
-        html += '<p class="ajuda">Nenhuma rota concluída hoje ainda.</p>';
+        html += '<p class="ajuda">Nenhuma rota concluída ainda.</p>';
       } else {
-        html += entregas.map(e => {
-          const pagamento = formatarPagamento(e.forma_pagamento);
-          const linhaTroco = (e.forma_pagamento === 'dinheiro' && e.troco !== null)
-            ? `<div class="item-entrega-detalhe__linha"><span>Troco</span><span>${formatarMoeda(e.troco)}</span></div>` : '';
-          return `
-            <div class="item-entrega-detalhe">
-              <div class="item-entrega-detalhe__topo">
-                <span class="item-entrega-detalhe__horario">${formatarHora(e.horario_entregue)}</span>
-                <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
-              </div>
-              <div class="item-entrega-detalhe__linha"><span>Pedido</span><span>${formatarMoeda(e.total_pedido)}</span></div>
-              <div class="item-entrega-detalhe__linha"><span>Pagamento</span><span>${escaparHtml(pagamento)}</span></div>
-              ${linhaTroco}
-              <div class="item-entrega-detalhe__linha"><span>Caixinha</span><span>${formatarMoeda(e.gorjeta)}</span></div>
+        html += `<div class="lista-com-rolagem">` + entregas.map(e => `
+          <div class="item-entrega-detalhe">
+            <div class="item-entrega-detalhe__topo">
+              <span class="item-entrega-detalhe__horario">${new Date(e.horario_entregue).toLocaleDateString('pt-BR')} ${formatarHora(e.horario_entregue)}</span>
+              <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
             </div>
-          `;
-        }).join('');
+            <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(e.cliente_nome || '-')}</span></div>
+          </div>
+        `).join('') + `</div>`;
       }
       conteudo.innerHTML = html;
     }).catch(erro => {
