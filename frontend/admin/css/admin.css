@@ -1305,3 +1305,117 @@ input, textarea, select { font-family: inherit; }
   opacity: 0.4;
   background: var(--admin-cor-primaria-clara);
 }
+
+/* ===================== RESUMO DO FUNCIONARIO ===================== */
+.erro-form { color: var(--admin-cor-erro); font-size: 0.85rem; margin-top: 8px; }
+.botoes-linha-admin { display: flex; gap: 10px; }
+.botoes-linha-admin .botao-secundario, .botoes-linha-admin .botao-primario { flex: 1; }
+
+.item-admin--clicavel { cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+.item-admin--clicavel:hover { background: var(--admin-cor-primaria-clara); }
+.item-admin__seta { color: var(--admin-cor-texto-claro); font-size: 0.85rem; white-space: nowrap; margin-left: 10px; }
+
+.resumo-funcionario__topo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: #fff;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: var(--admin-raio);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+.resumo-funcionario__marca { flex-shrink: 0; }
+.resumo-funcionario__logo { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; }
+.resumo-funcionario__logo-generico { font-size: 2rem; }
+.resumo-funcionario__identificacao { flex: 1; min-width: 160px; }
+.resumo-funcionario__label { font-size: 0.75rem; color: var(--admin-cor-texto-claro); }
+.resumo-funcionario__nome { font-size: 1.15rem; font-weight: 800; }
+.resumo-funcionario__status { font-size: 0.8rem; color: var(--admin-cor-sucesso); }
+.resumo-funcionario__data { font-size: 0.85rem; color: var(--admin-cor-texto-claro); }
+
+/* Alternador Pedidos/Caixa: so aparece no celular */
+.resumo-funcionario__alternador { display: none; gap: 8px; margin-bottom: 14px; }
+.resumo-funcionario__aba-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--admin-cor-borda);
+  background: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.resumo-funcionario__aba-btn.ativo { background: var(--admin-cor-primaria); color: #fff; border-color: var(--admin-cor-primaria); }
+
+.resumo-funcionario__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.resumo-card {
+  background: #fff;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: var(--admin-raio);
+  padding: 14px;
+}
+.resumo-card__icone { font-size: 1.2rem; }
+.resumo-card__label { font-size: 0.78rem; color: var(--admin-cor-texto-claro); margin-top: 4px; }
+.resumo-card__valor { font-size: 1.25rem; font-weight: 800; margin-top: 2px; }
+
+.resumo-funcionario__caixa-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.painel-fechamento-caixa, .painel-resumo-cartoes, .painel-identificacao-funcionario {
+  background: #fff;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: var(--admin-raio);
+  padding: 16px;
+}
+.painel-fechamento-caixa__titulo, .painel-identificacao-funcionario__titulo { font-size: 0.78rem; font-weight: 800; color: var(--admin-cor-texto-claro); margin-bottom: 8px; }
+.painel-fechamento-caixa__total { font-size: 1.6rem; font-weight: 800; color: var(--admin-cor-primaria); margin-bottom: 10px; }
+.painel-fechamento-caixa__linha { display: flex; justify-content: space-between; font-size: 0.88rem; padding: 5px 0; border-bottom: 1px solid var(--admin-cor-borda); }
+.painel-fechamento-caixa__sub { padding-left: 10px; font-size: 0.8rem; color: var(--admin-cor-texto-claro); border-bottom: none; }
+
+.painel-resumo-cartoes { display: flex; flex-direction: column; gap: 10px; grid-row: span 1; }
+.painel-resumo-cartoes__card { border-radius: 10px; padding: 12px; font-size: 0.8rem; }
+.painel-resumo-cartoes__card--credito { background: var(--admin-cor-primaria-clara); }
+.painel-resumo-cartoes__card--debito { background: var(--admin-cor-destaque-clara); }
+.painel-resumo-cartoes__card strong { display: block; font-size: 1.2rem; margin: 4px 0; }
+
+.painel-identificacao-funcionario__nome { font-size: 1.05rem; font-weight: 800; }
+.painel-identificacao-funcionario__cargo { font-size: 0.85rem; color: var(--admin-cor-texto-claro); text-transform: capitalize; }
+.painel-identificacao-funcionario__email { font-size: 0.82rem; color: var(--admin-cor-texto-claro); margin-top: 6px; }
+
+.resumo-funcionario__secao-titulo { font-size: 0.8rem; font-weight: 800; color: var(--admin-cor-texto-claro); margin-bottom: 10px; }
+
+.comanda-movimentacao {
+  background: #fff;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: var(--admin-raio);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.comanda-movimentacao__cabecalho { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.comanda-movimentacao__mesa { font-weight: 800; }
+.comanda-movimentacao__status { font-size: 0.75rem; padding: 3px 8px; border-radius: 999px; font-weight: 700; }
+.comanda-movimentacao__status--aberta { background: #fff3cd; color: #92600a; }
+.comanda-movimentacao__status--fechada { background: var(--admin-cor-primaria-clara); color: var(--admin-cor-primaria-escura); }
+.comanda-movimentacao__linha-item { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 3px 0; color: var(--admin-cor-texto); }
+.comanda-movimentacao__rodape { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--admin-cor-borda); font-size: 0.85rem; }
+.comanda-movimentacao__total { font-weight: 800; font-size: 1rem; }
+.comanda-movimentacao__corrigir { background: none; border: 1px solid var(--admin-cor-borda); border-radius: 8px; padding: 5px 10px; font-size: 0.78rem; font-weight: 700; }
+
+@media (max-width: 899px) {
+  .resumo-funcionario__alternador { display: flex; }
+  .resumo-funcionario__tela { display: none; }
+  .resumo-funcionario__tela--ativa { display: block; }
+  .resumo-funcionario__caixa-grid { grid-template-columns: 1fr; }
+}
+@media (min-width: 900px) {
+  .resumo-funcionario__tela { display: block !important; }
+  .resumo-funcionario__corpo { display: flex; flex-direction: column; gap: 24px; }
+}
