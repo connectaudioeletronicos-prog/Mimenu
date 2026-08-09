@@ -80,9 +80,18 @@ function exigirCargoAdministrativo(req, res, next) {
   return res.status(403).json({ erro: 'So o proprietario ou administrador pode acessar o cadastro completo.' });
 }
 
+// Mais permissivo que exigirCargoAdministrativo: usado especificamente na
+// pagina "Resumo do funcionario" e na correcao de valores de comanda, onde
+// o gerente tambem pode agir (nao so administrador/proprietario).
+function exigirAdministradorOuGerente(req, res, next) {
+  if (['proprietario', 'administrador', 'gerente'].includes(req.cargo)) return next();
+  return res.status(403).json({ erro: 'So administrador ou gerente pode fazer essa acao.' });
+}
+
 module.exports = {
   autenticar,
   garantirProprioEstabelecimento,
   exigirPermissao,
-  exigirCargoAdministrativo
+  exigirCargoAdministrativo,
+  exigirAdministradorOuGerente
 };
