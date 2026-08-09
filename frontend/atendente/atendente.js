@@ -446,6 +446,8 @@ async function abrirModalMesa() {
 // completo dela no servidor -- assim o painel sempre mostra TODOS os itens
 // ja enviados pra cozinha antes de ele adicionar mais coisa ou cobrar,
 // nunca so um numero de subtotal sem explicacao.
+const CHAVE_TELA_ATUAL = 'garcom_comanda_atual_id';
+
 function definirComandaAtual(comanda) {
   if (draftItens.length > 0 && !confirm('Você tem itens dessa rodada ainda não enviados pra cozinha. Descartar e trocar de comanda?')) {
     return false;
@@ -457,6 +459,10 @@ function definirComandaAtual(comanda) {
     subtotalEnviado: parseFloat(comanda.subtotal) || 0,
     rodadas: comanda.rodadas || []
   };
+  // Guarda qual comanda estava aberta -- se a pagina recarregar (F5, troca
+  // de aba e volta, etc.) enquanto ainda logado, volta direto pra ela em
+  // vez de reiniciar no cardapio vazio.
+  sessionStorage.setItem(CHAVE_TELA_ATUAL, comanda.id);
   renderizarComanda();
   return true;
 }
@@ -600,6 +606,7 @@ document.getElementById('botao-confirmar-pagamento').addEventListener('click', a
     } else {
       mostrarToast(`Comanda "${mesaCliente}" fechada e paga!`);
       comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+      sessionStorage.removeItem(CHAVE_TELA_ATUAL);
       renderizarComanda();
     }
   } catch (erro) {
@@ -629,6 +636,7 @@ function abrirModalPix(comandaId, pagamento, mesaCliente) {
         statusEl.textContent = '✅ Pagamento confirmado!';
         statusEl.className = 'pix-status pix-status--pago';
         comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+        sessionStorage.removeItem(CHAVE_TELA_ATUAL);
         renderizarComanda();
         setTimeout(fecharModalPix, 1800);
       } else if (comanda.status_pagamento === 'recusado') {
@@ -686,7 +694,10 @@ document.getElementById('botao-confirmar-supervisor').addEventListener('click', 
     await chamarApi(`/comandas/${comandaId}/confirmar-manual`, { method: 'POST', body: JSON.stringify({ login, senha }) });
     fecharModalSupervisor();
     mostrarToast('Comanda confirmada como paga manualmente.');
-    if (comandaAtual.id === comandaId) comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+    if (comandaAtual.id === comandaId) {
+      comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+      sessionStorage.removeItem(CHAVE_TELA_ATUAL);
+    }
     renderizarComanda();
   } catch (erro) {
     erroEl.textContent = erro.message;
@@ -808,6 +819,29 @@ document.getElementById('botao-fechar-historico').addEventListener('click', () =
   const acessouPorLink = await tentarAcessoPorLink();
   const tokenSalvo = sessionStorage.getItem(CHAVE_TOKEN);
   if (acessouPorLink || tokenSalvo) {
-    try { await mostrarApp(); } catch (erro) { mostrarToast(erro.message, true); }
+    try {
+      await mostrarApp();
+      // Se tinha uma comanda aberta antes de recarregar a pagina, volta
+      // direto pra ela em vez de reiniciar no cardapio vazio.
+      const comandaSalva = sessionStorage.getItem(CHAVE_TELA_ATUAL);
+      if (comandaSalva) {
+        try {
+          const comanda = await chamarApi(`/comandas/${comandaSalva}`);
+          if (comanda.status === 'aberta') {
+            comandaAtual = {
+              id: comanda.id,
+              mesaCliente: comanda.mesa_cliente,
+              subtotalEnviado: parseFloat(comanda.subtotal) || 0,
+              rodadas: comanda.rodadas || []
+            };
+            renderizarComanda();
+          } else {
+            sessionStorage.removeItem(CHAVE_TELA_ATUAL);
+          }
+        } catch (erro) {
+          sessionStorage.removeItem(CHAVE_TELA_ATUAL);
+        }
+      }
+    } catch (erro) { mostrarToast(erro.message, true); }
   }
 })();
