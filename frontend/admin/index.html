@@ -1079,6 +1079,7 @@
           </div>
           <div class="resumo-funcionario__data">
             <div id="resumo-funcionario-data">-</div>
+            <button type="button" id="botao-atualizar-resumo" class="botao-secundario" style="margin-top:6px;font-size:0.75rem;padding:4px 10px;">🔄 Atualizar</button>
           </div>
           <button type="button" id="botao-voltar-resumo-funcionario" class="botao-secundario">← Voltar pra Equipe</button>
         </div>
@@ -1150,12 +1151,16 @@
 
               <div class="painel-identificacao-funcionario">
                 <div class="painel-identificacao-funcionario__titulo">IDENTIFICAÇÃO</div>
-                <div class="painel-identificacao-funcionario__linha-topo">
-                  <div id="identificacao-nome-completo" class="painel-identificacao-funcionario__nome">-</div>
-                  <span id="marcador-gorjeta" class="marcador-gorjeta">🪙 R$ 0,00</span>
-                </div>
+                <div id="identificacao-nome-completo" class="painel-identificacao-funcionario__nome">-</div>
                 <div id="identificacao-cargo" class="painel-identificacao-funcionario__cargo">-</div>
                 <div id="identificacao-email" class="painel-identificacao-funcionario__email">-</div>
+              </div>
+
+              <div class="painel-gorjetas">
+                <div class="painel-gorjetas__titulo">🪙 GORJETAS DE HOJE <span id="painel-gorjetas-total">R$ 0,00</span></div>
+                <div id="lista-gorjetas-hoje" class="painel-gorjetas__lista">
+                  <p class="aba__descricao">Nenhuma gorjeta ainda hoje.</p>
+                </div>
               </div>
             </div>
           </div>
