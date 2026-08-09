@@ -1386,7 +1386,8 @@ input, textarea, select { font-family: inherit; }
 .painel-resumo-cartoes__card--debito { background: var(--admin-cor-destaque-clara); }
 .painel-resumo-cartoes__card strong { display: block; font-size: 1.2rem; margin: 4px 0; }
 
-.painel-identificacao-funcionario__nome { font-size: 1.05rem; font-weight: 800; }
+.painel-identificacao-funcionario__linha-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.marcador-gorjeta { background: #fff7ea; color: #8a6300; border: 1px solid #f0d9a8; border-radius: 999px; padding: 3px 9px; font-size: 0.75rem; font-weight: 800; white-space: nowrap; }.painel-identificacao-funcionario__nome { font-size: 1.05rem; font-weight: 800; }
 .painel-identificacao-funcionario__cargo { font-size: 0.85rem; color: var(--admin-cor-texto-claro); text-transform: capitalize; }
 .painel-identificacao-funcionario__email { font-size: 0.82rem; color: var(--admin-cor-texto-claro); margin-top: 6px; }
 
@@ -1419,3 +1420,9 @@ input, textarea, select { font-family: inherit; }
   .resumo-funcionario__tela { display: block !important; }
   .resumo-funcionario__corpo { display: flex; flex-direction: column; gap: 24px; }
 }
+
+.entregador-pagamento { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--admin-cor-borda); }
+.entregador-pagamento select { width: 100%; margin-top: 4px; }
+.entregador-pagamento__valores { display: flex; gap: 8px; margin-top: 6px; }
+.entregador-pagamento__valores input { flex: 1; }
+.entregador-pagamento .botao-secundario { margin-top: 8px; font-size: 0.78rem; }
