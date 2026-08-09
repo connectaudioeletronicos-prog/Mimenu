@@ -1380,16 +1380,52 @@ input, textarea, select { font-family: inherit; }
 .painel-fechamento-caixa__linha { display: flex; justify-content: space-between; font-size: 0.88rem; padding: 5px 0; border-bottom: 1px solid var(--admin-cor-borda); }
 .painel-fechamento-caixa__sub { padding-left: 10px; font-size: 0.8rem; color: var(--admin-cor-texto-claro); border-bottom: none; }
 
-.painel-resumo-cartoes { display: flex; flex-direction: column; gap: 10px; grid-row: span 1; }
+.painel-resumo-cartoes { display: flex; flex-direction: column; gap: 10px; }
 .painel-resumo-cartoes__card { border-radius: 10px; padding: 12px; font-size: 0.8rem; }
 .painel-resumo-cartoes__card--credito { background: var(--admin-cor-primaria-clara); }
 .painel-resumo-cartoes__card--debito { background: var(--admin-cor-destaque-clara); }
 .painel-resumo-cartoes__card strong { display: block; font-size: 1.2rem; margin: 4px 0; }
 
 .painel-identificacao-funcionario__linha-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.marcador-gorjeta { background: #fff7ea; color: #8a6300; border: 1px solid #f0d9a8; border-radius: 999px; padding: 3px 9px; font-size: 0.75rem; font-weight: 800; white-space: nowrap; }.painel-identificacao-funcionario__nome { font-size: 1.05rem; font-weight: 800; }
+.painel-identificacao-funcionario__nome { font-size: 1.05rem; font-weight: 800; }
 .painel-identificacao-funcionario__cargo { font-size: 0.85rem; color: var(--admin-cor-texto-claro); text-transform: capitalize; }
 .painel-identificacao-funcionario__email { font-size: 0.82rem; color: var(--admin-cor-texto-claro); margin-top: 6px; }
+
+.painel-gorjetas {
+  background: #fff;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: var(--admin-raio);
+  padding: 16px;
+}
+.painel-gorjetas__titulo {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--admin-cor-texto-claro);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.painel-gorjetas__titulo span { color: #8a6300; font-size: 0.95rem; }
+.painel-gorjetas__lista {
+  max-height: 108px; /* ~3 linhas visiveis, rola pro resto */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.painel-gorjetas__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff7ea;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.8rem;
+}
+.painel-gorjetas__item-mesa { font-weight: 700; }
+.painel-gorjetas__item-hora { color: var(--admin-cor-texto-claro); font-size: 0.72rem; display: block; }
+.painel-gorjetas__item-valor { color: #8a6300; font-weight: 800; }
 
 .resumo-funcionario__secao-titulo { font-size: 0.8rem; font-weight: 800; color: var(--admin-cor-texto-claro); margin-bottom: 10px; }
 
