@@ -802,6 +802,86 @@ async function meuHistoricoPlantoes(req, res) {
   }
 }
 
+// "Pagamento" (topico 5 do app do entregador): plantao aberto agora (soma
+// do valor do dia contando do inicio ao fim do plantao, horario que vem do
+// proprio checkin/checkout controlado pelo dashboard do admin), com a
+// quantidade de rotas e o codigo de cada rota desse plantao; paginado por
+// plantao (5 por pagina, do mais recente pro mais antigo) com um total
+// geral (todos os plantoes, sem limite) igual ao do "Resumo de rotas".
+async function meuPagamento(req, res) {
+  try {
+    const pagina = Math.max(parseInt(req.query.pagina, 10) || 1, 1);
+    const porPagina = 5;
+
+    const aberto = await query(
+      'SELECT * FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
+      [req.funcionarioId]
+    );
+    let plantaoAtual = null;
+    if (aberto.rows.length > 0) {
+      const resumo = await calcularResumoPlantao(aberto.rows[0].id, req.funcionarioId);
+      const rotas = await query(
+        `SELECT id FROM pedidos WHERE plantao_id = $1 AND status_pedido = 'entregue' ORDER BY horario_entregue DESC`,
+        [aberto.rows[0].id]
+      );
+      plantaoAtual = {
+        ...aberto.rows[0],
+        ...resumo,
+        codigos_rota: rotas.rows.map(r => r.id.slice(0, 8).toUpperCase())
+      };
+    }
+
+    const fechados = await query(
+      `SELECT id, inicio, fim, total_entregas, total_km, valor_total, total_gorjetas
+       FROM entregador.plantoes_entregador
+       WHERE funcionario_id = $1 AND fim IS NOT NULL
+       ORDER BY fim DESC
+       LIMIT $2 OFFSET $3`,
+      [req.funcionarioId, porPagina, (pagina - 1) * porPagina]
+    );
+    const plantoesComRotas = await Promise.all(fechados.rows.map(async (p) => {
+      const rotas = await query(
+        `SELECT id FROM pedidos WHERE plantao_id = $1 AND status_pedido = 'entregue' ORDER BY horario_entregue DESC`,
+        [p.id]
+      );
+      return { ...p, codigos_rota: rotas.rows.map(r => r.id.slice(0, 8).toUpperCase()) };
+    }));
+
+    const contagem = await query(
+      'SELECT COUNT(*) AS total FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NOT NULL',
+      [req.funcionarioId]
+    );
+    const totalPlantoesFechados = parseInt(contagem.rows[0].total, 10) || 0;
+
+    // Total geral: soma de TODOS os plantoes fechados + o que ja foi
+    // apurado no plantao aberto (se houver), sem limite de paginacao.
+    const somaFechados = await query(
+      `SELECT COUNT(*) AS total_plantoes, COALESCE(SUM(total_entregas), 0) AS total_entregas,
+              COALESCE(SUM(valor_total), 0) AS valor_total, COALESCE(SUM(total_gorjetas), 0) AS total_gorjetas
+       FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NOT NULL`,
+      [req.funcionarioId]
+    );
+    const s = somaFechados.rows[0];
+    const totalGeral = {
+      total_plantoes: (parseInt(s.total_plantoes, 10) || 0) + (plantaoAtual ? 1 : 0),
+      total_entregas: (parseInt(s.total_entregas, 10) || 0) + (plantaoAtual?.total_entregas || 0),
+      valor_total: (Number(s.valor_total) || 0) + (plantaoAtual?.valor_total || 0),
+      total_gorjetas: (Number(s.total_gorjetas) || 0) + (plantaoAtual?.total_gorjetas || 0)
+    };
+
+    res.json({
+      plantao_atual: plantaoAtual,
+      plantoes_anteriores: plantoesComRotas,
+      pagina,
+      tem_mais: pagina * porPagina < totalPlantoesFechados,
+      total_geral: totalGeral
+    });
+  } catch (error) {
+    console.error('Erro ao obter pagamento do entregador:', error);
+    res.status(500).json({ erro: 'Erro ao obter pagamento.' });
+  }
+}
+
 // Historico de plantoes -- painel admin. Sem funcionario_id, traz de todos
 // os entregadores (ex: fechamento semanal); com funcionario_id, filtra um so.
 async function listarHistoricoPlantoes(req, res) {
@@ -914,7 +994,7 @@ module.exports = {
   loginFuncionario, acessarPorLink, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir,
   listarEquipeOperacional, alternarDisponibilidadeEntregador,
   obterQrcodeDoDia, checkinEntregador, exigirDentroDoHorario, liberarHoraExtra, gerarQrcodeGenerico,
-  obterPlantaoAtual, encerrarPlantao, listarHistoricoPlantoes, meuHistoricoPlantoes, calcularResumoPlantao,
+  obterPlantaoAtual, encerrarPlantao, listarHistoricoPlantoes, meuHistoricoPlantoes, meuPagamento, calcularResumoPlantao,
   verificarSenhaSupervisor, verificarCredenciaisSupervisor,
   verificarSenhaAdministrador,
   registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS
