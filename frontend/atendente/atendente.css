@@ -269,6 +269,15 @@ input, textarea { font-family: inherit; }
   padding: 0 3px;
 }
 
+/* ---------- Campos Mesa / Comanda (numéricos, modal Mesa/Cliente) ---------- */
+.linha-mesa-comanda { display: flex; gap: 10px; margin-top: 6px; }
+.campo-mesa-comanda { flex: 1; }
+.campo-mesa-comanda label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--at-texto-claro); margin-bottom: 4px; }
+.campo-mesa-comanda input {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--at-borda); border-radius: 8px;
+  font-size: 0.95rem; text-align: center;
+}
+
 /* ===================== MODAIS ===================== */
 .fundo-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 40; }
 .modal {
