@@ -934,6 +934,187 @@ async function minhasEntregasTodas(req, res) {
   return buscarMinhasEntregas(req, res, false);
 }
 
+// ===================================================================
+// Historico completo do entregador, com endereco estruturado, forma de
+// pagamento/troco e paginacao por cursor -- usado nas secoes "Rotas
+// realizadas" (topico 2) e "Resumo da rota" (topico 3) do menu lateral do
+// app. Sem teto: com "periodo=tudo" e ido paginando com "antes", da pra
+// chegar ate a primeirissima entrega que esse entregador ja fez.
+// ===================================================================
+
+// Monta o endereco pronto pra exibir: usa os campos estruturados quando
+// existirem (pedidos novos/corrigidos), senao cai pro texto livre antigo.
+function enderecoFormatado(p) {
+  const temEstruturado = p.cliente_endereco_rua || p.cliente_endereco_cep || p.cliente_endereco_bairro;
+  if (!temEstruturado) {
+    return { logradouro: p.cliente_endereco || '-', numero: null, complemento: null, cep: null, bairro: null, completo: p.cliente_endereco || '-' };
+  }
+  const partes = [];
+  if (p.cliente_endereco_rua) {
+    partes.push(p.cliente_endereco_numero ? `${p.cliente_endereco_rua}, ${p.cliente_endereco_numero}` : p.cliente_endereco_rua);
+  }
+  if (p.cliente_endereco_complemento) partes.push(p.cliente_endereco_complemento);
+  if (p.cliente_endereco_bairro) partes.push(p.cliente_endereco_bairro);
+  if (p.cliente_endereco_cep) partes.push(`CEP ${p.cliente_endereco_cep}`);
+  return {
+    logradouro: p.cliente_endereco_rua || p.cliente_endereco || '-',
+    numero: p.cliente_endereco_numero || null,
+    complemento: p.cliente_endereco_complemento || null,
+    cep: p.cliente_endereco_cep || null,
+    bairro: p.cliente_endereco_bairro || null,
+    completo: partes.join(' - ') || (p.cliente_endereco || '-')
+  };
+}
+
+// Traduz o filtro de periodo (topico 2) num pedaco de SQL sobre
+// horario_entregue. "tudo" nao filtra nada -- vai desde a primeira entrega.
+function filtroSqlPeriodo(periodo) {
+  switch (periodo) {
+    case 'hoje': return `AND horario_entregue >= CURRENT_DATE`;
+    case 'semana': return `AND horario_entregue >= date_trunc('week', CURRENT_DATE)`;
+    case 'mes': return `AND horario_entregue >= date_trunc('month', CURRENT_DATE)`;
+    case '3meses': return `AND horario_entregue >= (CURRENT_DATE - INTERVAL '3 months')`;
+    case '6meses': return `AND horario_entregue >= (CURRENT_DATE - INTERVAL '6 months')`;
+    case 'ano': return `AND horario_entregue >= date_trunc('year', CURRENT_DATE)`;
+    default: return '';
+  }
+}
+
+async function minhasEntregasHistorico(req, res) {
+  try {
+    const periodo = req.query.periodo || 'tudo';
+    const antes = req.query.antes; // cursor: ISO de horario_entregue do ultimo item da pagina anterior
+    const limite = Math.min(parseInt(req.query.limite, 10) || 5, 50);
+
+    const funcionario = await query(
+      'SELECT forma_pagamento_entrega, valor_por_entrega, valor_por_km FROM funcionarios WHERE id = $1',
+      [req.funcionarioId]
+    );
+    const f = funcionario.rows[0] || {};
+
+    const condicoes = [`estabelecimento_id = $1`, `entregador_id = $2`, `status_pedido = 'entregue'`];
+    const parametros = [req.estabelecimentoId, req.funcionarioId];
+    if (antes) {
+      parametros.push(antes);
+      condicoes.push(`horario_entregue < $${parametros.length}`);
+    }
+    const filtroPeriodo = filtroSqlPeriodo(periodo);
+
+    const resultado = await query(
+      `SELECT id, cliente_nome, cliente_endereco, cliente_endereco_rua, cliente_endereco_numero,
+              cliente_endereco_complemento, cliente_endereco_cep, cliente_endereco_bairro,
+              total, forma_pagamento, troco_para, gorjeta, distancia_km,
+              horario_saiu_entrega, horario_entregue
+       FROM pedidos
+       WHERE ${condicoes.join(' AND ')} ${filtroPeriodo}
+       ORDER BY horario_entregue DESC
+       LIMIT ${limite + 1}`,
+      parametros
+    );
+
+    const linhas = resultado.rows;
+    const temMais = linhas.length > limite;
+    const pagina = temMais ? linhas.slice(0, limite) : linhas;
+
+    const calcularComissao = (p) => f.forma_pagamento_entrega === 'km'
+      ? (Number(p.distancia_km) || 0) * (Number(f.valor_por_km) || 0)
+      : (Number(f.valor_por_entrega) || 0);
+
+    const entregas = pagina.map((p) => ({
+      id: p.id,
+      codigo_rota: p.id.slice(0, 8).toUpperCase(),
+      cliente_nome: p.cliente_nome,
+      endereco: enderecoFormatado(p),
+      total_pedido: Number(p.total) || 0,
+      forma_pagamento: p.forma_pagamento,
+      troco_para: p.troco_para !== null ? Number(p.troco_para) : null,
+      troco: p.troco_para !== null ? Number(p.troco_para) - Number(p.total) : null,
+      gorjeta: Number(p.gorjeta) || 0,
+      valor_rota: calcularComissao(p),
+      horario_saiu_entrega: p.horario_saiu_entrega,
+      horario_entregue: p.horario_entregue
+    }));
+
+    res.json({
+      entregas,
+      tem_mais: temMais,
+      proximo_cursor: temMais ? pagina[pagina.length - 1].horario_entregue : null
+    });
+  } catch (error) {
+    console.error('Erro ao buscar historico de entregas:', error);
+    res.status(500).json({ erro: 'Erro ao buscar historico de entregas.' });
+  }
+}
+
+// Caixinhas (gorjetas) recebidas pelo entregador, paginadas por cursor --
+// usado na secao "Caixinha recebida" (topico 4). So traz entregas que
+// tiveram gorjeta > 0.
+async function minhasCaixinhasHistorico(req, res) {
+  try {
+    const periodo = req.query.periodo || 'tudo';
+    const antes = req.query.antes;
+    const limite = Math.min(parseInt(req.query.limite, 10) || 5, 50);
+
+    const condicoes = [`estabelecimento_id = $1`, `entregador_id = $2`, `status_pedido = 'entregue'`, `gorjeta > 0`];
+    const parametros = [req.estabelecimentoId, req.funcionarioId];
+    if (antes) {
+      parametros.push(antes);
+      condicoes.push(`horario_entregue < $${parametros.length}`);
+    }
+    const filtroPeriodo = filtroSqlPeriodo(periodo);
+
+    const resultado = await query(
+      `SELECT id, cliente_nome, gorjeta, horario_entregue
+       FROM pedidos
+       WHERE ${condicoes.join(' AND ')} ${filtroPeriodo}
+       ORDER BY horario_entregue DESC
+       LIMIT ${limite + 1}`,
+      parametros
+    );
+
+    const linhas = resultado.rows;
+    const temMais = linhas.length > limite;
+    const pagina = temMais ? linhas.slice(0, limite) : linhas;
+
+    const caixinhas = pagina.map((p) => ({
+      id: p.id,
+      codigo_rota: p.id.slice(0, 8).toUpperCase(),
+      cliente_nome: p.cliente_nome,
+      valor: Number(p.gorjeta) || 0,
+      horario_entregue: p.horario_entregue
+    }));
+
+    // Totais por periodo comum (hoje / mes / tudo), sem limite de paginacao,
+    // pra cabecalho do painel.
+    const totais = await query(
+      `SELECT
+        COALESCE(SUM(gorjeta) FILTER (WHERE horario_entregue >= CURRENT_DATE), 0) AS hoje,
+        COALESCE(SUM(gorjeta) FILTER (WHERE horario_entregue >= date_trunc('week', CURRENT_DATE)), 0) AS semana,
+        COALESCE(SUM(gorjeta) FILTER (WHERE horario_entregue >= date_trunc('month', CURRENT_DATE)), 0) AS mes,
+        COALESCE(SUM(gorjeta) FILTER (WHERE horario_entregue >= date_trunc('year', CURRENT_DATE)), 0) AS ano,
+        COALESCE(SUM(gorjeta), 0) AS total
+       FROM pedidos WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_pedido = 'entregue' AND gorjeta > 0`,
+      [req.estabelecimentoId, req.funcionarioId]
+    );
+
+    res.json({
+      caixinhas,
+      tem_mais: temMais,
+      proximo_cursor: temMais ? pagina[pagina.length - 1].horario_entregue : null,
+      totais: {
+        hoje: Number(totais.rows[0].hoje) || 0,
+        semana: Number(totais.rows[0].semana) || 0,
+        mes: Number(totais.rows[0].mes) || 0,
+        ano: Number(totais.rows[0].ano) || 0,
+        total: Number(totais.rows[0].total) || 0
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao buscar historico de caixinhas:', error);
+    res.status(500).json({ erro: 'Erro ao buscar historico de caixinhas.' });
+  }
+}
+
 module.exports = {
   criarPedido,
   criarPedidoManual,
@@ -946,6 +1127,8 @@ module.exports = {
   listarPedidosCliente,
   minhasEntregasHoje,
   minhasEntregasTodas,
+  minhasEntregasHistorico,
+  minhasCaixinhasHistorico,
   obterCaixaGeral,
   tentarOfertarPedidosPendentes,
   posicaoNaFila,
