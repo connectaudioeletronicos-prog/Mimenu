@@ -654,14 +654,49 @@ function exibirResumoPlantao(resumo) {
 document.getElementById('botao-sair-resumo-plantao').addEventListener('click', fazerLogout);
 
 // -------------------- Menu lateral (painel deslizante) --------------------
+// Secao atualmente aberta no menu -- usada pra saber se precisa
+// re-renderizar em tempo real quando o polling da rota atual atualiza
+// (topico 1) e pra parar o auto-atualizar quando o menu fecha.
+let menuSecaoAtiva = null;
+let intervaloAtualizacaoMenu = null;
+
+// Estado de cada lista paginada por cursor (topicos 2, 3 e 4): guarda o
+// periodo escolhido, os itens ja carregados (acumulados a cada "carregar
+// mais") e o cursor pra proxima pagina.
+let estadoListas = {};
+// Estado da secao de pagamento (topico 5), paginada por numero de pagina
+// (por plantao, nao por entrega individual).
+let estadoPagamento = { pagina: 1, plantoesAcumulados: [] };
+
+const PERIODOS_FILTRO = [
+  { valor: 'hoje', rotulo: 'Hoje' },
+  { valor: 'semana', rotulo: 'Semana' },
+  { valor: 'mes', rotulo: 'Mês' },
+  { valor: '3meses', rotulo: '3 meses' },
+  { valor: '6meses', rotulo: '6 meses' },
+  { valor: 'ano', rotulo: 'Ano' },
+  { valor: 'tudo', rotulo: 'Tudo' }
+];
+
 function abrirMenuLateral() {
   document.getElementById('menu-lateral').classList.remove('oculto');
   document.getElementById('fundo-menu-lateral').classList.remove('oculto');
+  document.querySelectorAll('.menu-lateral__item').forEach(b => b.classList.remove('menu-lateral__item--ativo'));
+  document.querySelector('[data-menu-secao="atual"]')?.classList.add('menu-lateral__item--ativo');
   exibirSecaoMenu('atual');
+  // Enquanto o menu estiver aberto, mantem os dados em tela atualizados
+  // (o valor da rota em andamento muda em tempo real conforme o
+  // entregador avança pelas paradas).
+  clearInterval(intervaloAtualizacaoMenu);
+  intervaloAtualizacaoMenu = setInterval(() => {
+    if (menuSecaoAtiva === 'atual') exibirSecaoMenu('atual', { silencioso: true });
+  }, INTERVALO_POLL_MS);
 }
 function fecharMenuLateral() {
   document.getElementById('menu-lateral').classList.add('oculto');
   document.getElementById('fundo-menu-lateral').classList.add('oculto');
+  clearInterval(intervaloAtualizacaoMenu);
+  menuSecaoAtiva = null;
 }
 document.getElementById('botao-abrir-menu-aguardando').addEventListener('click', abrirMenuLateral);
 document.getElementById('botao-abrir-menu-rota').addEventListener('click', abrirMenuLateral);
@@ -676,150 +711,312 @@ document.querySelectorAll('.menu-lateral__item').forEach(botao => {
   });
 });
 
-function exibirSecaoMenu(secao) {
+// Delegacao de clique pros chips de periodo e botao "carregar mais",
+// porque esses elementos sao recriados a cada renderizacao da lista.
+document.getElementById('menu-lateral-conteudo').addEventListener('click', (evento) => {
+  const chip = evento.target.closest('[data-chip-secao]');
+  if (chip) {
+    const secao = chip.getAttribute('data-chip-secao');
+    const periodo = chip.getAttribute('data-chip-periodo');
+    estadoListas[secao] = { periodo, itens: [], cursor: null, temMais: false };
+    exibirSecaoMenu(secao);
+    return;
+  }
+  const botaoMais = evento.target.closest('[data-carregar-mais]');
+  if (botaoMais) {
+    const secao = botaoMais.getAttribute('data-carregar-mais');
+    if (secao === 'pagamento') carregarMaisPagamento();
+    else carregarMaisLista(secao);
+  }
+});
+
+// Monta o objeto de endereco (rua/numero/complemento/cep/bairro + versao
+// completa pra exibir) a partir de um pedido cru vindo de /entregas/atual
+// -- espelha exatamente a logica que o backend usa no historico paginado,
+// pra rota em andamento (topico 1) mostrar do mesmo jeito.
+function construirEndereco(p) {
+  const temEstruturado = p.cliente_endereco_rua || p.cliente_endereco_cep || p.cliente_endereco_bairro;
+  if (!temEstruturado) {
+    return { logradouro: p.cliente_endereco || '-', numero: null, complemento: null, cep: null, bairro: null, completo: p.cliente_endereco || '-' };
+  }
+  const partes = [];
+  if (p.cliente_endereco_rua) partes.push(p.cliente_endereco_numero ? `${p.cliente_endereco_rua}, ${p.cliente_endereco_numero}` : p.cliente_endereco_rua);
+  if (p.cliente_endereco_complemento) partes.push(p.cliente_endereco_complemento);
+  if (p.cliente_endereco_bairro) partes.push(p.cliente_endereco_bairro);
+  if (p.cliente_endereco_cep) partes.push(`CEP ${p.cliente_endereco_cep}`);
+  return {
+    logradouro: p.cliente_endereco_rua || p.cliente_endereco || '-',
+    numero: p.cliente_endereco_numero || null,
+    complemento: p.cliente_endereco_complemento || null,
+    cep: p.cliente_endereco_cep || null,
+    bairro: p.cliente_endereco_bairro || null,
+    completo: partes.join(' - ') || (p.cliente_endereco || '-')
+  };
+}
+
+// Renderiza o endereco em linhas separadas (rua, numero, complemento,
+// bairro, CEP) quando o pedido tiver os campos estruturados; cai pra uma
+// linha unica de texto livre pra pedidos antigos que so tem isso.
+function renderEnderecoLinhas(end) {
+  if (!end) return '';
+  const temEstruturado = end.numero || end.cep || end.bairro || end.complemento;
+  if (temEstruturado) {
+    return `
+      <div class="item-entrega-detalhe__linha"><span>Rua/Av.</span><span>${escaparHtml(end.logradouro || '-')}</span></div>
+      <div class="item-entrega-detalhe__linha"><span>Número</span><span>${escaparHtml(end.numero || '-')}</span></div>
+      ${end.complemento ? `<div class="item-entrega-detalhe__linha"><span>Complemento</span><span>${escaparHtml(end.complemento)}</span></div>` : ''}
+      <div class="item-entrega-detalhe__linha"><span>Bairro</span><span>${escaparHtml(end.bairro || '-')}</span></div>
+      <div class="item-entrega-detalhe__linha"><span>CEP</span><span>${escaparHtml(end.cep || '-')}</span></div>
+    `;
+  }
+  return `<div class="item-entrega-detalhe__endereco">${escaparHtml(end.completo || '-')}</div>`;
+}
+
+function chipsPeriodoHtml(secao, periodoAtivo) {
+  return `<div class="filtro-periodo">` + PERIODOS_FILTRO.map(p => `
+    <button type="button" class="chip-periodo ${p.valor === periodoAtivo ? 'chip-periodo--ativo' : ''}" data-chip-secao="${secao}" data-chip-periodo="${p.valor}">${p.rotulo}</button>
+  `).join('') + `</div>`;
+}
+
+function exibirSecaoMenu(secao, opcoes = {}) {
+  menuSecaoAtiva = secao;
   const conteudo = document.getElementById('menu-lateral-conteudo');
 
+  // ---------------- Topico 1: Rota em andamento ----------------
+  // Data/hora do recebimento da rota, destino completo (rua, numero,
+  // complemento, CEP e nome do cliente) e valor da rota em tempo real
+  // (recalculado a cada re-render, inclusive pelo auto-atualizar acima).
   if (secao === 'atual') {
-    const emRota = paradasRotaAtual.length;
-    const valorPendente = paradasRotaAtual.reduce((s, p) => s + (comissaoDaEntrega(p)), 0);
-    const realizadas = plantaoAtualCache?.total_entregas ?? 0;
-    const valorUltimaRota = plantaoAtualCache?.valor_ultima_rota;
-    const gorjetasHoje = plantaoAtualCache?.total_gorjetas ?? 0;
-    conteudo.innerHTML = `
-      <p class="resumo-geral-titulo">PLANTÃO DE HOJE</p>
-      <div class="resumo-geral-linha"><span>Em andamento</span><strong>${emRota}</strong></div>
-      <div class="resumo-geral-linha"><span>Entregas realizadas</span><strong>${realizadas}</strong></div>
-      <div class="resumo-geral-linha"><span>Valor pendente (em rota)</span><strong>${formatarMoeda(valorPendente)}</strong></div>
-      <div class="resumo-geral-linha"><span>Valor da última rota</span><strong>${valorUltimaRota == null ? '-' : formatarMoeda(valorUltimaRota)}</strong></div>
-      <div class="resumo-geral-linha"><span>Caixinha recebida hoje</span><strong>${formatarMoeda(gorjetasHoje)}</strong></div>
-    `;
+    const paradas = paradasRotaAtual;
+    let html = `<p class="resumo-geral-titulo">ROTA EM ANDAMENTO</p>`;
+    if (paradas.length === 0) {
+      html += '<p class="ajuda">Nenhuma rota em andamento agora.</p>';
+    } else {
+      html += `<div class="lista-com-rolagem">` + paradas.map((p) => `
+        <div class="item-entrega-detalhe">
+          <div class="item-entrega-detalhe__topo">
+            <span class="item-entrega-detalhe__horario">Recebida ${p.horario_saiu_entrega ? new Date(p.horario_saiu_entrega).toLocaleDateString('pt-BR') + ' · ' + formatarHora(p.horario_saiu_entrega) : 'agora'}</span>
+            <span class="item-entrega-detalhe__valor">${formatarMoeda(comissaoDaEntrega(p))}</span>
+          </div>
+          <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(p.cliente_nome || '-')}</span></div>
+          ${renderEnderecoLinhas(construirEndereco(p))}
+        </div>
+      `).join('') + `</div>`;
+    }
+    conteudo.innerHTML = html;
     return;
   }
 
-  // "Rotas realizadas": SO as de HOJE (lista com rolagem, ~10 visiveis).
+  // ---------------- Topico 2: Rotas realizadas ----------------
+  // Ordem regressiva (mais recente primeiro), 5 visiveis por vez com
+  // rolagem + "carregar mais", filtravel por periodo (hoje ate "tudo" --
+  // sem teto, remonta desde a primeirissima entrega do entregador).
   if (secao === 'historico') {
-    conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
-    chamarApi('/entregas/minhas-hoje').then(dados => {
-      const entregas = dados.entregas || [];
-      const valorTotalHoje = entregas.reduce((s, e) => s + (e.valor_rota || 0), 0);
-      let html = `
-        <p class="resumo-geral-titulo">ROTAS REALIZADAS HOJE</p>
-        <div class="resumo-geral-linha"><span>Quantidade de rotas</span><strong>${entregas.length}</strong></div>
-        <div class="resumo-geral-linha"><span>Valor a receber (hoje)</span><strong>${formatarMoeda(valorTotalHoje)}</strong></div>
-        <p class="resumo-geral-titulo" style="margin-top:18px;">ROTAS DE HOJE</p>
-      `;
-      if (entregas.length === 0) {
-        html += '<p class="ajuda">Nenhuma rota concluída hoje ainda.</p>';
-      } else {
-        html += `<div class="lista-com-rolagem">` + entregas.map(e => `
-          <div class="item-entrega-detalhe">
-            <div class="item-entrega-detalhe__topo">
-              <span class="item-entrega-detalhe__horario">${formatarHora(e.horario_entregue)}</span>
-              <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
-            </div>
-            <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(e.cliente_nome || '-')}</span></div>
-            <div class="item-entrega-detalhe__linha"><span>Endereço</span><span>${escaparHtml(e.cliente_endereco || '-')}</span></div>
-          </div>
-        `).join('') + `</div>`;
-      }
-      conteudo.innerHTML = html;
-    }).catch(erro => {
-      conteudo.innerHTML = `<p class="erro">${erro.message}</p>`;
-    });
+    if (!estadoListas.historico) estadoListas.historico = { periodo: 'hoje', itens: [], cursor: null, temMais: false };
+    const estado = estadoListas.historico;
+    conteudo.innerHTML = chipsPeriodoHtml('historico', estado.periodo) + '<p class="ajuda">Carregando...</p>';
+    buscarPaginaLista('historico', estado.periodo, null, true);
     return;
   }
 
-  // "Resumo de rotas": TODO O PERIODO (lista com rolagem, ~10 visiveis).
+  // ---------------- Topico 3: Resumo da rota ----------------
+  // Igual ao historico, mas com valor do pedido, forma de pagamento e
+  // troco (quando for dinheiro) -- fica permanente no historico, sem filtro
+  // de periodo (mostra tudo, paginado por "carregar mais").
   if (secao === 'resumo-rotas') {
-    conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
-    chamarApi('/entregas/minhas-todas').then(dados => {
-      const r = dados.resumo || {};
-      const entregas = dados.entregas || [];
-      let html = `
-        <p class="resumo-geral-titulo">RESUMO DE ROTAS (TODO O PERÍODO)</p>
-        <div class="resumo-geral-linha"><span>Total de rotas</span><strong>${r.total_entregas ?? 0}</strong></div>
-        <div class="resumo-geral-linha"><span>Valor a receber</span><strong>${formatarMoeda(r.total_comissao)}</strong></div>
-        <p class="resumo-geral-titulo" style="margin-top:18px;">TODAS AS ROTAS</p>
-      `;
-      if (entregas.length === 0) {
-        html += '<p class="ajuda">Nenhuma rota concluída ainda.</p>';
-      } else {
-        html += `<div class="lista-com-rolagem">` + entregas.map(e => `
-          <div class="item-entrega-detalhe">
-            <div class="item-entrega-detalhe__topo">
-              <span class="item-entrega-detalhe__horario">${new Date(e.horario_entregue).toLocaleDateString('pt-BR')} ${formatarHora(e.horario_entregue)}</span>
-              <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
-            </div>
-            <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(e.cliente_nome || '-')}</span></div>
-            <div class="item-entrega-detalhe__linha"><span>Endereço</span><span>${escaparHtml(e.cliente_endereco || '-')}</span></div>
-          </div>
-        `).join('') + `</div>`;
-      }
-      conteudo.innerHTML = html;
-    }).catch(erro => {
-      conteudo.innerHTML = `<p class="erro">${erro.message}</p>`;
-    });
+    if (!estadoListas['resumo-rotas']) estadoListas['resumo-rotas'] = { periodo: 'tudo', itens: [], cursor: null, temMais: false };
+    conteudo.innerHTML = '<p class="resumo-geral-titulo">RESUMO DA ROTA</p><p class="ajuda">Carregando...</p>';
+    buscarPaginaLista('resumo-rotas', 'tudo', null, true);
     return;
   }
 
-  // "Caixinha recebida": total de gorjetas de hoje + acumulado de TODAS as
-  // entregas ja concluidas (nao so as de plantao fechado).
+  // ---------------- Topico 4: Caixinha recebida ----------------
+  // Quantidade/valor do dia em tempo real + as 5 ultimas em ordem
+  // decrescente, com "carregar mais" e filtro por periodo (semana, mes,
+  // semestre, ano).
   if (secao === 'caixinha') {
-    conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
-    Promise.all([
-      chamarApi('/entregas/minhas-hoje').catch(() => ({ entregas: [] })),
-      chamarApi('/entregas/minhas-todas').catch(() => ({ resumo: {} }))
-    ]).then(([hoje, todas]) => {
-      const entregasComCaixinha = (hoje.entregas || []).filter(e => (e.gorjeta || 0) > 0);
-      const gorjetaHoje = (hoje.entregas || []).reduce((s, e) => s + (e.gorjeta || 0), 0);
-      const gorjetaTotal = todas.resumo?.total_gorjetas ?? 0;
-      let html = `
-        <p class="resumo-geral-titulo">CAIXINHA RECEBIDA</p>
-        <div class="resumo-geral-linha"><span>Recebida hoje</span><strong>${formatarMoeda(gorjetaHoje)}</strong></div>
-        <div class="resumo-geral-linha"><span>Total acumulado</span><strong>${formatarMoeda(gorjetaTotal)}</strong></div>
-        <p class="resumo-geral-titulo" style="margin-top:18px;">CAIXINHAS DE HOJE</p>
-      `;
-      if (entregasComCaixinha.length === 0) {
-        html += '<p class="ajuda">Nenhuma caixinha recebida hoje ainda.</p>';
-      } else {
-        html += `<div class="lista-com-rolagem">` + entregasComCaixinha.map((e, i) => `
-          <div class="item-entrega-detalhe">
-            <div class="item-entrega-detalhe__topo">
-              <span class="item-entrega-detalhe__horario">#${i + 1} · ${new Date(e.horario_entregue).toLocaleDateString('pt-BR')} ${formatarHora(e.horario_entregue)}</span>
-              <span class="item-entrega-detalhe__valor">${formatarMoeda(e.gorjeta)}</span>
-            </div>
-          </div>
-        `).join('') + `</div>`;
-      }
-      conteudo.innerHTML = html;
-    }).catch(erro => {
-      conteudo.innerHTML = `<p class="erro">${erro.message}</p>`;
-    });
+    if (!estadoListas.caixinha) estadoListas.caixinha = { periodo: 'hoje', itens: [], cursor: null, temMais: false };
+    const estado = estadoListas.caixinha;
+    conteudo.innerHTML = chipsPeriodoHtml('caixinha', estado.periodo) + '<p class="ajuda">Carregando...</p>';
+    buscarPaginaLista('caixinha', estado.periodo, null, true);
     return;
   }
 
-  // "Recebimento": quanto ja recebeu vs. quanto ainda tem a receber, com
-  // base em TODAS as entregas concluidas (independente de plantao fechado).
-  if (secao === 'recebimento') {
+  // ---------------- Topico 5: Pagamento ----------------
+  // Soma do plantao atual (do inicio ao fim, conforme o checkin/checkout
+  // controlado pelo dashboard do gestor) + quantidade de rotas e o codigo
+  // de cada uma; "carregar mais" traz plantoes anteriores (5 por vez) e um
+  // total geral somando tudo, igual ao Resumo de rotas.
+  if (secao === 'pagamento') {
+    estadoPagamento = { pagina: 1, plantoesAcumulados: [] };
     conteudo.innerHTML = '<p class="ajuda">Carregando...</p>';
-    chamarApi('/entregas/minhas-todas').then(dados => {
-      const r = dados.resumo || {};
-      const valorPendenteAtual = paradasRotaAtual.reduce((s, p) => s + (comissaoDaEntrega(p)), 0);
-      const ganhoHoje = plantaoAtualCache?.valor_total ?? 0;
-      const html = `
-        <p class="resumo-geral-titulo">A RECEBER</p>
-        <div class="resumo-geral-linha"><span>Ganhos de hoje (plantão atual)</span><strong>${formatarMoeda(ganhoHoje)}</strong></div>
-        <div class="resumo-geral-linha"><span>Em rota agora</span><strong>${formatarMoeda(valorPendenteAtual)}</strong></div>
-        <p class="resumo-geral-titulo" style="margin-top:18px;">HISTÓRICO GERAL</p>
-        <div class="resumo-geral-linha"><span>Total de rotas realizadas</span><strong>${r.total_entregas ?? 0}</strong></div>
-        <div class="resumo-geral-linha"><span>Valor total a receber</span><strong>${formatarMoeda(r.valor_total)}</strong></div>
-        <p class="ajuda" style="margin-top:14px;">Os valores são fechados com o seu gestor conforme a política da loja.</p>
-      `;
-      conteudo.innerHTML = html;
-    }).catch(erro => {
-      conteudo.innerHTML = `<p class="erro">${erro.message}</p>`;
-    });
+    carregarPagamento();
+    return;
   }
+}
+
+// ---------------- Busca paginada genérica (topicos 2, 3 e 4) ----------------
+async function buscarPaginaLista(secao, periodo, cursor, resetar) {
+  const conteudo = document.getElementById('menu-lateral-conteudo');
+  const rota = secao === 'caixinha' ? '/entregas/minhas-caixinhas' : '/entregas/minhas-historico';
+  const parametros = new URLSearchParams({ limite: '5' });
+  if (periodo && periodo !== 'tudo') parametros.set('periodo', periodo);
+  if (secao === 'historico') parametros.set('periodo', periodo || 'hoje'); // topico 2 sempre manda periodo (default hoje)
+  if (cursor) parametros.set('antes', cursor);
+
+  try {
+    const dados = await chamarApi(`${rota}?${parametros.toString()}`);
+    if (menuSecaoAtiva !== secao) return; // usuario trocou de secao enquanto carregava
+
+    const estado = estadoListas[secao];
+    const itensNovos = secao === 'caixinha' ? (dados.caixinhas || []) : (dados.entregas || []);
+    estado.itens = resetar ? itensNovos : estado.itens.concat(itensNovos);
+    estado.cursor = dados.proximo_cursor;
+    estado.temMais = dados.tem_mais;
+    estado.totais = dados.totais; // so vem preenchido na caixinha
+
+    renderizarListaNaTela(secao, estado);
+  } catch (erro) {
+    conteudo.innerHTML += `<p class="erro">${erro.message}</p>`;
+  }
+}
+
+function carregarMaisLista(secao) {
+  const estado = estadoListas[secao];
+  if (!estado || !estado.temMais) return;
+  buscarPaginaLista(secao, estado.periodo, estado.cursor, false);
+}
+
+function renderizarListaNaTela(secao, estado) {
+  const conteudo = document.getElementById('menu-lateral-conteudo');
+  let cabecalho = '';
+  let corpo = '';
+
+  if (secao === 'historico') {
+    cabecalho = chipsPeriodoHtml('historico', estado.periodo) +
+      `<p class="resumo-geral-titulo">ROTAS REALIZADAS</p>`;
+    corpo = estado.itens.map(e => `
+      <div class="item-entrega-detalhe">
+        <div class="item-entrega-detalhe__topo">
+          <span class="item-entrega-detalhe__horario">${new Date(e.horario_entregue).toLocaleDateString('pt-BR')}</span>
+          <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
+        </div>
+        <div class="item-entrega-detalhe__linha"><span>Recebida</span><span>${formatarHora(e.horario_saiu_entrega)}</span></div>
+        <div class="item-entrega-detalhe__linha"><span>Finalizada</span><span>${formatarHora(e.horario_entregue)}</span></div>
+        ${renderEnderecoLinhas(e.endereco)}
+      </div>
+    `).join('');
+  } else if (secao === 'resumo-rotas') {
+    cabecalho = `<p class="resumo-geral-titulo">RESUMO DA ROTA</p>`;
+    corpo = estado.itens.map(e => {
+      const classePg = e.forma_pagamento === 'dinheiro' ? 'item-entrega-detalhe__pagamento--dinheiro' : e.forma_pagamento === 'pix' ? 'item-entrega-detalhe__pagamento--pix' : 'item-entrega-detalhe__pagamento--online';
+      return `
+        <div class="item-entrega-detalhe">
+          <div class="item-entrega-detalhe__topo">
+            <span class="item-entrega-detalhe__horario">${new Date(e.horario_entregue).toLocaleDateString('pt-BR')} · ${formatarHora(e.horario_saiu_entrega)}</span>
+            <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
+          </div>
+          ${renderEnderecoLinhas(e.endereco)}
+          <div class="item-entrega-detalhe__linha"><span>Valor do pedido</span><span>${formatarMoeda(e.total_pedido)}</span></div>
+          <span class="item-entrega-detalhe__pagamento ${classePg}">${formatarPagamento(e.forma_pagamento)}</span>
+          ${e.forma_pagamento === 'dinheiro' && e.troco !== null ? `<div class="item-entrega-detalhe__linha"><span>Troco</span><span>${formatarMoeda(e.troco)}</span></div>` : ''}
+        </div>
+      `;
+    }).join('');
+  } else if (secao === 'caixinha') {
+    const t = estado.totais || {};
+    cabecalho = chipsPeriodoHtml('caixinha', estado.periodo) +
+      `<p class="resumo-geral-titulo">CAIXINHA RECEBIDA</p>
+       <div class="resumo-geral-linha"><span>Hoje</span><strong>${formatarMoeda(t.hoje)}</strong></div>
+       <div class="resumo-geral-linha"><span>Este mês</span><strong>${formatarMoeda(t.mes)}</strong></div>
+       <div class="resumo-geral-linha"><span>Total acumulado</span><strong>${formatarMoeda(t.total)}</strong></div>
+       <p class="resumo-geral-titulo" style="margin-top:16px;">ÚLTIMAS RECEBIDAS</p>`;
+    corpo = estado.itens.map(e => `
+      <div class="item-entrega-detalhe">
+        <div class="item-entrega-detalhe__topo">
+          <span class="item-entrega-detalhe__horario">${new Date(e.horario_entregue).toLocaleDateString('pt-BR')} · ${formatarHora(e.horario_entregue)}</span>
+          <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor)}</span>
+        </div>
+        <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(e.cliente_nome || '-')}</span></div>
+      </div>
+    `).join('');
+  }
+
+  if (estado.itens.length === 0) corpo = '<p class="ajuda">Nada encontrado para esse período.</p>';
+
+  const botaoMais = estado.temMais
+    ? `<button type="button" class="botao-carregar-mais" data-carregar-mais="${secao}">Carregar mais</button>`
+    : (estado.itens.length > 0 ? `<p class="ajuda" style="text-align:center;margin-top:8px;">Não há mais rotas nesse período.</p>` : '');
+
+  conteudo.innerHTML = cabecalho + `<div class="lista-com-rolagem">${corpo}</div>` + botaoMais;
+}
+
+// ---------------- Topico 5: Pagamento ----------------
+async function carregarPagamento() {
+  try {
+    const dados = await chamarApi(`/plantao/meu-pagamento?pagina=${estadoPagamento.pagina}`);
+    if (menuSecaoAtiva !== 'pagamento') return;
+    estadoPagamento.plantaoAtual = dados.plantao_atual;
+    estadoPagamento.plantoesAcumulados = estadoPagamento.plantoesAcumulados.concat(dados.plantoes_anteriores || []);
+    estadoPagamento.temMais = dados.tem_mais;
+    estadoPagamento.totalGeral = dados.total_geral;
+    renderizarPagamentoNaTela();
+  } catch (erro) {
+    document.getElementById('menu-lateral-conteudo').innerHTML = `<p class="erro">${erro.message}</p>`;
+  }
+}
+function carregarMaisPagamento() {
+  if (!estadoPagamento.temMais) return;
+  estadoPagamento.pagina += 1;
+  carregarPagamento();
+}
+function renderizarPagamentoNaTela() {
+  const conteudo = document.getElementById('menu-lateral-conteudo');
+  const atual = estadoPagamento.plantaoAtual;
+  const g = estadoPagamento.totalGeral || {};
+
+  let html = `<p class="resumo-geral-titulo">PLANTÃO ATUAL</p>`;
+  if (atual) {
+    html += `
+      <div class="item-plantao-pagamento">
+        <div class="item-plantao-pagamento__topo">
+          <span>Desde ${formatarHora(atual.inicio)} <span class="badge-plantao-aberto">Em aberto</span></span>
+          <span class="item-plantao-pagamento__valor">${formatarMoeda(atual.valor_total)}</span>
+        </div>
+        <div class="item-plantao-pagamento__sub">${atual.codigos_rota.length} rota(s) concluída(s) neste plantão</div>
+        ${atual.codigos_rota.length ? `<div class="item-plantao-pagamento__codigos">${atual.codigos_rota.map(c => `<span class="tag-codigo-rota">#${c}</span>`).join('')}</div>` : ''}
+      </div>
+    `;
+  } else {
+    html += `<p class="ajuda">Nenhum plantão em aberto agora.</p>`;
+  }
+
+  html += `<p class="resumo-geral-titulo" style="margin-top:16px;">PLANTÕES ANTERIORES</p>`;
+  const corpo = estadoPagamento.plantoesAcumulados.map(p => `
+    <div class="item-plantao-pagamento">
+      <div class="item-plantao-pagamento__topo">
+        <span>${new Date(p.inicio).toLocaleDateString('pt-BR')} · ${formatarHora(p.inicio)} – ${formatarHora(p.fim)}</span>
+        <span class="item-plantao-pagamento__valor">${formatarMoeda(p.valor_total)}</span>
+      </div>
+      <div class="item-plantao-pagamento__sub">${p.codigos_rota.length} rota(s) · caixinha ${formatarMoeda(p.total_gorjetas)}</div>
+      ${p.codigos_rota.length ? `<div class="item-plantao-pagamento__codigos">${p.codigos_rota.map(c => `<span class="tag-codigo-rota">#${c}</span>`).join('')}</div>` : ''}
+    </div>
+  `).join('') || '<p class="ajuda">Nenhum plantão fechado ainda.</p>';
+
+  const botaoMais = estadoPagamento.temMais
+    ? `<button type="button" class="botao-carregar-mais" data-carregar-mais="pagamento">Carregar mais</button>` : '';
+
+  html += `<div class="lista-com-rolagem">${corpo}</div>${botaoMais}`;
+
+  html += `
+    <p class="resumo-geral-titulo" style="margin-top:16px;">TOTAL GERAL</p>
+    <div class="resumo-geral-linha"><span>Plantões</span><strong>${g.total_plantoes ?? 0}</strong></div>
+    <div class="resumo-geral-linha"><span>Rotas realizadas</span><strong>${g.total_entregas ?? 0}</strong></div>
+    <div class="resumo-geral-linha"><span>Caixinha acumulada</span><strong>${formatarMoeda(g.total_gorjetas)}</strong></div>
+    <div class="resumo-geral-linha"><span>Valor total</span><strong>${formatarMoeda(g.valor_total)}</strong></div>
+  `;
+
+  conteudo.innerHTML = html;
 }
 
 function fazerLogout() {
