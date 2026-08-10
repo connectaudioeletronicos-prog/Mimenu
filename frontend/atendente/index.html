@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>App do Garçom - Palatos</title>
-<link rel="stylesheet" href="atendente.css?v=20260808">
+<link rel="stylesheet" href="atendente.css?v=20260809">
 </head>
 <body>
 
@@ -109,7 +109,7 @@
   <div id="fundo-modal-mesa" class="fundo-modal oculto"></div>
   <div id="modal-mesa" class="modal oculto">
     <h2>Mesa / Cliente</h2>
-    <p class="ajuda">Escolha uma comanda já aberta ou identifique uma nova.</p>
+    <p class="ajuda">Escolha uma comanda já aberta, abra uma nova ou pesquise no histórico.</p>
 
     <div class="titulo-secao" style="margin-top:10px;">Comandas abertas</div>
     <div id="lista-comandas-abertas-modal" class="lista-comandas-modal">
@@ -117,11 +117,34 @@
     </div>
 
     <div class="titulo-secao" style="margin-top:14px;">Abrir nova</div>
-    <input type="text" id="input-mesa-cliente" placeholder="Ex: Mesa 5, ou nome do cliente">
+    <div class="linha-mesa-comanda">
+      <div class="campo-mesa-comanda">
+        <label for="input-mesa-numero">Mesa (1–50)</label>
+        <input type="number" id="input-mesa-numero" min="1" max="50" step="1" inputmode="numeric" placeholder="Nº">
+      </div>
+      <div class="campo-mesa-comanda">
+        <label for="input-comanda-numero">Comanda</label>
+        <input type="number" id="input-comanda-numero" min="1" step="1" inputmode="numeric" placeholder="Nº">
+      </div>
+    </div>
+    <p id="aviso-mesa-comanda" class="ajuda oculto"></p>
     <div class="botoes-linha">
       <button id="botao-cancelar-mesa" class="botao botao-secundario" type="button">Cancelar</button>
       <button id="botao-confirmar-mesa" class="botao botao-principal" type="button">Abrir nova comanda</button>
     </div>
+
+    <div class="titulo-secao" style="margin-top:14px;">Pesquisar no histórico</div>
+    <div class="linha-mesa-comanda">
+      <div class="campo-mesa-comanda">
+        <label for="input-pesquisa-mesa">Mesa</label>
+        <input type="number" id="input-pesquisa-mesa" min="1" max="50" step="1" inputmode="numeric" placeholder="Nº">
+      </div>
+      <div class="campo-mesa-comanda">
+        <label for="input-pesquisa-comanda">Comanda</label>
+        <input type="number" id="input-pesquisa-comanda" min="1" step="1" inputmode="numeric" placeholder="Nº">
+      </div>
+    </div>
+    <button id="botao-pesquisar-mesa" class="botao botao-secundario" type="button">🔎 Pesquisar no histórico</button>
   </div>
 
   <!-- ===================== MODAL: COBRANÇA (fechar comanda) ===================== -->
@@ -222,6 +245,6 @@
 
   <script src="../js/config.js"></script>
   <script src="../js/utils.js"></script>
-  <script src="atendente.js?v=20260808"></script>
+  <script src="atendente.js?v=20260809"></script>
 </body>
 </html>
