@@ -27,17 +27,38 @@ async function abrir(req, res) {
 
 // Lista comandas abertas (pra escolher rapido no "Mesa/Cliente") ou o
 // historico de comandas fechadas (permanente, nunca some sozinho).
+//
+// Comandas ABERTAS continuam visiveis pra TODOS os garcons da loja (mesa
+// aberta por um, qualquer colega pode continuar atendendo). Ja o
+// HISTORICO (fechadas) e pessoal: cada garcom ve so as comandas que ELE
+// fechou, pra nao misturar o historico de um com o do outro no app dele.
+// Proprietario/administrador/gerente continuam vendo o historico
+// completo da loja (sem esse filtro), que e o dado usado pra
+// balanceamento/relatorios do estabelecimento como um todo.
 async function listar(req, res) {
   try {
     const { status, limite } = req.query;
     const statusFinal = ['aberta', 'fechada'].includes(status) ? status : 'aberta';
     const limiteFinal = Math.min(parseInt(limite, 10) || 50, 200);
 
+    const somenteProprioGarcom = statusFinal === 'fechada' && req.cargo === 'garcom' && req.funcionarioId;
+
+    const condicoes = ['estabelecimento_id = $1', 'status = $2'];
+    const parametros = [req.estabelecimentoId, statusFinal];
+    if (somenteProprioGarcom) {
+      // Mesmo criterio usado no "Resumo do Funcionario" do admin
+      // (funcionario_id = quem abriu/e dono da comanda), pra bater com o
+      // numero que o proprietario ja ve por la.
+      condicoes.push(`funcionario_id = $${parametros.length + 1}`);
+      parametros.push(req.funcionarioId);
+    }
+    parametros.push(limiteFinal);
+
     const resultado = await query(
-      `SELECT * FROM comandas WHERE estabelecimento_id = $1 AND status = $2
+      `SELECT * FROM comandas WHERE ${condicoes.join(' AND ')}
        ORDER BY ${statusFinal === 'aberta' ? 'aberta_em ASC' : 'fechada_em DESC'}
-       LIMIT $3`,
-      [req.estabelecimentoId, statusFinal, limiteFinal]
+       LIMIT $${parametros.length}`,
+      parametros
     );
     res.json(resultado.rows);
   } catch (error) {
