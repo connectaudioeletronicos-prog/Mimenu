@@ -382,16 +382,17 @@ function renderizarComanda() {
 
   const contagem = draftItens.reduce((s, i) => s + i.quantidade, 0);
   const ehDesktop = window.matchMedia('(min-width: 900px)').matches;
-  // No celular, o botao flutuante fica visivel sempre que ha algo pra
-  // conferir (rodada nova OU comanda selecionada) -- mas o PAINEL so abre
-  // em tela cheia por causa da flag painelMobileAberto (setada manualmente
-  // pelo botao flutuante/X, ou automaticamente so ao ESCOLHER uma comanda
-  // ja existente). No desktop, sempre visivel (a media query cuida disso
-  // com !important, a classe aqui nao importa pra ele).
-  const temAlgoParaMostrar = contagem > 0 || !!comandaAtual.id;
+  // A prancheta fica SEMPRE fixa e visivel no celular (mesmo sem rodada
+  // nova nem comanda escolhida) -- e por ela que o garcom abre o painel
+  // pra cadastrar mesa/comanda nova ou pesquisar uma ja aberta a qualquer
+  // momento, entao ela nao pode sumir. O PAINEL em si so ocupa a tela
+  // cheia por causa da flag painelMobileAberto (setada manualmente pelo
+  // botao flutuante/X, ou automaticamente so ao ESCOLHER uma comanda ja
+  // existente). No desktop ela fica escondida (o painel ja vive fixo do
+  // lado, sempre visivel).
   const botaoFlutuante = document.getElementById('botao-flutuante-comanda');
   const badge = document.getElementById('badge-comanda-discreta');
-  botaoFlutuante.classList.toggle('oculto', !temAlgoParaMostrar || ehDesktop);
+  botaoFlutuante.classList.toggle('oculto', ehDesktop);
   if (contagem > 0) {
     badge.textContent = contagem;
     badge.classList.remove('oculto');
@@ -413,10 +414,41 @@ document.getElementById('botao-fechar-painel-comanda').addEventListener('click',
   document.getElementById('painel-comanda').classList.remove('painel-comanda--aberto');
 });
 
+// ===================== Mesa / Comanda: formato padronizado =====================
+// Todo mundo digita so o NUMERO da mesa (1 a 50) e o NUMERO da comanda
+// (pra separar rodadas/clientes diferentes na mesma mesa) -- o app monta
+// sozinho o texto "Mesa: 003 / Comanda: 001" que fica salvo. Isso mantem
+// 100% compatibilidade com o campo mesa_cliente que ja existe no banco
+// (texto livre), so padroniza o QUE entra nele.
+
+const MESA_MAXIMA = 50;
+
+function formatarMesaComanda(mesaNumero, comandaNumero) {
+  const mesa = String(mesaNumero).padStart(3, '0');
+  const comanda = String(comandaNumero).padStart(3, '0');
+  return `Mesa: ${mesa} / Comanda: ${comanda}`;
+}
+
+// Tenta extrair {mesa, comanda} de um texto de mesa_cliente. Comandas
+// antigas (abertas antes dessa mudanca) podem ter texto livre digitado a
+// mao -- essas simplesmente nao dao match, e o app trata normal como
+// "cliente"/texto (sem quebrar nada do que ja existia).
+function extrairMesaComanda(texto) {
+  const encontrado = /mesa:\s*0*(\d+)\s*\/\s*comanda:\s*0*(\d+)/i.exec(texto || '');
+  if (!encontrado) return null;
+  return { mesa: parseInt(encontrado[1], 10), comanda: parseInt(encontrado[2], 10) };
+}
+
 // ===================== Modal Mesa/Cliente (abrir ou escolher comanda) =====================
 
+let comandasAbertasModalCache = [];
+
 async function abrirModalMesa() {
-  document.getElementById('input-mesa-cliente').value = '';
+  document.getElementById('input-mesa-numero').value = '';
+  document.getElementById('input-comanda-numero').value = '';
+  document.getElementById('input-pesquisa-mesa').value = '';
+  document.getElementById('input-pesquisa-comanda').value = '';
+  document.getElementById('aviso-mesa-comanda').classList.add('oculto');
   document.getElementById('fundo-modal-mesa').classList.remove('oculto');
   document.getElementById('modal-mesa').classList.remove('oculto');
 
@@ -424,6 +456,7 @@ async function abrirModalMesa() {
   container.innerHTML = '<p class="ajuda">Carregando...</p>';
   try {
     const abertas = await chamarApi('/comandas?status=aberta');
+    comandasAbertasModalCache = abertas;
     if (abertas.length === 0) {
       container.innerHTML = '<p class="ajuda">Nenhuma comanda aberta no momento.</p>';
     } else {
@@ -441,6 +474,80 @@ async function abrirModalMesa() {
     container.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
   }
 }
+
+// Enquanto o garcom digita a mesa/comanda pra abrir nova, ja avisa (e
+// deixa pronto pra ir direto) se aquela combinacao ja esta aberta -- assim
+// ele nao precisa fechar o modal e catar na lista de cima manualmente.
+function verificarMesaComandaDuplicada() {
+  const aviso = document.getElementById('aviso-mesa-comanda');
+  const mesaNumero = parseInt(document.getElementById('input-mesa-numero').value, 10);
+  const comandaNumero = parseInt(document.getElementById('input-comanda-numero').value, 10);
+  if (!mesaNumero || !comandaNumero) { aviso.classList.add('oculto'); return null; }
+
+  const alvo = comandasAbertasModalCache.find(c => {
+    const par = extrairMesaComanda(c.mesa_cliente);
+    return par && par.mesa === mesaNumero && par.comanda === comandaNumero;
+  });
+
+  if (alvo) {
+    aviso.innerHTML = `Essa mesa/comanda já está aberta (R$ ${formatarMoeda(alvo.subtotal)}). <button type="button" id="botao-ir-comanda-existente" style="text-decoration:underline;background:none;border:none;color:var(--at-verde);font-weight:700;cursor:pointer;padding:0;">Continuar nela</button> em vez de abrir outra.`;
+    aviso.classList.remove('oculto');
+    document.getElementById('botao-ir-comanda-existente').addEventListener('click', () => selecionarComanda(alvo.id, fecharModalMesa));
+  } else {
+    aviso.classList.add('oculto');
+  }
+  return alvo || null;
+}
+document.getElementById('input-mesa-numero').addEventListener('input', verificarMesaComandaDuplicada);
+document.getElementById('input-comanda-numero').addEventListener('input', verificarMesaComandaDuplicada);
+// Ao escolher a mesa, ja sugere o proximo numero de comanda livre pra essa
+// mesa (comanda 1 se nao tiver nenhuma aberta, senao a mais alta + 1) --
+// o garcom pode sempre trocar o numero se quiser.
+document.getElementById('input-mesa-numero').addEventListener('change', () => {
+  const mesaNumero = parseInt(document.getElementById('input-mesa-numero').value, 10);
+  const campoComanda = document.getElementById('input-comanda-numero');
+  if (!mesaNumero || campoComanda.value) return;
+  const comandasDaMesa = comandasAbertasModalCache
+    .map(c => extrairMesaComanda(c.mesa_cliente))
+    .filter(par => par && par.mesa === mesaNumero)
+    .map(par => par.comanda);
+  campoComanda.value = comandasDaMesa.length > 0 ? Math.max(...comandasDaMesa) + 1 : 1;
+});
+
+// ===================== Pesquisar no histórico por Mesa/Comanda =====================
+
+document.getElementById('botao-pesquisar-mesa').addEventListener('click', async () => {
+  const mesaNumero = parseInt(document.getElementById('input-pesquisa-mesa').value, 10);
+  const comandaNumero = parseInt(document.getElementById('input-pesquisa-comanda').value, 10);
+  if (!mesaNumero || !comandaNumero) return mostrarToast('Informe a mesa e a comanda pra pesquisar.', true);
+  if (mesaNumero < 1 || mesaNumero > MESA_MAXIMA) return mostrarToast(`Mesa inválida (1 a ${MESA_MAXIMA}).`, true);
+
+  try {
+    // Procura primeiro nas comandas abertas (dado ja em cache do modal);
+    // se nao achar, procura no historico (fechadas -- so o seu proprio,
+    // ja filtrado pelo servidor).
+    const alvoAberta = comandasAbertasModalCache.find(c => {
+      const par = extrairMesaComanda(c.mesa_cliente);
+      return par && par.mesa === mesaNumero && par.comanda === comandaNumero;
+    });
+    if (alvoAberta) {
+      fecharModalMesa();
+      return selecionarComanda(alvoAberta.id);
+    }
+
+    const fechadas = await chamarApi('/comandas?status=fechada&limite=200');
+    const alvoFechada = fechadas.find(c => {
+      const par = extrairMesaComanda(c.mesa_cliente);
+      return par && par.mesa === mesaNumero && par.comanda === comandaNumero;
+    });
+    if (!alvoFechada) return mostrarToast(`Nenhuma comanda encontrada pra Mesa ${mesaNumero} / Comanda ${comandaNumero} no seu histórico.`, true);
+
+    fecharModalMesa();
+    abrirDetalheHistorico(alvoFechada.id);
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
+});
 
 // Troca pra outra comanda (ou define uma recem-criada) buscando o detalhe
 // completo dela no servidor -- assim o painel sempre mostra TODOS os itens
@@ -486,8 +593,17 @@ function fecharModalMesa() {
 }
 document.getElementById('botao-cancelar-mesa').addEventListener('click', fecharModalMesa);
 document.getElementById('botao-confirmar-mesa').addEventListener('click', async () => {
-  const mesaCliente = document.getElementById('input-mesa-cliente').value.trim();
-  if (!mesaCliente) return mostrarToast('Informe a mesa ou o nome do cliente.', true);
+  const mesaNumero = parseInt(document.getElementById('input-mesa-numero').value, 10);
+  const comandaNumero = parseInt(document.getElementById('input-comanda-numero').value, 10);
+  if (!mesaNumero || !comandaNumero) return mostrarToast('Informe o número da mesa e da comanda.', true);
+  if (mesaNumero < 1 || mesaNumero > MESA_MAXIMA) return mostrarToast(`Mesa inválida (1 a ${MESA_MAXIMA}).`, true);
+
+  // Se essa mesa/comanda ja esta aberta, vai direto pra ela em vez de
+  // tentar abrir (e duplicar) outra igual.
+  const duplicada = verificarMesaComandaDuplicada();
+  if (duplicada) return selecionarComanda(duplicada.id, fecharModalMesa);
+
+  const mesaCliente = formatarMesaComanda(mesaNumero, comandaNumero);
   try {
     const nova = await chamarApi('/comandas', { method: 'POST', body: JSON.stringify({ mesa_cliente: mesaCliente }) });
     if (!definirComandaAtual({ ...nova, rodadas: [] })) return;
