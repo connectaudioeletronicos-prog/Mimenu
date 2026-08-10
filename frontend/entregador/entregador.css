@@ -791,11 +791,120 @@ input[type="text"], input[type="password"] {
   margin-top: 2px;
 }
 
-/* Mostra pelo menos ~10 itens antes de precisar rolar (cada item tem
-   uns 76px de altura com a margem) -- usada em "Rotas realizadas" e
-   "Resumo de rotas". */
+/* Mostra as ultimas 5 (cada item tem uns 78px de altura com a margem) e
+   rola pra cima pra ver a sequencia -- usada em "Rotas realizadas",
+   "Resumo de rotas", "Caixinha recebida" e "Pagamento". */
 .lista-com-rolagem {
-  max-height: 760px;
+  max-height: 390px;
   overflow-y: auto;
   padding-right: 2px;
+}
+
+.item-entrega-detalhe__endereco {
+  color: var(--cor-texto-claro);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.item-entrega-detalhe__codigo {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cor-texto-claro);
+  letter-spacing: .03em;
+}
+.item-entrega-detalhe__pagamento {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.item-entrega-detalhe__pagamento--dinheiro { background: #e6f4ea; color: #1f8b3b; }
+.item-entrega-detalhe__pagamento--pix { background: #e6f0fa; color: #1d5fb0; }
+.item-entrega-detalhe__pagamento--online { background: #f1e9fa; color: #6b3fa0; }
+
+/* Chips de periodo (Hoje / Semana / Mes / 3 meses / 6 meses / Ano / Tudo) */
+.filtro-periodo {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+}
+.filtro-periodo::-webkit-scrollbar { display: none; }
+.chip-periodo {
+  flex: 0 0 auto;
+  background: var(--cor-fundo);
+  border: 1px solid var(--cor-borda);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cor-texto-claro);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chip-periodo--ativo {
+  background: var(--cor-principal-escura);
+  border-color: var(--cor-principal-escura);
+  color: #fff;
+}
+
+.botao-carregar-mais {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: var(--raio-borda);
+  border: 1px dashed var(--cor-borda);
+  background: none;
+  color: var(--cor-principal-escura);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.botao-carregar-mais:disabled { opacity: .5; cursor: default; }
+
+.badge-plantao-aberto {
+  display: inline-block;
+  background: #eef8f6;
+  color: var(--cor-principal-escura);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: 6px;
+}
+
+.item-plantao-pagamento {
+  background: var(--cor-fundo);
+  border-radius: var(--raio-borda);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.item-plantao-pagamento__topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+}
+.item-plantao-pagamento__valor { color: var(--cor-principal-escura); font-weight: 800; }
+.item-plantao-pagamento__sub {
+  color: var(--cor-texto-claro);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.item-plantao-pagamento__codigos {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tag-codigo-rota {
+  background: #fff;
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cor-texto-claro);
 }
