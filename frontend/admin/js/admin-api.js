@@ -177,6 +177,9 @@ const apiAlternarDisponibilidadeEntregador = (id, disponivel_entrega) => chamarA
 const apiVerificarSenhaAdministrador = (senha) => chamarApiFuncionarios('/verificar-senha-administrador', { method: 'POST', body: { senha } });
 const apiResumoFuncionario = (id) => chamarApiAdmin(`/funcionarios/${id}/resumo`);
 const apiCorrigirValoresComanda = (id, dados) => chamarApiAdmin(`/comandas/${id}/corrigir`, { method: 'PUT', body: dados });
+const apiHistoricoComandasFuncionario = (funcionarioId, pagina, limite = 50) =>
+  chamarApiAdmin(`/comandas?status=fechada&funcionario_id=${funcionarioId}&pagina=${pagina}&limite=${limite}`);
+const apiObterComanda = (id) => chamarApiAdmin(`/comandas/${id}`);
 
 const apiCorrigirValoresPedido = (id, dados) => chamarApiAdmin(`/pedidos/${id}/valores`, { method: 'PUT', body: dados });
 
