@@ -56,7 +56,10 @@ function construirArvoreHtml(rodadas) {
   }
   return rodadas.map(r => `
     <div class="rodada-arvore">
-      <div class="rodada-arvore__cabecalho">${formatarHora(r.criado_em)} · R$ ${formatarMoeda(r.subtotal)}</div>
+      <div class="rodada-arvore__cabecalho">
+        <span>${formatarHora(r.criado_em)}${r.numero_pedido ? ` · Pedido #${r.numero_pedido}` : ''}</span>
+        <span>R$ ${formatarMoeda(r.subtotal)}</span>
+      </div>
       ${(Array.isArray(r.itens) ? r.itens : []).map(item => `
         <div class="rodada-arvore__item"><span>${item.quantidade}x ${escaparHtml(item.nome)}</span><span>R$ ${formatarMoeda(item.preco * item.quantidade)}</span></div>
       `).join('')}
@@ -864,24 +867,50 @@ async function renderizarMenuLateral(secao) {
   }
 
   if (secao === 'historico') {
-    try {
-      const fechadas = await chamarApi('/comandas?status=fechada&limite=50');
-      if (fechadas.length === 0) {
-        container.innerHTML = '<p class="ajuda" style="padding:12px 0;">Nenhuma comanda fechada ainda.</p>';
-      } else {
-        container.innerHTML = fechadas.map(c => `
-          <div class="item-venda-resumo">
-            <span>${escaparHtml(c.mesa_cliente)} · fechada às ${formatarHora(c.fechada_em)}</span>
-            <button type="button" class="botao-mesa-cliente" data-ver-historico="${c.id}">R$ ${formatarMoeda(c.total)}</button>
-          </div>
-        `).join('');
-        container.querySelectorAll('[data-ver-historico]').forEach(botao => {
-          botao.addEventListener('click', () => abrirDetalheHistorico(botao.dataset.verHistorico));
-        });
-      }
-    } catch (erro) {
-      container.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
+    historicoPaginaAtual = 1;
+    await carregarPaginaHistorico(container, false);
+  }
+}
+
+// Paginacao do historico (permanente, sem limite de tempo -- uma loja com
+// anos de comandas fechadas simplesmente carrega em paginas de 50 em 50,
+// mais recente primeiro, em vez de tentar trazer tudo de uma vez).
+let historicoPaginaAtual = 1;
+const HISTORICO_POR_PAGINA = 50;
+
+async function carregarPaginaHistorico(container, acrescentar) {
+  try {
+    const fechadas = await chamarApi(`/comandas?status=fechada&limite=${HISTORICO_POR_PAGINA}&pagina=${historicoPaginaAtual}`);
+    if (!acrescentar) container.innerHTML = '';
+    document.getElementById('botao-carregar-mais-historico')?.remove();
+
+    if (fechadas.length === 0 && !acrescentar) {
+      container.innerHTML = '<p class="ajuda" style="padding:12px 0;">Nenhuma comanda fechada ainda.</p>';
+      return;
     }
+
+    const listaHtml = fechadas.map(c => `
+      <div class="item-venda-resumo">
+        <span>${escaparHtml(c.mesa_cliente)}${c.numero_comanda ? ` <span class="ajuda">#${c.numero_comanda}</span>` : ''} · fechada às ${formatarHora(c.fechada_em)}</span>
+        <button type="button" class="botao-mesa-cliente" data-ver-historico="${c.id}">R$ ${formatarMoeda(c.total)}</button>
+      </div>
+    `).join('');
+    container.insertAdjacentHTML('beforeend', listaHtml);
+    container.querySelectorAll('[data-ver-historico]:not([data-ligado])').forEach(botao => {
+      botao.dataset.ligado = '1';
+      botao.addEventListener('click', () => abrirDetalheHistorico(botao.dataset.verHistorico));
+    });
+
+    if (fechadas.length === HISTORICO_POR_PAGINA) {
+      container.insertAdjacentHTML('beforeend', `<button type="button" id="botao-carregar-mais-historico" class="botao botao-secundario" style="margin-top:10px;width:100%;">Carregar mais</button>`);
+      document.getElementById('botao-carregar-mais-historico').addEventListener('click', () => {
+        historicoPaginaAtual += 1;
+        carregarPaginaHistorico(container, true);
+      });
+    }
+  } catch (erro) {
+    if (!acrescentar) container.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
+    else mostrarToast(erro.message, true);
   }
 }
 
@@ -896,7 +925,9 @@ async function abrirDetalheHistorico(comandaId) {
 
   try {
     const comanda = await chamarApi(`/comandas/${comandaId}`);
-    document.getElementById('historico-titulo').textContent = comanda.mesa_cliente;
+    document.getElementById('historico-titulo').textContent = comanda.numero_comanda
+      ? `${comanda.mesa_cliente} · Comanda #${comanda.numero_comanda}`
+      : comanda.mesa_cliente;
 
     const formasLegenda = { dinheiro: 'Dinheiro', pix: 'PIX', cartao_credito: 'Cartão Crédito', cartao_debito: 'Cartão Débito' };
     conteudo.innerHTML = `
@@ -909,7 +940,7 @@ async function abrirDetalheHistorico(comandaId) {
       <div class="titulo-secao" style="margin-top:14px;">Itens pedidos</div>
       ${(comanda.rodadas || []).map(rodada => `
         <div class="historico-rodada">
-          <div class="historico-rodada__hora">${formatarHora(rodada.criado_em)}</div>
+          <div class="historico-rodada__hora">${formatarHora(rodada.criado_em)}${rodada.numero_pedido ? ` · Pedido #${rodada.numero_pedido}` : ''}</div>
           ${(Array.isArray(rodada.itens) ? rodada.itens : []).map(item => `
             <div class="historico-linha" style="border:none;padding:2px 0;">
               <span>${item.quantidade}x ${escaparHtml(item.nome)}</span>
