@@ -35,12 +35,27 @@ async function abrir(req, res) {
 // Proprietario/administrador/gerente continuam vendo o historico
 // completo da loja (sem esse filtro), que e o dado usado pra
 // balanceamento/relatorios do estabelecimento como um todo.
+// Lista comandas abertas (pra escolher rapido no "Mesa/Cliente") ou o
+// historico de comandas fechadas (permanente, nunca some sozinho -- fica
+// guardado indefinidamente, nao ha limpeza automatica por idade).
+//
+// Comandas ABERTAS continuam visiveis pra TODOS os garcons da loja (mesa
+// aberta por um, qualquer colega pode continuar atendendo). Ja o
+// HISTORICO (fechadas) e pessoal no app do garcom: cada um ve so as
+// comandas que ELE abriu, pra nao misturar o historico de um com o do
+// outro. O admin (proprietario/administrador/gerente) pode ver o
+// historico completo da loja OU filtrar por um funcionario especifico
+// (?funcionario_id=) -- e esse filtro que alimenta a aba "Histórico" do
+// Resumo do Funcionário no painel, com paginacao (?pagina=1,2,3...).
 async function listar(req, res) {
   try {
-    const { status, limite } = req.query;
+    const { status, limite, pagina, funcionario_id: funcionarioIdFiltro } = req.query;
     const statusFinal = ['aberta', 'fechada'].includes(status) ? status : 'aberta';
     const limiteFinal = Math.min(parseInt(limite, 10) || 50, 200);
+    const paginaFinal = Math.max(parseInt(pagina, 10) || 1, 1);
+    const offset = (paginaFinal - 1) * limiteFinal;
 
+    const ehAdmin = ['proprietario', 'administrador', 'gerente'].includes(req.cargo);
     const somenteProprioGarcom = statusFinal === 'fechada' && req.cargo === 'garcom' && req.funcionarioId;
 
     const condicoes = ['estabelecimento_id = $1', 'status = $2'];
@@ -51,13 +66,19 @@ async function listar(req, res) {
       // numero que o proprietario ja ve por la.
       condicoes.push(`funcionario_id = $${parametros.length + 1}`);
       parametros.push(req.funcionarioId);
+    } else if (ehAdmin && funcionarioIdFiltro) {
+      // So o admin pode escolher DE QUEM quer ver o historico -- o garcom
+      // ja fica travado no proprio (regra acima) mesmo se tentar mandar
+      // esse parametro na mao.
+      condicoes.push(`funcionario_id = $${parametros.length + 1}`);
+      parametros.push(funcionarioIdFiltro);
     }
-    parametros.push(limiteFinal);
+    parametros.push(limiteFinal, offset);
 
     const resultado = await query(
       `SELECT * FROM comandas WHERE ${condicoes.join(' AND ')}
        ORDER BY ${statusFinal === 'aberta' ? 'aberta_em ASC' : 'fechada_em DESC'}
-       LIMIT $${parametros.length}`,
+       LIMIT $${parametros.length - 1} OFFSET $${parametros.length}`,
       parametros
     );
     res.json(resultado.rows);
@@ -76,7 +97,7 @@ async function detalhe(req, res) {
     if (comandaRes.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
 
     const pedidosRes = await query(
-      `SELECT id, itens, subtotal, observacoes, criado_em FROM pedidos
+      `SELECT id, numero_pedido, itens, subtotal, observacoes, criado_em FROM pedidos
        WHERE comanda_id = $1 ORDER BY criado_em ASC`,
       [id]
     );
@@ -309,7 +330,7 @@ async function resumoFuncionario(req, res) {
     let rodadasRes = { rows: [] };
     if (comandaIds.length > 0) {
       rodadasRes = await query(
-        `SELECT comanda_id, itens, subtotal, observacoes, criado_em FROM pedidos
+        `SELECT comanda_id, numero_pedido, itens, subtotal, observacoes, criado_em FROM pedidos
          WHERE comanda_id = ANY($1::uuid[]) ORDER BY criado_em ASC`,
         [comandaIds]
       );
