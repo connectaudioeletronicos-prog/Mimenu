@@ -63,8 +63,11 @@ async function listar(req, res) {
     if (somenteProprioGarcom) {
       // Mesmo criterio usado no "Resumo do Funcionario" do admin
       // (funcionario_id = quem abriu/e dono da comanda), pra bater com o
-      // numero que o proprietario ja ve por la.
-      condicoes.push(`funcionario_id = $${parametros.length + 1}`);
+      // numero que o proprietario ja ve por la. Comandas ANTIGAS que nao
+      // tem funcionario_id preenchido (de antes desse vinculo existir, ou
+      // testes) nao tem "dono" definido -- entao continuam aparecendo pra
+      // qualquer garcom, em vez de sumir pra todo mundo.
+      condicoes.push(`(funcionario_id = $${parametros.length + 1} OR funcionario_id IS NULL)`);
       parametros.push(req.funcionarioId);
     } else if (ehAdmin && funcionarioIdFiltro) {
       // So o admin pode escolher DE QUEM quer ver o historico -- o garcom
