@@ -71,13 +71,21 @@ async function migrar() {
     const sql = fs.readFileSync(path.join(pastaMigrations, arquivo), 'utf8');
     const client = await pool.connect();
     try {
+      // Trava de seguranca: se a migration ficar esperando um lock preso
+      // (ex: instancia antiga do deploy anterior ainda fechando conexao
+      // na mesma tabela), ela desiste rapido em vez de travar o boot
+      // inteiro do servidor pra sempre (o que fazia o Render dar timeout
+      // de porta, pq o app.listen() nunca era alcancado). Fica so pra
+      // proxima tentativa de deploy.
+      await client.query("SET lock_timeout = '8s'");
+      await client.query("SET statement_timeout = '20s'");
       await client.query('BEGIN');
       await client.query(sql);
       await client.query('INSERT INTO schema_migrations (versao) VALUES ($1)', [arquivo]);
       await client.query('COMMIT');
       console.log(`Migration aplicada: ${arquivo}`);
     } catch (error) {
-      await client.query('ROLLBACK');
+      await client.query('ROLLBACK').catch(() => {});
       console.error(`Aviso: falha ao aplicar migration ${arquivo}:`, error.message);
     } finally {
       client.release();
