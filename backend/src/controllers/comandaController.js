@@ -4,6 +4,50 @@ const pagamentos = require('../utils/pagamentos');
 
 const FORMAS_PAGAMENTO_VALIDAS = ['dinheiro', 'pix', 'cartao_credito', 'cartao_debito'];
 
+// ===================================================================
+// REGRA DE EXCLUSIVIDADE: um garcom so ve e mexe nas MESAS DELE (abertas
+// ou fechadas) -- do momento que ele abre a comanda ate o cliente ir
+// embora (fechamento), nenhum outro garcom acessa aquela mesa. So o
+// cargo 'caixa' tem um privilegio especial: pode FECHAR/RECEBER
+// pagamento de qualquer comanda (pra quando o cliente tem pressa e o
+// garcom responsavel esta ocupado) -- mas so isso, nao ve nem mexe nos
+// itens, e a comanda continua registrada como do garcom original (so
+// fica marcado que o pagamento foi "no caixa").
+// Administrador/gerente/proprietario sempre passam por tudo, sem trava
+// (visao completa da loja).
+// ===================================================================
+function ehAdminTier(cargo) {
+  return ['proprietario', 'administrador', 'gerente'].includes(cargo);
+}
+
+// Ver a comanda e FECHAR/RECEBER pagamento: dono (garcom), caixa (pode
+// fechar/receber de qualquer mesa) ou admin-tier.
+function garantirPodeVerOuFecharComanda(comanda, req) {
+  if (ehAdminTier(req.cargo) || req.cargo === 'caixa') return;
+  if (req.cargo === 'garcom' && comanda.funcionario_id && comanda.funcionario_id !== req.funcionarioId) {
+    const erro = new Error('Essa mesa esta sendo atendida por outro garcom.');
+    erro.status = 403;
+    throw erro;
+  }
+}
+
+// MEXER na comanda (mandar itens pra cozinha): so o garcom DONO da mesa
+// (ou admin-tier). O caixa NAO manda item nenhum -- a funcao dele e so
+// receber pagamento quando o garcom responsavel esta ocupado.
+function garantirPodeEditarComanda(comanda, req) {
+  if (ehAdminTier(req.cargo)) return;
+  if (req.cargo === 'caixa') {
+    const erro = new Error('O caixa nao pode adicionar itens numa comanda -- so o garcom responsavel pela mesa.');
+    erro.status = 403;
+    throw erro;
+  }
+  if (req.cargo === 'garcom' && comanda.funcionario_id && comanda.funcionario_id !== req.funcionarioId) {
+    const erro = new Error('Essa mesa esta sendo atendida por outro garcom.');
+    erro.status = 403;
+    throw erro;
+  }
+}
+
 // Abre uma comanda nova (mesa ou cliente identificado). E o "guarda-chuva"
 // que vai juntar todas as rodadas de pedido ate o fechamento/cobranca.
 async function abrir(req, res) {
@@ -39,14 +83,13 @@ async function abrir(req, res) {
 // historico de comandas fechadas (permanente, nunca some sozinho -- fica
 // guardado indefinidamente, nao ha limpeza automatica por idade).
 //
-// Comandas ABERTAS continuam visiveis pra TODOS os garcons da loja (mesa
-// aberta por um, qualquer colega pode continuar atendendo). Ja o
-// HISTORICO (fechadas) e pessoal no app do garcom: cada um ve so as
-// comandas que ELE abriu, pra nao misturar o historico de um com o do
-// outro. O admin (proprietario/administrador/gerente) pode ver o
-// historico completo da loja OU filtrar por um funcionario especifico
-// (?funcionario_id=) -- e esse filtro que alimenta a aba "Histórico" do
-// Resumo do Funcionário no painel, com paginacao (?pagina=1,2,3...).
+// Comandas ABERTAS agora sao exclusivas do garcom que abriu (nenhum
+// colega ve/mexe na mesa de outro) -- ele atende do abrir ate o cliente
+// ir embora. O cargo "caixa" ve TODAS as abertas (precisa achar qualquer
+// mesa pra poder receber um pagamento avulso), e admin-tier ve tudo.
+// HISTORICO (fechadas) segue pessoal no app do garcom: cada um ve so as
+// que ELE abriu. O admin pode ver o historico completo da loja OU
+// filtrar por um funcionario especifico (?funcionario_id=).
 async function listar(req, res) {
   try {
     const { status, limite, pagina, funcionario_id: funcionarioIdFiltro } = req.query;
@@ -55,8 +98,8 @@ async function listar(req, res) {
     const paginaFinal = Math.max(parseInt(pagina, 10) || 1, 1);
     const offset = (paginaFinal - 1) * limiteFinal;
 
-    const ehAdmin = ['proprietario', 'administrador', 'gerente'].includes(req.cargo);
-    const somenteProprioGarcom = statusFinal === 'fechada' && req.cargo === 'garcom' && req.funcionarioId;
+    const ehAdmin = ehAdminTier(req.cargo);
+    const somenteProprioGarcom = req.cargo === 'garcom' && req.funcionarioId;
 
     const condicoes = ['estabelecimento_id = $1', 'status = $2'];
     const parametros = [req.estabelecimentoId, statusFinal];
@@ -98,6 +141,7 @@ async function detalhe(req, res) {
     const { id } = req.params;
     const comandaRes = await query('SELECT * FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
     if (comandaRes.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
+    garantirPodeVerOuFecharComanda(comandaRes.rows[0], req);
 
     const pedidosRes = await query(
       `SELECT id, numero_pedido, itens, subtotal, observacoes, criado_em FROM pedidos
@@ -107,6 +151,7 @@ async function detalhe(req, res) {
 
     res.json({ ...comandaRes.rows[0], rodadas: pedidosRes.rows });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ erro: error.message });
     console.error('Erro ao obter detalhe da comanda:', error);
     res.status(500).json({ erro: 'Erro ao obter detalhe da comanda.' });
   }
@@ -127,6 +172,7 @@ async function adicionarItens(req, res) {
     const comandaRes = await query('SELECT * FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
     if (comandaRes.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
     const comanda = comandaRes.rows[0];
+    garantirPodeEditarComanda(comanda, req);
     if (comanda.status !== 'aberta') return res.status(400).json({ erro: 'Essa comanda ja foi fechada.' });
 
     // Preco sempre recalculado a partir do banco.
@@ -172,6 +218,7 @@ async function adicionarItens(req, res) {
 
     res.status(201).json(pedidoRes.rows[0]);
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ erro: error.message });
     console.error('Erro ao adicionar itens na comanda:', error);
     res.status(500).json({ erro: 'Erro ao adicionar itens na comanda.' });
   }
@@ -194,8 +241,15 @@ async function fechar(req, res) {
     const comandaRes = await query('SELECT * FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
     if (comandaRes.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
     const comanda = comandaRes.rows[0];
+    garantirPodeVerOuFecharComanda(comanda, req);
     if (comanda.status !== 'aberta') return res.status(400).json({ erro: 'Essa comanda ja foi fechada.' });
     if (Number(comanda.subtotal) <= 0) return res.status(400).json({ erro: 'Essa comanda ainda nao tem nenhum item enviado pra cozinha.' });
+
+    // Se quem esta fechando e o Caixa (nao o garcom dono da mesa), fica
+    // registrado que o pagamento foi recebido no caixa -- a comanda
+    // continua sendo do garcom original (funcionario_id nao muda), so
+    // aparece esse aviso extra no historico dele e no dashboard.
+    const pagoNoCaixa = req.cargo === 'caixa';
 
     // Enquanto a loja nao configurar a chave de pagamento (Configuracoes >
     // Pagamento), so aceita Dinheiro no fechamento -- Pix, credito e debito
@@ -235,9 +289,10 @@ async function fechar(req, res) {
     const fechado = await query(
       `UPDATE comandas SET forma_pagamento = $1, gorjeta = $2, total = $3, status = 'fechada',
                             status_pagamento = 'pago', fechada_em = NOW(),
-                            fechada_por_funcionario_id = $4, fechada_por_funcionario_nome = $5
+                            fechada_por_funcionario_id = $4, fechada_por_funcionario_nome = $5,
+                            pago_no_caixa = $7
        WHERE id = $6 RETURNING *`,
-      [forma_pagamento, gorjetaValor, totalFinal, req.funcionarioId || null, req.funcionarioNome || null, id]
+      [forma_pagamento, gorjetaValor, totalFinal, req.funcionarioId || null, req.funcionarioNome || null, id, pagoNoCaixa]
     );
 
     const { registrarAuditoria } = require('./funcionarioController');
@@ -245,6 +300,7 @@ async function fechar(req, res) {
 
     res.json({ comanda: fechado.rows[0], pagamento: null });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ erro: error.message });
     console.error('Erro ao fechar comanda:', error);
     res.status(500).json({ erro: error.message || 'Erro ao fechar comanda.' });
   }
@@ -285,6 +341,7 @@ async function confirmarPagamentoManual(req, res) {
     const comandaRes = await query('SELECT * FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
     if (comandaRes.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
     const comanda = comandaRes.rows[0];
+    garantirPodeVerOuFecharComanda(comanda, req);
     if (comanda.status === 'fechada') return res.status(400).json({ erro: 'Essa comanda ja esta fechada.' });
 
     const fechado = await query(
