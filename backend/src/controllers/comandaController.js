@@ -1,490 +1,1003 @@
-const { query } = require('../config/database');
-const { baixarEstoquePorVenda } = require('../utils/estoque');
-const pagamentos = require('../utils/pagamentos');
-
-const FORMAS_PAGAMENTO_VALIDAS = ['dinheiro', 'pix', 'cartao_credito', 'cartao_debito'];
-
 // ===================================================================
-// REGRA DE EXCLUSIVIDADE: um garcom so ve e mexe nas MESAS DELE (abertas
-// ou fechadas) -- do momento que ele abre a comanda ate o cliente ir
-// embora (fechamento), nenhum outro garcom acessa aquela mesa. So o
-// cargo 'caixa' tem um privilegio especial: pode FECHAR/RECEBER
-// pagamento de qualquer comanda (pra quando o cliente tem pressa e o
-// garcom responsavel esta ocupado) -- mas so isso, nao ve nem mexe nos
-// itens, e a comanda continua registrada como do garcom original (so
-// fica marcado que o pagamento foi "no caixa").
-// Administrador/gerente/proprietario sempre passam por tudo, sem trava
-// (visao completa da loja).
+// App do Garcom. Fluxo de comanda: abre uma comanda por mesa/cliente,
+// cada rodada de itens vai pra cozinha na hora (nao espera cobranca), e
+// so fecha/cobra no final, quando o cliente pede a conta. Historico de
+// comandas fechadas fica salvo no servidor (permanente).
 // ===================================================================
-function ehAdminTier(cargo) {
-  return ['proprietario', 'administrador', 'gerente'].includes(cargo);
+
+const CHAVE_TOKEN = 'garcom_token';
+const CHAVE_DADOS = 'garcom_dados';
+
+let categorias = [];
+let produtos = [];
+let categoriaSelecionada = null;
+let termoBusca = '';
+
+// Comanda em atendimento agora (null = ainda nao aberta/escolhida nessa tela).
+let comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+// So controla a tela cheia da comanda NO CELULAR (no desktop ela fica
+// sempre visivel do lado, essa flag nao se aplica). Comeca fechada; abre
+// sozinha so quando o garcom escolhe uma comanda JA existente (pra
+// conferir os itens na hora), e a partir dai fica manual (botao flutuante
+// abre, X fecha) -- nunca reabre sozinha so por causa de um novo render.
+let painelMobileAberto = false;
+// Itens dessa rodada (ainda NAO enviados pra cozinha).
+let draftItens = [];
+
+// ===================== Utilitarios =====================
+
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto ?? '';
+  return div.innerHTML;
 }
 
-// Ver a comanda e FECHAR/RECEBER pagamento: dono (garcom), caixa (pode
-// fechar/receber de qualquer mesa) ou admin-tier.
-function garantirPodeVerOuFecharComanda(comanda, req) {
-  if (ehAdminTier(req.cargo) || req.cargo === 'caixa') return;
-  if (req.cargo === 'garcom' && comanda.funcionario_id && comanda.funcionario_id !== req.funcionarioId) {
-    const erro = new Error('Essa mesa esta sendo atendida por outro garcom.');
-    erro.status = 403;
-    throw erro;
-  }
+function mostrarToast(mensagem, ehErro) {
+  const toast = document.getElementById('toast');
+  toast.textContent = mensagem;
+  toast.classList.toggle('erro-toast', !!ehErro);
+  toast.classList.remove('oculto');
+  clearTimeout(mostrarToast._t);
+  mostrarToast._t = setTimeout(() => toast.classList.add('oculto'), 3200);
 }
 
-// MEXER na comanda (mandar itens pra cozinha): so o garcom DONO da mesa
-// (ou admin-tier). O caixa NAO manda item nenhum -- a funcao dele e so
-// receber pagamento quando o garcom responsavel esta ocupado.
-function garantirPodeEditarComanda(comanda, req) {
-  if (ehAdminTier(req.cargo)) return;
-  if (req.cargo === 'caixa') {
-    const erro = new Error('O caixa nao pode adicionar itens numa comanda -- so o garcom responsavel pela mesa.');
-    erro.status = 403;
-    throw erro;
-  }
-  if (req.cargo === 'garcom' && comanda.funcionario_id && comanda.funcionario_id !== req.funcionarioId) {
-    const erro = new Error('Essa mesa esta sendo atendida por outro garcom.');
-    erro.status = 403;
-    throw erro;
-  }
+function formatarHora(isoString) {
+  if (!isoString) return '-';
+  const data = new Date(isoString);
+  return data.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-// Abre uma comanda nova (mesa ou cliente identificado). E o "guarda-chuva"
-// que vai juntar todas as rodadas de pedido ate o fechamento/cobranca.
-async function abrir(req, res) {
+// Monta a "árvore": uma rodada por bloco (com horário), itens dela embaixo.
+// Usada tanto no painel da comanda (itens ja enviados) quanto no modal de
+// cobranca (conferencia antes de fechar).
+function construirArvoreHtml(rodadas) {
+  if (!Array.isArray(rodadas) || rodadas.length === 0) {
+    return '<p class="ajuda" style="padding:6px 0;">Nenhum item enviado ainda.</p>';
+  }
+  return rodadas.map(r => `
+    <div class="rodada-arvore">
+      <div class="rodada-arvore__cabecalho">
+        <span>${formatarHora(r.criado_em)}${r.numero_pedido ? ` · Pedido #${r.numero_pedido}` : ''}</span>
+        <span>R$ ${formatarMoeda(r.subtotal)}</span>
+      </div>
+      ${(Array.isArray(r.itens) ? r.itens : []).map(item => `
+        <div class="rodada-arvore__item"><span>${item.quantidade}x ${escaparHtml(item.nome)}</span><span>R$ ${formatarMoeda(item.preco * item.quantidade)}</span></div>
+      `).join('')}
+      ${r.observacoes ? `<div class="rodada-arvore__obs">Obs: ${escaparHtml(r.observacoes)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function renderizarItensEnviados() {
+  const secao = document.getElementById('secao-itens-enviados');
+  if (!comandaAtual.id || !comandaAtual.rodadas || comandaAtual.rodadas.length === 0) {
+    secao.classList.add('oculto');
+    return;
+  }
+  secao.classList.remove('oculto');
+  document.getElementById('valor-ja-enviado').textContent = `R$ ${formatarMoeda(comandaAtual.subtotalEnviado)}`;
+  document.getElementById('arvore-itens-enviados').innerHTML = construirArvoreHtml(comandaAtual.rodadas);
+}
+
+document.getElementById('botao-toggle-itens-enviados').addEventListener('click', () => {
+  const arvore = document.getElementById('arvore-itens-enviados');
+  const seta = document.getElementById('seta-arvore');
+  const estaAberta = !arvore.classList.contains('oculto');
+  arvore.classList.toggle('oculto', estaAberta);
+  seta.textContent = estaAberta ? '▸' : '▾';
+});
+
+// ===================== Chamadas de API =====================
+
+async function chamarApi(caminho, opcoes = {}) {
+  const token = sessionStorage.getItem(CHAVE_TOKEN);
+  const resposta = await fetch(`${API_BASE_URL}/admin${caminho}`, {
+    ...opcoes,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(opcoes.headers || {})
+    }
+  });
+  const dados = await resposta.json().catch(() => ({}));
+  if (resposta.status === 401) {
+    encerrarSessao();
+    throw new Error('Sessao expirada. Entre novamente.');
+  }
+  if (!resposta.ok) throw new Error(dados.erro || 'Erro ao comunicar com o servidor.');
+  return dados;
+}
+
+async function chamarApiFuncionarios(caminho, opcoes = {}) {
+  const resposta = await fetch(`${API_BASE_URL}/funcionarios${caminho}`, {
+    ...opcoes,
+    headers: { 'Content-Type': 'application/json', ...(opcoes.headers || {}) }
+  });
+  const dados = await resposta.json().catch(() => ({}));
+  if (!resposta.ok) throw new Error(dados.erro || 'Erro ao comunicar com o servidor.');
+  return dados;
+}
+
+// ===================== Sessao / Login =====================
+
+function iniciarSessao(token, funcionario) {
+  // O app aceita dois cargos: "garcom" (fluxo completo: abre mesa, manda
+  // pra cozinha, cobra) e "caixa" (so recebe pagamento de QUALQUER mesa
+  // aberta, quando o cliente tem pressa e o garcom responsavel esta
+  // ocupado -- nao abre mesa nem manda item pra cozinha).
+  if (!['garcom', 'caixa'].includes(funcionario.cargo)) {
+    throw new Error('Este aplicativo e exclusivo para garcons e caixa.');
+  }
+  sessionStorage.setItem(CHAVE_TOKEN, token);
+  sessionStorage.setItem(CHAVE_DADOS, JSON.stringify(funcionario));
+}
+
+function encerrarSessao() {
+  sessionStorage.removeItem(CHAVE_TOKEN);
+  sessionStorage.removeItem(CHAVE_DADOS);
+  document.getElementById('tela-app').classList.add('oculto');
+  document.getElementById('tela-login').classList.remove('oculto');
+}
+
+async function tentarAcessoPorLink() {
+  const parametros = new URLSearchParams(window.location.search);
+  const token = parametros.get('acesso');
+  if (!token) return false;
   try {
-    const { mesa_cliente, observacao } = req.body;
-    if (!mesa_cliente || !mesa_cliente.trim()) {
-      return res.status(400).json({ erro: 'Informe a mesa ou o nome do cliente para abrir a comanda.' });
-    }
-
-    const resultado = await query(
-      `INSERT INTO comandas (estabelecimento_id, funcionario_id, funcionario_nome, mesa_cliente, observacao)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [req.estabelecimentoId, req.funcionarioId || null, req.funcionarioNome || null, mesa_cliente.trim(), observacao || null]
-    );
-    res.status(201).json(resultado.rows[0]);
-  } catch (error) {
-    console.error('Erro ao abrir comanda:', error);
-    res.status(500).json({ erro: 'Erro ao abrir comanda.' });
+    const dados = await chamarApiFuncionarios(`/acessar/${token}`);
+    iniciarSessao(dados.token, dados.funcionario);
+    return true;
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+    return false;
   }
 }
 
-// Lista comandas abertas (pra escolher rapido no "Mesa/Cliente") ou o
-// historico de comandas fechadas (permanente, nunca some sozinho).
-//
-// Comandas ABERTAS continuam visiveis pra TODOS os garcons da loja (mesa
-// aberta por um, qualquer colega pode continuar atendendo). Ja o
-// HISTORICO (fechadas) e pessoal: cada garcom ve so as comandas que ELE
-// fechou, pra nao misturar o historico de um com o do outro no app dele.
-// Proprietario/administrador/gerente continuam vendo o historico
-// completo da loja (sem esse filtro), que e o dado usado pra
-// balanceamento/relatorios do estabelecimento como um todo.
-// Lista comandas abertas (pra escolher rapido no "Mesa/Cliente") ou o
-// historico de comandas fechadas (permanente, nunca some sozinho -- fica
-// guardado indefinidamente, nao ha limpeza automatica por idade).
-//
-// Comandas ABERTAS agora sao exclusivas do garcom que abriu (nenhum
-// colega ve/mexe na mesa de outro) -- ele atende do abrir ate o cliente
-// ir embora. O cargo "caixa" ve TODAS as abertas (precisa achar qualquer
-// mesa pra poder receber um pagamento avulso), e admin-tier ve tudo.
-// HISTORICO (fechadas) segue pessoal no app do garcom: cada um ve so as
-// que ELE abriu. O admin pode ver o historico completo da loja OU
-// filtrar por um funcionario especifico (?funcionario_id=).
-async function listar(req, res) {
+document.getElementById('form-login').addEventListener('submit', async (evento) => {
+  evento.preventDefault();
+  const erroEl = document.getElementById('login-erro');
+  erroEl.classList.add('oculto');
+  const slug = document.getElementById('login-slug').value.trim();
+  const login = document.getElementById('login-usuario').value.trim();
+  const senha = document.getElementById('login-senha').value;
   try {
-    const { status, limite, pagina, funcionario_id: funcionarioIdFiltro } = req.query;
-    const statusFinal = ['aberta', 'fechada'].includes(status) ? status : 'aberta';
-    const limiteFinal = Math.min(parseInt(limite, 10) || 50, 200);
-    const paginaFinal = Math.max(parseInt(pagina, 10) || 1, 1);
-    const offset = (paginaFinal - 1) * limiteFinal;
+    const dados = await chamarApiFuncionarios('/login', { method: 'POST', body: JSON.stringify({ slug, login, senha }) });
+    iniciarSessao(dados.token, dados.funcionario);
+    localStorage.setItem(CHAVE_ULTIMO_SLUG, slug);
+    mostrarApp();
+  } catch (erro) {
+    erroEl.textContent = erro.message;
+    erroEl.classList.remove('oculto');
+  }
+});
 
-    const ehAdmin = ehAdminTier(req.cargo);
-    const somenteProprioGarcom = req.cargo === 'garcom' && req.funcionarioId;
+// Olho de mostrar/ocultar senha -- comeca "fechado" (senha oculta) e vira
+// "aberto" (senha visivel) quando clicado. Mesmo par de icones em qualquer
+// campo marcado com data-alvo-senha, em qualquer tela do app.
+const ICONE_OLHO_FECHADO = '<svg class="icone-olho" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+const ICONE_OLHO_ABERTO = '<svg class="icone-olho" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>';
 
-    const condicoes = ['estabelecimento_id = $1', 'status = $2'];
-    const parametros = [req.estabelecimentoId, statusFinal];
-    if (somenteProprioGarcom) {
-      // Mesmo criterio usado no "Resumo do Funcionario" do admin
-      // (funcionario_id = quem abriu/e dono da comanda), pra bater com o
-      // numero que o proprietario ja ve por la. Comandas ANTIGAS que nao
-      // tem funcionario_id preenchido (de antes desse vinculo existir, ou
-      // testes) nao tem "dono" definido -- entao continuam aparecendo pra
-      // qualquer garcom, em vez de sumir pra todo mundo.
-      condicoes.push(`(funcionario_id = $${parametros.length + 1} OR funcionario_id IS NULL)`);
-      parametros.push(req.funcionarioId);
-    } else if (ehAdmin && funcionarioIdFiltro) {
-      // So o admin pode escolher DE QUEM quer ver o historico -- o garcom
-      // ja fica travado no proprio (regra acima) mesmo se tentar mandar
-      // esse parametro na mao.
-      condicoes.push(`funcionario_id = $${parametros.length + 1}`);
-      parametros.push(funcionarioIdFiltro);
+document.querySelectorAll('.botao-olho-senha').forEach(botao => {
+  botao.addEventListener('click', () => {
+    const campo = document.getElementById(botao.dataset.alvoSenha);
+    const vaiMostrar = campo.type === 'password';
+    campo.type = vaiMostrar ? 'text' : 'password';
+    botao.innerHTML = vaiMostrar ? ICONE_OLHO_ABERTO : ICONE_OLHO_FECHADO;
+  });
+});
+
+// Busca o logo da loja pelo slug assim que o garcom sai do campo, antes
+// mesmo de logar (usa a rota publica, nao precisa de sessao). Enquanto nao
+// acha nenhum, mostra so um icone generico de prato -- nunca a marca
+// "Palatos" (que e a plataforma, nao o restaurante do cliente).
+const CHAVE_ULTIMO_SLUG = 'garcom_ultimo_slug';
+
+async function buscarLogoDaLoja(slug) {
+  const imgLogo = document.getElementById('logo-loja-login');
+  const iconeGenerico = document.getElementById('logo-login-generico');
+  if (!slug) { imgLogo.classList.add('oculto'); iconeGenerico.classList.remove('oculto'); return; }
+  try {
+    const resposta = await fetch(`${API_BASE_URL}/publico/${slug}`);
+    if (!resposta.ok) throw new Error();
+    const dados = await resposta.json();
+    const logoAppsUrl = dados.estabelecimento?.logo_apps_url;
+    if (logoAppsUrl) {
+      imgLogo.src = logoAppsUrl;
+      imgLogo.classList.remove('oculto');
+      iconeGenerico.classList.add('oculto');
+    } else {
+      imgLogo.classList.add('oculto');
+      iconeGenerico.classList.remove('oculto');
     }
-    parametros.push(limiteFinal, offset);
-
-    const resultado = await query(
-      `SELECT * FROM comandas WHERE ${condicoes.join(' AND ')}
-       ORDER BY ${statusFinal === 'aberta' ? 'aberta_em ASC' : 'fechada_em DESC'}
-       LIMIT $${parametros.length - 1} OFFSET $${parametros.length}`,
-      parametros
-    );
-    res.json(resultado.rows);
-  } catch (error) {
-    console.error('Erro ao listar comandas:', error);
-    res.status(500).json({ erro: 'Erro ao listar comandas.' });
+  } catch (erro) {
+    imgLogo.classList.add('oculto');
+    iconeGenerico.classList.remove('oculto');
   }
 }
 
-// Detalhe de uma comanda: dados dela + todas as rodadas de pedido
-// vinculadas (o que foi pedido em cada uma, e quando).
-async function detalhe(req, res) {
+// Assim que a tela de login abre, ja preenche com o ultimo slug usado
+// nesse aparelho (localStorage, sobrevive a fechar o navegador) e busca o
+// logo na hora -- sem precisar digitar/sair do campo primeiro.
+(function preencherUltimoSlug() {
+  const ultimoSlug = localStorage.getItem(CHAVE_ULTIMO_SLUG);
+  if (ultimoSlug) {
+    document.getElementById('login-slug').value = ultimoSlug;
+    buscarLogoDaLoja(ultimoSlug);
+  }
+})();
+
+document.getElementById('login-slug').addEventListener('blur', (evento) => {
+  buscarLogoDaLoja(evento.target.value.trim());
+});
+
+document.getElementById('botao-sair-menu').addEventListener('click', () => {
+  fecharMenuLateral();
+  encerrarSessao();
+});
+
+// ===================== Tela principal =====================
+
+async function mostrarApp() {
+  const dados = JSON.parse(sessionStorage.getItem(CHAVE_DADOS));
+  document.getElementById('tela-login').classList.add('oculto');
+  document.getElementById('tela-app').classList.remove('oculto');
+  document.getElementById('saudacao-atendente').textContent = `Olá, ${dados.nome.split(' ')[0]}!`;
+  document.getElementById('menu-nome-funcionario').textContent = dados.nome;
+  document.getElementById('menu-cargo-funcionario').textContent = dados.cargo === 'caixa' ? 'Caixa' : 'Garçom';
+
+  // Modo Caixa: esconde cardapio/"Nova rodada" (caixa nao abre mesa nem
+  // manda item pra cozinha, so recebe pagamento de mesas ja abertas por
+  // um garcom).
+  document.body.classList.toggle('modo-caixa', dados.cargo === 'caixa');
+
+  const logoHeader = document.getElementById('logo-loja-header');
+  const logoMenu = document.getElementById('logo-menu-lateral');
+  const logoMenuGenerico = document.getElementById('logo-menu-lateral-generico');
+  if (dados.estabelecimentoLogoAppsUrl) {
+    logoHeader.src = dados.estabelecimentoLogoAppsUrl;
+    logoHeader.classList.remove('oculto');
+    logoMenu.src = dados.estabelecimentoLogoAppsUrl;
+    logoMenu.classList.remove('oculto');
+    logoMenuGenerico.classList.add('oculto');
+  } else {
+    logoHeader.classList.add('oculto');
+    logoMenu.classList.add('oculto');
+    logoMenuGenerico.classList.remove('oculto');
+  }
+
   try {
-    const { id } = req.params;
-    const comandaRes = await query('SELECT * FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    if (comandaRes.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
-    garantirPodeVerOuFecharComanda(comandaRes.rows[0], req);
-
-    const pedidosRes = await query(
-      `SELECT id, numero_pedido, itens, subtotal, observacoes, criado_em FROM pedidos
-       WHERE comanda_id = $1 ORDER BY criado_em ASC`,
-      [id]
-    );
-
-    res.json({ ...comandaRes.rows[0], rodadas: pedidosRes.rows });
-  } catch (error) {
-    if (error.status) return res.status(error.status).json({ erro: error.message });
-    console.error('Erro ao obter detalhe da comanda:', error);
-    res.status(500).json({ erro: 'Erro ao obter detalhe da comanda.' });
+    const [listaCategorias, listaProdutos] = await Promise.all([
+      chamarApi('/categorias'),
+      chamarApi('/produtos')
+    ]);
+    categorias = listaCategorias;
+    produtos = listaProdutos;
+    renderizarCategorias();
+    renderizarProdutos();
+    renderizarComanda();
+  } catch (erro) {
+    mostrarToast(erro.message, true);
   }
 }
 
-// Manda uma rodada de itens pra cozinha AGORA (nao espera o fechamento da
-// comanda). Cada chamada aqui cria um pedido de verdade vinculado a essa
-// comanda, pra continuar aparecendo normal no painel da cozinha.
-async function adicionarItens(req, res) {
-  try {
-    const { id } = req.params;
-    const { itens, observacoes } = req.body;
-
-    if (!Array.isArray(itens) || itens.length === 0) {
-      return res.status(400).json({ erro: 'Adicione pelo menos um item.' });
-    }
-
-    const comandaRes = await query('SELECT * FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    if (comandaRes.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
-    const comanda = comandaRes.rows[0];
-    garantirPodeEditarComanda(comanda, req);
-    if (comanda.status !== 'aberta') return res.status(400).json({ erro: 'Essa comanda ja foi fechada.' });
-
-    // Preco sempre recalculado a partir do banco.
-    let subtotalRodada = 0;
-    const itensValidados = [];
-    for (const item of itens) {
-      const quantidade = parseInt(item.quantidade, 10);
-      if (!item.produto_id || !quantidade || quantidade <= 0) {
-        return res.status(400).json({ erro: 'Item de pedido invalido.' });
-      }
-      const prodRes = await query(
-        'SELECT id, nome, preco, preco_promocional, disponivel FROM produtos WHERE id = $1 AND estabelecimento_id = $2',
-        [item.produto_id, req.estabelecimentoId]
-      );
-      if (prodRes.rows.length === 0) return res.status(400).json({ erro: `Produto nao encontrado: ${item.produto_id}` });
-      const produto = prodRes.rows[0];
-      if (!produto.disponivel) return res.status(400).json({ erro: `Produto indisponivel: ${produto.nome}` });
-      const preco = produto.preco_promocional && parseFloat(produto.preco_promocional) < parseFloat(produto.preco)
-        ? parseFloat(produto.preco_promocional) : parseFloat(produto.preco);
-      subtotalRodada += preco * quantidade;
-      itensValidados.push({ produto_id: produto.id, nome: produto.nome, preco, quantidade });
-    }
-
-    // forma_pagamento e' NOT NULL em pedidos, mas quem paga de verdade e'
-    // a comanda (no fechamento) -- 'comanda' aqui e' so um marcador,
-    // status_pagamento fica 'pendente' e nao e' usado pra nada nessa linha.
-    const pedidoRes = await query(
-      `INSERT INTO pedidos (
-        estabelecimento_id, cliente_nome, cliente_telefone, itens, subtotal, taxa_entrega,
-        gorjeta, total, forma_pagamento, status_pagamento, status_pedido, tipo_pedido, canal_venda, observacoes, comanda_id
-      ) VALUES ($1, $2, '(comanda)', $3, $4, 0, 0, $4, 'comanda', 'pendente', 'preparando', 'balcao', 'mesa', $5, $6)
-      RETURNING *`,
-      [req.estabelecimentoId, comanda.mesa_cliente, JSON.stringify(itensValidados), subtotalRodada, observacoes || null, id]
-    );
-
-    await query('UPDATE comandas SET subtotal = subtotal + $1, total = subtotal + $1 + gorjeta WHERE id = $2', [subtotalRodada, id]);
-
-    baixarEstoquePorVenda(req.estabelecimentoId, itensValidados, { pedidoId: pedidoRes.rows[0].id, funcionarioId: req.funcionarioId, canalVenda: 'mesa' })
-      .catch(e => console.error('Erro na baixa automatica de estoque (comanda):', e.message));
-
-    const { registrarAuditoria } = require('./funcionarioController');
-    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'ADICIONAR_ITENS_COMANDA', 'comandas', id, null, itensValidados, req.ip);
-
-    res.status(201).json(pedidoRes.rows[0]);
-  } catch (error) {
-    if (error.status) return res.status(error.status).json({ erro: error.message });
-    console.error('Erro ao adicionar itens na comanda:', error);
-    res.status(500).json({ erro: 'Erro ao adicionar itens na comanda.' });
-  }
+function renderizarCategorias() {
+  const container = document.getElementById('lista-categorias');
+  const chips = [{ id: null, nome: 'Todas', icone_url: null }, ...categorias];
+  container.innerHTML = chips.map(cat => `
+    <button type="button" class="categoria-chip ${categoriaSelecionada === cat.id ? 'categoria-chip--ativa' : ''}" data-categoria-id="${cat.id ?? ''}">
+      ${cat.icone_url ? `<img src="${cat.icone_url}" style="width:24px;height:24px;border-radius:6px;object-fit:cover;">` : `<span class="categoria-chip__icone">🍽️</span>`}
+      ${escaparHtml(cat.nome)}
+    </button>
+  `).join('');
+  container.querySelectorAll('[data-categoria-id]').forEach(botao => {
+    botao.addEventListener('click', () => {
+      categoriaSelecionada = botao.dataset.categoriaId || null;
+      renderizarCategorias();
+      renderizarProdutos();
+    });
+  });
 }
 
-// Fecha a comanda: escolhe forma de pagamento e gorjeta. Dinheiro/cartao
-// fecham na hora; Pix gera o QR e so fecha de verdade quando o webhook do
-// Mercado Pago confirmar (o app fica de olho via GET /comandas/:id).
-async function fechar(req, res) {
+function renderizarProdutos() {
+  const container = document.getElementById('grade-produtos');
+  const filtrados = produtos.filter(p => {
+    const bateCategoria = !categoriaSelecionada || p.categoria_id === categoriaSelecionada;
+    const bateBusca = !termoBusca || p.nome.toLowerCase().includes(termoBusca.toLowerCase());
+    return bateCategoria && bateBusca;
+  });
+  if (filtrados.length === 0) {
+    container.innerHTML = '<p class="lista-vazia">Nenhum produto encontrado.</p>';
+    return;
+  }
+  container.innerHTML = filtrados.map(p => {
+    const temPromo = p.preco_promocional && parseFloat(p.preco_promocional) < parseFloat(p.preco);
+    const precoExibido = temPromo ? p.preco_promocional : p.preco;
+    return `
+      <button type="button" class="produto-card ${!p.disponivel ? 'produto-card__indisponivel' : ''}" data-produto-id="${p.id}" ${!p.disponivel ? 'disabled' : ''}>
+        <img class="produto-card__imagem" src="${p.foto_url || '../img/sem-foto.png'}" alt="">
+        <div class="produto-card__corpo">
+          <div class="produto-card__nome">${escaparHtml(p.nome)}</div>
+          <div class="produto-card__preco">R$ ${formatarMoeda(precoExibido)}</div>
+        </div>
+      </button>
+    `;
+  }).join('');
+  container.querySelectorAll('[data-produto-id]').forEach(botao => {
+    botao.addEventListener('click', () => adicionarItemNaRodada(botao.dataset.produtoId));
+  });
+}
+
+document.getElementById('campo-busca-produto').addEventListener('input', (evento) => {
+  termoBusca = evento.target.value;
+  renderizarProdutos();
+});
+
+// ===================== Rodada atual (itens ainda nao enviados) =====================
+
+function adicionarItemNaRodada(produtoId) {
+  const produto = produtos.find(p => p.id === produtoId);
+  if (!produto || !produto.disponivel) return;
+  const existente = draftItens.find(i => i.produto_id === produtoId);
+  const temPromo = produto.preco_promocional && parseFloat(produto.preco_promocional) < parseFloat(produto.preco);
+  const preco = parseFloat(temPromo ? produto.preco_promocional : produto.preco);
+  if (existente) existente.quantidade += 1;
+  else draftItens.push({ produto_id: produto.id, nome: produto.nome, preco, foto_url: produto.foto_url, quantidade: 1 });
+  renderizarComanda();
+  mostrarToast(`${produto.nome} adicionado.`);
+}
+
+function alterarQuantidade(produtoId, delta) {
+  const item = draftItens.find(i => i.produto_id === produtoId);
+  if (!item) return;
+  item.quantidade += delta;
+  if (item.quantidade <= 0) draftItens = draftItens.filter(i => i.produto_id !== produtoId);
+  renderizarComanda();
+}
+function removerItem(produtoId) {
+  draftItens = draftItens.filter(i => i.produto_id !== produtoId);
+  renderizarComanda();
+}
+function calcularSubtotalRodada() {
+  return draftItens.reduce((soma, item) => soma + item.preco * item.quantidade, 0);
+}
+
+function renderizarComanda() {
+  document.getElementById('rotulo-mesa-cliente').textContent = comandaAtual.mesaCliente || 'Mesa / Cliente';
+  renderizarItensEnviados();
+
+  const lista = document.getElementById('lista-itens-comanda');
+  if (draftItens.length === 0) {
+    lista.innerHTML = '<p class="comanda-vazia">Nenhum item adicionado ainda.</p>';
+  } else {
+    lista.innerHTML = draftItens.map(item => `
+      <div class="item-comanda">
+        <img class="item-comanda__imagem" src="${item.foto_url || '../img/sem-foto.png'}" alt="">
+        <div class="item-comanda__info">
+          <div class="item-comanda__nome">${escaparHtml(item.nome)}</div>
+          <div class="item-comanda__preco">R$ ${formatarMoeda(item.preco)}</div>
+        </div>
+        <div class="item-comanda__qtd">
+          <button type="button" data-qtd-menos="${item.produto_id}">−</button>
+          <span>${item.quantidade}</span>
+          <button type="button" data-qtd-mais="${item.produto_id}">+</button>
+        </div>
+        <button type="button" class="item-comanda__excluir" data-excluir="${item.produto_id}">🗑️</button>
+      </div>
+    `).join('');
+    lista.querySelectorAll('[data-qtd-mais]').forEach(b => b.addEventListener('click', () => alterarQuantidade(b.dataset.qtdMais, 1)));
+    lista.querySelectorAll('[data-qtd-menos]').forEach(b => b.addEventListener('click', () => alterarQuantidade(b.dataset.qtdMenos, -1)));
+    lista.querySelectorAll('[data-excluir]').forEach(b => b.addEventListener('click', () => removerItem(b.dataset.excluir)));
+  }
+
+  const subtotalRodada = calcularSubtotalRodada();
+  document.getElementById('comanda-subtotal').textContent = `R$ ${formatarMoeda(subtotalRodada)}`;
+
+  const contagem = draftItens.reduce((s, i) => s + i.quantidade, 0);
+  const ehDesktop = window.matchMedia('(min-width: 900px)').matches;
+  // A prancheta fica SEMPRE fixa e visivel no celular (mesmo sem rodada
+  // nova nem comanda escolhida) -- e por ela que o garcom abre o painel
+  // pra cadastrar mesa/comanda nova ou pesquisar uma ja aberta a qualquer
+  // momento, entao ela nao pode sumir. O PAINEL em si so ocupa a tela
+  // cheia por causa da flag painelMobileAberto (setada manualmente pelo
+  // botao flutuante/X, ou automaticamente so ao ESCOLHER uma comanda ja
+  // existente). No desktop ela fica escondida (o painel ja vive fixo do
+  // lado, sempre visivel).
+  const botaoFlutuante = document.getElementById('botao-flutuante-comanda');
+  const badge = document.getElementById('badge-comanda-discreta');
+  botaoFlutuante.classList.toggle('oculto', ehDesktop);
+  if (contagem > 0) {
+    badge.textContent = contagem;
+    badge.classList.remove('oculto');
+  } else if (comandaAtual.id) {
+    badge.textContent = '•';
+    badge.classList.remove('oculto');
+  } else {
+    badge.classList.add('oculto');
+  }
+  document.getElementById('painel-comanda').classList.toggle('painel-comanda--aberto', ehDesktop || painelMobileAberto);
+}
+
+document.getElementById('botao-flutuante-comanda').addEventListener('click', () => {
+  painelMobileAberto = true;
+  document.getElementById('painel-comanda').classList.add('painel-comanda--aberto');
+});
+document.getElementById('botao-fechar-painel-comanda').addEventListener('click', () => {
+  painelMobileAberto = false;
+  document.getElementById('painel-comanda').classList.remove('painel-comanda--aberto');
+});
+
+// ===================== Mesa / Comanda: formato padronizado =====================
+// Todo mundo digita so o NUMERO da mesa (1 a 50) e o NUMERO da comanda
+// (pra separar rodadas/clientes diferentes na mesma mesa) -- o app monta
+// sozinho o texto "Mesa: 003 / Comanda: 001" que fica salvo. Isso mantem
+// 100% compatibilidade com o campo mesa_cliente que ja existe no banco
+// (texto livre), so padroniza o QUE entra nele.
+
+const MESA_MAXIMA = 50;
+
+function formatarMesaComanda(mesaNumero, comandaNumero) {
+  const mesa = String(mesaNumero).padStart(3, '0');
+  const comanda = String(comandaNumero).padStart(3, '0');
+  return `Mesa: ${mesa} / Comanda: ${comanda}`;
+}
+
+// Tenta extrair {mesa, comanda} de um texto de mesa_cliente. Comandas
+// antigas (abertas antes dessa mudanca) podem ter texto livre digitado a
+// mao -- essas simplesmente nao dao match, e o app trata normal como
+// "cliente"/texto (sem quebrar nada do que ja existia).
+function extrairMesaComanda(texto) {
+  const encontrado = /mesa:\s*0*(\d+)\s*\/\s*comanda:\s*0*(\d+)/i.exec(texto || '');
+  if (!encontrado) return null;
+  return { mesa: parseInt(encontrado[1], 10), comanda: parseInt(encontrado[2], 10) };
+}
+
+// ===================== Modal Mesa/Cliente (abrir ou escolher comanda) =====================
+
+let comandasAbertasModalCache = [];
+
+async function abrirModalMesa() {
+  document.getElementById('input-mesa-numero').value = '';
+  document.getElementById('input-comanda-numero').value = '';
+  document.getElementById('input-pesquisa-mesa').value = '';
+  document.getElementById('input-pesquisa-comanda').value = '';
+  document.getElementById('aviso-mesa-comanda').classList.add('oculto');
+  document.getElementById('fundo-modal-mesa').classList.remove('oculto');
+  document.getElementById('modal-mesa').classList.remove('oculto');
+
+  const container = document.getElementById('lista-comandas-abertas-modal');
+  container.innerHTML = '<p class="ajuda">Carregando...</p>';
   try {
-    const { id } = req.params;
-    const { forma_pagamento, gorjeta } = req.body;
-
-    if (!FORMAS_PAGAMENTO_VALIDAS.includes(forma_pagamento)) {
-      return res.status(400).json({ erro: 'Forma de pagamento invalida.' });
-    }
-    const gorjetaValor = gorjeta ? parseFloat(gorjeta) : 0;
-    if (isNaN(gorjetaValor) || gorjetaValor < 0) return res.status(400).json({ erro: 'Valor de gorjeta invalido.' });
-
-    const comandaRes = await query('SELECT * FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    if (comandaRes.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
-    const comanda = comandaRes.rows[0];
-    garantirPodeVerOuFecharComanda(comanda, req);
-    if (comanda.status !== 'aberta') return res.status(400).json({ erro: 'Essa comanda ja foi fechada.' });
-    if (Number(comanda.subtotal) <= 0) return res.status(400).json({ erro: 'Essa comanda ainda nao tem nenhum item enviado pra cozinha.' });
-
-    // Se quem esta fechando e o Caixa (nao o garcom dono da mesa), fica
-    // registrado que o pagamento foi recebido no caixa -- a comanda
-    // continua sendo do garcom original (funcionario_id nao muda), so
-    // aparece esse aviso extra no historico dele e no dashboard.
-    const pagoNoCaixa = req.cargo === 'caixa';
-
-    // Enquanto a loja nao configurar a chave de pagamento (Configuracoes >
-    // Pagamento), so aceita Dinheiro no fechamento -- Pix, credito e debito
-    // ficam bloqueados (mesmo credito/debito nao dependendo do Pix hoje,
-    // no futuro tambem vao passar pela maquininha integrada via Mercado
-    // Pago Point, entao a mesma chave vai valer pra eles).
-    if (forma_pagamento !== 'dinheiro') {
-      const estConfigRes = await query('SELECT mp_access_token FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
-      if (!estConfigRes.rows[0]?.mp_access_token) {
-        return res.status(400).json({ erro: 'Essa loja ainda nao configurou a chave de pagamento em Configurações > Pagamento. Por enquanto, só é possível cobrar em Dinheiro.' });
-      }
-    }
-
-    const totalFinal = Number(comanda.subtotal) + gorjetaValor;
-
-    if (forma_pagamento === 'pix') {
-      const estRes = await query('SELECT id, mp_access_token, provedor_pagamento FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
-      const estabelecimento = estRes.rows[0];
-      const notificationUrl = `${process.env.BACKEND_URL}/api/webhooks/mercadopago?estabelecimento_id=${req.estabelecimentoId}`;
-      const cobranca = await pagamentos.criarCobrancaPix(estabelecimento, {
-        valor: totalFinal,
-        descricao: `Comanda ${comanda.mesa_cliente} - Palatos`,
-        referenciaExterna: `comanda:${id}`,
-        emailPagador: `comanda-${id.slice(0, 8)}@palatos.com.br`,
-        notificationUrl
+    const abertas = await chamarApi('/comandas?status=aberta');
+    comandasAbertasModalCache = abertas;
+    if (abertas.length === 0) {
+      container.innerHTML = '<p class="ajuda">Nenhuma comanda aberta no momento.</p>';
+    } else {
+      container.innerHTML = abertas.map(c => `
+        <div class="item-comanda-modal">
+          <span>${escaparHtml(c.mesa_cliente)} · aberta às ${formatarHora(c.aberta_em)} · R$ ${formatarMoeda(c.subtotal)}</span>
+          <button type="button" data-selecionar-comanda="${c.id}">Abrir</button>
+        </div>
+      `).join('');
+      container.querySelectorAll('[data-selecionar-comanda]').forEach(botao => {
+        botao.addEventListener('click', () => selecionarComanda(botao.dataset.selecionarComanda, fecharModalMesa));
       });
-
-      const atualizado = await query(
-        `UPDATE comandas SET forma_pagamento = $1, gorjeta = $2, total = $3, status_pagamento = 'pendente',
-                              mp_payment_id = $4, pix_qr_code = $5, pix_qr_code_base64 = $6, pix_expira_em = $7
-         WHERE id = $8 RETURNING *`,
-        [forma_pagamento, gorjetaValor, totalFinal, cobranca.idPagamento, cobranca.qrCode, cobranca.qrCodeBase64, cobranca.expiraEm, id]
-      );
-      return res.json({ comanda: atualizado.rows[0], pagamento: { qr_code: cobranca.qrCode, qr_code_base64: cobranca.qrCodeBase64, expira_em: cobranca.expiraEm } });
     }
-
-    const fechado = await query(
-      `UPDATE comandas SET forma_pagamento = $1, gorjeta = $2, total = $3, status = 'fechada',
-                            status_pagamento = 'pago', fechada_em = NOW(),
-                            fechada_por_funcionario_id = $4, fechada_por_funcionario_nome = $5,
-                            pago_no_caixa = $7
-       WHERE id = $6 RETURNING *`,
-      [forma_pagamento, gorjetaValor, totalFinal, req.funcionarioId || null, req.funcionarioNome || null, id, pagoNoCaixa]
-    );
-
-    const { registrarAuditoria } = require('./funcionarioController');
-    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'FECHAR_COMANDA', 'comandas', id, null, fechado.rows[0], req.ip);
-
-    res.json({ comanda: fechado.rows[0], pagamento: null });
-  } catch (error) {
-    if (error.status) return res.status(error.status).json({ erro: error.message });
-    console.error('Erro ao fechar comanda:', error);
-    res.status(500).json({ erro: error.message || 'Erro ao fechar comanda.' });
+  } catch (erro) {
+    container.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
   }
 }
 
-// So o proprietario/administrador pode excluir uma comanda do historico
-// (a rota ja e' protegida por exigirCargoAdministrativo).
-async function excluir(req, res) {
+// Enquanto o garcom digita a mesa/comanda pra abrir nova, ja avisa (e
+// deixa pronto pra ir direto) se aquela combinacao ja esta aberta -- assim
+// ele nao precisa fechar o modal e catar na lista de cima manualmente.
+function verificarMesaComandaDuplicada() {
+  const aviso = document.getElementById('aviso-mesa-comanda');
+  const mesaNumero = parseInt(document.getElementById('input-mesa-numero').value, 10);
+  const comandaNumero = parseInt(document.getElementById('input-comanda-numero').value, 10);
+  if (!mesaNumero || !comandaNumero) { aviso.classList.add('oculto'); return null; }
+
+  const alvo = comandasAbertasModalCache.find(c => {
+    const par = extrairMesaComanda(c.mesa_cliente);
+    return par && par.mesa === mesaNumero && par.comanda === comandaNumero;
+  });
+
+  if (alvo) {
+    aviso.innerHTML = `Essa mesa/comanda já está aberta (R$ ${formatarMoeda(alvo.subtotal)}). <button type="button" id="botao-ir-comanda-existente" style="text-decoration:underline;background:none;border:none;color:var(--at-verde);font-weight:700;cursor:pointer;padding:0;">Continuar nela</button> em vez de abrir outra.`;
+    aviso.classList.remove('oculto');
+    document.getElementById('botao-ir-comanda-existente').addEventListener('click', () => selecionarComanda(alvo.id, fecharModalMesa));
+  } else {
+    aviso.classList.add('oculto');
+  }
+  return alvo || null;
+}
+document.getElementById('input-mesa-numero').addEventListener('input', verificarMesaComandaDuplicada);
+document.getElementById('input-comanda-numero').addEventListener('input', verificarMesaComandaDuplicada);
+// Ao escolher a mesa, ja sugere o proximo numero de comanda livre pra essa
+// mesa (comanda 1 se nao tiver nenhuma aberta, senao a mais alta + 1) --
+// o garcom pode sempre trocar o numero se quiser.
+document.getElementById('input-mesa-numero').addEventListener('change', () => {
+  const mesaNumero = parseInt(document.getElementById('input-mesa-numero').value, 10);
+  const campoComanda = document.getElementById('input-comanda-numero');
+  if (!mesaNumero || campoComanda.value) return;
+  const comandasDaMesa = comandasAbertasModalCache
+    .map(c => extrairMesaComanda(c.mesa_cliente))
+    .filter(par => par && par.mesa === mesaNumero)
+    .map(par => par.comanda);
+  campoComanda.value = comandasDaMesa.length > 0 ? Math.max(...comandasDaMesa) + 1 : 1;
+});
+
+// ===================== Pesquisar no histórico por Mesa/Comanda =====================
+
+document.getElementById('botao-pesquisar-mesa').addEventListener('click', async () => {
+  const mesaNumero = parseInt(document.getElementById('input-pesquisa-mesa').value, 10);
+  const comandaNumero = parseInt(document.getElementById('input-pesquisa-comanda').value, 10);
+  if (!mesaNumero || !comandaNumero) return mostrarToast('Informe a mesa e a comanda pra pesquisar.', true);
+  if (mesaNumero < 1 || mesaNumero > MESA_MAXIMA) return mostrarToast(`Mesa inválida (1 a ${MESA_MAXIMA}).`, true);
+
   try {
-    const { id } = req.params;
-    const anterior = await query('SELECT * FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    if (anterior.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
+    // Procura primeiro nas comandas abertas (dado ja em cache do modal);
+    // se nao achar, procura no historico (fechadas -- so o seu proprio,
+    // ja filtrado pelo servidor).
+    const alvoAberta = comandasAbertasModalCache.find(c => {
+      const par = extrairMesaComanda(c.mesa_cliente);
+      return par && par.mesa === mesaNumero && par.comanda === comandaNumero;
+    });
+    if (alvoAberta) {
+      fecharModalMesa();
+      return selecionarComanda(alvoAberta.id);
+    }
 
-    await query('DELETE FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
+    const fechadas = await chamarApi('/comandas?status=fechada&limite=200');
+    const alvoFechada = fechadas.find(c => {
+      const par = extrairMesaComanda(c.mesa_cliente);
+      return par && par.mesa === mesaNumero && par.comanda === comandaNumero;
+    });
+    if (!alvoFechada) return mostrarToast(`Nenhuma comanda encontrada pra Mesa ${mesaNumero} / Comanda ${comandaNumero} no seu histórico.`, true);
 
-    const { registrarAuditoria } = require('./funcionarioController');
-    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'EXCLUIR_COMANDA', 'comandas', id, anterior.rows[0], null, req.ip);
+    fecharModalMesa();
+    abrirDetalheHistorico(alvoFechada.id);
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
+});
 
-    res.json({ mensagem: 'Comanda excluida do historico.' });
-  } catch (error) {
-    console.error('Erro ao excluir comanda:', error);
-    res.status(500).json({ erro: 'Erro ao excluir comanda.' });
+// Troca pra outra comanda (ou define uma recem-criada) buscando o detalhe
+// completo dela no servidor -- assim o painel sempre mostra TODOS os itens
+// ja enviados pra cozinha antes de ele adicionar mais coisa ou cobrar,
+// nunca so um numero de subtotal sem explicacao.
+const CHAVE_TELA_ATUAL = 'garcom_comanda_atual_id';
+
+function definirComandaAtual(comanda) {
+  if (draftItens.length > 0 && !confirm('Você tem itens dessa rodada ainda não enviados pra cozinha. Descartar e trocar de comanda?')) {
+    return false;
+  }
+  draftItens = [];
+  comandaAtual = {
+    id: comanda.id,
+    mesaCliente: comanda.mesa_cliente,
+    subtotalEnviado: parseFloat(comanda.subtotal) || 0,
+    rodadas: comanda.rodadas || []
+  };
+  // Guarda qual comanda estava aberta -- se a pagina recarregar (F5, troca
+  // de aba e volta, etc.) enquanto ainda logado, volta direto pra ela em
+  // vez de reiniciar no cardapio vazio.
+  sessionStorage.setItem(CHAVE_TELA_ATUAL, comanda.id);
+  renderizarComanda();
+  return true;
+}
+
+async function selecionarComanda(id, aoTerminar) {
+  try {
+    const comanda = await chamarApi(`/comandas/${id}`);
+    if (!definirComandaAtual(comanda)) return;
+    painelMobileAberto = true; // escolheu uma comanda existente -- abre ja mostrando os itens dela
+    renderizarComanda();
+    if (aoTerminar) aoTerminar();
+  } catch (erro) {
+    mostrarToast(erro.message, true);
   }
 }
 
-// Confirma senha de gerente/administrador E ja fecha a comanda como paga
-// no mesmo passo -- usado quando o pagamento Pix nao caiu pelo QR (ex:
-// cliente pagou por transferencia direta) e alguem com autoridade precisa
-// assumir isso manualmente.
-async function confirmarPagamentoManual(req, res) {
+document.getElementById('botao-mesa-cliente').addEventListener('click', abrirModalMesa);
+function fecharModalMesa() {
+  document.getElementById('fundo-modal-mesa').classList.add('oculto');
+  document.getElementById('modal-mesa').classList.add('oculto');
+}
+document.getElementById('botao-cancelar-mesa').addEventListener('click', fecharModalMesa);
+document.getElementById('botao-confirmar-mesa').addEventListener('click', async () => {
+  const mesaNumero = parseInt(document.getElementById('input-mesa-numero').value, 10);
+  const comandaNumero = parseInt(document.getElementById('input-comanda-numero').value, 10);
+  if (!mesaNumero || !comandaNumero) return mostrarToast('Informe o número da mesa e da comanda.', true);
+  if (mesaNumero < 1 || mesaNumero > MESA_MAXIMA) return mostrarToast(`Mesa inválida (1 a ${MESA_MAXIMA}).`, true);
+
+  // Se essa mesa/comanda ja esta aberta, vai direto pra ela em vez de
+  // tentar abrir (e duplicar) outra igual.
+  const duplicada = verificarMesaComandaDuplicada();
+  if (duplicada) return selecionarComanda(duplicada.id, fecharModalMesa);
+
+  const mesaCliente = formatarMesaComanda(mesaNumero, comandaNumero);
   try {
-    const { id } = req.params;
-    const { login, senha } = req.body;
-
-    const { verificarCredenciaisSupervisor, registrarAuditoria } = require('./funcionarioController');
-    const supervisor = await verificarCredenciaisSupervisor(req.estabelecimentoId, login, senha);
-
-    const comandaRes = await query('SELECT * FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    if (comandaRes.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
-    const comanda = comandaRes.rows[0];
-    garantirPodeVerOuFecharComanda(comanda, req);
-    if (comanda.status === 'fechada') return res.status(400).json({ erro: 'Essa comanda ja esta fechada.' });
-
-    const fechado = await query(
-      `UPDATE comandas SET status = 'fechada', status_pagamento = 'pago', fechada_em = NOW(),
-                            fechada_por_funcionario_id = $1, fechada_por_funcionario_nome = $2
-       WHERE id = $3 RETURNING *`,
-      [req.funcionarioId || null, `${req.funcionarioNome} (confirmado por ${supervisor.nome})`, id]
-    );
-
-    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'CONFIRMAR_PAGAMENTO_MANUAL_COMANDA', 'comandas', id, comanda, { autorizado_por: supervisor.nome }, req.ip);
-
-    res.json({ comanda: fechado.rows[0] });
-  } catch (error) {
-    if (error.status) return res.status(error.status).json({ erro: error.message });
-    console.error('Erro ao confirmar pagamento manual da comanda:', error);
-    res.status(500).json({ erro: 'Erro ao confirmar pagamento manual.' });
+    const nova = await chamarApi('/comandas', { method: 'POST', body: JSON.stringify({ mesa_cliente: mesaCliente }) });
+    if (!definirComandaAtual({ ...nova, rodadas: [] })) return;
+    fecharModalMesa();
+    mostrarToast(`Comanda "${mesaCliente}" aberta.`);
+  } catch (erro) {
+    mostrarToast(erro.message, true);
   }
+});
+
+// ===================== Enviar rodada pra cozinha =====================
+
+document.getElementById('botao-enviar-cozinha').addEventListener('click', async () => {
+  if (!comandaAtual.id) { mostrarToast('Identifique a mesa/cliente antes de enviar.', true); return abrirModalMesa(); }
+  if (draftItens.length === 0) return mostrarToast('Adicione itens antes de enviar.', true);
+
+  try {
+    const novoPedido = await chamarApi(`/comandas/${comandaAtual.id}/itens`, {
+      method: 'POST',
+      body: JSON.stringify({
+        itens: draftItens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade })),
+        observacoes: document.getElementById('observacao-comanda').value || null
+      })
+    });
+    comandaAtual.subtotalEnviado += calcularSubtotalRodada();
+    comandaAtual.rodadas.push(novoPedido);
+    draftItens = [];
+    document.getElementById('observacao-comanda').value = '';
+    renderizarComanda();
+    mostrarToast(`Rodada enviada pra cozinha! (Mesa: ${comandaAtual.mesaCliente})`);
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
+});
+
+document.getElementById('botao-limpar-comanda').addEventListener('click', () => {
+  if (draftItens.length === 0) return;
+  if (!confirm('Limpar os itens dessa rodada (ainda não enviados)?')) return;
+  draftItens = [];
+  renderizarComanda();
+});
+
+// ===================== Cobrar / Fechar comanda =====================
+
+let formaPagamentoSelecionada = null;
+
+document.getElementById('botao-cobrar-comanda').addEventListener('click', () => {
+  if (!comandaAtual.id) { mostrarToast('Escolha uma comanda primeiro.', true); return abrirModalMesa(); }
+  if (draftItens.length > 0) return mostrarToast('Envie a rodada atual pra cozinha antes de cobrar.', true);
+  if (comandaAtual.subtotalEnviado <= 0) return mostrarToast('Essa comanda ainda não tem nenhum item enviado.', true);
+
+  formaPagamentoSelecionada = null;
+  document.querySelectorAll('.opcao-pagamento').forEach(b => b.classList.remove('opcao-pagamento--selecionada'));
+  document.getElementById('botao-confirmar-pagamento').disabled = true;
+  document.getElementById('pagamento-mesa-nome').textContent = comandaAtual.mesaCliente;
+  document.getElementById('arvore-conferencia-pagamento').innerHTML = construirArvoreHtml(comandaAtual.rodadas);
+  document.getElementById('input-gorjeta').value = '0';
+  atualizarTotalPagamento();
+  aplicarBloqueioFormasPagamento();
+  document.getElementById('fundo-modal-pagamento').classList.remove('oculto');
+  document.getElementById('modal-pagamento').classList.remove('oculto');
+});
+
+function atualizarTotalPagamento() {
+  const gorjeta = parseFloat(document.getElementById('input-gorjeta').value) || 0;
+  const total = comandaAtual.subtotalEnviado + gorjeta;
+  document.getElementById('pagamento-total').textContent = `R$ ${formatarMoeda(total)}`;
+}
+document.getElementById('input-gorjeta').addEventListener('input', atualizarTotalPagamento);
+
+// Enquanto a loja nao configurar a chave de pagamento (Configuracoes >
+// Pagamento), so "Dinheiro" fica clicavel -- Pix/Credito/Debito ficam
+// visivelmente desabilitados, com aviso do motivo. O servidor tambem
+// bloqueia isso por conta propria (essa checagem aqui e so pra nao deixar
+// o garcom perder tempo escolhendo algo que vai ser recusado).
+function aplicarBloqueioFormasPagamento() {
+  const dados = JSON.parse(sessionStorage.getItem(CHAVE_DADOS) || '{}');
+  const configurado = !!dados.pagamentoConfigurado;
+  document.querySelectorAll('.opcao-pagamento').forEach(botao => {
+    const bloqueado = !configurado && botao.dataset.forma !== 'dinheiro';
+    botao.disabled = bloqueado;
+    botao.classList.toggle('opcao-pagamento--bloqueada', bloqueado);
+  });
+  document.getElementById('aviso-pagamento-nao-configurado').classList.toggle('oculto', configurado);
 }
 
-// Resumo do dia de um funcionario, pra tela "Resumo do [Cargo]" no admin.
-// So garcom tem dado de verdade pra mostrar aqui (e o unico cargo com app
-// proprio gerando comandas ate agora) -- os outros cargos voltam so com a
-// identificacao, sem inventar numero nenhum.
-async function resumoFuncionario(req, res) {
+function fecharModalPagamento() {
+  document.getElementById('fundo-modal-pagamento').classList.add('oculto');
+  document.getElementById('modal-pagamento').classList.add('oculto');
+}
+document.getElementById('botao-cancelar-pagamento').addEventListener('click', fecharModalPagamento);
+document.querySelectorAll('.opcao-pagamento').forEach(botao => {
+  botao.addEventListener('click', () => {
+    formaPagamentoSelecionada = botao.dataset.forma;
+    document.querySelectorAll('.opcao-pagamento').forEach(b => b.classList.remove('opcao-pagamento--selecionada'));
+    botao.classList.add('opcao-pagamento--selecionada');
+    document.getElementById('botao-confirmar-pagamento').disabled = false;
+  });
+});
+
+document.getElementById('botao-confirmar-pagamento').addEventListener('click', async () => {
+  if (!formaPagamentoSelecionada) return;
+  const gorjeta = parseFloat(document.getElementById('input-gorjeta').value) || 0;
+  const mesaCliente = comandaAtual.mesaCliente;
+  const comandaId = comandaAtual.id;
+
   try {
-    const { id } = req.params;
-    const fRes = await query('SELECT id, nome, email, cargo FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    if (fRes.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
-    const funcionario = fRes.rows[0];
+    const resposta = await chamarApi(`/comandas/${comandaId}/fechar`, {
+      method: 'POST',
+      body: JSON.stringify({ forma_pagamento: formaPagamentoSelecionada, gorjeta })
+    });
+    fecharModalPagamento();
 
-    if (funcionario.cargo !== 'garcom') {
-      return res.json({ funcionario, tipo: 'sem_dados' });
+    if (resposta.pagamento) {
+      abrirModalPix(comandaId, resposta.pagamento, mesaCliente);
+    } else {
+      mostrarToast(`Comanda "${mesaCliente}" fechada e paga!`);
+      comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+      sessionStorage.removeItem(CHAVE_TELA_ATUAL);
+      renderizarComanda();
     }
+  } catch (erro) {
+    mostrarToast(erro.message, true);
+  }
+});
 
-    const comandasHojeRes = await query(
-      `SELECT * FROM comandas WHERE estabelecimento_id = $1 AND funcionario_id = $2
-       AND (
-         (aberta_em AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
-         OR (fechada_em AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
-       )
-       ORDER BY aberta_em DESC`,
-      [req.estabelecimentoId, id]
-    );
+// ===================== Modal Pix (QR + acompanhamento) =====================
 
-    const comandaIds = comandasHojeRes.rows.map(c => c.id);
-    let rodadasRes = { rows: [] };
-    if (comandaIds.length > 0) {
-      rodadasRes = await query(
-        `SELECT comanda_id, numero_pedido, itens, subtotal, observacoes, criado_em FROM pedidos
-         WHERE comanda_id = ANY($1::uuid[]) ORDER BY criado_em ASC`,
-        [comandaIds]
-      );
-    }
-    const comandasHoje = comandasHojeRes.rows.map(c => ({
-      ...c,
-      rodadas: rodadasRes.rows.filter(r => r.comanda_id === c.id)
-    }));
+let intervaloChecagemPix = null;
 
-    const abertasAgoraRes = await query(
-      `SELECT COUNT(*) FROM comandas WHERE estabelecimento_id = $1 AND funcionario_id = $2 AND status = 'aberta'`,
-      [req.estabelecimentoId, id]
-    );
+function abrirModalPix(comandaId, pagamento, mesaCliente) {
+  document.getElementById('pix-qr-imagem').src = `data:image/png;base64,${pagamento.qr_code_base64}`;
+  document.getElementById('pix-copia-cola').value = pagamento.qr_code || '';
+  const statusEl = document.getElementById('pix-status');
+  statusEl.textContent = 'Aguardando confirmação do pagamento...';
+  statusEl.className = 'pix-status';
+  document.getElementById('fundo-modal-pix').classList.remove('oculto');
+  document.getElementById('modal-pix').classList.remove('oculto');
 
-    const fechadasHoje = comandasHoje.filter(c => c.status === 'fechada');
-    const vendasDoDia = fechadasHoje.reduce((s, c) => s + Number(c.total), 0);
-    const gorjetasDoDia = fechadasHoje.reduce((s, c) => s + Number(c.gorjeta || 0), 0);
-    const pedidosHoje = comandasHoje.reduce((s, c) => s + c.rodadas.length, 0);
-    const ticketMedio = fechadasHoje.length > 0 ? vendasDoDia / fechadasHoje.length : 0;
-
-    const porForma = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
-    const transacoesPorForma = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
-    fechadasHoje.forEach(c => {
-      if (c.forma_pagamento && porForma.hasOwnProperty(c.forma_pagamento)) {
-        porForma[c.forma_pagamento] += Number(c.total);
-        transacoesPorForma[c.forma_pagamento] += 1;
+  clearInterval(intervaloChecagemPix);
+  intervaloChecagemPix = setInterval(async () => {
+    try {
+      const comanda = await chamarApi(`/comandas/${comandaId}`);
+      if (comanda.status === 'fechada' && comanda.status_pagamento === 'pago') {
+        clearInterval(intervaloChecagemPix);
+        statusEl.textContent = '✅ Pagamento confirmado!';
+        statusEl.className = 'pix-status pix-status--pago';
+        comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+        sessionStorage.removeItem(CHAVE_TELA_ATUAL);
+        renderizarComanda();
+        setTimeout(fecharModalPix, 1800);
+      } else if (comanda.status_pagamento === 'recusado') {
+        clearInterval(intervaloChecagemPix);
+        statusEl.textContent = '❌ Pagamento recusado. Tente outra forma de pagamento.';
+        statusEl.className = 'pix-status pix-status--recusado';
       }
+    } catch (erro) { /* tenta de novo no proximo ciclo */ }
+  }, 4000);
+
+  window._comandaPixEmAndamento = comandaId;
+}
+function fecharModalPix() {
+  clearInterval(intervaloChecagemPix);
+  document.getElementById('fundo-modal-pix').classList.add('oculto');
+  document.getElementById('modal-pix').classList.add('oculto');
+}
+document.getElementById('botao-cancelar-pix').addEventListener('click', fecharModalPix);
+document.getElementById('botao-copiar-pix').addEventListener('click', () => {
+  const campo = document.getElementById('pix-copia-cola');
+  campo.select();
+  navigator.clipboard?.writeText(campo.value).catch(() => {});
+  mostrarToast('Código copiado.');
+});
+document.getElementById('botao-confirmar-pix-manual').addEventListener('click', () => {
+  fecharModalPix();
+  abrirModalSupervisor();
+});
+
+// ===================== Problema no pagamento (senha supervisor) =====================
+
+function abrirModalSupervisor() {
+  document.getElementById('supervisor-login').value = '';
+  document.getElementById('supervisor-senha').value = '';
+  document.getElementById('supervisor-erro').classList.add('oculto');
+  document.getElementById('fundo-modal-supervisor').classList.remove('oculto');
+  document.getElementById('modal-supervisor').classList.remove('oculto');
+}
+function fecharModalSupervisor() {
+  document.getElementById('fundo-modal-supervisor').classList.add('oculto');
+  document.getElementById('modal-supervisor').classList.add('oculto');
+}
+document.getElementById('botao-cancelar-supervisor').addEventListener('click', fecharModalSupervisor);
+document.getElementById('botao-confirmar-supervisor').addEventListener('click', async () => {
+  const login = document.getElementById('supervisor-login').value.trim();
+  const senha = document.getElementById('supervisor-senha').value;
+  const erroEl = document.getElementById('supervisor-erro');
+  erroEl.classList.add('oculto');
+  if (!login || !senha) { erroEl.textContent = 'Informe login e senha.'; erroEl.classList.remove('oculto'); return; }
+
+  const comandaId = window._comandaPixEmAndamento;
+  if (!comandaId) { erroEl.textContent = 'Nenhuma comanda pendente encontrada.'; erroEl.classList.remove('oculto'); return; }
+
+  try {
+    await chamarApi(`/comandas/${comandaId}/confirmar-manual`, { method: 'POST', body: JSON.stringify({ login, senha }) });
+    fecharModalSupervisor();
+    mostrarToast('Comanda confirmada como paga manualmente.');
+    if (comandaAtual.id === comandaId) {
+      comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+      sessionStorage.removeItem(CHAVE_TELA_ATUAL);
+    }
+    renderizarComanda();
+  } catch (erro) {
+    erroEl.textContent = erro.message;
+    erroEl.classList.remove('oculto');
+  }
+});
+
+// ===================== Menu lateral (drawer) =====================
+
+function abrirMenuLateral() {
+  document.body.classList.add('menu-lateral--aberto');
+  renderizarMenuLateral('comandas');
+}
+function fecharMenuLateral() { document.body.classList.remove('menu-lateral--aberto'); }
+document.getElementById('botao-abrir-menu').addEventListener('click', abrirMenuLateral);
+document.getElementById('botao-fechar-menu').addEventListener('click', fecharMenuLateral);
+document.querySelectorAll('.menu-lateral__item').forEach(botao => {
+  botao.addEventListener('click', () => {
+    document.querySelectorAll('.menu-lateral__item').forEach(b => b.classList.remove('menu-lateral__item--ativo'));
+    botao.classList.add('menu-lateral__item--ativo');
+    renderizarMenuLateral(botao.dataset.menuSecao);
+  });
+});
+
+async function renderizarMenuLateral(secao) {
+  const container = document.getElementById('menu-lateral-conteudo');
+  container.innerHTML = '<p class="ajuda">Carregando...</p>';
+
+  if (secao === 'comandas') {
+    try {
+      const abertas = await chamarApi('/comandas?status=aberta');
+      if (abertas.length === 0) {
+        container.innerHTML = '<p class="ajuda" style="padding:12px 0;">Nenhuma comanda aberta no momento.</p>';
+      } else {
+        container.innerHTML = abertas.map(c => `
+          <div class="item-venda-resumo">
+            <span>${escaparHtml(c.mesa_cliente)} · aberta às ${formatarHora(c.aberta_em)} · R$ ${formatarMoeda(c.subtotal)}</span>
+            <button type="button" class="botao-mesa-cliente" data-abrir-comanda="${c.id}">Abrir</button>
+          </div>
+        `).join('');
+        container.querySelectorAll('[data-abrir-comanda]').forEach(botao => {
+          botao.addEventListener('click', () => selecionarComanda(botao.dataset.abrirComanda, fecharMenuLateral));
+        });
+      }
+    } catch (erro) {
+      container.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
+    }
+  }
+
+  if (secao === 'historico') {
+    historicoPaginaAtual = 1;
+    await carregarPaginaHistorico(container, false);
+  }
+}
+
+// Paginacao do historico (permanente, sem limite de tempo -- uma loja com
+// anos de comandas fechadas simplesmente carrega em paginas de 50 em 50,
+// mais recente primeiro, em vez de tentar trazer tudo de uma vez).
+let historicoPaginaAtual = 1;
+const HISTORICO_POR_PAGINA = 50;
+
+async function carregarPaginaHistorico(container, acrescentar) {
+  try {
+    const fechadas = await chamarApi(`/comandas?status=fechada&limite=${HISTORICO_POR_PAGINA}&pagina=${historicoPaginaAtual}`);
+    if (!acrescentar) container.innerHTML = '';
+    document.getElementById('botao-carregar-mais-historico')?.remove();
+
+    if (fechadas.length === 0 && !acrescentar) {
+      container.innerHTML = '<p class="ajuda" style="padding:12px 0;">Nenhuma comanda fechada ainda.</p>';
+      return;
+    }
+
+    const listaHtml = fechadas.map(c => `
+      <div class="item-venda-resumo">
+        <span>${escaparHtml(c.mesa_cliente)}${c.numero_comanda ? ` <span class="ajuda">#${c.numero_comanda}</span>` : ''} · fechada às ${formatarHora(c.fechada_em)}${c.pago_no_caixa ? ' · <span style="color:var(--at-verde-forte);font-weight:700;">💳 pago no caixa</span>' : ''}</span>
+        <button type="button" class="botao-mesa-cliente" data-ver-historico="${c.id}">R$ ${formatarMoeda(c.total)}</button>
+      </div>
+    `).join('');
+    container.insertAdjacentHTML('beforeend', listaHtml);
+    container.querySelectorAll('[data-ver-historico]:not([data-ligado])').forEach(botao => {
+      botao.dataset.ligado = '1';
+      botao.addEventListener('click', () => abrirDetalheHistorico(botao.dataset.verHistorico));
     });
 
-    res.json({
-      funcionario,
-      tipo: 'garcom',
-      resumo: {
-        vendas_do_dia: vendasDoDia,
-        gorjetas_do_dia: gorjetasDoDia,
-        pedidos_hoje: pedidosHoje,
-        comandas_abertas: parseInt(abertasAgoraRes.rows[0].count, 10),
-        mesas_atendidas_hoje: comandasHoje.length,
-        ticket_medio: ticketMedio
-      },
-      comandas_hoje: comandasHoje,
-      fechamento_caixa: {
-        total_dinheiro: porForma.dinheiro,
-        total_cartao_credito: porForma.cartao_credito,
-        total_cartao_debito: porForma.cartao_debito,
-        total_pix: porForma.pix,
-        transacoes_cartao_credito: transacoesPorForma.cartao_credito,
-        transacoes_cartao_debito: transacoesPorForma.cartao_debito,
-        total_recebido: vendasDoDia
-      }
-    });
-  } catch (error) {
-    console.error('Erro ao obter resumo do funcionario:', error);
-    res.status(500).json({ erro: 'Erro ao obter resumo do funcionario.' });
-  }
-}
-
-// Corrige o valor de uma comanda ja fechada (ex: cobranca incorreta detectada
-// depois). Exige a permissao 'corrigir_valores_concluidos', ja pensada pra
-// esse tipo de ajuste. Registra em auditoria com o valor anterior, pra
-// manter rastro de quem mudou o que.
-async function corrigirValores(req, res) {
-  try {
-    const { id } = req.params;
-    const { subtotal, gorjeta, motivo } = req.body;
-
-    const comandaRes = await query('SELECT * FROM comandas WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    if (comandaRes.rows.length === 0) return res.status(404).json({ erro: 'Comanda nao encontrada.' });
-    const anterior = comandaRes.rows[0];
-
-    const novoSubtotal = subtotal !== undefined && subtotal !== '' ? parseFloat(subtotal) : Number(anterior.subtotal);
-    const novaGorjeta = gorjeta !== undefined && gorjeta !== '' ? parseFloat(gorjeta) : Number(anterior.gorjeta);
-    if (isNaN(novoSubtotal) || novoSubtotal < 0 || isNaN(novaGorjeta) || novaGorjeta < 0) {
-      return res.status(400).json({ erro: 'Valores invalidos.' });
+    if (fechadas.length === HISTORICO_POR_PAGINA) {
+      container.insertAdjacentHTML('beforeend', `<button type="button" id="botao-carregar-mais-historico" class="botao botao-secundario" style="margin-top:10px;width:100%;">Carregar mais</button>`);
+      document.getElementById('botao-carregar-mais-historico').addEventListener('click', () => {
+        historicoPaginaAtual += 1;
+        carregarPaginaHistorico(container, true);
+      });
     }
-
-    const atualizado = await query(
-      `UPDATE comandas SET subtotal = $1, gorjeta = $2, total = $1 + $2 WHERE id = $3 RETURNING *`,
-      [novoSubtotal, novaGorjeta, id]
-    );
-
-    const { registrarAuditoria } = require('./funcionarioController');
-    await registrarAuditoria(
-      req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'CORRIGIR_VALORES_COMANDA', 'comandas', id,
-      { subtotal: anterior.subtotal, gorjeta: anterior.gorjeta, total: anterior.total },
-      { subtotal: novoSubtotal, gorjeta: novaGorjeta, total: novoSubtotal + novaGorjeta, motivo: motivo || null },
-      req.ip
-    );
-
-    res.json(atualizado.rows[0]);
-  } catch (error) {
-    console.error('Erro ao corrigir valores da comanda:', error);
-    res.status(500).json({ erro: 'Erro ao corrigir valores da comanda.' });
+  } catch (erro) {
+    if (!acrescentar) container.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
+    else mostrarToast(erro.message, true);
   }
 }
 
-module.exports = { abrir, listar, detalhe, adicionarItens, fechar, excluir, confirmarPagamentoManual, resumoFuncionario, corrigirValores };
+// ===================== Detalhe do histórico =====================
+
+async function abrirDetalheHistorico(comandaId) {
+  const conteudo = document.getElementById('historico-conteudo');
+  document.getElementById('historico-titulo').textContent = 'Carregando...';
+  conteudo.innerHTML = '';
+  document.getElementById('fundo-modal-historico').classList.remove('oculto');
+  document.getElementById('modal-historico').classList.remove('oculto');
+
+  try {
+    const comanda = await chamarApi(`/comandas/${comandaId}`);
+    document.getElementById('historico-titulo').textContent = comanda.numero_comanda
+      ? `${comanda.mesa_cliente} · Comanda #${comanda.numero_comanda}`
+      : comanda.mesa_cliente;
+
+    const formasLegenda = { dinheiro: 'Dinheiro', pix: 'PIX', cartao_credito: 'Cartão Crédito', cartao_debito: 'Cartão Débito' };
+    conteudo.innerHTML = `
+      <div class="historico-linha"><span>Aberta em</span><span>${formatarHora(comanda.aberta_em)}</span></div>
+      <div class="historico-linha"><span>Fechada em</span><span>${formatarHora(comanda.fechada_em)}</span></div>
+      <div class="historico-linha"><span>Forma de pagamento</span><span>${formasLegenda[comanda.forma_pagamento] || comanda.forma_pagamento || '-'}</span></div>
+      <div class="historico-linha"><span>Subtotal (pedidos)</span><span>R$ ${formatarMoeda(comanda.subtotal)}</span></div>
+      <div class="historico-linha"><span>Gorjeta / Caixinha</span><span>R$ ${formatarMoeda(comanda.gorjeta)}</span></div>
+      <div class="historico-linha"><strong>Total</strong><strong>R$ ${formatarMoeda(comanda.total)}</strong></div>
+      <div class="titulo-secao" style="margin-top:14px;">Itens pedidos</div>
+      ${(comanda.rodadas || []).map(rodada => `
+        <div class="historico-rodada">
+          <div class="historico-rodada__hora">${formatarHora(rodada.criado_em)}${rodada.numero_pedido ? ` · Pedido #${rodada.numero_pedido}` : ''}</div>
+          ${(Array.isArray(rodada.itens) ? rodada.itens : []).map(item => `
+            <div class="historico-linha" style="border:none;padding:2px 0;">
+              <span>${item.quantidade}x ${escaparHtml(item.nome)}</span>
+              <span>R$ ${formatarMoeda(item.preco * item.quantidade)}</span>
+            </div>
+          `).join('')}
+          ${rodada.observacoes ? `<div class="ajuda" style="margin-top:4px;">Obs: ${escaparHtml(rodada.observacoes)}</div>` : ''}
+        </div>
+      `).join('')}
+    `;
+  } catch (erro) {
+    conteudo.innerHTML = `<p class="erro">${escaparHtml(erro.message)}</p>`;
+  }
+}
+document.getElementById('botao-fechar-historico').addEventListener('click', () => {
+  document.getElementById('fundo-modal-historico').classList.add('oculto');
+  document.getElementById('modal-historico').classList.add('oculto');
+});
+
+// ===================== Inicializacao =====================
+
+(async function iniciar() {
+  const acessouPorLink = await tentarAcessoPorLink();
+  const tokenSalvo = sessionStorage.getItem(CHAVE_TOKEN);
+  if (acessouPorLink || tokenSalvo) {
+    try {
+      await mostrarApp();
+      // Se tinha uma comanda aberta antes de recarregar a pagina, volta
+      // direto pra ela em vez de reiniciar no cardapio vazio.
+      const comandaSalva = sessionStorage.getItem(CHAVE_TELA_ATUAL);
+      if (comandaSalva) {
+        try {
+          const comanda = await chamarApi(`/comandas/${comandaSalva}`);
+          if (comanda.status === 'aberta') {
+            comandaAtual = {
+              id: comanda.id,
+              mesaCliente: comanda.mesa_cliente,
+              subtotalEnviado: parseFloat(comanda.subtotal) || 0,
+              rodadas: comanda.rodadas || []
+            };
+            renderizarComanda();
+          } else {
+            sessionStorage.removeItem(CHAVE_TELA_ATUAL);
+          }
+        } catch (erro) {
+          sessionStorage.removeItem(CHAVE_TELA_ATUAL);
+        }
+      }
+    } catch (erro) { mostrarToast(erro.message, true); }
+  }
+})();
