@@ -278,8 +278,36 @@ input, textarea { font-family: inherit; }
   font-size: 0.95rem; text-align: center;
 }
 
+/* ===================== MODO CAIXA ===================== */
+/* O cargo "caixa" so recebe pagamento de mesas ja abertas por um garcom
+   -- nao abre mesa, nao manda item pra cozinha. Esconde tudo relacionado
+   a cardapio/pedido, deixa so a lista de comandas abertas + o botao de
+   cobrar. */
+body.modo-caixa .busca-atendente,
+body.modo-caixa .painel-produtos,
+body.modo-caixa #titulo-nova-rodada,
+body.modo-caixa #lista-itens-comanda,
+body.modo-caixa #secao-observacao-comanda,
+body.modo-caixa #secao-resumo-comanda,
+body.modo-caixa #botao-enviar-cozinha,
+body.modo-caixa #botao-limpar-comanda,
+body.modo-caixa #separador-cobrar-comanda,
+body.modo-caixa #secao-abrir-nova-comanda {
+  display: none !important;
+}
+/* No celular, sem cardapio pra navegar, o painel da comanda ja fica em
+   tela cheia direto (nao depende do botao flutuante). */
+@media (max-width: 899px) {
+  body.modo-caixa .painel-comanda { display: none; }
+  body.modo-caixa .painel-comanda.painel-comanda--aberto { display: flex; }
+}
+
 /* ===================== MODAIS ===================== */
-.fundo-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 40; }
+/* z-index MAIOR que o painel-comanda--aberto (z-index:50, celular em tela
+   cheia) -- senao a janela de pagamento/mesa abre de verdade só que fica
+   ESCONDIDA atrás do painel (o botão "pisca" confirmando o clique, mas
+   nada aparece até fechar o painel no X). Esse era o bug. */
+.fundo-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 55; }
 .modal {
   position: fixed;
   left: 50%; top: 50%;
@@ -289,7 +317,7 @@ input, textarea { font-family: inherit; }
   padding: 22px;
   width: 90%;
   max-width: 380px;
-  z-index: 41;
+  z-index: 56;
 }
 .modal h2 { font-size: 1.1rem; margin-bottom: 6px; }
 .modal input { width: 100%; padding: 10px 12px; border: 1px solid var(--at-borda); border-radius: 8px; margin-top: 10px; font-size: 0.9rem; }
