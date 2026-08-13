@@ -121,8 +121,12 @@ async function chamarApiFuncionarios(caminho, opcoes = {}) {
 // ===================== Sessao / Login =====================
 
 function iniciarSessao(token, funcionario) {
-  if (funcionario.cargo !== 'garcom') {
-    throw new Error('Este aplicativo e exclusivo para garcons.');
+  // O app aceita dois cargos: "garcom" (fluxo completo: abre mesa, manda
+  // pra cozinha, cobra) e "caixa" (so recebe pagamento de QUALQUER mesa
+  // aberta, quando o cliente tem pressa e o garcom responsavel esta
+  // ocupado -- nao abre mesa nem manda item pra cozinha).
+  if (!['garcom', 'caixa'].includes(funcionario.cargo)) {
+    throw new Error('Este aplicativo e exclusivo para garcons e caixa.');
   }
   sessionStorage.setItem(CHAVE_TOKEN, token);
   sessionStorage.setItem(CHAVE_DADOS, JSON.stringify(funcionario));
@@ -239,7 +243,12 @@ async function mostrarApp() {
   document.getElementById('tela-app').classList.remove('oculto');
   document.getElementById('saudacao-atendente').textContent = `Olá, ${dados.nome.split(' ')[0]}!`;
   document.getElementById('menu-nome-funcionario').textContent = dados.nome;
-  document.getElementById('menu-cargo-funcionario').textContent = 'Garçom';
+  document.getElementById('menu-cargo-funcionario').textContent = dados.cargo === 'caixa' ? 'Caixa' : 'Garçom';
+
+  // Modo Caixa: esconde cardapio/"Nova rodada" (caixa nao abre mesa nem
+  // manda item pra cozinha, so recebe pagamento de mesas ja abertas por
+  // um garcom).
+  document.body.classList.toggle('modo-caixa', dados.cargo === 'caixa');
 
   const logoHeader = document.getElementById('logo-loja-header');
   const logoMenu = document.getElementById('logo-menu-lateral');
@@ -891,7 +900,7 @@ async function carregarPaginaHistorico(container, acrescentar) {
 
     const listaHtml = fechadas.map(c => `
       <div class="item-venda-resumo">
-        <span>${escaparHtml(c.mesa_cliente)}${c.numero_comanda ? ` <span class="ajuda">#${c.numero_comanda}</span>` : ''} · fechada às ${formatarHora(c.fechada_em)}</span>
+        <span>${escaparHtml(c.mesa_cliente)}${c.numero_comanda ? ` <span class="ajuda">#${c.numero_comanda}</span>` : ''} · fechada às ${formatarHora(c.fechada_em)}${c.pago_no_caixa ? ' · <span style="color:var(--at-verde-forte);font-weight:700;">💳 pago no caixa</span>' : ''}</span>
         <button type="button" class="botao-mesa-cliente" data-ver-historico="${c.id}">R$ ${formatarMoeda(c.total)}</button>
       </div>
     `).join('');
