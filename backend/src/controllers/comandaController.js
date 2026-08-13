@@ -70,16 +70,6 @@ async function abrir(req, res) {
 }
 
 // Lista comandas abertas (pra escolher rapido no "Mesa/Cliente") ou o
-// historico de comandas fechadas (permanente, nunca some sozinho).
-//
-// Comandas ABERTAS continuam visiveis pra TODOS os garcons da loja (mesa
-// aberta por um, qualquer colega pode continuar atendendo). Ja o
-// HISTORICO (fechadas) e pessoal: cada garcom ve so as comandas que ELE
-// fechou, pra nao misturar o historico de um com o do outro no app dele.
-// Proprietario/administrador/gerente continuam vendo o historico
-// completo da loja (sem esse filtro), que e o dado usado pra
-// balanceamento/relatorios do estabelecimento como um todo.
-// Lista comandas abertas (pra escolher rapido no "Mesa/Cliente") ou o
 // historico de comandas fechadas (permanente, nunca some sozinho -- fica
 // guardado indefinidamente, nao ha limpeza automatica por idade).
 //
@@ -89,7 +79,10 @@ async function abrir(req, res) {
 // mesa pra poder receber um pagamento avulso), e admin-tier ve tudo.
 // HISTORICO (fechadas) segue pessoal no app do garcom: cada um ve so as
 // que ELE abriu. O admin pode ver o historico completo da loja OU
-// filtrar por um funcionario especifico (?funcionario_id=).
+// filtrar por um funcionario especifico (?funcionario_id=) -- se esse
+// funcionario for do cargo "caixa", filtra por QUEM RECEBEU o pagamento
+// (fechada_por_funcionario_id + pago_no_caixa) em vez de quem abriu, ja
+// que caixa nunca e "dono" de mesa nenhuma.
 async function listar(req, res) {
   try {
     const { status, limite, pagina, funcionario_id: funcionarioIdFiltro } = req.query;
@@ -115,9 +108,18 @@ async function listar(req, res) {
     } else if (ehAdmin && funcionarioIdFiltro) {
       // So o admin pode escolher DE QUEM quer ver o historico -- o garcom
       // ja fica travado no proprio (regra acima) mesmo se tentar mandar
-      // esse parametro na mao.
-      condicoes.push(`funcionario_id = $${parametros.length + 1}`);
-      parametros.push(funcionarioIdFiltro);
+      // esse parametro na mao. Se o funcionario filtrado for do cargo
+      // "caixa", ele nunca "abre" comanda nenhuma -- entao o filtro certo
+      // pra ele e por quem RECEBEU o pagamento (fechada_por_funcionario_id
+      // + pago_no_caixa), nao por quem abriu.
+      const alvoRes = await query('SELECT cargo FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [funcionarioIdFiltro, req.estabelecimentoId]);
+      if (alvoRes.rows[0]?.cargo === 'caixa') {
+        condicoes.push(`fechada_por_funcionario_id = $${parametros.length + 1}`, 'pago_no_caixa = true');
+        parametros.push(funcionarioIdFiltro);
+      } else {
+        condicoes.push(`funcionario_id = $${parametros.length + 1}`);
+        parametros.push(funcionarioIdFiltro);
+      }
     }
     parametros.push(limiteFinal, offset);
 
@@ -371,6 +373,40 @@ async function resumoFuncionario(req, res) {
     const fRes = await query('SELECT id, nome, email, cargo FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
     if (fRes.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
     const funcionario = fRes.rows[0];
+
+    if (funcionario.cargo === 'caixa') {
+      // O Caixa nao "dono" nenhuma comanda (nunca abre mesa) -- o resumo
+      // dele e sobre PAGAMENTOS QUE ELE RECEBEU de mesas de outros
+      // garcons (pago_no_caixa = true), pra fins de conferencia/
+      // fechamento do caixa fisico da loja.
+      const recebidosHojeRes = await query(
+        `SELECT * FROM comandas WHERE estabelecimento_id = $1 AND fechada_por_funcionario_id = $2
+         AND pago_no_caixa = true
+         AND (fechada_em AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
+         ORDER BY fechada_em DESC`,
+        [req.estabelecimentoId, id]
+      );
+      const totalRecebidoHoje = recebidosHojeRes.rows.reduce((s, c) => s + Number(c.total), 0);
+      const porFormaCaixa = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
+      recebidosHojeRes.rows.forEach(c => {
+        if (c.forma_pagamento && porFormaCaixa.hasOwnProperty(c.forma_pagamento)) porFormaCaixa[c.forma_pagamento] += Number(c.total);
+      });
+      return res.json({
+        funcionario,
+        tipo: 'caixa',
+        resumo: {
+          total_recebido_hoje: totalRecebidoHoje,
+          pagamentos_hoje: recebidosHojeRes.rows.length
+        },
+        pagamentos_hoje: recebidosHojeRes.rows,
+        fechamento_caixa: {
+          total_dinheiro: porFormaCaixa.dinheiro,
+          total_cartao_credito: porFormaCaixa.cartao_credito,
+          total_cartao_debito: porFormaCaixa.cartao_debito,
+          total_pix: porFormaCaixa.pix
+        }
+      });
+    }
 
     if (funcionario.cargo !== 'garcom') {
       return res.json({ funcionario, tipo: 'sem_dados' });
