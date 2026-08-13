@@ -1092,7 +1092,17 @@
         </div>
 
         <div id="resumo-funcionario-sem-dados" class="resumo-funcionario__sem-dados oculto">
-          <p class="aba__descricao">Esse cargo ainda não gera dados de movimentação própria (só garçom, por enquanto). A identificação acima já confirma que o acesso foi autorizado.</p>
+          <p class="aba__descricao">Esse cargo ainda não gera dados de movimentação própria (só garçom/caixa, por enquanto). A identificação acima já confirma que o acesso foi autorizado.</p>
+        </div>
+
+        <!-- Resumo do dia pro cargo "Caixa" (so recebe pagamento de mesas de outros garcons) -->
+        <div id="resumo-funcionario-caixa-hoje" class="oculto" style="padding:14px;background:var(--admin-cor-fundo-card,#f9fafb);border-radius:10px;margin-bottom:14px;">
+          <div class="resumo-funcionario__secao-titulo">RECEBIDO NO CAIXA HOJE</div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;margin:8px 0 12px;">
+            <div><div style="font-size:1.3rem;font-weight:700;" id="caixa-total-hoje">R$ 0,00</div><div class="aba__descricao">Total recebido</div></div>
+            <div><div style="font-size:1.3rem;font-weight:700;" id="caixa-qtd-hoje">0</div><div class="aba__descricao">Pagamentos</div></div>
+          </div>
+          <div id="lista-caixa-pagamentos-hoje"></div>
         </div>
 
         <div id="resumo-funcionario-conteudo" class="resumo-funcionario__corpo">
@@ -1628,7 +1638,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="../js/config.js"></script>
   <script src="js/admin-api.js?v=20260810a"></script>
-  <script src="js/admin.js?v=20260810a"></script>
+  <script src="js/admin.js?v=20260813a"></script>
   <script src="js/admin-vitrines.js?v=20260720d"></script>
   <script src="js/admin-caixatexto.js?v=20260720d"></script>
   <script src="js/admin-construtor.js?v=20260722a"></script>
