@@ -175,11 +175,14 @@ const apiExcluirFuncionario = (id, senhaConfirmacao) => chamarApiFuncionarios(`/
 const apiListarEquipeOperacional = () => chamarApiFuncionarios('/equipe');
 const apiAlternarDisponibilidadeEntregador = (id, disponivel_entrega) => chamarApiFuncionarios(`/${id}/disponibilidade`, { method: 'PUT', body: { disponivel_entrega } });
 const apiVerificarSenhaAdministrador = (senha) => chamarApiFuncionarios('/verificar-senha-administrador', { method: 'POST', body: { senha } });
+const apiVerificarSenhaAtendimento = (login, senha) => chamarApiFuncionarios('/verificar-senha-atendimento', { method: 'POST', body: { login, senha } });
 const apiResumoFuncionario = (id) => chamarApiAdmin(`/funcionarios/${id}/resumo`);
 const apiCorrigirValoresComanda = (id, dados) => chamarApiAdmin(`/comandas/${id}/corrigir`, { method: 'PUT', body: dados });
 const apiHistoricoComandasFuncionario = (funcionarioId, pagina, limite = 50) =>
   chamarApiAdmin(`/comandas?status=fechada&funcionario_id=${funcionarioId}&pagina=${pagina}&limite=${limite}`);
 const apiObterComanda = (id) => chamarApiAdmin(`/comandas/${id}`);
+const apiListarComandasAbertas = () => chamarApiAdmin('/comandas?status=aberta&limite=200');
+const apiFecharComandaNoCaixa = (id, dados) => chamarApiAdmin(`/comandas/${id}/fechar`, { method: 'POST', body: { ...dados, pago_no_caixa: true } });
 
 const apiCorrigirValoresPedido = (id, dados) => chamarApiAdmin(`/pedidos/${id}/valores`, { method: 'PUT', body: dados });
 
