@@ -374,6 +374,13 @@
 
       <section id="aba-atendimento" class="aba oculto">
         <h2>Atendimento (balcão/mesa)</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+          <span id="atendimento-autenticado-como" style="font-size:0.82rem;font-weight:600;color:var(--admin-cor-texto-claro);"></span>
+          <div style="display:flex;gap:8px;">
+            <button type="button" id="botao-comanda-garcom" class="botao-secundario">🍽️ Comanda Garçom</button>
+            <button type="button" id="botao-trocar-atendente-atendimento" class="botao-secundario">🔄 Trocar</button>
+          </div>
+        </div>
         <p class="aba__descricao">
           Lance aqui um pedido feito presencialmente (ou por WhatsApp). Ele já entra
           direto em preparo (a cozinha vê na hora), sem precisar de aceite do administrador.
@@ -1253,6 +1260,31 @@
     </div>
   </div>
 
+  <!-- Gate de senha da aba Atendimento: so Caixa/Gerente/Administrador, com a PROPRIA senha -->
+  <div id="fundo-modal-gate-atendimento" class="modal-admin__fundo oculto" style="position:fixed;inset:0;z-index:200;"></div>
+  <div id="modal-gate-atendimento" class="modal-admin__caixa oculto" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:201;max-width:340px;width:90%;background:#fff;border-radius:12px;padding:22px;">
+    <h3>🔒 Acesso ao Atendimento</h3>
+    <p class="aba__descricao">Só Caixa, Gerente ou Administrador — digite sua própria senha (não é a senha do proprietário).</p>
+    <label class="campo-label">Login (e-mail ou usuário)</label>
+    <input type="text" id="input-atendimento-login" autocomplete="off">
+    <label class="campo-label">Senha</label>
+    <input type="password" id="input-atendimento-senha">
+    <p id="erro-gate-atendimento" class="erro-form oculto"></p>
+    <div class="botoes-linha-admin" style="margin-top:14px;">
+      <button type="button" id="botao-cancelar-gate-atendimento" class="botao-secundario">Cancelar</button>
+      <button type="button" id="botao-confirmar-gate-atendimento" class="botao-primario">Entrar</button>
+    </div>
+  </div>
+
+  <!-- "Comanda Garçom": ve/cobra qualquer mesa aberta pelo app do garcom (mesmo que o Caixa faz no app dele) -->
+  <div id="fundo-modal-comanda-garcom" class="modal-admin__fundo oculto" style="position:fixed;inset:0;z-index:200;"></div>
+  <div id="modal-comanda-garcom" class="modal-admin__caixa oculto" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:201;max-width:440px;width:92%;max-height:85vh;overflow-y:auto;background:#fff;border-radius:12px;padding:22px;">
+    <button class="modal-admin__fechar" onclick="document.getElementById('fundo-modal-comanda-garcom').classList.add('oculto');document.getElementById('modal-comanda-garcom').classList.add('oculto');" aria-label="Fechar">&times;</button>
+    <h3>🍽️ Comanda Garçom — mesas abertas</h3>
+    <p class="aba__descricao">Cobrar aqui fica marcado como "pago no caixa" no histórico do garçom dono da mesa.</p>
+    <div id="lista-comanda-garcom-abertas"></div>
+  </div>
+
   <div id="modal-editar-funcionario" class="modal-admin oculto">
     <div class="modal-admin__fundo" data-fechar-modal-admin></div>
     <div class="modal-admin__caixa">
@@ -1637,8 +1669,8 @@
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="../js/config.js"></script>
-  <script src="js/admin-api.js?v=20260810a"></script>
-  <script src="js/admin.js?v=20260813a"></script>
+  <script src="js/admin-api.js?v=20260813b"></script>
+  <script src="js/admin.js?v=20260813b"></script>
   <script src="js/admin-vitrines.js?v=20260720d"></script>
   <script src="js/admin-caixatexto.js?v=20260720d"></script>
   <script src="js/admin-construtor.js?v=20260722a"></script>
