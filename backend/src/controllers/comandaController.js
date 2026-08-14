@@ -250,8 +250,11 @@ async function fechar(req, res) {
     // Se quem esta fechando e o Caixa (nao o garcom dono da mesa), fica
     // registrado que o pagamento foi recebido no caixa -- a comanda
     // continua sendo do garcom original (funcionario_id nao muda), so
-    // aparece esse aviso extra no historico dele e no dashboard.
-    const pagoNoCaixa = req.cargo === 'caixa';
+    // aparece esse aviso extra no historico dele e no dashboard. O botao
+    // "Comanda Garçom" dentro do Atendimento (dashboard) faz a mesma
+    // coisa mas autenticado como proprietario/gerente/administrador --
+    // esses tambem marcam pago_no_caixa quando mandam esse flag explicito.
+    const pagoNoCaixa = req.cargo === 'caixa' || (ehAdminTier(req.cargo) && req.body.pago_no_caixa === true);
 
     // Enquanto a loja nao configurar a chave de pagamento (Configuracoes >
     // Pagamento), so aceita Dinheiro no fechamento -- Pix, credito e debito
