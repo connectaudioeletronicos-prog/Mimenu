@@ -802,86 +802,6 @@ async function meuHistoricoPlantoes(req, res) {
   }
 }
 
-// "Pagamento" (topico 5 do app do entregador): plantao aberto agora (soma
-// do valor do dia contando do inicio ao fim do plantao, horario que vem do
-// proprio checkin/checkout controlado pelo dashboard do admin), com a
-// quantidade de rotas e o codigo de cada rota desse plantao; paginado por
-// plantao (5 por pagina, do mais recente pro mais antigo) com um total
-// geral (todos os plantoes, sem limite) igual ao do "Resumo de rotas".
-async function meuPagamento(req, res) {
-  try {
-    const pagina = Math.max(parseInt(req.query.pagina, 10) || 1, 1);
-    const porPagina = 5;
-
-    const aberto = await query(
-      'SELECT * FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
-      [req.funcionarioId]
-    );
-    let plantaoAtual = null;
-    if (aberto.rows.length > 0) {
-      const resumo = await calcularResumoPlantao(aberto.rows[0].id, req.funcionarioId);
-      const rotas = await query(
-        `SELECT id FROM pedidos WHERE plantao_id = $1 AND status_pedido = 'entregue' ORDER BY horario_entregue DESC`,
-        [aberto.rows[0].id]
-      );
-      plantaoAtual = {
-        ...aberto.rows[0],
-        ...resumo,
-        codigos_rota: rotas.rows.map(r => r.id.slice(0, 8).toUpperCase())
-      };
-    }
-
-    const fechados = await query(
-      `SELECT id, inicio, fim, total_entregas, total_km, valor_total, total_gorjetas
-       FROM entregador.plantoes_entregador
-       WHERE funcionario_id = $1 AND fim IS NOT NULL
-       ORDER BY fim DESC
-       LIMIT $2 OFFSET $3`,
-      [req.funcionarioId, porPagina, (pagina - 1) * porPagina]
-    );
-    const plantoesComRotas = await Promise.all(fechados.rows.map(async (p) => {
-      const rotas = await query(
-        `SELECT id FROM pedidos WHERE plantao_id = $1 AND status_pedido = 'entregue' ORDER BY horario_entregue DESC`,
-        [p.id]
-      );
-      return { ...p, codigos_rota: rotas.rows.map(r => r.id.slice(0, 8).toUpperCase()) };
-    }));
-
-    const contagem = await query(
-      'SELECT COUNT(*) AS total FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NOT NULL',
-      [req.funcionarioId]
-    );
-    const totalPlantoesFechados = parseInt(contagem.rows[0].total, 10) || 0;
-
-    // Total geral: soma de TODOS os plantoes fechados + o que ja foi
-    // apurado no plantao aberto (se houver), sem limite de paginacao.
-    const somaFechados = await query(
-      `SELECT COUNT(*) AS total_plantoes, COALESCE(SUM(total_entregas), 0) AS total_entregas,
-              COALESCE(SUM(valor_total), 0) AS valor_total, COALESCE(SUM(total_gorjetas), 0) AS total_gorjetas
-       FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NOT NULL`,
-      [req.funcionarioId]
-    );
-    const s = somaFechados.rows[0];
-    const totalGeral = {
-      total_plantoes: (parseInt(s.total_plantoes, 10) || 0) + (plantaoAtual ? 1 : 0),
-      total_entregas: (parseInt(s.total_entregas, 10) || 0) + (plantaoAtual?.total_entregas || 0),
-      valor_total: (Number(s.valor_total) || 0) + (plantaoAtual?.valor_total || 0),
-      total_gorjetas: (Number(s.total_gorjetas) || 0) + (plantaoAtual?.total_gorjetas || 0)
-    };
-
-    res.json({
-      plantao_atual: plantaoAtual,
-      plantoes_anteriores: plantoesComRotas,
-      pagina,
-      tem_mais: pagina * porPagina < totalPlantoesFechados,
-      total_geral: totalGeral
-    });
-  } catch (error) {
-    console.error('Erro ao obter pagamento do entregador:', error);
-    res.status(500).json({ erro: 'Erro ao obter pagamento.' });
-  }
-}
-
 // Historico de plantoes -- painel admin. Sem funcionario_id, traz de todos
 // os entregadores (ex: fechamento semanal); com funcionario_id, filtra um so.
 async function listarHistoricoPlantoes(req, res) {
@@ -922,25 +842,25 @@ async function listarHistoricoPlantoes(req, res) {
 // pela rota de so-confirmar (verificarSenhaSupervisor) quanto por qualquer
 // acao que precise "confirmar senha E fazer algo" no mesmo passo (ex:
 // fechar comanda manualmente no app do garcom).
-async function verificarCredenciaisSupervisor(estabelecimentoId, login, senha) {
+async function verificarCredenciaisSupervisor(estabelecimentoId, login, senha, cargosPermitidos = ['administrador', 'gerente']) {
   if (!login || !senha) {
     const erro = new Error('Informe login e senha.'); erro.status = 400; throw erro;
   }
   const resultado = await query(
-    `SELECT senha_hash, cargo, nome FROM funcionarios
+    `SELECT id, senha_hash, cargo, nome FROM funcionarios
      WHERE estabelecimento_id = $1 AND (email = $2 OR username = $2) AND ativo = true`,
     [estabelecimentoId, login]
   );
   if (resultado.rows.length === 0) { const erro = new Error('Login ou senha invalidos.'); erro.status = 401; throw erro; }
 
   const alvo = resultado.rows[0];
-  if (!['administrador', 'gerente'].includes(alvo.cargo)) {
-    const erro = new Error('Essa senha nao e de um gerente ou administrador.'); erro.status = 403; throw erro;
+  if (!cargosPermitidos.includes(alvo.cargo)) {
+    const erro = new Error('Essa senha nao tem permissao para essa acao.'); erro.status = 403; throw erro;
   }
   const senhaCorreta = await bcrypt.compare(senha, alvo.senha_hash);
   if (!senhaCorreta) { const erro = new Error('Login ou senha invalidos.'); erro.status = 401; throw erro; }
 
-  return { nome: alvo.nome, cargo: alvo.cargo };
+  return { id: alvo.id, nome: alvo.nome, cargo: alvo.cargo };
 }
 
 async function verificarSenhaSupervisor(req, res) {
@@ -951,6 +871,23 @@ async function verificarSenhaSupervisor(req, res) {
   } catch (error) {
     if (error.status) return res.status(error.status).json({ erro: error.message });
     console.error('Erro ao verificar senha de supervisor:', error);
+    res.status(500).json({ erro: 'Erro ao verificar senha.' });
+  }
+}
+
+// Gate de acesso da aba "Atendimento" do dashboard: so libera pra quem
+// digitar login+senha de um funcionario com cargo Caixa, Gerente ou
+// Administrador (nao eh a senha do proprietario da conta -- e a senha
+// individual de cada funcionario, pra saber sempre QUEM lancou cada
+// pedido dali). Retorna o id tambem, pra gravar no pedido lancado.
+async function verificarSenhaAtendimento(req, res) {
+  try {
+    const { login, senha } = req.body;
+    const resultado = await verificarCredenciaisSupervisor(req.estabelecimentoId, login, senha, ['caixa', 'gerente', 'administrador']);
+    res.json({ autorizado: true, id: resultado.id, nome: resultado.nome, cargo: resultado.cargo });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ erro: error.message });
+    console.error('Erro ao verificar senha de atendimento:', error);
     res.status(500).json({ erro: 'Erro ao verificar senha.' });
   }
 }
@@ -994,8 +931,8 @@ module.exports = {
   loginFuncionario, acessarPorLink, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir,
   listarEquipeOperacional, alternarDisponibilidadeEntregador,
   obterQrcodeDoDia, checkinEntregador, exigirDentroDoHorario, liberarHoraExtra, gerarQrcodeGenerico,
-  obterPlantaoAtual, encerrarPlantao, listarHistoricoPlantoes, meuHistoricoPlantoes, meuPagamento, calcularResumoPlantao,
-  verificarSenhaSupervisor, verificarCredenciaisSupervisor,
+  obterPlantaoAtual, encerrarPlantao, listarHistoricoPlantoes, meuHistoricoPlantoes, calcularResumoPlantao,
+  verificarSenhaSupervisor, verificarCredenciaisSupervisor, verificarSenhaAtendimento,
   verificarSenhaAdministrador,
   registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS
 };
