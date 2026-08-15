@@ -190,7 +190,10 @@ const apiHistoricoComandasFuncionario = (funcionarioId, pagina, limite = 50) =>
   chamarApiAdmin(`/comandas?status=fechada&funcionario_id=${funcionarioId}&pagina=${pagina}&limite=${limite}`);
 const apiObterComanda = (id) => chamarApiAdmin(`/comandas/${id}`);
 const apiListarComandasAbertas = () => chamarApiAdmin('/comandas?status=aberta&limite=200');
-const apiFecharComandaNoCaixa = (id, dados) => chamarApiAdmin(`/comandas/${id}/fechar`, { method: 'POST', body: { ...dados, pago_no_caixa: true } });
+// operador_atendimento_id: quem autenticou no gate do Atendimento (o
+// backend revalida esse id antes de usar -- nunca confia soh nisso). Sem
+// ele, o servidor usa a sessao normal (funcionario logado direto).
+const apiFecharComandaNoCaixa = (id, dados) => chamarApiAdmin(`/comandas/${id}/fechar`, { method: 'POST', body: { ...dados, pago_no_caixa: true, operador_atendimento_id: atendimentoAutenticado?.id || null } });
 
 const apiCorrigirValoresPedido = (id, dados) => chamarApiAdmin(`/pedidos/${id}/valores`, { method: 'PUT', body: dados });
 
