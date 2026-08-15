@@ -1,6 +1,7 @@
 const { query } = require('../config/database');
 const { baixarEstoquePorVenda } = require('../utils/estoque');
 const { resolverIntervalo } = require('../utils/periodo');
+const { proximoNumero } = require('../utils/numeracao');
 const pagamentos = require('../utils/pagamentos');
 
 const FORMAS_PAGAMENTO_VALIDAS = ['dinheiro', 'pix', 'cartao_credito', 'cartao_debito'];
@@ -58,10 +59,12 @@ async function abrir(req, res) {
       return res.status(400).json({ erro: 'Informe a mesa ou o nome do cliente para abrir a comanda.' });
     }
 
+    const { numero, anoMes } = await proximoNumero(req.estabelecimentoId, 'comanda');
+
     const resultado = await query(
-      `INSERT INTO comandas (estabelecimento_id, funcionario_id, funcionario_nome, mesa_cliente, observacao)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [req.estabelecimentoId, req.funcionarioId || null, req.funcionarioNome || null, mesa_cliente.trim(), observacao || null]
+      `INSERT INTO comandas (estabelecimento_id, funcionario_id, funcionario_nome, mesa_cliente, observacao, numero_comanda, numero_comanda_ano_mes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [req.estabelecimentoId, req.funcionarioId || null, req.funcionarioNome || null, mesa_cliente.trim(), observacao || null, numero, anoMes]
     );
     res.status(201).json(resultado.rows[0]);
   } catch (error) {
@@ -212,13 +215,15 @@ async function adicionarItens(req, res) {
     // forma_pagamento e' NOT NULL em pedidos, mas quem paga de verdade e'
     // a comanda (no fechamento) -- 'comanda' aqui e' so um marcador,
     // status_pagamento fica 'pendente' e nao e' usado pra nada nessa linha.
+    const { numero: numeroPedido, anoMes: anoMesPedido } = await proximoNumero(req.estabelecimentoId, 'pedido');
     const pedidoRes = await query(
       `INSERT INTO pedidos (
         estabelecimento_id, cliente_nome, cliente_telefone, itens, subtotal, taxa_entrega,
-        gorjeta, total, forma_pagamento, status_pagamento, status_pedido, tipo_pedido, canal_venda, observacoes, comanda_id
-      ) VALUES ($1, $2, '(comanda)', $3, $4, 0, 0, $4, 'comanda', 'pendente', 'preparando', 'balcao', 'mesa', $5, $6)
+        gorjeta, total, forma_pagamento, status_pagamento, status_pedido, tipo_pedido, canal_venda, observacoes, comanda_id,
+        numero_pedido, numero_pedido_ano_mes
+      ) VALUES ($1, $2, '(comanda)', $3, $4, 0, 0, $4, 'comanda', 'pendente', 'preparando', 'balcao', 'mesa', $5, $6, $7, $8)
       RETURNING *`,
-      [req.estabelecimentoId, comanda.mesa_cliente, JSON.stringify(itensValidados), subtotalRodada, observacoes || null, id]
+      [req.estabelecimentoId, comanda.mesa_cliente, JSON.stringify(itensValidados), subtotalRodada, observacoes || null, id, numeroPedido, anoMesPedido]
     );
 
     await query('UPDATE comandas SET subtotal = subtotal + $1, total = subtotal + $1 + gorjeta WHERE id = $2', [subtotalRodada, id]);
@@ -279,7 +284,16 @@ async function fechar(req, res) {
     // (logou direto, sem passar pelo gate), usa req.funcionarioId normal.
     let fechadaPorId = req.funcionarioId || null;
     let fechadaPorNome = req.funcionarioNome || null;
-    if (!fechadaPorId && pagoNoCaixa && operador_atendimento_id) {
+    // Proprietario nao tem registro em funcionarios -- quando ele passa
+    // pelo gate do Atendimento com a PROPRIA senha (verificarSenhaAtendimentoProprietario),
+    // o front manda 'proprietario' em operador_atendimento_id em vez de
+    // um UUID. Aqui so confia nisso se a sessao do dashboard tambem for
+    // do proprietario de verdade (req.cargo), pra nao dar pra um
+    // funcionario forjar essa marcacao.
+    if (!fechadaPorId && pagoNoCaixa && operador_atendimento_id === 'proprietario' && req.cargo === 'proprietario') {
+      fechadaPorId = null;
+      fechadaPorNome = 'Proprietário';
+    } else if (!fechadaPorId && pagoNoCaixa && operador_atendimento_id) {
       const opRes = await query(
         `SELECT id, nome, cargo FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2 AND ativo = true`,
         [operador_atendimento_id, req.estabelecimentoId]
@@ -454,29 +468,53 @@ async function resumoFuncionario(req, res) {
         paramsPedidos
       );
 
+      // Itens de cada comanda (todas as rodadas mandadas pra cozinha),
+      // pra poder mostrar "o que o cliente pediu" no detalhe -- igual ja
+      // existe no Resumo do garcom.
+      const comandaIdsCaixa = comandasRes.rows.map(c => c.id);
+      let rodadasCaixaRes = { rows: [] };
+      if (comandaIdsCaixa.length > 0) {
+        rodadasCaixaRes = await query(
+          `SELECT comanda_id, itens FROM pedidos WHERE comanda_id = ANY($1::uuid[])`,
+          [comandaIdsCaixa]
+        );
+      }
+
       // Junta as duas origens numa lista so, ja no formato que a tela usa
       // (mesa_cliente, fechada_em, forma_pagamento, total, gorjeta,
       // funcionario_nome de quem atendia a mesa -- so faz sentido pra
-      // comanda, pedido de balcao nao tem "garcom dono").
-      const canalLegenda = { balcao: 'Balcão', retirada: 'Retirada', mesa: 'Mesa (direto)' };
+      // comanda, pedido de balcao nao tem "garcom dono"). Cada linha ja
+      // vem com os itens (pra mostrar no detalhe: o que foi pedido,
+      // valor unitario e total) e a origem/tipo (mesa, balcao ou
+      // entrega), pra ficar claro de onde veio cada venda.
+      const canalLegenda = { balcao: 'Balcão', retirada: 'Retirada', mesa: 'Mesa (direto)', delivery: 'Entrega' };
       const movimentacoes = [
         ...comandasRes.rows.map(c => ({
           origem: 'comanda', id: c.id, mesa_cliente: c.mesa_cliente, funcionario_nome: c.funcionario_nome,
           forma_pagamento: c.forma_pagamento, subtotal: c.subtotal, gorjeta: c.gorjeta, total: c.total,
-          quando: c.fechada_em, numero: c.numero_comanda
+          quando: c.fechada_em, numero: c.numero_comanda, tipo_venda: 'Mesa',
+          itens: rodadasCaixaRes.rows.filter(r => r.comanda_id === c.id).flatMap(r => Array.isArray(r.itens) ? r.itens : [])
         })),
         ...pedidosRes.rows.map(p => ({
           origem: 'pedido', id: p.id, mesa_cliente: `${canalLegenda[p.canal_venda] || 'Balcão'} — ${p.cliente_nome}`,
           funcionario_nome: null, forma_pagamento: p.forma_pagamento, subtotal: p.subtotal, gorjeta: p.gorjeta || 0,
-          total: p.total, quando: p.criado_em, numero: p.numero_pedido
+          total: p.total, quando: p.criado_em, numero: p.numero_pedido,
+          tipo_venda: p.tipo_pedido === 'entrega' ? 'Entrega' : 'Balcão',
+          itens: Array.isArray(p.itens) ? p.itens : []
         }))
       ].sort((a, b) => new Date(b.quando) - new Date(a.quando));
 
       const totalRecebido = movimentacoes.reduce((s, m) => s + Number(m.total), 0);
+      const gorjetasCaixa = movimentacoes.reduce((s, m) => s + Number(m.gorjeta || 0), 0);
       const porFormaCaixa = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
+      const transacoesPorFormaCaixa = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
       movimentacoes.forEach(m => {
-        if (m.forma_pagamento && porFormaCaixa.hasOwnProperty(m.forma_pagamento)) porFormaCaixa[m.forma_pagamento] += Number(m.total);
+        if (m.forma_pagamento && porFormaCaixa.hasOwnProperty(m.forma_pagamento)) {
+          porFormaCaixa[m.forma_pagamento] += Number(m.total);
+          transacoesPorFormaCaixa[m.forma_pagamento] += 1;
+        }
       });
+      const ticketMedioCaixa = movimentacoes.length > 0 ? totalRecebido / movimentacoes.length : 0;
 
       return res.json({
         funcionario,
@@ -484,14 +522,29 @@ async function resumoFuncionario(req, res) {
         periodo: { intervalo, inicio, fim },
         resumo: {
           total_recebido_hoje: totalRecebido, // nome do campo mantido por compatibilidade -- vale pro periodo escolhido, nao so "hoje"
-          pagamentos_hoje: movimentacoes.length
+          pagamentos_hoje: movimentacoes.length,
+          // BUGFIX: esses 4 campos nao existiam aqui antes -- o frontend
+          // esperava esses nomes (iguais aos do garcom) pra preencher os
+          // cards "Vendas do dia / Pedidos / Ticket médio / Mesas
+          // atendidas", e como nao vinham, os cards ficavam travados em
+          // R$ 0,00 mesmo com dinheiro recebido de verdade.
+          vendas_do_dia: totalRecebido,
+          gorjetas_do_dia: gorjetasCaixa,
+          pedidos_hoje: movimentacoes.length,
+          comandas_abertas: 0, // caixa nunca "abre" mesa -- nao se aplica
+          mesas_atendidas_hoje: movimentacoes.length,
+          ticket_medio: ticketMedioCaixa
         },
         pagamentos_hoje: movimentacoes,
+        comandas_hoje: movimentacoes, // mesmo dado, nome alternativo pro renderizador compartilhado
         fechamento_caixa: {
           total_dinheiro: porFormaCaixa.dinheiro,
           total_cartao_credito: porFormaCaixa.cartao_credito,
           total_cartao_debito: porFormaCaixa.cartao_debito,
-          total_pix: porFormaCaixa.pix
+          total_pix: porFormaCaixa.pix,
+          transacoes_cartao_credito: transacoesPorFormaCaixa.cartao_credito,
+          transacoes_cartao_debito: transacoesPorFormaCaixa.cartao_debito,
+          total_recebido: totalRecebido
         }
       });
     }
@@ -541,31 +594,49 @@ async function resumoFuncionario(req, res) {
     );
 
     const fechadasPeriodo = comandasPeriodo.filter(c => c.status === 'fechada');
-    const vendasPeriodo = fechadasPeriodo.reduce((s, c) => s + Number(c.total), 0);
+    // IMPORTANTE: "Fechamento de caixa" e "Vendas do dia" desse garcom
+    // precisam refletir SO o dinheiro que ELE MESMO recebeu na mao --
+    // uma mesa que ele atendeu mas o Caixa cobrou (pago_no_caixa = true)
+    // nao pode entrar nessa soma, senao o total pessoal dele fica
+    // inflado com dinheiro que ele nunca chegou a pegar (quebra a prova
+    // de exatidao: se der diferenca no caixa, isso incrimina o garcom
+    // errado). Essas comandas continuam aparecendo na lista
+    // "comandas_hoje" (ele atendeu a mesa, precisa poder provar isso),
+    // so nao contam nos totais financeiros pessoais dele.
+    const fechadasRecebidasPorEle = fechadasPeriodo.filter(c => !c.pago_no_caixa);
+    const vendasPeriodo = fechadasRecebidasPorEle.reduce((s, c) => s + Number(c.total), 0);
     const gorjetasPeriodo = fechadasPeriodo.reduce((s, c) => s + Number(c.gorjeta || 0), 0);
     const pedidosPeriodo = comandasPeriodo.reduce((s, c) => s + c.rodadas.length, 0);
-    const ticketMedio = fechadasPeriodo.length > 0 ? vendasPeriodo / fechadasPeriodo.length : 0;
+    const ticketMedio = fechadasRecebidasPorEle.length > 0 ? vendasPeriodo / fechadasRecebidasPorEle.length : 0;
 
     const porForma = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
     const transacoesPorForma = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
-    fechadasPeriodo.forEach(c => {
+    fechadasRecebidasPorEle.forEach(c => {
       if (c.forma_pagamento && porForma.hasOwnProperty(c.forma_pagamento)) {
         porForma[c.forma_pagamento] += Number(c.total);
         transacoesPorForma[c.forma_pagamento] += 1;
       }
     });
 
+    // Total recebido por outra pessoa (caixa/gerente/admin/proprietario)
+    // em mesas que sao dele -- mostrado separado, pra ficar claro que
+    // ele atendeu mas nao foi ele quem guardou o dinheiro.
+    const totalPagoNoCaixa = fechadasPeriodo
+      .filter(c => c.pago_no_caixa)
+      .reduce((s, c) => s + Number(c.total), 0);
+
     res.json({
       funcionario,
       tipo: 'garcom',
       periodo: { intervalo, inicio, fim },
       resumo: {
-        vendas_do_dia: vendasPeriodo, // nomes de campo mantidos por compatibilidade -- valem pro periodo escolhido
+        vendas_do_dia: vendasPeriodo, // nomes de campo mantidos por compatibilidade -- valem pro periodo escolhido, e ja SO o que ele mesmo recebeu
         gorjetas_do_dia: gorjetasPeriodo,
         pedidos_hoje: pedidosPeriodo,
         comandas_abertas: parseInt(abertasAgoraRes.rows[0].count, 10),
         mesas_atendidas_hoje: comandasPeriodo.length,
-        ticket_medio: ticketMedio
+        ticket_medio: ticketMedio,
+        total_pago_no_caixa: totalPagoNoCaixa
       },
       comandas_hoje: comandasPeriodo,
       fechamento_caixa: {
