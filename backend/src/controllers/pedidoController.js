@@ -3,6 +3,7 @@ const { uploadImagem } = require('../utils/storage');
 const { validarFormatoCep, validarCepViaCep } = require('../utils/geocoding');
 const { validarTelefone } = require('../utils/validadores');
 const { baixarEstoquePorVenda } = require('../utils/estoque');
+const { resolverIntervalo } = require('../utils/periodo');
 const pagamentos = require('../utils/pagamentos');
 
 // Monta a cobranca Pix pra um pedido ja inserido (status 'pendente') e
@@ -573,9 +574,21 @@ async function listarPedidosCliente(req, res) {
 // deixa o caminho pronto para quando o pedido de balcao existir --
 // nesse dia, e so tirar o filtro abaixo (ou somar os dois tipos
 // separadamente) sem precisar mexer no resto do controller.
+// Aceita tanto o filtro rapido por periodo (?intervalo=hoje|ontem|semana|
+// mes_atual|trimestre|semestre|geral|personalizado) quanto o par de datas
+// manual antigo (?data_inicio=...&data_fim=...), pra nao quebrar quem ja
+// estava chamando do jeito velho. Sem nenhum dos dois, mostra TUDO (geral).
 async function obterCaixaGeral(req, res) {
   try {
-    const { data_inicio, data_fim } = req.query;
+    const { intervalo, data_inicio, data_fim } = req.query;
+
+    let inicio = null;
+    let fim = null;
+    if (intervalo) {
+      ({ inicio, fim } = resolverIntervalo(intervalo, data_inicio, data_fim));
+    } else if (data_inicio || data_fim) {
+      ({ inicio, fim } = resolverIntervalo('personalizado', data_inicio, data_fim));
+    } // sem nenhum parametro -> inicio/fim continuam null -> historico geral, sem limite de data
 
     let sql = `
       SELECT id, cliente_nome, subtotal, taxa_entrega, total, forma_pagamento,
@@ -585,10 +598,10 @@ async function obterCaixaGeral(req, res) {
     `;
     const params = [req.estabelecimentoId];
 
-    if (data_inicio) { params.push(data_inicio); sql += ` AND criado_em >= $${params.length}`; }
-    if (data_fim) { params.push(data_fim); sql += ` AND criado_em < ($${params.length}::date + INTERVAL '1 day')`; }
+    if (inicio) { params.push(inicio); sql += ` AND criado_em >= $${params.length}`; }
+    if (fim) { params.push(fim); sql += ` AND criado_em <= $${params.length}`; }
 
-    sql += ' ORDER BY criado_em DESC LIMIT 500';
+    sql += ' ORDER BY criado_em DESC LIMIT 1000';
 
     const resultado = await query(sql, params);
 
