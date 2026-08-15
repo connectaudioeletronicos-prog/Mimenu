@@ -4,6 +4,7 @@ const { validarFormatoCep, validarCepViaCep } = require('../utils/geocoding');
 const { validarTelefone } = require('../utils/validadores');
 const { baixarEstoquePorVenda } = require('../utils/estoque');
 const { resolverIntervalo } = require('../utils/periodo');
+const { proximoNumero } = require('../utils/numeracao');
 const pagamentos = require('../utils/pagamentos');
 
 // Monta a cobranca Pix pra um pedido ja inserido (status 'pendente') e
@@ -111,10 +112,11 @@ async function criarPedido(req, res) {
     // pelos relatorios/dashboard de estoque e vendas por canal.
     const canalVenda = ehRetirada ? 'retirada' : 'delivery';
 
+    const { numero: numeroPedidoPublico, anoMes: anoMesPedidoPublico } = await proximoNumero(estabelecimentoId, 'pedido');
     const pedidoRes = await query(
-      `INSERT INTO pedidos (estabelecimento_id, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes, forma_pagamento, itens, subtotal, taxa_entrega, gorjeta, total, tipo_pedido, canal_venda, troco_para, status_pedido, status_pagamento)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'novo','pendente') RETURNING *`,
-      [estabelecimentoId, cliente_nome, cliente_telefone, ehRetirada ? null : cliente_endereco, ehRetirada ? null : cliente_cep, observacoes || '', forma_pagamento, JSON.stringify(itensValidados), subtotal, taxaEntregaFinal, gorjetaFinal, total, tipoPedidoFinal, canalVenda, trocoParaFinal]
+      `INSERT INTO pedidos (estabelecimento_id, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes, forma_pagamento, itens, subtotal, taxa_entrega, gorjeta, total, tipo_pedido, canal_venda, troco_para, status_pedido, status_pagamento, numero_pedido, numero_pedido_ano_mes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'novo','pendente',$16,$17) RETURNING *`,
+      [estabelecimentoId, cliente_nome, cliente_telefone, ehRetirada ? null : cliente_endereco, ehRetirada ? null : cliente_cep, observacoes || '', forma_pagamento, JSON.stringify(itensValidados), subtotal, taxaEntregaFinal, gorjetaFinal, total, tipoPedidoFinal, canalVenda, trocoParaFinal, numeroPedidoPublico, anoMesPedidoPublico]
     );
     const pedido = pedidoRes.rows[0];
 
@@ -696,7 +698,13 @@ async function criarPedidoManual(req, res) {
     // funcionario), cai no req.funcionarioId de sempre.
     let lancadoPorId = null;
     let lancadoPorNome = null;
-    if (lancado_por_funcionario_id) {
+    // Proprietario passou pelo gate com a PROPRIA senha: nao tem registro
+    // em funcionarios, entao o front manda 'proprietario' em vez de um
+    // UUID -- so aceito se a sessao do dashboard tambem for dele mesmo.
+    if (lancado_por_funcionario_id === 'proprietario' && req.cargo === 'proprietario') {
+      lancadoPorId = null;
+      lancadoPorNome = 'Proprietário';
+    } else if (lancado_por_funcionario_id) {
       const flr = await query(
         `SELECT id, nome, cargo FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2 AND ativo = true`,
         [lancado_por_funcionario_id, req.estabelecimentoId]
@@ -710,14 +718,15 @@ async function criarPedidoManual(req, res) {
       lancadoPorNome = req.funcionarioNome || lancado_por_funcionario_nome || null;
     }
 
+    const { numero: numeroPedidoManual, anoMes: anoMesPedidoManual } = await proximoNumero(req.estabelecimentoId, 'pedido');
     const resultado = await query(
       `INSERT INTO pedidos (
         estabelecimento_id, cliente_nome, cliente_telefone, itens, subtotal, taxa_entrega,
         gorjeta, total, forma_pagamento, status_pagamento, status_pedido, tipo_pedido, canal_venda, observacoes,
-        lancado_por_funcionario_id, lancado_por_funcionario_nome
-      ) VALUES ($1, $2, $3, $4, $5, 0, 0, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        lancado_por_funcionario_id, lancado_por_funcionario_nome, numero_pedido, numero_pedido_ano_mes
+      ) VALUES ($1, $2, $3, $4, $5, 0, 0, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *`,
-      [req.estabelecimentoId, cliente_nome.trim(), '(balcao)', JSON.stringify(itensValidados), subtotal, total, forma_pagamento, statusPagamentoInicial, statusPedidoInicial, tipoPedido, canalVenda, observacoes || null, lancadoPorId, lancadoPorNome]
+      [req.estabelecimentoId, cliente_nome.trim(), '(balcao)', JSON.stringify(itensValidados), subtotal, total, forma_pagamento, statusPagamentoInicial, statusPedidoInicial, tipoPedido, canalVenda, observacoes || null, lancadoPorId, lancadoPorNome, numeroPedidoManual, anoMesPedidoManual]
     );
     let pedido = resultado.rows[0];
 
