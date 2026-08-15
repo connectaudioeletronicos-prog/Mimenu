@@ -176,7 +176,15 @@ const apiListarEquipeOperacional = () => chamarApiFuncionarios('/equipe');
 const apiAlternarDisponibilidadeEntregador = (id, disponivel_entrega) => chamarApiFuncionarios(`/${id}/disponibilidade`, { method: 'PUT', body: { disponivel_entrega } });
 const apiVerificarSenhaAdministrador = (senha) => chamarApiFuncionarios('/verificar-senha-administrador', { method: 'POST', body: { senha } });
 const apiVerificarSenhaAtendimento = (login, senha) => chamarApiFuncionarios('/verificar-senha-atendimento', { method: 'POST', body: { login, senha } });
-const apiResumoFuncionario = (id) => chamarApiAdmin(`/funcionarios/${id}/resumo`);
+// intervalo: 'hoje' (padrao) | 'ontem' | 'semana' | 'mes_atual' | 'trimestre'
+// | 'semestre' | 'geral' | 'personalizado' (junto com dataInicio/dataFim).
+const apiResumoFuncionario = (id, intervalo = 'hoje', dataInicio = '', dataFim = '') => {
+  const parametros = new URLSearchParams();
+  if (intervalo) parametros.set('intervalo', intervalo);
+  if (dataInicio) parametros.set('data_inicio', dataInicio);
+  if (dataFim) parametros.set('data_fim', dataFim);
+  return chamarApiAdmin(`/funcionarios/${id}/resumo?${parametros.toString()}`);
+};
 const apiCorrigirValoresComanda = (id, dados) => chamarApiAdmin(`/comandas/${id}/corrigir`, { method: 'PUT', body: dados });
 const apiHistoricoComandasFuncionario = (funcionarioId, pagina, limite = 50) =>
   chamarApiAdmin(`/comandas?status=fechada&funcionario_id=${funcionarioId}&pagina=${pagina}&limite=${limite}`);
@@ -191,8 +199,12 @@ const apiContarPedidos = () => chamarApiAdmin('/pedidos/contagem');
 const apiAtualizarStatusPedido = (id, status_pedido) => chamarApiAdmin(`/pedidos/${id}/status`, { method: 'PUT', body: { status_pedido } });
 const apiCriarPedidoManual = (dados) => chamarApiAdmin('/pedidos', { method: 'POST', body: dados });
 
-const apiObterCaixaGeral = (dataInicio = '', dataFim = '') => {
+// intervalo: 'hoje' | 'ontem' | 'semana' | 'mes_atual' | 'trimestre' |
+// 'semestre' | 'geral' | 'personalizado' (junto com dataInicio/dataFim).
+// Sem nenhum parametro, o backend devolve o historico geral (sem limite de data).
+const apiObterCaixaGeral = (intervalo = '', dataInicio = '', dataFim = '') => {
   const parametros = new URLSearchParams();
+  if (intervalo) parametros.set('intervalo', intervalo);
   if (dataInicio) parametros.set('data_inicio', dataInicio);
   if (dataFim) parametros.set('data_fim', dataFim);
   const query = parametros.toString();
