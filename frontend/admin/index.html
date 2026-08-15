@@ -430,7 +430,18 @@
           pedido de balcao existir, ele entra automaticamente nesse mesmo resumo.
         </p>
 
-        <div class="campo-linha">
+        <div class="botoes-filtro-atendimento" style="display:flex; gap:8px; margin:12px 0; flex-wrap:wrap;" id="botoes-periodo-caixa-geral">
+          <button type="button" class="botao-secundario ativo" data-periodo-caixa="hoje">Hoje</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="ontem">Ontem</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="semana">Esta semana</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="mes_atual">Este mês</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="trimestre">Este trimestre</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="semestre">Este semestre</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="geral">Geral (tudo)</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="personalizado">Manual</button>
+        </div>
+
+        <div class="campo-linha oculto" id="campos-caixa-manual">
           <div class="campo-grupo">
             <label class="campo-label">De</label>
             <input type="date" id="caixa-data-inicio" class="campo-texto">
@@ -439,8 +450,8 @@
             <label class="campo-label">Ate</label>
             <input type="date" id="caixa-data-fim" class="campo-texto">
           </div>
+          <button id="botao-filtrar-caixa" class="botao-secundario">Filtrar</button>
         </div>
-        <button id="botao-filtrar-caixa" class="botao-secundario">Filtrar</button>
 
         <div id="resumo-caixa-geral" class="resumo-caixa-geral"></div>
         <div id="lista-caixa-geral" class="lista-itens-admin"></div>
@@ -1102,9 +1113,32 @@
           <p class="aba__descricao">Esse cargo ainda não gera dados de movimentação própria (só garçom/caixa, por enquanto). A identificação acima já confirma que o acesso foi autorizado.</p>
         </div>
 
-        <!-- Resumo do dia pro cargo "Caixa" (so recebe pagamento de mesas de outros garcons) -->
+        <!-- Filtro de periodo -- vale tanto pra tela "Caixa" quanto "Pedidos" (mesma consulta) -->
+        <div class="botoes-filtro-atendimento" id="botoes-periodo-resumo-funcionario" style="display:flex; gap:8px; margin:10px 0; flex-wrap:wrap;">
+          <button type="button" class="botao-secundario ativo" data-periodo-resumo="hoje">Hoje</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="ontem">Ontem</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="semana">Esta semana</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="mes_atual">Este mês</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="trimestre">Este trimestre</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="semestre">Este semestre</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="geral">Geral (tudo)</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="personalizado">Manual</button>
+        </div>
+        <div class="campo-linha oculto" id="campos-resumo-manual">
+          <div class="campo-grupo">
+            <label class="campo-label">De</label>
+            <input type="date" id="resumo-data-inicio" class="campo-texto">
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Até</label>
+            <input type="date" id="resumo-data-fim" class="campo-texto">
+          </div>
+          <button type="button" id="botao-filtrar-resumo-manual" class="botao-secundario">Filtrar</button>
+        </div>
+
+        <!-- Resumo do periodo pro cargo "Caixa" (so recebe pagamento de mesas de outros garcons) -->
         <div id="resumo-funcionario-caixa-hoje" class="oculto" style="padding:14px;background:var(--admin-cor-fundo-card,#f9fafb);border-radius:10px;margin-bottom:14px;">
-          <div class="resumo-funcionario__secao-titulo">RECEBIDO NO CAIXA HOJE</div>
+          <div class="resumo-funcionario__secao-titulo" id="titulo-recebido-caixa-periodo">RECEBIDO NO CAIXA HOJE</div>
           <div style="display:flex;gap:18px;flex-wrap:wrap;margin:8px 0 12px;">
             <div><div style="font-size:1.3rem;font-weight:700;" id="caixa-total-hoje">R$ 0,00</div><div class="aba__descricao">Total recebido</div></div>
             <div><div style="font-size:1.3rem;font-weight:700;" id="caixa-qtd-hoje">0</div><div class="aba__descricao">Pagamentos</div></div>
@@ -1118,7 +1152,7 @@
             <div class="resumo-funcionario__cards">
               <div class="resumo-card">
                 <div class="resumo-card__icone">📈</div>
-                <div class="resumo-card__label">Vendas do dia</div>
+                <div class="resumo-card__label" id="rotulo-card-vendas">Vendas do dia</div>
                 <div id="card-vendas-do-dia" class="resumo-card__valor">R$ 0,00</div>
               </div>
               <div class="resumo-card">
@@ -1175,9 +1209,9 @@
               </div>
 
               <div class="painel-gorjetas">
-                <div class="painel-gorjetas__titulo">🪙 GORJETAS DE HOJE <span id="painel-gorjetas-total">R$ 0,00</span></div>
+                <div class="painel-gorjetas__titulo">🪙 <span id="titulo-gorjetas-periodo">GORJETAS DE HOJE</span> <span id="painel-gorjetas-total">R$ 0,00</span></div>
                 <div id="lista-gorjetas-hoje" class="painel-gorjetas__lista">
-                  <p class="aba__descricao">Nenhuma gorjeta ainda hoje.</p>
+                  <p class="aba__descricao">Nenhuma gorjeta ainda no período.</p>
                 </div>
               </div>
             </div>
@@ -1185,7 +1219,7 @@
 
           <!-- TELA "PEDIDOS" (movimentacao por mesa/comanda) -->
           <div id="tela-resumo-pedidos" class="resumo-funcionario__tela">
-            <div class="resumo-funcionario__secao-titulo">MOVIMENTAÇÃO POR MESA / COMANDA (hoje)</div>
+            <div class="resumo-funcionario__secao-titulo" id="titulo-movimentacao-periodo">MOVIMENTAÇÃO POR MESA / COMANDA (hoje)</div>
             <div id="lista-movimentacao-comandas"></div>
           </div>
 
@@ -1669,8 +1703,8 @@
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="../js/config.js"></script>
-  <script src="js/admin-api.js?v=20260813b"></script>
-  <script src="js/admin.js?v=20260813b"></script>
+  <script src="js/admin-api.js?v=20260814a"></script>
+  <script src="js/admin.js?v=20260814a"></script>
   <script src="js/admin-vitrines.js?v=20260720d"></script>
   <script src="js/admin-caixatexto.js?v=20260720d"></script>
   <script src="js/admin-construtor.js?v=20260722a"></script>
