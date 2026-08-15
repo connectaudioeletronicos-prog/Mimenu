@@ -243,7 +243,7 @@ async function adicionarItens(req, res) {
 async function fechar(req, res) {
   try {
     const { id } = req.params;
-    const { forma_pagamento, gorjeta } = req.body;
+    const { forma_pagamento, gorjeta, operador_atendimento_id } = req.body;
 
     if (!FORMAS_PAGAMENTO_VALIDAS.includes(forma_pagamento)) {
       return res.status(400).json({ erro: 'Forma de pagamento invalida.' });
@@ -266,6 +266,29 @@ async function fechar(req, res) {
     // coisa mas autenticado como proprietario/gerente/administrador --
     // esses tambem marcam pago_no_caixa quando mandam esse flag explicito.
     const pagoNoCaixa = req.cargo === 'caixa' || (ehAdminTier(req.cargo) && req.body.pago_no_caixa === true);
+
+    // QUEM cobrou de verdade: normalmente e o proprio funcionario logado
+    // (req.funcionarioId, do token de sessao). MAS o gate de senha do
+    // Atendimento (Caixa/Gerente/Administrador) NAO cria uma sessao nova
+    // -- so confere a senha e guarda o nome no navegador. Entao quando
+    // quem esta operando o dashboard e o PROPRIETARIO (sem funcionarioId
+    // nenhum no proprio token), o front manda o id de quem autenticou no
+    // gate em "operador_atendimento_id" -- revalidado aqui (nunca confia
+    // soh no que o front manda) antes de usar como responsavel real pelo
+    // fechamento. Se quem esta chamando ja e um funcionario de verdade
+    // (logou direto, sem passar pelo gate), usa req.funcionarioId normal.
+    let fechadaPorId = req.funcionarioId || null;
+    let fechadaPorNome = req.funcionarioNome || null;
+    if (!fechadaPorId && pagoNoCaixa && operador_atendimento_id) {
+      const opRes = await query(
+        `SELECT id, nome, cargo FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2 AND ativo = true`,
+        [operador_atendimento_id, req.estabelecimentoId]
+      );
+      if (opRes.rows.length > 0 && ['caixa', 'gerente', 'administrador'].includes(opRes.rows[0].cargo)) {
+        fechadaPorId = opRes.rows[0].id;
+        fechadaPorNome = opRes.rows[0].nome;
+      }
+    }
 
     // Enquanto a loja nao configurar a chave de pagamento (Configuracoes >
     // Pagamento), so aceita Dinheiro no fechamento -- Pix, credito e debito
@@ -308,11 +331,11 @@ async function fechar(req, res) {
                             fechada_por_funcionario_id = $4, fechada_por_funcionario_nome = $5,
                             pago_no_caixa = $7
        WHERE id = $6 RETURNING *`,
-      [forma_pagamento, gorjetaValor, totalFinal, req.funcionarioId || null, req.funcionarioNome || null, id, pagoNoCaixa]
+      [forma_pagamento, gorjetaValor, totalFinal, fechadaPorId, fechadaPorNome, id, pagoNoCaixa]
     );
 
     const { registrarAuditoria } = require('./funcionarioController');
-    await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'FECHAR_COMANDA', 'comandas', id, null, fechado.rows[0], req.ip);
+    await registrarAuditoria(req.estabelecimentoId, fechadaPorId, fechadaPorNome, 'FECHAR_COMANDA', 'comandas', id, null, fechado.rows[0], req.ip);
 
     res.json({ comanda: fechado.rows[0], pagamento: null });
   } catch (error) {
@@ -320,6 +343,7 @@ async function fechar(req, res) {
     console.error('Erro ao fechar comanda:', error);
     res.status(500).json({ erro: error.message || 'Erro ao fechar comanda.' });
   }
+
 }
 
 // So o proprietario/administrador pode excluir uma comanda do historico
