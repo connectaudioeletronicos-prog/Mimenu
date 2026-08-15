@@ -431,7 +431,7 @@ async function atualizarStatusPedido(req, res) {
       return res.status(403).json({ erro: 'Voce nao tem permissao para mudar o status do pedido.' });
     }
 
-    const pedidoAtual = await query('SELECT status_pedido, entregador_id FROM pedidos WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
+    const pedidoAtual = await query('SELECT status_pedido, entregador_id, tipo_pedido FROM pedidos WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
     if (pedidoAtual.rows.length === 0) return res.status(404).json({ erro: 'Pedido nao encontrado.' });
 
     const statusFinal = ['entregue', 'cancelado'];
@@ -467,10 +467,14 @@ async function atualizarStatusPedido(req, res) {
       });
     }
 
-    // Impede voltar para um status anterior: o pedido so pode avancar na
-    // sequencia (novo -> preparando -> pronto -> saiu_entrega -> entregue),
-    // ou ser cancelado a qualquer momento antes de ser entregue.
-    const ORDEM_STATUS = ['novo', 'preparando', 'pronto', 'saiu_entrega', 'entregue'];
+    // Mesa/balcao/retirada nunca passam por "saiu para entrega" -- nao
+    // tem entregador nenhum envolvido, o cliente ja esta na loja ou vai
+    // buscar. Pra essas, a sequencia valida pula direto de "pronto" pra
+    // "entregue". So pedido do tipo "entrega" mesmo segue passando por
+    // saiu_entrega (e so automaticamente, quando o entregador aceita).
+    const ORDEM_STATUS = pedidoAtual.rows[0].tipo_pedido === 'entrega'
+      ? ['novo', 'preparando', 'pronto', 'saiu_entrega', 'entregue']
+      : ['novo', 'preparando', 'pronto', 'entregue'];
     if (status_pedido !== 'cancelado') {
       const indiceAtual = ORDEM_STATUS.indexOf(pedidoAtual.rows[0].status_pedido);
       const indiceNovo = ORDEM_STATUS.indexOf(status_pedido);
@@ -487,12 +491,12 @@ async function atualizarStatusPedido(req, res) {
         'UPDATE pedidos SET status_pedido = $1, horario_pronto = NOW() WHERE id = $2 AND estabelecimento_id = $3',
         [status_pedido, id, req.estabelecimentoId]
       );
-      // Assim que fica pronto, ja tenta oferecer pro proximo entregador da
-      // fila (que so aceitando de fato vira "saiu_entrega"). Se ninguem
-      // estiver disponivel agora, o pedido fica esperando em "pronto" e sera
-      // ofertado automaticamente quando algum entregador bater o ponto ou
-      // ficar livre de novo.
-      await tentarOfertarPedido(req.estabelecimentoId, id);
+      // So faz sentido oferecer pra fila de entregadores quando for
+      // pedido de entrega de verdade -- mesa/balcao fica pronto e
+      // aguarda ser marcado como entregue direto pelo painel.
+      if (pedidoAtual.rows[0].tipo_pedido === 'entrega') {
+        await tentarOfertarPedido(req.estabelecimentoId, id);
+      }
     } else {
       await query('UPDATE pedidos SET status_pedido = $1 WHERE id = $2 AND estabelecimento_id = $3', [status_pedido, id, req.estabelecimentoId]);
     }
