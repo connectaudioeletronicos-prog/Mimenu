@@ -397,34 +397,72 @@ async function resumoFuncionario(req, res) {
     if (fRes.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
     const funcionario = fRes.rows[0];
 
-    if (funcionario.cargo === 'caixa') {
-      // O Caixa nao "dono" nenhuma comanda (nunca abre mesa) -- o resumo
-      // dele e sobre PAGAMENTOS QUE ELE RECEBEU de mesas de outros
-      // garcons (pago_no_caixa = true), pra fins de conferencia/
-      // fechamento do caixa fisico da loja, no periodo escolhido.
+    // Caixa/Gerente/Administrador que passam pelo gate do Atendimento tem
+    // o MESMO tipo de resumo: "o que EU pessoalmente vendi/recebi" --
+    // nao tem mesa propria (como o garcom), entao junta duas origens:
+    //   1) Comandas de garcom que ELE cobrou no balcao/Comanda Garcom
+    //      (fechada_por_funcionario_id + pago_no_caixa = true) -- mostra
+    //      qual garcom atendia a mesa, pra deixar claro que a venda e do
+    //      garcom mas o RECEBIMENTO foi por essa pessoa.
+    //   2) Pedidos de balcao/retirada/mesa que ELE MESMO lancou direto
+    //      pelo "Novo Pedido" do Atendimento (lancado_por_funcionario_id)
+    //      -- NAO inclui os marcados "enviar pra entrega" (tipo_pedido =
+    //      'entrega'), que saem desse historico e seguem o fluxo normal
+    //      do entregador em vez de ficar preso a quem lancou.
+    if (['caixa', 'gerente', 'administrador'].includes(funcionario.cargo)) {
       const condicoesCaixa = ['estabelecimento_id = $1', 'fechada_por_funcionario_id = $2', 'pago_no_caixa = true'];
       const paramsCaixa = [req.estabelecimentoId, id];
       if (inicio) { paramsCaixa.push(inicio); condicoesCaixa.push(`fechada_em >= $${paramsCaixa.length}`); }
       if (fim) { paramsCaixa.push(fim); condicoesCaixa.push(`fechada_em <= $${paramsCaixa.length}`); }
 
-      const recebidosRes = await query(
+      const comandasRes = await query(
         `SELECT * FROM comandas WHERE ${condicoesCaixa.join(' AND ')} ORDER BY fechada_em DESC`,
         paramsCaixa
       );
-      const totalRecebido = recebidosRes.rows.reduce((s, c) => s + Number(c.total), 0);
+
+      const condicoesPedidos = ['estabelecimento_id = $1', 'lancado_por_funcionario_id = $2', `tipo_pedido != 'entrega'`];
+      const paramsPedidos = [req.estabelecimentoId, id];
+      if (inicio) { paramsPedidos.push(inicio); condicoesPedidos.push(`criado_em >= $${paramsPedidos.length}`); }
+      if (fim) { paramsPedidos.push(fim); condicoesPedidos.push(`criado_em <= $${paramsPedidos.length}`); }
+
+      const pedidosRes = await query(
+        `SELECT * FROM pedidos WHERE ${condicoesPedidos.join(' AND ')} ORDER BY criado_em DESC`,
+        paramsPedidos
+      );
+
+      // Junta as duas origens numa lista so, ja no formato que a tela usa
+      // (mesa_cliente, fechada_em, forma_pagamento, total, gorjeta,
+      // funcionario_nome de quem atendia a mesa -- so faz sentido pra
+      // comanda, pedido de balcao nao tem "garcom dono").
+      const canalLegenda = { balcao: 'Balcão', retirada: 'Retirada', mesa: 'Mesa (direto)' };
+      const movimentacoes = [
+        ...comandasRes.rows.map(c => ({
+          origem: 'comanda', id: c.id, mesa_cliente: c.mesa_cliente, funcionario_nome: c.funcionario_nome,
+          forma_pagamento: c.forma_pagamento, subtotal: c.subtotal, gorjeta: c.gorjeta, total: c.total,
+          quando: c.fechada_em, numero: c.numero_comanda
+        })),
+        ...pedidosRes.rows.map(p => ({
+          origem: 'pedido', id: p.id, mesa_cliente: `${canalLegenda[p.canal_venda] || 'Balcão'} — ${p.cliente_nome}`,
+          funcionario_nome: null, forma_pagamento: p.forma_pagamento, subtotal: p.subtotal, gorjeta: p.gorjeta || 0,
+          total: p.total, quando: p.criado_em, numero: p.numero_pedido
+        }))
+      ].sort((a, b) => new Date(b.quando) - new Date(a.quando));
+
+      const totalRecebido = movimentacoes.reduce((s, m) => s + Number(m.total), 0);
       const porFormaCaixa = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
-      recebidosRes.rows.forEach(c => {
-        if (c.forma_pagamento && porFormaCaixa.hasOwnProperty(c.forma_pagamento)) porFormaCaixa[c.forma_pagamento] += Number(c.total);
+      movimentacoes.forEach(m => {
+        if (m.forma_pagamento && porFormaCaixa.hasOwnProperty(m.forma_pagamento)) porFormaCaixa[m.forma_pagamento] += Number(m.total);
       });
+
       return res.json({
         funcionario,
         tipo: 'caixa',
         periodo: { intervalo, inicio, fim },
         resumo: {
           total_recebido_hoje: totalRecebido, // nome do campo mantido por compatibilidade -- vale pro periodo escolhido, nao so "hoje"
-          pagamentos_hoje: recebidosRes.rows.length
+          pagamentos_hoje: movimentacoes.length
         },
-        pagamentos_hoje: recebidosRes.rows,
+        pagamentos_hoje: movimentacoes,
         fechamento_caixa: {
           total_dinheiro: porFormaCaixa.dinheiro,
           total_cartao_credito: porFormaCaixa.cartao_credito,
