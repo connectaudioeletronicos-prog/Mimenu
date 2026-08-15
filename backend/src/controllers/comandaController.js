@@ -94,6 +94,13 @@ async function listar(req, res) {
 
     const ehAdmin = ehAdminTier(req.cargo);
     const somenteProprioGarcom = req.cargo === 'garcom' && req.funcionarioId;
+    // O Caixa nunca "abre" mesa, entao so faz sentido travar o HISTORICO
+    // (fechadas) dele -- pelas que ELE MESMO recebeu (fechada_por_funcionario_id
+    // + pago_no_caixa), igual ja funciona no Resumo do Funcionario. Pra
+    // ABERTAS continua vendo todas (statusFinal === 'aberta' cai fora
+    // dessa trava de proposito) -- ele precisa achar qualquer mesa de
+    // qualquer garcom pra poder receber um pagamento avulso.
+    const somenteProprioCaixa = req.cargo === 'caixa' && req.funcionarioId && statusFinal === 'fechada';
 
     const condicoes = ['estabelecimento_id = $1', 'status = $2'];
     const parametros = [req.estabelecimentoId, statusFinal];
@@ -105,6 +112,9 @@ async function listar(req, res) {
       // testes) nao tem "dono" definido -- entao continuam aparecendo pra
       // qualquer garcom, em vez de sumir pra todo mundo.
       condicoes.push(`(funcionario_id = $${parametros.length + 1} OR funcionario_id IS NULL)`);
+      parametros.push(req.funcionarioId);
+    } else if (somenteProprioCaixa) {
+      condicoes.push(`fechada_por_funcionario_id = $${parametros.length + 1}`, 'pago_no_caixa = true');
       parametros.push(req.funcionarioId);
     } else if (ehAdmin && funcionarioIdFiltro) {
       // So o admin pode escolher DE QUEM quer ver o historico -- o garcom
