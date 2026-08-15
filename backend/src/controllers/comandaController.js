@@ -1,5 +1,6 @@
 const { query } = require('../config/database');
 const { baixarEstoquePorVenda } = require('../utils/estoque');
+const { resolverIntervalo } = require('../utils/periodo');
 const pagamentos = require('../utils/pagamentos');
 
 const FORMAS_PAGAMENTO_VALIDAS = ['dinheiro', 'pix', 'cartao_credito', 'cartao_debito'];
@@ -370,9 +371,18 @@ async function confirmarPagamentoManual(req, res) {
 // So garcom tem dado de verdade pra mostrar aqui (e o unico cargo com app
 // proprio gerando comandas ate agora) -- os outros cargos voltam so com a
 // identificacao, sem inventar numero nenhum.
+// Resumo do funcionario (aba "Caixa" dentro de Resumo do Funcionario).
+// Antes ficava travado no dia de hoje -- agora aceita o mesmo filtro de
+// periodo do Caixa Geral: ?intervalo=hoje|ontem|semana|mes_atual|
+// trimestre|semestre|geral|personalizado (+ data_inicio/data_fim quando
+// for personalizado). Sem parametro nenhum, continua mostrando "hoje"
+// (comportamento antigo preservado por padrao).
 async function resumoFuncionario(req, res) {
   try {
     const { id } = req.params;
+    const { intervalo = 'hoje', data_inicio, data_fim } = req.query;
+    const { inicio, fim } = resolverIntervalo(intervalo, data_inicio, data_fim);
+
     const fRes = await query('SELECT id, nome, email, cargo FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
     if (fRes.rows.length === 0) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
     const funcionario = fRes.rows[0];
@@ -381,27 +391,30 @@ async function resumoFuncionario(req, res) {
       // O Caixa nao "dono" nenhuma comanda (nunca abre mesa) -- o resumo
       // dele e sobre PAGAMENTOS QUE ELE RECEBEU de mesas de outros
       // garcons (pago_no_caixa = true), pra fins de conferencia/
-      // fechamento do caixa fisico da loja.
-      const recebidosHojeRes = await query(
-        `SELECT * FROM comandas WHERE estabelecimento_id = $1 AND fechada_por_funcionario_id = $2
-         AND pago_no_caixa = true
-         AND (fechada_em AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
-         ORDER BY fechada_em DESC`,
-        [req.estabelecimentoId, id]
+      // fechamento do caixa fisico da loja, no periodo escolhido.
+      const condicoesCaixa = ['estabelecimento_id = $1', 'fechada_por_funcionario_id = $2', 'pago_no_caixa = true'];
+      const paramsCaixa = [req.estabelecimentoId, id];
+      if (inicio) { paramsCaixa.push(inicio); condicoesCaixa.push(`fechada_em >= $${paramsCaixa.length}`); }
+      if (fim) { paramsCaixa.push(fim); condicoesCaixa.push(`fechada_em <= $${paramsCaixa.length}`); }
+
+      const recebidosRes = await query(
+        `SELECT * FROM comandas WHERE ${condicoesCaixa.join(' AND ')} ORDER BY fechada_em DESC`,
+        paramsCaixa
       );
-      const totalRecebidoHoje = recebidosHojeRes.rows.reduce((s, c) => s + Number(c.total), 0);
+      const totalRecebido = recebidosRes.rows.reduce((s, c) => s + Number(c.total), 0);
       const porFormaCaixa = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
-      recebidosHojeRes.rows.forEach(c => {
+      recebidosRes.rows.forEach(c => {
         if (c.forma_pagamento && porFormaCaixa.hasOwnProperty(c.forma_pagamento)) porFormaCaixa[c.forma_pagamento] += Number(c.total);
       });
       return res.json({
         funcionario,
         tipo: 'caixa',
+        periodo: { intervalo, inicio, fim },
         resumo: {
-          total_recebido_hoje: totalRecebidoHoje,
-          pagamentos_hoje: recebidosHojeRes.rows.length
+          total_recebido_hoje: totalRecebido, // nome do campo mantido por compatibilidade -- vale pro periodo escolhido, nao so "hoje"
+          pagamentos_hoje: recebidosRes.rows.length
         },
-        pagamentos_hoje: recebidosHojeRes.rows,
+        pagamentos_hoje: recebidosRes.rows,
         fechamento_caixa: {
           total_dinheiro: porFormaCaixa.dinheiro,
           total_cartao_credito: porFormaCaixa.cartao_credito,
@@ -415,17 +428,26 @@ async function resumoFuncionario(req, res) {
       return res.json({ funcionario, tipo: 'sem_dados' });
     }
 
-    const comandasHojeRes = await query(
-      `SELECT * FROM comandas WHERE estabelecimento_id = $1 AND funcionario_id = $2
-       AND (
-         (aberta_em AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
-         OR (fechada_em AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
-       )
-       ORDER BY aberta_em DESC`,
-      [req.estabelecimentoId, id]
+    // Comandas do garcom dentro do periodo escolhido: entra se foi aberta
+    // OU fechada dentro da janela (assim uma comanda aberta ontem e paga
+    // hoje aparece nos dois periodos, igual o Caixa Geral se comporta).
+    const condicoesGarcom = ['estabelecimento_id = $1', 'funcionario_id = $2'];
+    const paramsGarcom = [req.estabelecimentoId, id];
+    if (inicio && fim) {
+      paramsGarcom.push(inicio, fim, inicio, fim);
+      condicoesGarcom.push(
+        `((aberta_em >= $${paramsGarcom.length - 3} AND aberta_em <= $${paramsGarcom.length - 2})
+          OR (fechada_em >= $${paramsGarcom.length - 1} AND fechada_em <= $${paramsGarcom.length}))`
+      );
+    }
+    // intervalo "geral" (inicio/fim nulos) nao adiciona filtro nenhum -- traz tudo.
+
+    const comandasPeriodoRes = await query(
+      `SELECT * FROM comandas WHERE ${condicoesGarcom.join(' AND ')} ORDER BY aberta_em DESC LIMIT 500`,
+      paramsGarcom
     );
 
-    const comandaIds = comandasHojeRes.rows.map(c => c.id);
+    const comandaIds = comandasPeriodoRes.rows.map(c => c.id);
     let rodadasRes = { rows: [] };
     if (comandaIds.length > 0) {
       rodadasRes = await query(
@@ -434,25 +456,27 @@ async function resumoFuncionario(req, res) {
         [comandaIds]
       );
     }
-    const comandasHoje = comandasHojeRes.rows.map(c => ({
+    const comandasPeriodo = comandasPeriodoRes.rows.map(c => ({
       ...c,
       rodadas: rodadasRes.rows.filter(r => r.comanda_id === c.id)
     }));
 
+    // Comandas ainda ABERTAS agora sempre contam no total geral do garcom,
+    // independente do periodo escolhido (uma mesa aberta e sempre "atual").
     const abertasAgoraRes = await query(
       `SELECT COUNT(*) FROM comandas WHERE estabelecimento_id = $1 AND funcionario_id = $2 AND status = 'aberta'`,
       [req.estabelecimentoId, id]
     );
 
-    const fechadasHoje = comandasHoje.filter(c => c.status === 'fechada');
-    const vendasDoDia = fechadasHoje.reduce((s, c) => s + Number(c.total), 0);
-    const gorjetasDoDia = fechadasHoje.reduce((s, c) => s + Number(c.gorjeta || 0), 0);
-    const pedidosHoje = comandasHoje.reduce((s, c) => s + c.rodadas.length, 0);
-    const ticketMedio = fechadasHoje.length > 0 ? vendasDoDia / fechadasHoje.length : 0;
+    const fechadasPeriodo = comandasPeriodo.filter(c => c.status === 'fechada');
+    const vendasPeriodo = fechadasPeriodo.reduce((s, c) => s + Number(c.total), 0);
+    const gorjetasPeriodo = fechadasPeriodo.reduce((s, c) => s + Number(c.gorjeta || 0), 0);
+    const pedidosPeriodo = comandasPeriodo.reduce((s, c) => s + c.rodadas.length, 0);
+    const ticketMedio = fechadasPeriodo.length > 0 ? vendasPeriodo / fechadasPeriodo.length : 0;
 
     const porForma = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
     const transacoesPorForma = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
-    fechadasHoje.forEach(c => {
+    fechadasPeriodo.forEach(c => {
       if (c.forma_pagamento && porForma.hasOwnProperty(c.forma_pagamento)) {
         porForma[c.forma_pagamento] += Number(c.total);
         transacoesPorForma[c.forma_pagamento] += 1;
@@ -462,15 +486,16 @@ async function resumoFuncionario(req, res) {
     res.json({
       funcionario,
       tipo: 'garcom',
+      periodo: { intervalo, inicio, fim },
       resumo: {
-        vendas_do_dia: vendasDoDia,
-        gorjetas_do_dia: gorjetasDoDia,
-        pedidos_hoje: pedidosHoje,
+        vendas_do_dia: vendasPeriodo, // nomes de campo mantidos por compatibilidade -- valem pro periodo escolhido
+        gorjetas_do_dia: gorjetasPeriodo,
+        pedidos_hoje: pedidosPeriodo,
         comandas_abertas: parseInt(abertasAgoraRes.rows[0].count, 10),
-        mesas_atendidas_hoje: comandasHoje.length,
+        mesas_atendidas_hoje: comandasPeriodo.length,
         ticket_medio: ticketMedio
       },
-      comandas_hoje: comandasHoje,
+      comandas_hoje: comandasPeriodo,
       fechamento_caixa: {
         total_dinheiro: porForma.dinheiro,
         total_cartao_credito: porForma.cartao_credito,
@@ -478,7 +503,7 @@ async function resumoFuncionario(req, res) {
         total_pix: porForma.pix,
         transacoes_cartao_credito: transacoesPorForma.cartao_credito,
         transacoes_cartao_debito: transacoesPorForma.cartao_debito,
-        total_recebido: vendasDoDia
+        total_recebido: vendasPeriodo
       }
     });
   } catch (error) {
