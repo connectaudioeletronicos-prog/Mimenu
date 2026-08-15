@@ -24,6 +24,7 @@ router.use(autenticar);
 // resolucao de um pagamento com problema.
 router.post('/verificar-senha-supervisor', funcionarioController.verificarSenhaSupervisor);
 router.post('/verificar-senha-atendimento', funcionarioController.verificarSenhaAtendimento);
+router.post('/verificar-senha-atendimento-proprietario', funcionarioController.verificarSenhaAtendimentoProprietario);
 router.post('/verificar-senha-administrador', funcionarioController.verificarSenhaAdministrador);
 
 // Gestor libera hora extra pra um funcionario (ignora a carga horaria dele
