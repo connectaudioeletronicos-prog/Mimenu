@@ -30,7 +30,12 @@ async function autenticar(req, res, next) {
     // tem efeito imediato na proxima requisicao, mesmo que ele ja esteja
     // logado com um token antigo e ainda valido.
     if (funcionarioId) {
-      const resultado = await query('SELECT ativo, cargo, permissoes FROM funcionarios WHERE id = $1', [funcionarioId]);
+      // BUGFIX: antes so buscava ativo/cargo/permissoes -- 'nome' nunca
+      // vinha, entao req.funcionarioNome ficava sempre undefined em TODO
+      // o sistema (mesmo sendo usado em dezenas de lugares: auditoria,
+      // comandas.funcionario_nome, lancado_por_funcionario_nome etc).
+      // Isso e a causa raiz do "atendido por -" no historico.
+      const resultado = await query('SELECT ativo, cargo, permissoes, nome FROM funcionarios WHERE id = $1', [funcionarioId]);
       if (resultado.rows.length === 0 || !resultado.rows[0].ativo) {
         return res.status(401).json({ erro: 'Seu acesso foi revogado. Faca login novamente.' });
       }
@@ -38,6 +43,7 @@ async function autenticar(req, res, next) {
       req.slug = payload.slug;
       req.cargo = resultado.rows[0].cargo;
       req.funcionarioId = funcionarioId;
+      req.funcionarioNome = resultado.rows[0].nome;
       req.permissoes = resultado.rows[0].permissoes || [];
       return next();
     }
@@ -46,6 +52,9 @@ async function autenticar(req, res, next) {
     req.slug = payload.slug;
     req.cargo = payload.cargo || 'proprietario';
     req.funcionarioId = null;
+    // Nome do proprietario pro rastro de auditoria/atendimento (mesma
+    // logica: nunca confia no nome do token, busca o atual no banco).
+    req.funcionarioNome = payload.nomeProprietario || 'Proprietário';
     req.permissoes = payload.permissoes || [];
     next();
   } catch (error) {
