@@ -892,6 +892,48 @@ async function verificarSenhaAtendimento(req, res) {
   }
 }
 
+// Gate de Atendimento pro PROPRIETARIO -- ele nao tem cadastro na tabela
+// funcionarios (nao faz sentido criar um "funcionario administrador" so
+// pra representar o dono da loja). Em vez disso, esse gate pede de novo
+// a senha REAL da conta do proprietario (email + senha de
+// estabelecimentos), a cada troca de atendente -- nunca reaproveita a
+// sessao do dashboard que ja esta aberta. Isso e proposital: se
+// reaproveitasse a sessao, bastaria alguem usar o computador que o
+// proprietario deixou logado pra fazer uma cobranca indevida em nome
+// dele, sem digitar senha nenhuma. Exigindo a senha de novo aqui, toda
+// venda gravada como "Proprietario" so acontece se ele mesmo digitou a
+// propria senha naquele exato momento -- igual ja funciona pra
+// caixa/gerente/administrador.
+async function verificarSenhaAtendimentoProprietario(req, res) {
+  try {
+    // So a propria sessao do proprietario pode chamar esse gate -- um
+    // funcionario (mesmo administrador) nao pode usar essa rota pra
+    // tentar adivinhar a senha do dono da loja.
+    if (req.cargo !== 'proprietario') {
+      return res.status(403).json({ erro: 'Apenas o proprietario pode usar esse acesso.' });
+    }
+    const { senha } = req.body;
+    if (!senha) {
+      return res.status(400).json({ erro: 'Informe a senha.' });
+    }
+    const resultado = await query(
+      'SELECT id, nome, senha_hash FROM estabelecimentos WHERE id = $1 AND ativo = true',
+      [req.estabelecimentoId]
+    );
+    if (resultado.rows.length === 0) {
+      return res.status(401).json({ erro: 'Senha invalida.' });
+    }
+    const senhaCorreta = await bcrypt.compare(senha, resultado.rows[0].senha_hash);
+    if (!senhaCorreta) {
+      return res.status(401).json({ erro: 'Senha invalida.' });
+    }
+    res.json({ autorizado: true, id: null, nome: 'Proprietário', cargo: 'proprietario' });
+  } catch (error) {
+    console.error('Erro ao verificar senha de atendimento do proprietario:', error);
+    res.status(500).json({ erro: 'Erro ao verificar senha.' });
+  }
+}
+
 // Reautenticacao de quem ja esta logado no dashboard (pede a PROPRIA senha
 // de novo), usada como trava extra antes de abrir a pagina de "Resumo do
 // funcionario" (mostra movimentacao financeira detalhada e permite
@@ -933,6 +975,7 @@ module.exports = {
   obterQrcodeDoDia, checkinEntregador, exigirDentroDoHorario, liberarHoraExtra, gerarQrcodeGenerico,
   obterPlantaoAtual, encerrarPlantao, listarHistoricoPlantoes, meuHistoricoPlantoes, calcularResumoPlantao,
   verificarSenhaSupervisor, verificarCredenciaisSupervisor, verificarSenhaAtendimento,
+  verificarSenhaAtendimentoProprietario,
   verificarSenhaAdministrador,
   registrarAuditoria, PERMISSOES_VALIDAS, CARGOS_VALIDOS
 };
