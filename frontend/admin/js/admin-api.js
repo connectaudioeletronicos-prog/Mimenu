@@ -176,6 +176,7 @@ const apiListarEquipeOperacional = () => chamarApiFuncionarios('/equipe');
 const apiAlternarDisponibilidadeEntregador = (id, disponivel_entrega) => chamarApiFuncionarios(`/${id}/disponibilidade`, { method: 'PUT', body: { disponivel_entrega } });
 const apiVerificarSenhaAdministrador = (senha) => chamarApiFuncionarios('/verificar-senha-administrador', { method: 'POST', body: { senha } });
 const apiVerificarSenhaAtendimento = (login, senha) => chamarApiFuncionarios('/verificar-senha-atendimento', { method: 'POST', body: { login, senha } });
+const apiVerificarSenhaAtendimentoProprietario = (senha) => chamarApiFuncionarios('/verificar-senha-atendimento-proprietario', { method: 'POST', body: { senha } });
 // intervalo: 'hoje' (padrao) | 'ontem' | 'semana' | 'mes_atual' | 'trimestre'
 // | 'semestre' | 'geral' | 'personalizado' (junto com dataInicio/dataFim).
 const apiResumoFuncionario = (id, intervalo = 'hoje', dataInicio = '', dataFim = '') => {
