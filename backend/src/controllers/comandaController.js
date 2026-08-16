@@ -62,9 +62,9 @@ async function abrir(req, res) {
     const { numero, anoMes } = await proximoNumero(req.estabelecimentoId, 'comanda');
 
     const resultado = await query(
-      `INSERT INTO comandas (estabelecimento_id, funcionario_id, funcionario_nome, mesa_cliente, observacao, numero_comanda, numero_comanda_ano_mes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [req.estabelecimentoId, req.funcionarioId || null, req.funcionarioNome || null, mesa_cliente.trim(), observacao || null, numero, anoMes]
+      `INSERT INTO comandas (estabelecimento_id, funcionario_id, funcionario_nome, funcionario_cargo, mesa_cliente, observacao, numero_comanda, numero_comanda_ano_mes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [req.estabelecimentoId, req.funcionarioId || null, req.funcionarioNome || null, req.cargo || null, mesa_cliente.trim(), observacao || null, numero, anoMes]
     );
     res.status(201).json(resultado.rows[0]);
   } catch (error) {
@@ -284,6 +284,7 @@ async function fechar(req, res) {
     // (logou direto, sem passar pelo gate), usa req.funcionarioId normal.
     let fechadaPorId = req.funcionarioId || null;
     let fechadaPorNome = req.funcionarioNome || null;
+    let fechadaPorCargo = req.funcionarioId ? req.cargo : null;
     // Proprietario nao tem registro em funcionarios -- quando ele passa
     // pelo gate do Atendimento com a PROPRIA senha (verificarSenhaAtendimentoProprietario),
     // o front manda 'proprietario' em operador_atendimento_id em vez de
@@ -293,6 +294,7 @@ async function fechar(req, res) {
     if (!fechadaPorId && pagoNoCaixa && operador_atendimento_id === 'proprietario' && req.cargo === 'proprietario') {
       fechadaPorId = null;
       fechadaPorNome = 'Proprietário';
+      fechadaPorCargo = 'proprietario';
     } else if (!fechadaPorId && pagoNoCaixa && operador_atendimento_id) {
       const opRes = await query(
         `SELECT id, nome, cargo FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2 AND ativo = true`,
@@ -301,6 +303,7 @@ async function fechar(req, res) {
       if (opRes.rows.length > 0 && ['caixa', 'gerente', 'administrador'].includes(opRes.rows[0].cargo)) {
         fechadaPorId = opRes.rows[0].id;
         fechadaPorNome = opRes.rows[0].nome;
+        fechadaPorCargo = opRes.rows[0].cargo;
       }
     }
 
@@ -342,10 +345,10 @@ async function fechar(req, res) {
     const fechado = await query(
       `UPDATE comandas SET forma_pagamento = $1, gorjeta = $2, total = $3, status = 'fechada',
                             status_pagamento = 'pago', fechada_em = NOW(),
-                            fechada_por_funcionario_id = $4, fechada_por_funcionario_nome = $5,
+                            fechada_por_funcionario_id = $4, fechada_por_funcionario_nome = $5, fechada_por_funcionario_cargo = $8,
                             pago_no_caixa = $7
        WHERE id = $6 RETURNING *`,
-      [forma_pagamento, gorjetaValor, totalFinal, fechadaPorId, fechadaPorNome, id, pagoNoCaixa]
+      [forma_pagamento, gorjetaValor, totalFinal, fechadaPorId, fechadaPorNome, id, pagoNoCaixa, fechadaPorCargo]
     );
 
     const { registrarAuditoria } = require('./funcionarioController');
@@ -400,9 +403,9 @@ async function confirmarPagamentoManual(req, res) {
 
     const fechado = await query(
       `UPDATE comandas SET status = 'fechada', status_pagamento = 'pago', fechada_em = NOW(),
-                            fechada_por_funcionario_id = $1, fechada_por_funcionario_nome = $2
+                            fechada_por_funcionario_id = $1, fechada_por_funcionario_nome = $2, fechada_por_funcionario_cargo = $4
        WHERE id = $3 RETURNING *`,
-      [req.funcionarioId || null, `${req.funcionarioNome} (confirmado por ${supervisor.nome})`, id]
+      [req.funcionarioId || null, `${req.funcionarioNome} (confirmado por ${supervisor.nome})`, id, req.funcionarioId ? req.cargo : (req.cargo === 'proprietario' ? 'proprietario' : null)]
     );
 
     await registrarAuditoria(req.estabelecimentoId, req.funcionarioId, req.funcionarioNome, 'CONFIRMAR_PAGAMENTO_MANUAL_COMANDA', 'comandas', id, comanda, { autorizado_por: supervisor.nome }, req.ip);
@@ -491,13 +494,17 @@ async function resumoFuncionario(req, res) {
       const movimentacoes = [
         ...comandasRes.rows.map(c => ({
           origem: 'comanda', id: c.id, mesa_cliente: c.mesa_cliente, funcionario_nome: c.funcionario_nome,
+          funcionario_cargo: c.funcionario_cargo,
+          fechada_por_funcionario_nome: c.fechada_por_funcionario_nome, fechada_por_funcionario_cargo: c.fechada_por_funcionario_cargo,
           forma_pagamento: c.forma_pagamento, subtotal: c.subtotal, gorjeta: c.gorjeta, total: c.total,
-          quando: c.fechada_em, numero: c.numero_comanda, tipo_venda: 'Mesa',
+          quando: c.fechada_em, numero: c.numero_comanda, tipo_venda: 'Mesa', pago_no_caixa: c.pago_no_caixa,
           itens: rodadasCaixaRes.rows.filter(r => r.comanda_id === c.id).flatMap(r => Array.isArray(r.itens) ? r.itens : [])
         })),
         ...pedidosRes.rows.map(p => ({
           origem: 'pedido', id: p.id, mesa_cliente: `${canalLegenda[p.canal_venda] || 'Balcão'} — ${p.cliente_nome}`,
-          funcionario_nome: null, forma_pagamento: p.forma_pagamento, subtotal: p.subtotal, gorjeta: p.gorjeta || 0,
+          funcionario_nome: null, funcionario_cargo: null,
+          fechada_por_funcionario_nome: p.lancado_por_funcionario_nome, fechada_por_funcionario_cargo: p.lancado_por_funcionario_cargo,
+          forma_pagamento: p.forma_pagamento, subtotal: p.subtotal, gorjeta: p.gorjeta || 0,
           total: p.total, quando: p.criado_em, numero: p.numero_pedido,
           tipo_venda: p.tipo_pedido === 'entrega' ? 'Entrega' : 'Balcão',
           itens: Array.isArray(p.itens) ? p.itens : []
