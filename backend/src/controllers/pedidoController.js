@@ -702,12 +702,14 @@ async function criarPedidoManual(req, res) {
     // funcionario), cai no req.funcionarioId de sempre.
     let lancadoPorId = null;
     let lancadoPorNome = null;
+    let lancadoPorCargo = null;
     // Proprietario passou pelo gate com a PROPRIA senha: nao tem registro
     // em funcionarios, entao o front manda 'proprietario' em vez de um
     // UUID -- so aceito se a sessao do dashboard tambem for dele mesmo.
     if (lancado_por_funcionario_id === 'proprietario' && req.cargo === 'proprietario') {
       lancadoPorId = null;
       lancadoPorNome = 'Proprietário';
+      lancadoPorCargo = 'proprietario';
     } else if (lancado_por_funcionario_id) {
       const flr = await query(
         `SELECT id, nome, cargo FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2 AND ativo = true`,
@@ -716,10 +718,12 @@ async function criarPedidoManual(req, res) {
       if (flr.rows.length > 0 && ['caixa', 'gerente', 'administrador'].includes(flr.rows[0].cargo)) {
         lancadoPorId = flr.rows[0].id;
         lancadoPorNome = flr.rows[0].nome;
+        lancadoPorCargo = flr.rows[0].cargo;
       }
     } else if (req.funcionarioId) {
       lancadoPorId = req.funcionarioId;
       lancadoPorNome = req.funcionarioNome || lancado_por_funcionario_nome || null;
+      lancadoPorCargo = req.cargo;
     }
 
     const { numero: numeroPedidoManual, anoMes: anoMesPedidoManual } = await proximoNumero(req.estabelecimentoId, 'pedido');
@@ -727,10 +731,10 @@ async function criarPedidoManual(req, res) {
       `INSERT INTO pedidos (
         estabelecimento_id, cliente_nome, cliente_telefone, itens, subtotal, taxa_entrega,
         gorjeta, total, forma_pagamento, status_pagamento, status_pedido, tipo_pedido, canal_venda, observacoes,
-        lancado_por_funcionario_id, lancado_por_funcionario_nome, numero_pedido, numero_pedido_ano_mes
-      ) VALUES ($1, $2, $3, $4, $5, 0, 0, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        lancado_por_funcionario_id, lancado_por_funcionario_nome, numero_pedido, numero_pedido_ano_mes, lancado_por_funcionario_cargo
+      ) VALUES ($1, $2, $3, $4, $5, 0, 0, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       RETURNING *`,
-      [req.estabelecimentoId, cliente_nome.trim(), '(balcao)', JSON.stringify(itensValidados), subtotal, total, forma_pagamento, statusPagamentoInicial, statusPedidoInicial, tipoPedido, canalVenda, observacoes || null, lancadoPorId, lancadoPorNome, numeroPedidoManual, anoMesPedidoManual]
+      [req.estabelecimentoId, cliente_nome.trim(), '(balcao)', JSON.stringify(itensValidados), subtotal, total, forma_pagamento, statusPagamentoInicial, statusPedidoInicial, tipoPedido, canalVenda, observacoes || null, lancadoPorId, lancadoPorNome, numeroPedidoManual, anoMesPedidoManual, lancadoPorCargo]
     );
     let pedido = resultado.rows[0];
 
