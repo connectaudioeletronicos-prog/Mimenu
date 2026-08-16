@@ -597,17 +597,24 @@ async function obterCaixaGeral(req, res) {
     } // sem nenhum parametro -> inicio/fim continuam null -> historico geral, sem limite de data
 
     let sql = `
-      SELECT id, cliente_nome, subtotal, taxa_entrega, total, forma_pagamento,
-             tipo_pedido, criado_em, atualizado_em
-      FROM pedidos
-      WHERE estabelecimento_id = $1 AND status_pedido = 'entregue'
+      SELECT p.id, p.cliente_nome, p.subtotal, p.taxa_entrega, p.total, p.forma_pagamento,
+             p.tipo_pedido, p.criado_em, p.atualizado_em, p.numero_pedido, p.canal_venda,
+             -- Pedido de rodada de comanda (mesa) -- quem atendia a mesa e quem
+             -- de fato fechou/recebeu o pagamento vem da propria comanda.
+             COALESCE(cm.funcionario_nome, p.lancado_por_funcionario_nome) AS atendido_por_nome,
+             COALESCE(cm.funcionario_cargo, p.lancado_por_funcionario_cargo) AS atendido_por_cargo,
+             COALESCE(cm.fechada_por_funcionario_nome, p.lancado_por_funcionario_nome) AS recebido_por_nome,
+             COALESCE(cm.fechada_por_funcionario_cargo, p.lancado_por_funcionario_cargo) AS recebido_por_cargo
+      FROM pedidos p
+      LEFT JOIN comandas cm ON cm.id = p.comanda_id
+      WHERE p.estabelecimento_id = $1 AND p.status_pedido = 'entregue'
     `;
     const params = [req.estabelecimentoId];
 
-    if (inicio) { params.push(inicio); sql += ` AND criado_em >= $${params.length}`; }
-    if (fim) { params.push(fim); sql += ` AND criado_em <= $${params.length}`; }
+    if (inicio) { params.push(inicio); sql += ` AND p.criado_em >= $${params.length}`; }
+    if (fim) { params.push(fim); sql += ` AND p.criado_em <= $${params.length}`; }
 
-    sql += ' ORDER BY criado_em DESC LIMIT 1000';
+    sql += ' ORDER BY p.criado_em DESC LIMIT 1000';
 
     const resultado = await query(sql, params);
 
