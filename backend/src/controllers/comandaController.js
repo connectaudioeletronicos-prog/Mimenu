@@ -97,13 +97,17 @@ async function listar(req, res) {
 
     const ehAdmin = ehAdminTier(req.cargo);
     const somenteProprioGarcom = req.cargo === 'garcom' && req.funcionarioId;
-    // O Caixa nunca "abre" mesa, entao so faz sentido travar o HISTORICO
-    // (fechadas) dele -- pelas que ELE MESMO recebeu (fechada_por_funcionario_id
-    // + pago_no_caixa), igual ja funciona no Resumo do Funcionario. Pra
-    // ABERTAS continua vendo todas (statusFinal === 'aberta' cai fora
-    // dessa trava de proposito) -- ele precisa achar qualquer mesa de
-    // qualquer garcom pra poder receber um pagamento avulso.
-    const somenteProprioCaixa = req.cargo === 'caixa' && req.funcionarioId && statusFinal === 'fechada';
+    // Caixa/Gerente/Administrador nunca "abrem" mesa, entao so faz sentido
+    // travar o HISTORICO (fechadas) deles pelas que ELE MESMO recebeu
+    // (fechada_por_funcionario_id + pago_no_caixa) -- igual ja funciona no
+    // Resumo do Funcionario. Pra ABERTAS continua vendo todas (statusFinal
+    // === 'aberta' cai fora dessa trava de proposito) -- precisa achar
+    // qualquer mesa de qualquer garcom pra poder receber um pagamento
+    // avulso. (Bug corrigido: antes so cargo==='caixa' entrava aqui --
+    // gerente/administrador acessando a propria aba "Historico" caiam no
+    // filtro de baixo, que procurava funcionario_id = eles mesmos -- e como
+    // gerente/administrador NUNCA abrem comanda, isso sempre vinha vazio.)
+    const somenteProprioCaixa = ['caixa', 'gerente', 'administrador'].includes(req.cargo) && req.funcionarioId && statusFinal === 'fechada';
 
     const condicoes = ['estabelecimento_id = $1', 'status = $2'];
     const parametros = [req.estabelecimentoId, statusFinal];
@@ -122,12 +126,12 @@ async function listar(req, res) {
     } else if (ehAdmin && funcionarioIdFiltro) {
       // So o admin pode escolher DE QUEM quer ver o historico -- o garcom
       // ja fica travado no proprio (regra acima) mesmo se tentar mandar
-      // esse parametro na mao. Se o funcionario filtrado for do cargo
-      // "caixa", ele nunca "abre" comanda nenhuma -- entao o filtro certo
-      // pra ele e por quem RECEBEU o pagamento (fechada_por_funcionario_id
-      // + pago_no_caixa), nao por quem abriu.
+      // esse parametro na mao. Se o funcionario filtrado for Caixa,
+      // Gerente ou Administrador, ele nunca "abre" comanda nenhuma --
+      // entao o filtro certo pra ele e por quem RECEBEU o pagamento
+      // (fechada_por_funcionario_id + pago_no_caixa), nao por quem abriu.
       const alvoRes = await query('SELECT cargo FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [funcionarioIdFiltro, req.estabelecimentoId]);
-      if (alvoRes.rows[0]?.cargo === 'caixa') {
+      if (['caixa', 'gerente', 'administrador'].includes(alvoRes.rows[0]?.cargo)) {
         condicoes.push(`fechada_por_funcionario_id = $${parametros.length + 1}`, 'pago_no_caixa = true');
         parametros.push(funcionarioIdFiltro);
       } else {
