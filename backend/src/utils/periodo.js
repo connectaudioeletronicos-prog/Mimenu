@@ -143,12 +143,16 @@ function resolverIntervalo(intervalo, dataInicioPersonalizada, dataFimPersonaliz
           return { inicio: inicioDoDia(agora), fim: fimDoDia(agora) };
         }
         // Datas digitadas no date-picker (ex: "2026-08-01") representam
-        // um dia de calendario em Brasilia, nao em UTC -- passam pelo
-        // mesmo espelhamento antes de virar inicio/fim do dia.
-        return {
-          inicio: inicioDoDia(paraFusoBrasil(new Date(`${dataInicioPersonalizada}T00:00:00`))),
-          fim: fimDoDia(paraFusoBrasil(new Date(`${dataFimPersonalizada}T00:00:00`)))
-        };
+        // um dia de calendario em Brasilia, nao em UTC. Construimos o
+        // instante REAL direto, com o offset de Brasilia explicito na
+        // string (-03:00) -- sem isso, o "T00:00:00" seria interpretado
+        // no fuso do SERVIDOR (ambiguo, e da errado quando servidor e
+        // Brasilia nao coincidem). So depois passa pelo mesmo espelhamento
+        // que o resto da funcao usa, pra ficar consistente com o
+        // deFusoBrasil aplicado no retorno final.
+        const inicioReal = new Date(`${dataInicioPersonalizada}T00:00:00.000-03:00`);
+        const fimReal = new Date(`${dataFimPersonalizada}T23:59:59.999-03:00`);
+        return { inicio: paraFusoBrasil(inicioReal), fim: paraFusoBrasil(fimReal) };
       }
 
       // "geral": sem limite nenhum de data -- historico completo desde o
