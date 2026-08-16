@@ -391,6 +391,16 @@ async function tentarOfertarPedidosPendentes(estabelecimentoId) {
 // mostrar "ha N pessoas na sua frente" / "voce e o proximo".
 async function posicaoNaFila(req, res) {
   try {
+    // Autocorrecao: essa tela fica em polling (o entregador fica olhando
+    // "voce esta na fila" esperando). Antes, um pedido so era ofertado no
+    // exato instante em que ficava pronto -- se o entregador bateu o
+    // ponto DEPOIS disso (ou a 1a tentativa nao achou ninguem por algum
+    // motivo), o pedido ficava esquecido pra sempre, sem nenhum jeito de
+    // se recuperar sozinho. Tentando de novo a cada consulta dessa tela,
+    // qualquer pedido "pronto" sem convite em aberto acaba sendo puxado
+    // assim que tiver entregador elegivel de novo.
+    await tentarOfertarPedidosPendentes(req.estabelecimentoId);
+
     const resultado = await query(
       `SELECT f.id
        FROM funcionarios f
@@ -786,6 +796,11 @@ async function criarPedidoManual(req, res) {
 // esse for resolvido).
 async function listarEntregaPendente(req, res) {
   try {
+    // Mesma autocorrecao do posicaoNaFila -- essa e a consulta que decide
+    // se aparece a tela de oferta (toca o sininho) pro entregador, entao
+    // faz sentido tentar de novo aqui tambem antes de checar.
+    await tentarOfertarPedidosPendentes(req.estabelecimentoId);
+
     const resultado = await query(
       `SELECT id, cliente_nome, cliente_telefone, cliente_endereco, total, forma_pagamento, troco_para, criado_em
        FROM pedidos
