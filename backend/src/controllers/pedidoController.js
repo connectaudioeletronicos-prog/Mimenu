@@ -491,12 +491,13 @@ async function atualizarStatusPedido(req, res) {
         'UPDATE pedidos SET status_pedido = $1, horario_pronto = NOW() WHERE id = $2 AND estabelecimento_id = $3',
         [status_pedido, id, req.estabelecimentoId]
       );
-      // So faz sentido oferecer pra fila de entregadores quando for
-      // pedido de entrega de verdade -- mesa/balcao fica pronto e
-      // aguarda ser marcado como entregue direto pelo painel.
-      if (pedidoAtual.rows[0].tipo_pedido === 'entrega') {
-        await tentarOfertarPedido(req.estabelecimentoId, id);
-      }
+      // Sempre tenta oferecer pro proximo entregador da fila -- a propria
+      // funcao/consulta de tentarOfertarPedido() ja filtra por dentro
+      // "AND tipo_pedido = 'entrega'" (nunca ofereceu balcao/mesa/retirada
+      // pra ninguem), entao chamar sem essa trava extra aqui fora e
+      // seguro E restaura o comportamento de antes -- que foi quebrado
+      // quando alguem colocou esse "if" a mais.
+      await tentarOfertarPedido(req.estabelecimentoId, id);
     } else {
       await query('UPDATE pedidos SET status_pedido = $1 WHERE id = $2 AND estabelecimento_id = $3', [status_pedido, id, req.estabelecimentoId]);
     }
