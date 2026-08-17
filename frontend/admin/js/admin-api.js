@@ -187,8 +187,11 @@ const apiResumoFuncionario = (id, intervalo = 'hoje', dataInicio = '', dataFim =
   return chamarApiAdmin(`/funcionarios/${id}/resumo?${parametros.toString()}`);
 };
 const apiCorrigirValoresComanda = (id, dados) => chamarApiAdmin(`/comandas/${id}/corrigir`, { method: 'PUT', body: dados });
+// "todas" traz aberta + fechada juntas (cada item com seu proprio status),
+// pra aba "Historico completo" nao esconder mais as comandas ainda em
+// aberto -- so cair de fora depois que fechar de verdade.
 const apiHistoricoComandasFuncionario = (funcionarioId, pagina, limite = 50) =>
-  chamarApiAdmin(`/comandas?status=fechada&funcionario_id=${funcionarioId}&pagina=${pagina}&limite=${limite}`);
+  chamarApiAdmin(`/comandas?status=todas&funcionario_id=${funcionarioId}&pagina=${pagina}&limite=${limite}`);
 const apiObterComanda = (id) => chamarApiAdmin(`/comandas/${id}`);
 const apiListarComandasAbertas = () => chamarApiAdmin('/comandas?status=aberta&limite=200');
 // operador_atendimento_id: quem autenticou no gate do Atendimento (o
