@@ -90,7 +90,11 @@ async function abrir(req, res) {
 async function listar(req, res) {
   try {
     const { status, limite, pagina, funcionario_id: funcionarioIdFiltro } = req.query;
-    const statusFinal = ['aberta', 'fechada'].includes(status) ? status : 'aberta';
+    // "todas" junta aberta + fechada numa lista so (cada item continua
+    // com seu proprio "status" pra tela poder mostrar a etiqueta
+    // Aberta/Fechada) -- usado na aba "Historico completo", que antes so
+    // trazia fechadas e escondia comandas ainda em aberto do historico.
+    const statusFinal = ['aberta', 'fechada', 'todas'].includes(status) ? status : 'aberta';
     const limiteFinal = Math.min(parseInt(limite, 10) || 50, 200);
     const paginaFinal = Math.max(parseInt(pagina, 10) || 1, 1);
     const offset = (paginaFinal - 1) * limiteFinal;
@@ -100,17 +104,19 @@ async function listar(req, res) {
     // Caixa/Gerente/Administrador nunca "abrem" mesa, entao so faz sentido
     // travar o HISTORICO (fechadas) deles pelas que ELE MESMO recebeu
     // (fechada_por_funcionario_id + pago_no_caixa) -- igual ja funciona no
-    // Resumo do Funcionario. Pra ABERTAS continua vendo todas (statusFinal
-    // === 'aberta' cai fora dessa trava de proposito) -- precisa achar
-    // qualquer mesa de qualquer garcom pra poder receber um pagamento
-    // avulso. (Bug corrigido: antes so cargo==='caixa' entrava aqui --
-    // gerente/administrador acessando a propria aba "Historico" caiam no
-    // filtro de baixo, que procurava funcionario_id = eles mesmos -- e como
-    // gerente/administrador NUNCA abrem comanda, isso sempre vinha vazio.)
-    const somenteProprioCaixa = ['caixa', 'gerente', 'administrador'].includes(req.cargo) && req.funcionarioId && statusFinal === 'fechada';
+    // Resumo do Funcionario. Pra ABERTAS continua vendo todas -- precisa
+    // achar qualquer mesa de qualquer garcom pra poder receber um
+    // pagamento avulso. Em "todas", as duas regras se aplicam juntas (ve
+    // toda aberta de qualquer garcom + so as fechadas que ele recebeu).
+    const somenteProprioCaixa = ['caixa', 'gerente', 'administrador'].includes(req.cargo) && req.funcionarioId && statusFinal !== 'aberta';
 
-    const condicoes = ['estabelecimento_id = $1', 'status = $2'];
-    const parametros = [req.estabelecimentoId, statusFinal];
+    const condicoes = ['estabelecimento_id = $1'];
+    const parametros = [req.estabelecimentoId];
+    if (statusFinal !== 'todas') {
+      parametros.push(statusFinal);
+      condicoes.push(`status = $${parametros.length}`);
+    }
+
     if (somenteProprioGarcom) {
       // Mesmo criterio usado no "Resumo do Funcionario" do admin
       // (funcionario_id = quem abriu/e dono da comanda), pra bater com o
@@ -121,8 +127,13 @@ async function listar(req, res) {
       condicoes.push(`(funcionario_id = $${parametros.length + 1} OR funcionario_id IS NULL)`);
       parametros.push(req.funcionarioId);
     } else if (somenteProprioCaixa) {
-      condicoes.push(`fechada_por_funcionario_id = $${parametros.length + 1}`, 'pago_no_caixa = true');
-      parametros.push(req.funcionarioId);
+      if (statusFinal === 'todas') {
+        condicoes.push(`(status = 'aberta' OR (fechada_por_funcionario_id = $${parametros.length + 1} AND pago_no_caixa = true))`);
+        parametros.push(req.funcionarioId);
+      } else {
+        condicoes.push(`fechada_por_funcionario_id = $${parametros.length + 1}`, 'pago_no_caixa = true');
+        parametros.push(req.funcionarioId);
+      }
     } else if (ehAdmin && funcionarioIdFiltro) {
       // So o admin pode escolher DE QUEM quer ver o historico -- o garcom
       // ja fica travado no proprio (regra acima) mesmo se tentar mandar
@@ -132,7 +143,11 @@ async function listar(req, res) {
       // (fechada_por_funcionario_id + pago_no_caixa), nao por quem abriu.
       const alvoRes = await query('SELECT cargo FROM funcionarios WHERE id = $1 AND estabelecimento_id = $2', [funcionarioIdFiltro, req.estabelecimentoId]);
       if (['caixa', 'gerente', 'administrador'].includes(alvoRes.rows[0]?.cargo)) {
-        condicoes.push(`fechada_por_funcionario_id = $${parametros.length + 1}`, 'pago_no_caixa = true');
+        if (statusFinal === 'todas') {
+          condicoes.push(`(status = 'aberta' OR (fechada_por_funcionario_id = $${parametros.length + 1} AND pago_no_caixa = true))`);
+        } else {
+          condicoes.push(`fechada_por_funcionario_id = $${parametros.length + 1}`, 'pago_no_caixa = true');
+        }
         parametros.push(funcionarioIdFiltro);
       } else {
         condicoes.push(`funcionario_id = $${parametros.length + 1}`);
@@ -143,7 +158,7 @@ async function listar(req, res) {
 
     const resultado = await query(
       `SELECT * FROM comandas WHERE ${condicoes.join(' AND ')}
-       ORDER BY ${statusFinal === 'aberta' ? 'aberta_em ASC' : 'fechada_em DESC'}
+       ORDER BY ${statusFinal === 'aberta' ? 'aberta_em ASC' : statusFinal === 'todas' ? 'COALESCE(fechada_em, aberta_em) DESC' : 'fechada_em DESC'}
        LIMIT $${parametros.length - 1} OFFSET $${parametros.length}`,
       parametros
     );
