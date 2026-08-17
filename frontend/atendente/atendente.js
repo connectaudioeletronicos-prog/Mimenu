@@ -335,6 +335,14 @@ document.getElementById('campo-busca-produto').addEventListener('input', (evento
 // ===================== Rodada atual (itens ainda nao enviados) =====================
 
 function adicionarItemNaRodada(produtoId) {
+  // So pode montar pedido depois de identificar mesa/comanda -- sem isso,
+  // dava pra ir montando uma "rodada fantasma" sem mesa nenhuma vinculada,
+  // e so na hora de enviar pra cozinha é que pedia pra escolher a mesa.
+  if (!comandaAtual.id) {
+    mostrarToast('Selecione a mesa/comanda antes de escolher os produtos.', true);
+    abrirModalMesa();
+    return;
+  }
   const produto = produtos.find(p => p.id === produtoId);
   if (!produto || !produto.disponivel) return;
   const existente = draftItens.find(i => i.produto_id === produtoId);
@@ -628,9 +636,21 @@ document.getElementById('botao-confirmar-mesa').addEventListener('click', async 
 
 // ===================== Enviar rodada pra cozinha =====================
 
+let enviandoRodadaParaCozinha = false;
+
 document.getElementById('botao-enviar-cozinha').addEventListener('click', async () => {
   if (!comandaAtual.id) { mostrarToast('Identifique a mesa/cliente antes de enviar.', true); return abrirModalMesa(); }
   if (draftItens.length === 0) return mostrarToast('Adicione itens antes de enviar.', true);
+  // Trava contra clique duplo/repetido: se a rede demorar e o garcom
+  // apertar de novo antes da resposta chegar, sem isso mandava o MESMO
+  // pedido duas vezes pra cozinha. O botao fica desabilitado (visualmente
+  // "carregando") do clique ate a resposta voltar (sucesso ou erro).
+  if (enviandoRodadaParaCozinha) return;
+  enviandoRodadaParaCozinha = true;
+  const botaoEnviar = document.getElementById('botao-enviar-cozinha');
+  const textoOriginalBotao = botaoEnviar.textContent;
+  botaoEnviar.disabled = true;
+  botaoEnviar.textContent = 'Enviando...';
 
   try {
     const novoPedido = await chamarApi(`/comandas/${comandaAtual.id}/itens`, {
@@ -648,6 +668,10 @@ document.getElementById('botao-enviar-cozinha').addEventListener('click', async 
     mostrarToast(`Rodada enviada pra cozinha! (Mesa: ${comandaAtual.mesaCliente})`);
   } catch (erro) {
     mostrarToast(erro.message, true);
+  } finally {
+    enviandoRodadaParaCozinha = false;
+    botaoEnviar.disabled = false;
+    botaoEnviar.textContent = textoOriginalBotao;
   }
 });
 
