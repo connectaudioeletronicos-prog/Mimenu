@@ -1462,3 +1462,68 @@ input, textarea, select { font-family: inherit; }
 .entregador-pagamento__valores { display: flex; gap: 8px; margin-top: 6px; }
 .entregador-pagamento__valores input { flex: 1; }
 .entregador-pagamento .botao-secundario { margin-top: 8px; font-size: 0.78rem; }
+
+/* ===================================================================
+   Grade de produtos do "Novo Pedido" (Atendimento) -- mesmo visual do
+   app do garcom (atendente.js/atendente.css .produto-card), adaptado
+   pras cores/variaveis do admin.
+   =================================================================== */
+.grade-produtos-atendimento {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 10px 0 16px;
+}
+.produto-card-atendimento {
+  background: #fff;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.produto-card-atendimento__imagem-wrap { position: relative; }
+.produto-card-atendimento__imagem {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+  cursor: pointer;
+  background: var(--admin-cor-fundo);
+}
+.produto-card-atendimento__indisponivel { opacity: 0.4; }
+.produto-card-atendimento__badge-qtd {
+  position: absolute; top: 6px; right: 6px;
+  background: var(--admin-cor-primaria); color: #fff; font-weight: 800; font-size: 0.78rem;
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+.produto-card-atendimento__corpo { padding: 8px 9px 9px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.produto-card-atendimento__nome { font-size: 0.8rem; font-weight: 700; line-height: 1.25; cursor: pointer; }
+.produto-card-atendimento__nome:hover { text-decoration: underline; }
+.produto-card-atendimento__preco { color: var(--admin-cor-primaria-escura); font-weight: 700; font-size: 0.82rem; }
+.produto-card-atendimento__acoes { display: flex; align-items: center; gap: 5px; margin-top: auto; }
+.produto-card-atendimento__botao-qtd {
+  width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--admin-cor-borda); background: #fff;
+  font-size: 1rem; font-weight: 800; cursor: pointer; color: var(--admin-cor-primaria-escura);
+  display: flex; align-items: center; justify-content: center;
+}
+.produto-card-atendimento__botao-qtd:active { background: var(--admin-cor-primaria-clara); }
+.produto-card-atendimento__input-qtd {
+  width: 32px; text-align: center; border: 1px solid var(--admin-cor-borda); border-radius: 7px;
+  padding: 3px 2px; font-size: 0.8rem; font-weight: 700;
+}
+
+.carrinho-atendimento {
+  background: var(--admin-cor-fundo);
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 4px 0 14px;
+}
+.carrinho-atendimento__item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--admin-cor-borda); font-size: 0.85rem;
+}
+.carrinho-atendimento__item:last-child { border-bottom: none; }
