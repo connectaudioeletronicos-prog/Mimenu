@@ -516,7 +516,16 @@ async function resumoFuncionario(req, res) {
       ].sort((a, b) => new Date(b.quando) - new Date(a.quando));
 
       const totalRecebido = movimentacoes.reduce((s, m) => s + Number(m.total), 0);
-      const gorjetasCaixa = movimentacoes.reduce((s, m) => s + Number(m.gorjeta || 0), 0);
+      // Regra da caixinha: quando o Caixa faz o PROPRIO atendimento (venda
+      // direta de balcao/mesa, origem 'pedido') e marca gorjeta, essa
+      // gorjeta e dele. Quando ele so RECEBE uma comanda que foi atendida
+      // por um garcom (origem 'comanda'), a gorjeta e do garcom que
+      // atendeu -- e ja esta contada no resumo dele (funcao mais abaixo).
+      // Contar aqui de novo faria a mesma gorjeta aparecer duplicada, uma
+      // vez pro garcom e outra pro caixa que so cobrou.
+      const gorjetasCaixa = movimentacoes
+        .filter(m => m.origem === 'pedido')
+        .reduce((s, m) => s + Number(m.gorjeta || 0), 0);
       const porFormaCaixa = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
       const transacoesPorFormaCaixa = { dinheiro: 0, cartao_credito: 0, cartao_debito: 0, pix: 0 };
       movimentacoes.forEach(m => {
