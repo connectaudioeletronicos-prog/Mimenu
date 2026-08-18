@@ -258,6 +258,62 @@ input, textarea, select { font-family: inherit; }
   display: none;
 }
 
+.painel__menu-contador--alerta {
+  background: var(--admin-cor-erro, #d64545);
+  color: #fff;
+}
+
+/* Hub de Configurações (estoque / pagamento / reserva / senha / paginas legais) */
+.config-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 460px;
+  margin-top: 16px;
+}
+
+.config-lista__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 15px 16px;
+  border: 1px solid var(--admin-cor-borda);
+  border-radius: var(--admin-raio);
+  background: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--admin-cor-texto);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.config-lista__item:hover {
+  background: var(--admin-cor-fundo-suave, #f7f8fa);
+  border-color: var(--admin-cor-primaria);
+  color: var(--admin-cor-texto);
+}
+
+.config-lista__item.ativo {
+  background: #fff;
+  color: var(--admin-cor-texto);
+}
+
+.config-lista__item--toggle {
+  cursor: default;
+}
+
+.config-lista__rotulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-lista__seta {
+  color: var(--admin-cor-texto-claro);
+  font-weight: 700;
+}
+
 .painel__conteudo {
   flex: 1;
   padding: 32px;
