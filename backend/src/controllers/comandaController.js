@@ -156,13 +156,18 @@ async function listar(req, res) {
     }
     parametros.push(limiteFinal, offset);
 
+    // total_pedidos: quantas rodadas (pedidos) essa comanda teve -- pedido
+    // aqui na listagem geral porque a tela de Historico/Equipe precisa
+    // mostrar "N pedidos" por comanda sem ter que buscar o detalhe de cada
+    // uma (que so traz as rodadas na rota /comandas/:id).
     const resultado = await query(
-      `SELECT * FROM comandas WHERE ${condicoes.join(' AND ')}
+      `SELECT comandas.*, (SELECT COUNT(*) FROM pedidos WHERE pedidos.comanda_id = comandas.id) AS total_pedidos
+       FROM comandas WHERE ${condicoes.join(' AND ')}
        ORDER BY ${statusFinal === 'aberta' ? 'aberta_em ASC' : statusFinal === 'todas' ? 'COALESCE(fechada_em, aberta_em) DESC' : 'fechada_em DESC'}
        LIMIT $${parametros.length - 1} OFFSET $${parametros.length}`,
       parametros
     );
-    res.json(resultado.rows);
+    res.json(resultado.rows.map(r => ({ ...r, total_pedidos: parseInt(r.total_pedidos, 10) || 0 })));
   } catch (error) {
     console.error('Erro ao listar comandas:', error);
     res.status(500).json({ erro: 'Erro ao listar comandas.' });
@@ -517,7 +522,8 @@ async function resumoFuncionario(req, res) {
           fechada_por_funcionario_nome: c.fechada_por_funcionario_nome, fechada_por_funcionario_cargo: c.fechada_por_funcionario_cargo,
           forma_pagamento: c.forma_pagamento, subtotal: c.subtotal, gorjeta: c.gorjeta, total: c.total,
           quando: c.fechada_em, numero: c.numero_comanda, tipo_venda: 'Mesa', pago_no_caixa: c.pago_no_caixa,
-          itens: rodadasCaixaRes.rows.filter(r => r.comanda_id === c.id).flatMap(r => Array.isArray(r.itens) ? r.itens : [])
+          itens: rodadasCaixaRes.rows.filter(r => r.comanda_id === c.id).flatMap(r => Array.isArray(r.itens) ? r.itens : []),
+          total_pedidos: rodadasCaixaRes.rows.filter(r => r.comanda_id === c.id).length
         })),
         ...pedidosRes.rows.map(p => ({
           origem: 'pedido', id: p.id, mesa_cliente: `${canalLegenda[p.canal_venda] || 'Balcão'} — ${p.cliente_nome}`,
@@ -526,7 +532,8 @@ async function resumoFuncionario(req, res) {
           forma_pagamento: p.forma_pagamento, subtotal: p.subtotal, gorjeta: p.gorjeta || 0,
           total: p.total, quando: p.criado_em, numero: p.numero_pedido,
           tipo_venda: p.tipo_pedido === 'entrega' ? 'Entrega' : 'Balcão',
-          itens: Array.isArray(p.itens) ? p.itens : []
+          itens: Array.isArray(p.itens) ? p.itens : [],
+          total_pedidos: 1 // pedido de balcao/retirada avulso -- sempre 1 pedido, nao tem "rodadas"
         }))
       ].sort((a, b) => new Date(b.quando) - new Date(a.quando));
 
@@ -616,10 +623,10 @@ async function resumoFuncionario(req, res) {
         [comandaIds]
       );
     }
-    const comandasPeriodo = comandasPeriodoRes.rows.map(c => ({
-      ...c,
-      rodadas: rodadasRes.rows.filter(r => r.comanda_id === c.id)
-    }));
+    const comandasPeriodo = comandasPeriodoRes.rows.map(c => {
+      const rodadas = rodadasRes.rows.filter(r => r.comanda_id === c.id);
+      return { ...c, rodadas, total_pedidos: rodadas.length };
+    });
 
     // Comandas ainda ABERTAS agora sempre contam no total geral do garcom,
     // independente do periodo escolhido (uma mesa aberta e sempre "atual").
