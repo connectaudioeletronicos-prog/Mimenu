@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&family=Inter:wght@400;700&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Montserrat:wght@400;700&family=Lato:wght@400;700&family=Nunito:wght@400;700&family=Quicksand:wght@400;700&family=Raleway:wght@400;700&family=Work+Sans:wght@400;700&family=DM+Sans:wght@400;700&family=Merriweather:wght@400;700&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css?v=20260817a">
+  <link rel="stylesheet" href="css/admin.css?v=20260817b">
   <link rel="stylesheet" href="css/admin-estoque.css?v=1">
 </head>
 <body>
@@ -1337,7 +1337,7 @@
   <div id="modal-comanda-garcom" class="modal-admin__caixa oculto" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:201;max-width:440px;width:92%;max-height:85vh;overflow-y:auto;background:#fff;border-radius:12px;padding:22px;">
     <button class="modal-admin__fechar" onclick="document.getElementById('fundo-modal-comanda-garcom').classList.add('oculto');document.getElementById('modal-comanda-garcom').classList.add('oculto');" aria-label="Fechar">&times;</button>
     <h3>🍽️ Comanda Garçom</h3>
-    <p class="aba__descricao">Cobrar aqui fica marcado como "pago no caixa" no histórico do garçom dono da mesa. Só cobrança — valores e itens não podem ser alterados por aqui.</p>
+    <p class="aba__descricao">Cobrar aqui fica marcado como "pago no caixa" no histórico do garçom dono da mesa. Só cobrança — valores e itens não podem ser alterados por aqui. Mostra só as comandas em aberto (pra ver comandas já cobradas, use Equipe → Histórico do funcionário).</p>
 
   <!-- Descricao do produto, aberta ao clicar no nome/foto dentro do Novo Pedido -->
   <div id="fundo-modal-descricao-produto" class="modal-admin__fundo oculto" style="position:fixed;inset:0;z-index:200;" onclick="document.getElementById('fundo-modal-descricao-produto').classList.add('oculto');document.getElementById('modal-descricao-produto').classList.add('oculto');"></div>
@@ -1345,10 +1345,6 @@
     <button class="modal-admin__fechar" onclick="document.getElementById('fundo-modal-descricao-produto').classList.add('oculto');document.getElementById('modal-descricao-produto').classList.add('oculto');" aria-label="Fechar">&times;</button>
     <div id="modal-descricao-produto-conteudo"></div>
   </div>
-    <div class="botoes-linha-admin" style="margin-bottom:12px;">
-      <button type="button" id="botao-comanda-garcom-abertas" class="botao-primario" style="flex:1;">Em aberto</button>
-      <button type="button" id="botao-comanda-garcom-fechadas" class="botao-secundario" style="flex:1;">Já cobradas hoje</button>
-    </div>
     <div id="lista-comanda-garcom-abertas"></div>
   </div>
 
@@ -1760,7 +1756,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="../js/config.js"></script>
   <script src="js/admin-api.js?v=20260814a"></script>
-  <script src="js/admin.js?v=20260817a"></script>
+  <script src="js/admin.js?v=20260817b"></script>
   <script src="js/admin-vitrines.js?v=20260720d"></script>
   <script src="js/admin-caixatexto.js?v=20260720d"></script>
   <script src="js/admin-construtor.js?v=20260722a"></script>
