@@ -140,7 +140,7 @@ async function ajustarManual(req, res) {
     }
 
     const prodRes = await query(
-      'SELECT id, nome, estoque, estoque_minimo FROM produtos WHERE id = $1 AND estabelecimento_id = $2',
+      'SELECT id, nome, estoque, estoque_minimo, controla_estoque FROM produtos WHERE id = $1 AND estabelecimento_id = $2',
       [produto_id, req.estabelecimentoId]
     );
     if (prodRes.rows.length === 0) return res.status(404).json({ erro: 'Produto nao encontrado.' });
