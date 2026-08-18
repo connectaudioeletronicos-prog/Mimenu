@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&family=Inter:wght@400;700&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Montserrat:wght@400;700&family=Lato:wght@400;700&family=Nunito:wght@400;700&family=Quicksand:wght@400;700&family=Raleway:wght@400;700&family=Work+Sans:wght@400;700&family=DM+Sans:wght@400;700&family=Merriweather:wght@400;700&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css?v=20260817b">
+  <link rel="stylesheet" href="css/admin.css?v=20260818a">
   <link rel="stylesheet" href="css/admin-estoque.css?v=1">
 </head>
 <body>
@@ -96,12 +96,9 @@
       <button class="painel__menu-item" data-aba="pedidos">🧾 Pedidos <span class="painel__menu-contador" data-menu-contador="pedidos"></span></button>
       <button class="painel__menu-item" data-aba="atendimento">🛎️ Atendimento</button>
       <button class="painel__menu-item" data-aba="caixa-geral">💰 Caixa Geral</button>
-      <button class="painel__menu-item" data-aba="pagamento">💳 Pagamento</button>
-      <button class="painel__menu-item" data-aba="paginas-legais">📄 Paginas legais</button>
-      <button class="painel__menu-item" data-aba="configuracoes">⚙️ Configurações</button>
+      <button class="painel__menu-item" data-aba="configuracoes">⚙️ Configurações <span class="painel__menu-contador painel__menu-contador--alerta" data-menu-contador="estoque-alertas"></span></button>
       <button class="painel__menu-item oculto" data-aba="reservas" id="menu-item-reservas">📅 Reservas</button>
       <a href="divulgacao.html" class="painel__menu-item">📣 Divulgação (QR Code / Link)</a>
-      <button class="painel__menu-item" data-aba="senha">🔒 Senha</button>
       <button class="painel__menu-item" data-aba="funcionarios" id="menu-item-funcionarios">👥 Funcionarios <span class="painel__menu-contador" data-menu-contador="funcionarios"></span></button>
       <button id="botao-sair" class="painel__menu-item painel__menu-item--sair">Sair</button>
     </nav>
@@ -518,18 +515,37 @@
 
       <section id="aba-configuracoes" class="aba oculto">
         <h2 class="aba__titulo">Configurações</h2>
-        <p class="aba__descricao">Ligue recursos opcionais da sua loja.</p>
+        <p class="aba__descricao">Área geral da loja: estoque, pagamento, reserva, senha e páginas legais.</p>
 
-        <label style="display:flex; align-items:center; gap:10px; font-weight:normal; margin-top:10px;">
-          <input type="checkbox" id="config-reserva-mesa-ativa" style="width:auto;">
-          Ativar reserva de mesa (aparece um menu "Reserva" no app do cliente)
-        </label>
+        <div class="config-lista">
+          <button type="button" id="botao-ir-para-estoque" class="config-lista__item">
+            <span class="config-lista__rotulo">📦 Controle de estoque <span class="painel__menu-contador painel__menu-contador--alerta" data-menu-contador="estoque-alertas-config"></span></span>
+            <span class="config-lista__seta">→</span>
+          </button>
 
-        <hr style="margin:22px 0; border:none; border-top:1px solid var(--admin-cor-borda);">
+          <button type="button" class="config-lista__item painel__menu-item" data-aba="pagamento">
+            <span class="config-lista__rotulo">💳 Pagamentos</span>
+            <span class="config-lista__seta">→</span>
+          </button>
 
-        <h3 style="font-size:1rem; margin-bottom:10px;">📦 Controle de Estoque</h3>
-        <p class="aba__descricao" style="margin-top:0;">Ative o módulo, configure a senha de acesso e os alertas direto na tela de Estoque.</p>
-        <button id="botao-ir-para-estoque" class="botao-secundario">Abrir Controle de Estoque →</button>
+          <div class="config-lista__item config-lista__item--toggle">
+            <span class="config-lista__rotulo">🗓️ Ativar reserva</span>
+            <label class="interruptor" title="Ativar reserva de mesa (aparece um menu &quot;Reserva&quot; no app do cliente)">
+              <input type="checkbox" id="config-reserva-mesa-ativa">
+              <span class="interruptor__trilho"></span>
+            </label>
+          </div>
+
+          <button type="button" class="config-lista__item painel__menu-item" data-aba="senha">
+            <span class="config-lista__rotulo">🔒 Senha</span>
+            <span class="config-lista__seta">→</span>
+          </button>
+
+          <button type="button" class="config-lista__item painel__menu-item" data-aba="paginas-legais">
+            <span class="config-lista__rotulo">📄 Páginas legais</span>
+            <span class="config-lista__seta">→</span>
+          </button>
+        </div>
       </section>
 
       <section id="aba-reservas" class="aba oculto">
@@ -1756,10 +1772,10 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="../js/config.js"></script>
   <script src="js/admin-api.js?v=20260814a"></script>
-  <script src="js/admin.js?v=20260817b"></script>
+  <script src="js/admin.js?v=20260818a"></script>
   <script src="js/admin-vitrines.js?v=20260720d"></script>
   <script src="js/admin-caixatexto.js?v=20260720d"></script>
   <script src="js/admin-construtor.js?v=20260722a"></script>
-  <script src="js/admin-estoque.js?v=1"></script>
+  <script src="js/admin-estoque.js?v=20260818a"></script>
 </body>
 </html>
