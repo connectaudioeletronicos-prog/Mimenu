@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Administrativo - Cardapio Digital</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&family=Inter:wght@400;700&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Montserrat:wght@400;700&family=Lato:wght@400;700&family=Nunito:wght@400;700&family=Quicksand:wght@400;700&family=Raleway:wght@400;700&family=Work+Sans:wght@400;700&family=DM+Sans:wght@400;700&family=Merriweather:wght@400;700&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/admin.css?v=20260819b">
+  <link rel="stylesheet" href="css/admin-estoque.css?v=1">
+</head>
+<body>
+
+  <div id="tela-login" class="tela-login">
+    <form id="form-login" class="login-card">
+      <h1 class="login-card__titulo">Painel do Estabelecimento</h1>
+      <p class="login-card__subtitulo">Entre para gerenciar seu cardapio</p>
+
+      <label>E-mail
+        <input type="email" id="login-email" required autocomplete="username">
+      </label>
+      <label>Senha
+        <div class="campo-senha-wrapper">
+          <input type="password" id="login-senha" required autocomplete="current-password">
+          <button type="button" class="botao-olho" data-alvo-senha="login-senha" aria-label="Mostrar senha"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </label>
+
+      <div id="login-erro" class="login-card__erro oculto"></div>
+
+      <button type="submit" class="botao-primario">Entrar</button>
+      <a href="#" id="link-esqueci-senha" class="login-card__link">Esqueci minha senha</a>
+      <a href="#" id="link-login-funcionario" class="login-card__link">Sou funcionario</a>
+    </form>
+  </div>
+
+  <div id="tela-login-funcionario" class="tela-login oculto">
+    <form id="form-login-funcionario" class="login-card">
+      <h1 class="login-card__titulo">Entrar como funcionario</h1>
+      <p class="login-card__subtitulo">Peca o "slug" da loja para o seu gestor, se nao souber.</p>
+
+      <label>Slug da loja
+        <input type="text" id="funcionario-slug" required placeholder="minha-loja">
+      </label>
+      <label>Login (e-mail ou usuario)
+        <input type="text" id="funcionario-login" required autocomplete="username">
+      </label>
+      <label>Senha
+        <div class="campo-senha-wrapper">
+          <input type="password" id="funcionario-senha" required autocomplete="current-password">
+          <button type="button" class="botao-olho" data-alvo-senha="funcionario-senha" aria-label="Mostrar senha"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </label>
+
+      <div id="funcionario-login-erro" class="login-card__erro oculto"></div>
+
+      <button type="submit" class="botao-primario">Entrar</button>
+      <a href="#" id="link-voltar-login-dono" class="login-card__link">Sou o dono da loja</a>
+    </form>
+  </div>
+
+  <div id="tela-esqueci-senha" class="tela-login oculto">
+    <form id="form-esqueci-senha" class="login-card">
+      <h1 class="login-card__titulo">Recuperar senha</h1>
+      <p class="login-card__subtitulo">Informe seu e-mail cadastrado. Enviaremos um link para redefinir sua senha.</p>
+
+      <label>E-mail
+        <input type="email" id="esqueci-email" required>
+      </label>
+
+      <div id="esqueci-senha-erro" class="login-card__erro oculto"></div>
+      <div id="esqueci-senha-sucesso" class="login-card__sucesso oculto"></div>
+
+      <button type="submit" class="botao-primario">Enviar link</button>
+      <a href="#" id="link-voltar-login" class="login-card__link">Voltar ao login</a>
+    </form>
+  </div>
+
+  <div id="painel" class="painel oculto">
+
+    <nav class="painel__menu">
+      <div class="painel__menu-topo">
+        <strong id="menu-nome-estabelecimento">Meu Estabelecimento</strong>
+        <span id="menu-cargo-funcionario" class="painel__menu-cargo"></span>
+        <span id="menu-nome-funcionario" class="painel__menu-funcionario"></span>
+        <span id="menu-link-publico" class="painel__menu-link"></span>
+      </div>
+      <button class="painel__menu-item ativo" data-aba="aparencia">🎨 Aparencia</button>
+      <button class="painel__menu-item" data-aba="informacoes">📋 Informacoes</button>
+      <button class="painel__menu-item" data-aba="categorias">📂 Categorias <span class="painel__menu-contador" data-menu-contador="categorias"></span></button>
+      <button class="painel__menu-item" data-aba="produtos">🍽️ Produtos <span class="painel__menu-contador" data-menu-contador="produtos"></span></button>
+      <button class="painel__menu-item" data-aba="promocoes">🏷️ Promocoes <span class="painel__menu-contador" data-menu-contador="promocoes"></span></button>
+      <button class="painel__menu-item" data-aba="vitrines">🖼️ Carrosseis e Vitrines <span class="painel__menu-contador" data-menu-contador="vitrines"></span></button>
+      <button class="painel__menu-item" data-aba="construtor">🧩 Construtor de página</button>
+      <button class="painel__menu-item" data-aba="pedidos">🧾 Pedidos <span class="painel__menu-contador" data-menu-contador="pedidos"></span></button>
+      <button class="painel__menu-item" data-aba="atendimento">🛎️ Atendimento</button>
+      <button class="painel__menu-item" data-aba="caixa-geral">💰 Caixa Geral</button>
+      <button class="painel__menu-item" data-aba="configuracoes">⚙️ Configurações <span class="painel__menu-contador painel__menu-contador--alerta" data-menu-contador="estoque-alertas"></span></button>
+      <button class="painel__menu-item oculto" data-aba="reservas" id="menu-item-reservas">📅 Reservas</button>
+      <a href="divulgacao.html" class="painel__menu-item">📣 Divulgação (QR Code / Link)</a>
+      <button class="painel__menu-item" data-aba="funcionarios" id="menu-item-funcionarios">👥 Funcionarios <span class="painel__menu-contador" data-menu-contador="funcionarios"></span></button>
+      <button id="botao-sair" class="painel__menu-item painel__menu-item--sair">Sair</button>
+    </nav>
+
+    <main class="painel__conteudo">
+
+      <section id="aba-aparencia" class="aba">
+        <h2 class="aba__titulo">Aparencia</h2>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Logotipo</label>
+          <div class="upload-area">
+            <img id="preview-logo" class="upload-area__preview" alt="">
+            <input type="file" id="input-logo" accept="image/*">
+          </div>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Logo dos aplicativos da equipe</label>
+          <p class="aba__ajuda">Opcional. Aparece ao lado do "Olá, [Nome]!" nos apps internos (garçom, entregador etc) — não é o mesmo logo mostrado ao cliente. Aceita tanto um ícone quadrado (como o Logotipo acima) quanto uma marca mais larga, como o exemplo abaixo.</p>
+          <div class="upload-area">
+            <img id="preview-logo-apps" class="upload-area__preview" alt="">
+            <input type="file" id="input-logo-apps" accept="image/*">
+          </div>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Banner principal</label>
+          <div class="upload-area upload-area--banner">
+            <img id="preview-banner" class="upload-area__preview upload-area__preview--banner" alt="">
+            <input type="file" id="input-banner" accept="image/*">
+          </div>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Cores</label>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div>
+              <div class="campo-cor-wrapper">
+                <input type="color" id="campo-cor-principal" class="campo-cor" data-paleta-alvo>
+                <span class="campo-cor-nome">Cor principal (banner, títulos, rodapé)</span>
+              </div>
+              <div class="paleta-cores" data-paleta-para="campo-cor-principal"></div>
+            </div>
+            <div>
+              <div class="campo-cor-wrapper">
+                <input type="color" id="campo-cor-secundaria" class="campo-cor" data-paleta-alvo>
+                <span class="campo-cor-nome">Cor secundária (preços, destaques)</span>
+              </div>
+              <div class="paleta-cores" data-paleta-para="campo-cor-secundaria"></div>
+            </div>
+            <div>
+              <div class="campo-cor-wrapper">
+                <input type="color" id="campo-cor-botoes" class="campo-cor" data-paleta-alvo>
+                <span class="campo-cor-nome">Cor dos botões</span>
+              </div>
+              <div class="paleta-cores" data-paleta-para="campo-cor-botoes"></div>
+            </div>
+          </div>
+          <p class="campo-dica">Paleta padrão da marca. Os códigos exatos são respeitados ao clicar.</p>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Fonte</label>
+          <select id="campo-fonte" class="campo-select">
+            <option value="Poppins">Poppins</option>
+            <option value="Inter">Inter</option>
+            <option value="Playfair Display">Playfair Display</option>
+            <option value="Roboto">Roboto</option>
+            <option value="Montserrat">Montserrat</option>
+            <option value="Lato">Lato</option>
+            <option value="Nunito">Nunito</option>
+            <option value="Quicksand">Quicksand</option>
+            <option value="Raleway">Raleway</option>
+            <option value="Work Sans">Work Sans</option>
+            <option value="DM Sans">DM Sans</option>
+            <option value="Merriweather">Merriweather</option>
+            <option value="Oswald">Oswald</option>
+          </select>
+          <div id="fonte-preview" class="fonte-preview">Pangram, dolor sit amet, passou seia mteigna.</div>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Tema visual</label>
+          <div id="seletor-temas" class="seletor-temas">
+            <button type="button" class="tema-opcao" data-tema="classico">Classico</button>
+            <button type="button" class="tema-opcao" data-tema="elegante">Elegante</button>
+            <button type="button" class="tema-opcao" data-tema="moderno">Moderno</button>
+            <button type="button" class="tema-opcao" data-tema="minimalista">Minimalista</button>
+            <button type="button" class="tema-opcao" data-tema="premium">Premium</button>
+          </div>
+        </div>
+
+        <button id="botao-salvar-aparencia" class="botao-primario">Salvar aparencia</button>
+      </section>
+
+      <section id="aba-informacoes" class="aba oculto">
+        <h2 class="aba__titulo">Informacoes do estabelecimento</h2>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Nome do estabelecimento</label>
+          <input type="text" id="campo-nome" class="campo-texto" maxlength="150">
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Texto de apresentacao</label>
+          <textarea id="campo-apresentacao" class="campo-textarea" maxlength="500"></textarea>
+        </div>
+
+        <div class="campo-linha">
+          <div class="campo-grupo">
+            <label class="campo-label">WhatsApp</label>
+            <input type="text" id="campo-whatsapp" class="campo-texto" placeholder="5511999999999">
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Telefone</label>
+            <input type="text" id="campo-telefone" class="campo-texto" placeholder="(11) 3333-4444">
+          </div>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Endereco</label>
+          <input type="text" id="campo-endereco" class="campo-texto" maxlength="255">
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">E-mail de contato</label>
+          <input type="email" id="campo-email-contato" class="campo-texto" placeholder="contato@seurestaurante.com.br">
+        </div>
+
+        <div class="campo-linha">
+          <div class="campo-grupo">
+            <label class="campo-label">Instagram (@usuario)</label>
+            <input type="text" id="campo-instagram" class="campo-texto">
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Facebook (link)</label>
+            <input type="text" id="campo-facebook" class="campo-texto">
+          </div>
+        </div>
+
+        <div class="campo-linha">
+          <div class="campo-grupo">
+            <label class="campo-label">LinkedIn (link)</label>
+            <input type="text" id="campo-linkedin" class="campo-texto">
+          </div>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Horario de funcionamento</label>
+          <div id="horarios-semana" class="horarios-semana"></div>
+        </div>
+
+        <button id="botao-salvar-informacoes" class="botao-primario">Salvar informacoes</button>
+      </section>
+
+      <section id="aba-categorias" class="aba oculto">
+        <div class="aba__cabecalho">
+          <h2 class="aba__titulo">Categorias <span id="contador-categorias" class="aba__contador"></span></h2>
+          <div class="aba__cabecalho-acoes">
+            <button id="botao-nova-categoria" class="botao-secundario">+ Nova categoria</button>
+            <button id="botao-ver-categorias-desativadas" class="botao-secundario" title="Ver categorias desativadas">Desativadas <span id="contador-categorias-desativadas" class="aba__contador"></span></button>
+          </div>
+        </div>
+        <div id="lista-categorias-admin" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-produtos" class="aba oculto">
+        <div class="produtos-layout">
+          <div class="produtos-coluna-principal">
+            <div class="aba__cabecalho">
+              <h2 class="aba__titulo">Produtos <span id="contador-produtos" class="aba__contador"></span></h2>
+              <div class="aba__cabecalho-acoes">
+                <button id="botao-novo-produto" class="botao-primario">+ Novo produto</button>
+                <button id="botao-filtro-categorias" class="botao-secundario" title="Ver produtos de uma categoria especifica, sem sair desta pagina">Categorias</button>
+              </div>
+            </div>
+            <div id="chip-filtro-categoria" class="chip-filtro-ativo oculto">
+              Categoria: <strong id="chip-filtro-categoria-nome"></strong>
+              <button id="botao-limpar-filtro-categoria" title="Mostrar todos os produtos">✕</button>
+            </div>
+            <div id="lista-produtos-admin" class="lista-itens-admin"></div>
+          </div>
+
+          <aside class="produtos-sidebar">
+            <div class="produtos-sidebar__card">
+              <h3 class="produtos-sidebar__titulo">Produtos desativados <span id="contador-desativados" class="aba__contador"></span></h3>
+              <div id="lista-desativados-admin" class="produtos-sidebar__lista"></div>
+              <p id="mensagem-sem-desativados" class="lista-vazia oculto">Nenhum produto desativado.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="aba-promocoes" class="aba oculto">
+        <div class="aba__cabecalho">
+          <h2 class="aba__titulo">Promocoes <span id="contador-promocoes" class="aba__contador"></span></h2>
+          <div class="aba__cabecalho-acoes">
+            <button id="botao-nova-promocao" class="botao-secundario">+ Nova promocao</button>
+            <button id="botao-ver-promocoes-desativadas" class="botao-secundario" title="Ver promocoes desativadas">Desativadas <span id="contador-promocoes-desativadas" class="aba__contador"></span></button>
+          </div>
+        </div>
+        <div id="lista-promocoes-admin" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-vitrines" class="aba oculto">
+        <div class="aba__cabecalho">
+          <h2 class="aba__titulo">Carrosséis extras</h2>
+          <div class="aba__cabecalho-acoes">
+            <button id="botao-novo-carrossel" class="botao-secundario">+ Novo carrossel</button>
+            <button id="botao-ver-carrosseis-desativados" class="botao-secundario" title="Ver carrosseis desativados">Desativados <span id="contador-carrosseis-desativados" class="aba__contador"></span></button>
+          </div>
+        </div>
+        <p class="aba__descricao">
+          Além do banner principal, você pode criar um ou dois carrosséis extras com quantas fotos quiser,
+          e escolher em qual parte da página cada um aparece. Ficam desativados até você ativar.
+        </p>
+        <div id="lista-carrosseis-admin" class="lista-itens-admin"></div>
+
+        <div class="aba__cabecalho" style="margin-top:32px;">
+          <h2 class="aba__titulo">Vitrines</h2>
+          <div class="aba__cabecalho-acoes">
+            <button id="botao-nova-vitrine" class="botao-secundario">+ Nova vitrine</button>
+            <button id="botao-ver-vitrines-desativadas" class="botao-secundario" title="Ver vitrines desativadas">Desativadas <span id="contador-vitrines-desativadas" class="aba__contador"></span></button>
+          </div>
+        </div>
+        <p class="aba__descricao">
+          Vitrine é um bloco com uma imagem grande (retrato, de 1350x1800 até 2000x2000px) e uma caixa de texto.
+          Também posicionável e desativada por padrão até você ativar.
+        </p>
+        <div id="lista-vitrines-admin" class="lista-itens-admin"></div>
+
+        <div class="aba__cabecalho" style="margin-top:32px;">
+          <h2 class="aba__titulo">Caixas de texto</h2>
+          <button id="botao-nova-caixa-texto" class="botao-secundario">+ Nova caixa de texto</button>
+        </div>
+        <p class="aba__descricao">
+          Um bloco de texto livre (título + corpo), sem precisar de imagem. Use pra avisos, boas-vindas,
+          promoções escritas ou qualquer coisa que você queira comunicar. Também posicionável.
+        </p>
+        <div id="lista-caixas-texto-admin" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-construtor" class="aba oculto">
+        <h2 class="aba__titulo">Construtor de página</h2>
+        <p class="aba__descricao construtor-intro">
+          Arraste os blocos (carrossel, vitrine, texto livre) para reordenar como eles aparecem
+          no cardápio público, em qualquer ponto da página. As faixas cinzas são pontos fixos
+          (cabeçalho, categorias, produtos, rodapé) e não podem ser movidas — os blocos entre elas, sim.
+        </p>
+        <div id="construtor-lista" class="construtor-lista"></div>
+      </section>
+
+      <section id="aba-pedidos" class="aba oculto">
+        <div class="aba__cabecalho-flex">
+          <h2 class="aba__titulo" style="margin-bottom:0;">Pedidos recebidos</h2>
+          <button type="button" id="botao-novo-pedido-manual" class="botao-primario oculto">+ Novo pedido</button>
+        </div>
+        <div class="filtro-pedidos">
+          <button class="filtro-pedidos__botao ativo" data-status="">Todos <span class="filtro-pedidos__contador" data-contador="todos"></span></button>
+          <button class="filtro-pedidos__botao" data-status="novo">Novos <span class="filtro-pedidos__contador" data-contador="novo"></span></button>
+          <button class="filtro-pedidos__botao" data-status="preparando">Preparando <span class="filtro-pedidos__contador" data-contador="preparando"></span></button>
+          <button class="filtro-pedidos__botao" data-status="pronto">Prontos <span class="filtro-pedidos__contador" data-contador="pronto"></span></button>
+          <button class="filtro-pedidos__botao" data-status="saiu_entrega">Saiu p/ entrega <span class="filtro-pedidos__contador" data-contador="saiu_entrega"></span></button>
+          <button class="filtro-pedidos__botao" data-status="entregue">Entregues <span class="filtro-pedidos__contador" data-contador="entregue"></span></button>
+          <button class="filtro-pedidos__botao" data-status="cancelado">Cancelados <span class="filtro-pedidos__contador" data-contador="cancelado"></span></button>
+        </div>
+        <div id="lista-pedidos-admin" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-atendimento" class="aba oculto">
+        <h2>Atendimento (balcão/mesa)</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+          <span id="atendimento-autenticado-como" style="font-size:0.82rem;font-weight:600;color:var(--admin-cor-texto-claro);"></span>
+          <div style="display:flex;gap:8px;">
+            <button type="button" id="botao-comanda-garcom" class="botao-secundario">🍽️ Comanda Garçom</button>
+            <button type="button" id="botao-trocar-atendente-atendimento" class="botao-secundario">🔄 Trocar</button>
+          </div>
+        </div>
+        <p class="aba__descricao">
+          Lance aqui um pedido feito presencialmente (ou por WhatsApp). Ele já entra
+          direto em preparo (a cozinha vê na hora), sem precisar de aceite do administrador.
+        </p>
+
+        <label>Número da mesa ou comanda
+          <input type="text" id="novo-pedido-cliente" inputmode="numeric" placeholder="Ex: 12">
+        </label>
+        <p class="campo-ajuda" style="margin-top:-8px;font-size:0.78rem;color:var(--admin-cor-texto-claro);">Só um número — não precisa preencher mesa e comanda separado.</p>
+
+        <div class="busca-produto-atendimento" style="position:relative;margin:12px 0 6px;">
+          <input type="text" id="novo-pedido-busca" class="campo-texto" placeholder="🔍 Buscar produto...">
+        </div>
+
+        <div class="botoes-filtro-atendimento" style="display:flex; gap:8px; margin:8px 0 12px; flex-wrap:wrap;">
+          <button type="button" class="botao-secundario ativo" data-filtro-atendimento="todos">Todos</button>
+          <button type="button" class="botao-secundario" data-filtro-atendimento="promocoes">Promoções</button>
+          <button type="button" class="botao-secundario" data-filtro-atendimento="vitrines">Vitrines</button>
+          <span id="botoes-filtro-categorias-atendimento" style="display:contents;"></span>
+        </div>
+
+        <label class="campo-label">Itens do pedido</label>
+        <div id="novo-pedido-itens-produtos" class="grade-produtos-atendimento"></div>
+
+        <div class="carrinho-atendimento" id="novo-pedido-carrinho">
+          <h3 style="margin:0 0 8px;font-size:0.95rem;">🧾 Pedido atual</h3>
+          <div id="novo-pedido-carrinho-lista"><div class="lista-vazia">Nenhum item adicionado ainda.</div></div>
+        </div>
+
+        <label style="display:flex; align-items:center; gap:8px; font-weight:normal;">
+          <input type="checkbox" id="novo-pedido-enviar-entrega" style="width:auto;">
+          Enviar para entrega (usar a fila do entregador nesse pedido)
+        </label>
+
+        <label>Forma de pagamento
+          <select id="novo-pedido-forma-pagamento">
+            <option value="dinheiro">Dinheiro</option>
+            <option value="pix">Pix</option>
+            <option value="cartao_credito">Cartao de credito</option>
+            <option value="cartao_debito">Cartao de debito</option>
+          </select>
+        </label>
+        <label>Observacoes (opcional)
+          <textarea id="novo-pedido-observacoes" rows="2"></textarea>
+        </label>
+
+        <div id="novo-pedido-total" style="font-weight:700; margin:10px 0;"></div>
+
+        <button id="botao-confirmar-novo-pedido" class="botao-primario">Lançar pedido</button>
+      </section>
+
+      <section id="aba-caixa-geral" class="aba oculto">
+        <h2 class="aba__titulo">Caixa Geral</h2>
+        <p class="aba__descricao">
+          Resumo dos valores das entregas concluidas. Visivel apenas para gerente e administrador
+          (ou quem tiver essa permissao marcada). Hoje a loja so tem pedido por entrega; quando o
+          pedido de balcao existir, ele entra automaticamente nesse mesmo resumo.
+        </p>
+
+        <div class="botoes-filtro-atendimento" style="display:flex; gap:8px; margin:12px 0; flex-wrap:wrap;" id="botoes-periodo-caixa-geral">
+          <button type="button" class="botao-secundario ativo" data-periodo-caixa="hoje">Hoje</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="ontem">Ontem</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="semana">Esta semana</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="mes_atual">Este mês</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="trimestre">Este trimestre</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="semestre">Este semestre</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="geral">Geral (tudo)</button>
+          <button type="button" class="botao-secundario" data-periodo-caixa="personalizado">Manual</button>
+        </div>
+
+        <div class="campo-linha oculto" id="campos-caixa-manual">
+          <div class="campo-grupo">
+            <label class="campo-label">De</label>
+            <input type="date" id="caixa-data-inicio" class="campo-texto">
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Ate</label>
+            <input type="date" id="caixa-data-fim" class="campo-texto">
+          </div>
+          <button id="botao-filtrar-caixa" class="botao-secundario">Filtrar</button>
+        </div>
+
+        <div id="resumo-caixa-geral" class="resumo-caixa-geral"></div>
+        <div id="lista-caixa-geral" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-pagamento" class="aba oculto">
+        <h2 class="aba__titulo">Configuracao de pagamento</h2>
+        <p class="aba__descricao">
+          Conecte sua propria conta do Mercado Pago para receber os pagamentos diretamente.
+          Caso deixe em branco, o sistema usara a conta padrao da plataforma (modo de testes).
+        </p>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Access Token (Mercado Pago)</label>
+          <input type="password" id="campo-mp-token" class="campo-texto" placeholder="APP_USR-...">
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Public Key (Mercado Pago)</label>
+          <input type="text" id="campo-mp-public" class="campo-texto" placeholder="APP_USR-...">
+        </div>
+
+        <p class="aba__ajuda">
+          Voce encontra essas chaves no painel do Mercado Pago, em
+          <strong>Seu negocio - Configuracoes - Credenciais</strong>.
+        </p>
+
+        <button id="botao-salvar-pagamento" class="botao-primario">Salvar credenciais</button>
+
+        <hr style="margin:24px 0; border:none; border-top:1px solid #e2e2e2;">
+
+        <h3 style="font-size:1rem; margin-bottom:4px;">Cartão no atendimento presencial</h3>
+        <p class="aba__descricao">
+          Por padrão, quando o garçom ou o caixa fecha uma comanda em Crédito ou Débito, o sistema
+          apenas registra a forma de pagamento — o cobrança de verdade acontece na maquininha física
+          da sua loja, separada do sistema.
+        </p>
+        <p class="aba__descricao">
+          Se preferir, você pode ativar a cobrança de cartão <strong>direto pelo Mercado Pago</strong>,
+          sem precisar de maquininha: o garçom digita os dados do cartão na tela e o valor é cobrado
+          na hora, do mesmo jeito que o Pix já funciona.
+        </p>
+
+        <div class="config-lista__item config-lista__item--toggle">
+          <span class="config-lista__rotulo">💳 Cobrar cartão online no atendimento (sem maquininha)</span>
+          <label class="interruptor" title="Quando desligado, crédito/débito no atendimento continuam sendo só registro manual (maquininha física).">
+            <input type="checkbox" id="campo-cartao-online-presencial">
+            <span class="interruptor__trilho"></span>
+          </label>
+        </div>
+      </section>
+
+      <section id="aba-paginas-legais" class="aba oculto">
+        <h2 class="aba__titulo">Paginas legais</h2>
+        <p class="aba__descricao">
+          Esse conteudo fica disponivel para seus clientes no rodape do cardapio.
+          Cole aqui o texto completo de cada documento.
+        </p>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Termos de Uso</label>
+          <textarea id="campo-termos-uso" class="campo-textarea" rows="12"></textarea>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Cookies</label>
+          <textarea id="campo-cookies" class="campo-textarea" rows="12"></textarea>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Politica de Privacidade</label>
+          <textarea id="campo-politica-privacidade" class="campo-textarea" rows="12"></textarea>
+        </div>
+
+        <button id="botao-salvar-paginas-legais" class="botao-primario">Salvar paginas legais</button>
+      </section>
+
+      <section id="aba-configuracoes" class="aba oculto">
+        <h2 class="aba__titulo">Configurações</h2>
+        <p class="aba__descricao">Área geral da loja: estoque, pagamento, reserva, senha e páginas legais.</p>
+
+        <div class="config-lista">
+          <button type="button" id="botao-ir-para-estoque" class="config-lista__item">
+            <span class="config-lista__rotulo">📦 Controle de estoque <span class="painel__menu-contador painel__menu-contador--alerta" data-menu-contador="estoque-alertas-config"></span></span>
+            <span class="config-lista__seta">→</span>
+          </button>
+
+          <button type="button" class="config-lista__item painel__menu-item" data-aba="pagamento">
+            <span class="config-lista__rotulo">💳 Pagamentos</span>
+            <span class="config-lista__seta">→</span>
+          </button>
+
+          <div class="config-lista__item config-lista__item--toggle">
+            <span class="config-lista__rotulo">🗓️ Ativar reserva</span>
+            <label class="interruptor" title="Ativar reserva de mesa (aparece um menu &quot;Reserva&quot; no app do cliente)">
+              <input type="checkbox" id="config-reserva-mesa-ativa">
+              <span class="interruptor__trilho"></span>
+            </label>
+          </div>
+
+          <button type="button" class="config-lista__item painel__menu-item" data-aba="senha">
+            <span class="config-lista__rotulo">🔒 Senha</span>
+            <span class="config-lista__seta">→</span>
+          </button>
+
+          <button type="button" class="config-lista__item painel__menu-item" data-aba="paginas-legais">
+            <span class="config-lista__rotulo">📄 Páginas legais</span>
+            <span class="config-lista__seta">→</span>
+          </button>
+        </div>
+      </section>
+
+      <section id="aba-reservas" class="aba oculto">
+        <h2 class="aba__titulo">Reservas de mesa</h2>
+        <div id="lista-reservas-admin" class="lista-itens-admin"></div>
+      </section>
+
+      <section id="aba-estoque" class="aba oculto">
+        <div id="estoque-bloqueado" class="estoque-bloqueio oculto">
+          <div class="estoque-bloqueio__card">
+            <h2>🔒 Área protegida</h2>
+            <p>Digite sua senha de acesso para continuar.</p>
+            <input type="password" id="estoque-senha-input" class="campo-texto" placeholder="Sua senha">
+            <div id="estoque-senha-erro" class="login-card__erro oculto"></div>
+            <button id="estoque-senha-confirmar" class="botao-primario">Entrar</button>
+          </div>
+        </div>
+
+        <div id="estoque-conteudo">
+          <div class="estoque-subnav">
+            <button class="estoque-subnav__botao ativo" data-subaba="painel">📊 Painel</button>
+            <button class="estoque-subnav__botao" data-subaba="vendas">💰 Vendas &amp; Inteligência</button>
+            <button class="estoque-subnav__botao" data-subaba="inteligencia">🧠 Inteligência</button>
+          </div>
+
+          <div class="estoque-config-linha">
+            <label class="interruptor" title="Ativar ou desativar o Controle de Estoque">
+              <input type="checkbox" id="config-estoque-modulo-ativo">
+              <span class="interruptor__trilho"></span>
+            </label>
+            <span>Controle de Estoque ativado</span>
+
+            <label class="interruptor" title="Exigir senha para acessar esta tela" style="margin-left:22px;">
+              <input type="checkbox" id="config-estoque-senha-protegida">
+              <span class="interruptor__trilho"></span>
+            </label>
+            <span>Exigir senha de acesso</span>
+          </div>
+
+          <div id="estoque-sub-painel">
+          <div class="aba__cabecalho-flex">
+            <h2 class="aba__titulo" style="margin-bottom:0;">📦 Controle de Estoque</h2>
+            <button id="botao-config-alertas" class="botao-secundario">⚙️ Configurar Alertas</button>
+          </div>
+          <p class="aba__descricao">Ative o controle de estoque em cada produto (na aba Produtos) para que ele apareça aqui.</p>
+
+          <div class="estoque-indicadores">
+            <div class="estoque-card estoque-card--azul">
+              <div class="estoque-card__icone">📦</div>
+              <div>
+                <div class="estoque-card__valor" id="ind-valor-total">R$ 0,00</div>
+                <div class="estoque-card__titulo">Valor total do estoque</div>
+                <div class="estoque-card__sub">Custo de aquisição</div>
+              </div>
+            </div>
+            <div class="estoque-card estoque-card--roxo">
+              <div class="estoque-card__icone">📈</div>
+              <div>
+                <div class="estoque-card__valor" id="ind-lucro-estimado">R$ 0,00</div>
+                <div class="estoque-card__titulo">Lucro estimado do estoque</div>
+                <div class="estoque-card__sub">Baseado no preço de venda</div>
+              </div>
+            </div>
+            <div class="estoque-card estoque-card--laranja">
+              <div class="estoque-card__icone">⚠️</div>
+              <div>
+                <div class="estoque-card__valor" id="ind-baixo-estoque">0</div>
+                <div class="estoque-card__titulo">Produtos com estoque baixo</div>
+                <div class="estoque-card__sub">Requerem atenção</div>
+              </div>
+            </div>
+            <div class="estoque-card estoque-card--vermelho">
+              <div class="estoque-card__icone">⛔</div>
+              <div>
+                <div class="estoque-card__valor" id="ind-esgotados">0</div>
+                <div class="estoque-card__titulo">Produtos esgotados</div>
+                <div class="estoque-card__sub">Sem estoque</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="estoque-layout-duas-colunas">
+            <div class="estoque-bloco">
+              <h3 class="estoque-bloco__titulo">Alertas de Estoque</h3>
+              <div id="estoque-lista-alertas" class="estoque-lista-alertas"></div>
+              <p id="estoque-sem-alertas" class="lista-vazia oculto">Nenhum alerta no momento. 🎉</p>
+            </div>
+
+            <div class="estoque-bloco">
+              <div class="aba__cabecalho-flex">
+                <h3 class="estoque-bloco__titulo" style="margin-bottom:0;">Fornecedores</h3>
+                <button id="botao-novo-fornecedor" class="botao-secundario">+ Novo</button>
+              </div>
+              <div id="estoque-lista-fornecedores" class="lista-itens-admin" style="margin-top:10px;"></div>
+            </div>
+          </div>
+
+          <div class="estoque-bloco">
+            <div class="aba__cabecalho-flex">
+              <h3 class="estoque-bloco__titulo" style="margin-bottom:0;">Estoque atual</h3>
+              <button id="botao-registrar-compra" class="botao-primario">+ Registrar compra</button>
+            </div>
+            <div class="tabela-scroll" style="margin-top:10px;">
+              <table class="tabela-estoque">
+                <thead>
+                  <tr><th>Produto</th><th>SKU</th><th>Estoque</th><th>Mínimo</th><th>Custo Unit.</th><th>Valor Total</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody id="estoque-tabela-corpo"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="estoque-layout-duas-colunas">
+            <div class="estoque-bloco">
+              <h3 class="estoque-bloco__titulo">Últimas movimentações</h3>
+              <div id="estoque-lista-movimentacoes" class="estoque-lista-mov"></div>
+            </div>
+            <div class="estoque-bloco">
+              <h3 class="estoque-bloco__titulo">Notificações enviadas</h3>
+              <div id="estoque-lista-notificacoes" class="estoque-lista-mov"></div>
+            </div>
+          </div>
+          </div>
+          <!-- fim #estoque-sub-painel -->
+
+          <div id="estoque-sub-vendas" class="oculto">
+            <h2 class="aba__titulo">💰 Vendas &amp; Inteligência</h2>
+
+            <div class="estoque-periodo-filtros">
+              <button class="ativo" data-periodo="hoje">Hoje</button>
+              <button data-periodo="ontem">Ontem</button>
+              <button data-periodo="7dias">7 dias</button>
+              <button data-periodo="15dias">15 dias</button>
+              <button data-periodo="mes">Mês</button>
+              <button data-periodo="ano">Ano</button>
+              <button data-periodo="personalizado">Personalizado</button>
+            </div>
+            <div id="estoque-periodo-personalizado" class="estoque-periodo-personalizado oculto">
+              <input type="date" id="estoque-data-inicio">
+              <span>até</span>
+              <input type="date" id="estoque-data-fim">
+              <button id="estoque-periodo-aplicar" class="botao-secundario">Aplicar</button>
+            </div>
+
+            <div class="estoque-bloco">
+              <h3 class="estoque-bloco__titulo">Vendas por período</h3>
+              <canvas id="grafico-vendas-periodo" height="220"></canvas>
+            </div>
+
+            <div class="estoque-bloco">
+              <h3 class="estoque-bloco__titulo">Vendas por canal</h3>
+              <div class="estoque-canal-grid" id="estoque-canal-grid"></div>
+            </div>
+
+            <div class="estoque-layout-duas-colunas">
+              <div class="estoque-bloco">
+                <h3 class="estoque-bloco__titulo">Vendas por produto</h3>
+                <canvas id="grafico-vendas-produto" height="240"></canvas>
+              </div>
+              <div class="estoque-bloco">
+                <h3 class="estoque-bloco__titulo">Mais vendidos (Top 5)</h3>
+                <div id="estoque-mais-vendidos" class="estoque-ranking"></div>
+                <h3 class="estoque-bloco__titulo" style="margin-top:18px;">Menos vendidos (Top 5)</h3>
+                <div id="estoque-menos-vendidos" class="estoque-ranking"></div>
+              </div>
+            </div>
+
+            <div class="estoque-bloco">
+              <div class="aba__cabecalho-flex">
+                <h3 class="estoque-bloco__titulo" style="margin-bottom:0;">Lucro por produto</h3>
+                <strong id="estoque-lucro-total">R$ 0,00</strong>
+              </div>
+              <div class="tabela-scroll" style="margin-top:10px;">
+                <table class="tabela-estoque">
+                  <thead>
+                    <tr><th>Produto</th><th>Custo</th><th>Venda</th><th>Lucro Unit.</th><th>Vendidos</th><th>Lucro Total</th></tr>
+                  </thead>
+                  <tbody id="estoque-lucro-tabela-corpo"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <!-- fim #estoque-sub-vendas -->
+
+          <div id="estoque-sub-inteligencia" class="oculto">
+            <h2 class="aba__titulo">🧠 Centro de Inteligência do Estoque</h2>
+            <p class="aba__descricao">Respostas automáticas com base nos últimos 30 dias de vendas e no estoque atual.</p>
+
+            <div class="estoque-inteligencia-grid">
+              <div class="estoque-pergunta-card">
+                <div class="estoque-pergunta-card__pergunta">Qual produto vendeu mais hoje?</div>
+                <div class="estoque-pergunta-card__resposta" id="int-mais-vendido-hoje">—</div>
+              </div>
+
+              <div class="estoque-pergunta-card">
+                <div class="estoque-pergunta-card__pergunta">Quanto dinheiro está investido em estoque?</div>
+                <div class="estoque-pergunta-card__resposta" id="int-valor-investido">—</div>
+              </div>
+
+              <div class="estoque-pergunta-card">
+                <div class="estoque-pergunta-card__pergunta">Qual produto gera mais lucro? (30 dias)</div>
+                <div class="estoque-pergunta-card__resposta" id="int-maior-lucro">—</div>
+              </div>
+
+              <div class="estoque-pergunta-card">
+                <div class="estoque-pergunta-card__pergunta">Vende muito, mas lucra pouco?</div>
+                <div class="estoque-pergunta-card__resposta" id="int-vende-muito-lucra-pouco">—</div>
+              </div>
+            </div>
+
+            <div class="estoque-layout-duas-colunas">
+              <div class="estoque-bloco">
+                <h3 class="estoque-bloco__titulo">Produtos parados há 30+ dias</h3>
+                <div id="int-produtos-parados" class="estoque-lista-mov"></div>
+              </div>
+              <div class="estoque-bloco">
+                <h3 class="estoque-bloco__titulo">Produtos acabando</h3>
+                <div id="int-produtos-acabando" class="estoque-lista-mov"></div>
+              </div>
+            </div>
+
+            <div class="estoque-layout-duas-colunas">
+              <div class="estoque-bloco">
+                <h3 class="estoque-bloco__titulo">Últimas compras por fornecedor</h3>
+                <div id="int-ultimas-compras" class="estoque-lista-mov"></div>
+              </div>
+              <div class="estoque-bloco">
+                <h3 class="estoque-bloco__titulo">Canal que mais vende cada produto (30 dias)</h3>
+                <div id="int-canal-top-produto" class="estoque-lista-mov"></div>
+              </div>
+            </div>
+          </div>
+          <!-- fim #estoque-sub-inteligencia -->
+        </div>
+      </section>
+
+      <!-- Modal: registrar compra de estoque -->
+      <div id="modal-estoque-compra" class="modal-admin oculto">
+        <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+        <div class="modal-admin__caixa">
+          <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+          <h3>Registrar compra</h3>
+          <form onsubmit="return false;">
+            <label>Produto
+              <select id="estoque-compra-produto"></select>
+            </label>
+            <label>Quantidade comprada
+              <input type="number" id="estoque-compra-quantidade" min="1">
+            </label>
+            <label>Custo de compra (unitário, opcional)
+              <input type="number" id="estoque-compra-custo" min="0" step="0.01">
+            </label>
+            <label>Fornecedor (opcional)
+              <select id="estoque-compra-fornecedor"></select>
+            </label>
+            <label>Observações
+              <textarea id="estoque-compra-observacoes"></textarea>
+            </label>
+            <button type="button" id="estoque-compra-confirmar" class="botao-primario">Confirmar compra</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Modal: ajuste manual de estoque -->
+      <div id="modal-estoque-ajuste" class="modal-admin oculto">
+        <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+        <div class="modal-admin__caixa">
+          <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+          <h3>Ajustar estoque — <span id="estoque-ajuste-produto-nome"></span></h3>
+          <form onsubmit="return false;">
+            <input type="hidden" id="estoque-ajuste-produto">
+            <label>Novo estoque
+              <input type="number" id="estoque-ajuste-novo-estoque" min="0">
+            </label>
+            <label>Motivo do ajuste
+              <textarea id="estoque-ajuste-observacoes" placeholder="Ex: contagem manual, perda, quebra..."></textarea>
+            </label>
+            <button type="button" id="estoque-ajuste-confirmar" class="botao-primario">Salvar ajuste</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Modal: configurar alertas -->
+      <div id="modal-estoque-alertas" class="modal-admin oculto">
+        <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+        <div class="modal-admin__caixa">
+          <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+          <h3>Configurar alertas de estoque</h3>
+          <label class="estoque-alertas-opcao">
+            <input type="checkbox" id="estoque-alerta-dashboard" style="width:auto;">
+            Avisar no Dashboard
+          </label>
+          <label class="estoque-alertas-opcao">
+            <input type="checkbox" id="estoque-alerta-email" style="width:auto;">
+            Avisar por e-mail
+          </label>
+          <label>E-mail de destino (opcional — se vazio, usa o e-mail da conta)
+            <input type="email" id="estoque-alerta-email-destino">
+          </label>
+          <button type="button" id="estoque-alertas-salvar" class="botao-primario" style="margin-top:14px;">Salvar</button>
+        </div>
+      </div>
+
+      <!-- Modal: fornecedor -->
+      <div id="modal-estoque-fornecedor" class="modal-admin oculto">
+        <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+        <div class="modal-admin__caixa">
+          <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+          <h3 id="modal-estoque-fornecedor-titulo">Novo fornecedor</h3>
+          <form onsubmit="return false;">
+            <label>Nome
+              <input type="text" id="estoque-fornecedor-nome">
+            </label>
+            <label>Telefone
+              <input type="text" id="estoque-fornecedor-telefone">
+            </label>
+            <label>E-mail
+              <input type="email" id="estoque-fornecedor-email">
+            </label>
+            <label>Observações
+              <textarea id="estoque-fornecedor-observacoes"></textarea>
+            </label>
+            <button type="button" id="estoque-fornecedor-salvar" class="botao-primario">Salvar fornecedor</button>
+          </form>
+        </div>
+      </div>
+
+
+      <section id="aba-senha" class="aba oculto">
+        <h2 class="aba__titulo">Alterar senha</h2>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Senha atual</label>
+          <div class="campo-senha-wrapper">
+            <input type="password" id="campo-senha-atual" class="campo-texto" autocomplete="current-password">
+            <button type="button" class="botao-olho" data-alvo-senha="campo-senha-atual" aria-label="Mostrar senha"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Nova senha</label>
+          <div class="campo-senha-wrapper">
+            <input type="password" id="campo-senha-nova" class="campo-texto" autocomplete="new-password">
+            <button type="button" class="botao-olho" data-alvo-senha="campo-senha-nova" aria-label="Mostrar senha"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+        </div>
+
+        <div class="campo-grupo">
+          <label class="campo-label">Confirmar nova senha</label>
+          <div class="campo-senha-wrapper">
+            <input type="password" id="campo-senha-confirmar" class="campo-texto" autocomplete="new-password">
+            <button type="button" class="botao-olho" data-alvo-senha="campo-senha-confirmar" aria-label="Mostrar senha"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+        </div>
+
+        <button id="botao-salvar-senha" class="botao-primario">Alterar senha</button>
+      </section>
+
+      <section id="aba-funcionarios" class="aba oculto">
+
+        <!-- ============================================================
+             VISTA 1 (conteudo principal da aba): EQUIPE
+             Visao operacional por funcao: cozinha, entregadores (fila por
+             ordem de chegada) e atendimento. O cadastro/edicao completo dos
+             funcionarios continua existindo, mas vira uma subpagina fixa
+             (nao flutuante), acessada pelo botao no canto superior direito.
+        ============================================================= -->
+        <div id="funcionarios-vista-equipe">
+          <div class="aba__cabecalho-flex">
+            <h2 class="aba__titulo" style="margin-bottom:0;">Equipe</h2>
+            <button type="button" id="botao-abrir-cadastro-funcionarios" class="botao-secundario botao-config-equipe">⚙️ Cadastro de funcionarios</button>
+          </div>
+          <p class="aba__descricao">Visao operacional da equipe. O cadastro, as permissoes e a edicao de cada funcionario continuam na tela de "Cadastro de funcionarios".</p>
+
+          <div class="equipe-grid">
+            <div class="equipe-secao" data-secao-cargo="cozinha">
+              <div class="equipe-secao__cabecalho">
+                <span class="equipe-secao__icone">🍳</span>
+                <div>
+                  <div class="equipe-secao__titulo">Cozinha</div>
+                  <div class="equipe-secao__subtitulo">Recebe os pedidos aceitos e marca como pronto</div>
+                </div>
+              </div>
+              <div id="lista-equipe-cozinha" class="lista-itens-admin"></div>
+            </div>
+
+            <div class="equipe-secao" data-secao-cargo="entregador">
+              <div class="equipe-secao__cabecalho">
+                <span class="equipe-secao__icone">🛵</span>
+                <div>
+                  <div class="equipe-secao__titulo">Entregadores</div>
+                  <div class="equipe-secao__subtitulo">Oferta de entrega por ordem de chegada, um por vez. Usam o app proprio do entregador (nao esse painel).</div>
+                </div>
+                <button type="button" id="botao-ver-qrcode-entregador" class="botao-secundario">📱 QR Code do dia</button>
+              </div>
+              <div id="lista-equipe-entregadores" class="lista-itens-admin"></div>
+            </div>
+
+            <div class="equipe-secao" data-secao-cargo="gerente">
+              <div class="equipe-secao__cabecalho">
+                <span class="equipe-secao__icone">🧑‍💼</span>
+                <div>
+                  <div class="equipe-secao__titulo">Gerente</div>
+                  <div class="equipe-secao__subtitulo">Clique num funcionário pra ver o resumo de operação (senha de administrador)</div>
+                </div>
+              </div>
+              <div id="lista-equipe-gerente" class="lista-itens-admin"></div>
+            </div>
+
+            <div class="equipe-secao" data-secao-cargo="caixa">
+              <div class="equipe-secao__cabecalho">
+                <span class="equipe-secao__icone">💰</span>
+                <div>
+                  <div class="equipe-secao__titulo">Caixa</div>
+                  <div class="equipe-secao__subtitulo">Clique num funcionário pra ver o resumo de operação (senha de administrador)</div>
+                </div>
+              </div>
+              <div id="lista-equipe-caixa" class="lista-itens-admin"></div>
+            </div>
+
+            <div class="equipe-secao" data-secao-cargo="garcom">
+              <div class="equipe-secao__cabecalho">
+                <span class="equipe-secao__icone">🍽️</span>
+                <div>
+                  <div class="equipe-secao__titulo">Garçom</div>
+                  <div class="equipe-secao__subtitulo">Clique num funcionário pra ver o resumo de operação (senha de administrador)</div>
+                </div>
+              </div>
+              <div id="lista-equipe-garcom" class="lista-itens-admin"></div>
+            </div>
+
+            <div class="equipe-secao" data-secao-cargo="colaborador">
+              <div class="equipe-secao__cabecalho">
+                <span class="equipe-secao__icone">🙋</span>
+                <div>
+                  <div class="equipe-secao__titulo">Colaborador</div>
+                  <div class="equipe-secao__subtitulo">Clique num funcionário pra ver o resumo de operação (senha de administrador)</div>
+                </div>
+              </div>
+              <div id="lista-equipe-colaborador" class="lista-itens-admin"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================
+             VISTA 2 (subpagina fixa, nao flutuante): CADASTRO DE FUNCIONARIOS
+             Conteudo que antes era a aba inteira. Some/aparece no lugar da
+             vista de Equipe (mesma area, sem modal/overlay).
+        ============================================================= -->
+        <div id="funcionarios-vista-cadastro" class="oculto">
+          <button type="button" id="botao-voltar-equipe" class="botao-secundario botao-voltar-equipe">← Voltar para Equipe</button>
+
+          <h2 class="aba__titulo">Cadastro de funcionarios</h2>
+
+          <h3 class="aba__subtitulo" style="margin-top:0; border-top:none; padding-top:0;">Cadastrar novo funcionario</h3>
+          <form id="form-novo-funcionario">
+            <div class="campo-grupo">
+              <label class="campo-label">Nome completo</label>
+              <input type="text" id="func-nome" class="campo-texto" required>
+            </div>
+            <div class="campo-grupo">
+              <label class="campo-label">E-mail</label>
+              <input type="email" id="func-email" class="campo-texto" required>
+            </div>
+            <div class="campo-grupo">
+              <label class="campo-label">Usuario (opcional, alternativa ao e-mail para login)</label>
+              <input type="text" id="func-username" class="campo-texto">
+            </div>
+            <div class="campo-grupo">
+              <label class="campo-label">Telefone</label>
+              <input type="text" id="func-telefone" class="campo-texto" placeholder="(00) 000000000">
+            </div>
+            <div class="campo-grupo">
+              <label class="campo-label">Senha</label>
+              <div class="campo-senha-wrapper">
+                <input type="password" id="func-senha" class="campo-texto" required minlength="6">
+                <button type="button" class="botao-olho" data-alvo-senha="func-senha" aria-label="Mostrar senha"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              </div>
+            </div>
+            <div class="campo-grupo">
+              <label class="campo-label">Categoria (define so o limite de quantidade)</label>
+              <select id="func-cargo" class="campo-texto">
+                <option value="administrador">Administrador (max. 1) - acesso total</option>
+                <option value="gerente">Gerente (max. 1)</option>
+                <option value="caixa">Caixa (max. 5)</option>
+                <option value="garcom">Garcom (sem limite)</option>
+                <option value="colaborador">Colaborador (sem limite)</option>
+                <option value="cozinha">Cozinha (sem limite)</option>
+                <option value="entregador">Entregador (sem limite)</option>
+              </select>
+            </div>
+
+            <div class="campo-grupo">
+              <label class="campo-label">Carga horaria (opcional)</label>
+              <div class="carga-horaria-dias" data-carga-dias="func">
+                <label><input type="checkbox" class="func-carga-dia" value="seg"> Seg</label>
+                <label><input type="checkbox" class="func-carga-dia" value="ter"> Ter</label>
+                <label><input type="checkbox" class="func-carga-dia" value="qua"> Qua</label>
+                <label><input type="checkbox" class="func-carga-dia" value="qui"> Qui</label>
+                <label><input type="checkbox" class="func-carga-dia" value="sex"> Sex</label>
+                <label><input type="checkbox" class="func-carga-dia" value="sab"> Sab</label>
+                <label><input type="checkbox" class="func-carga-dia" value="dom"> Dom</label>
+              </div>
+              <div class="campo-linha">
+                <label class="campo-label" style="flex:1;">Entrada
+                  <input type="time" id="func-carga-inicio" class="campo-texto">
+                </label>
+                <label class="campo-label" style="flex:1;">Saida
+                  <input type="time" id="func-carga-fim" class="campo-texto">
+                </label>
+              </div>
+            </div>
+
+            <div class="campo-grupo">
+              <label class="campo-label">Pagamento por entrega (só usado para Entregadores)</label>
+              <div class="campo-linha">
+                <select id="func-forma-pagamento-entrega" class="campo-texto" style="flex:1;">
+                  <option value="entrega">Valor fixo por entrega</option>
+                  <option value="km">Valor por quilômetro rodado</option>
+                </select>
+              </div>
+              <div class="campo-linha">
+                <label class="campo-label" style="flex:1;">Valor por entrega (R$)
+                  <input type="number" id="func-valor-por-entrega" class="campo-texto" step="0.01" min="0" value="0">
+                </label>
+                <label class="campo-label" style="flex:1;">Valor por km (R$)
+                  <input type="number" id="func-valor-por-km" class="campo-texto" step="0.01" min="0" value="0">
+                </label>
+              </div>
+            </div>
+
+            <div class="campo-grupo" id="grupo-permissoes-funcionario">
+              <label class="campo-label">Permissoes</label>
+              <button type="button" class="botao-secundario botao-marcar-todas" data-alvo-permissoes="grupo-permissoes-funcionario" style="margin-bottom:8px;">Marcar todas / Desmarcar todas</button>
+              <div class="lista-permissoes">
+                <label class="permissao-item"><input type="checkbox" value="gerenciar_funcionarios"> Gerenciar funcionarios (cadastrar/descadastrar)</label>
+                <label class="permissao-item"><input type="checkbox" value="editar_funcionarios"> Editar dados / trocar senha de funcionarios</label>
+                <label class="permissao-item"><input type="checkbox" value="gerenciar_cardapio"> Gerenciar produtos, categorias e promocoes (com precos)</label>
+                <label class="permissao-item"><input type="checkbox" value="criar_pedidos"> Criar pedidos</label>
+                <label class="permissao-item"><input type="checkbox" value="cancelar_pedidos"> Cancelar pedidos</label>
+                <label class="permissao-item"><input type="checkbox" value="mudar_status_pedidos"> Mudar status do pedido (preparo/entrega)</label>
+                <label class="permissao-item"><input type="checkbox" value="ver_valores_concluidos"> Ver valores de pedidos concluidos/cancelados</label>
+                <label class="permissao-item"><input type="checkbox" value="corrigir_valores_concluidos"> Corrigir valores de pedidos concluidos</label>
+                <label class="permissao-item"><input type="checkbox" value="gerenciar_conta"> Gerenciar configuracoes da conta (pagamento, dados, paginas legais)</label>
+                <label class="permissao-item"><input type="checkbox" value="ver_caixa_geral"> Ver caixa geral (valores das entregas concluidas)</label>
+                <label class="permissao-item"><input type="checkbox" value="gerenciar_estoque"> Gerenciar Controle de Estoque</label>
+              </div>
+            </div>
+
+            <button type="submit" class="botao-primario">Cadastrar funcionario</button>
+          </form>
+
+          <h3 class="aba__subtitulo">Funcionarios cadastrados</h3>
+          <div id="lista-funcionarios-admin" class="lista-itens-admin"></div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           PAGINA: RESUMO DO FUNCIONARIO
+           Nao fica no menu lateral -- so abre clicando num funcionario
+           (Gerente/Caixa/Garcom/Colaborador) na aba Equipe, depois de
+           confirmar a senha de administrador. No celular vira 2 telas
+           (Pedidos / Caixa), alternadas pelo botao no topo.
+      ============================================================= -->
+      <section id="aba-resumo-funcionario" class="aba oculto resumo-funcionario">
+        <div class="resumo-funcionario__topo">
+          <div class="resumo-funcionario__marca">
+            <img id="resumo-funcionario-logo" class="resumo-funcionario__logo oculto" alt="Logo">
+            <span id="resumo-funcionario-logo-generico" class="resumo-funcionario__logo-generico">🍽️</span>
+          </div>
+          <div class="resumo-funcionario__identificacao">
+            <div class="resumo-funcionario__label">Funcionário</div>
+            <div id="resumo-funcionario-nome" class="resumo-funcionario__nome">-</div>
+            <div id="resumo-funcionario-status" class="resumo-funcionario__status">● Online</div>
+          </div>
+          <div class="resumo-funcionario__data">
+            <div id="resumo-funcionario-data">-</div>
+            <button type="button" id="botao-atualizar-resumo" class="botao-secundario" style="margin-top:6px;font-size:0.75rem;padding:4px 10px;">🔄 Atualizar</button>
+          </div>
+          <button type="button" id="botao-voltar-resumo-funcionario" class="botao-secundario">← Voltar pra Equipe</button>
+        </div>
+
+        <!-- So aparece no celular -->
+        <div class="resumo-funcionario__alternador">
+          <button type="button" class="resumo-funcionario__aba-btn ativo" data-tela-resumo="pedidos">📋 Pedidos</button>
+          <button type="button" class="resumo-funcionario__aba-btn" data-tela-resumo="caixa">💰 Caixa</button>
+          <button type="button" class="resumo-funcionario__aba-btn" data-tela-resumo="historico">🗂️ Histórico</button>
+        </div>
+
+        <div id="resumo-funcionario-sem-dados" class="resumo-funcionario__sem-dados oculto">
+          <p class="aba__descricao">Esse cargo ainda não gera dados de movimentação própria (só garçom/caixa, por enquanto). A identificação acima já confirma que o acesso foi autorizado.</p>
+        </div>
+
+        <!-- Filtro de periodo -- vale tanto pra tela "Caixa" quanto "Pedidos" (mesma consulta) -->
+        <div class="botoes-filtro-atendimento" id="botoes-periodo-resumo-funcionario" style="display:flex; gap:8px; margin:10px 0; flex-wrap:wrap;">
+          <button type="button" class="botao-secundario ativo" data-periodo-resumo="hoje">Hoje</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="ontem">Ontem</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="semana">Esta semana</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="mes_atual">Este mês</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="trimestre">Este trimestre</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="semestre">Este semestre</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="geral">Geral (tudo)</button>
+          <button type="button" class="botao-secundario" data-periodo-resumo="personalizado">Manual</button>
+        </div>
+        <div class="campo-linha oculto" id="campos-resumo-manual">
+          <div class="campo-grupo">
+            <label class="campo-label">De</label>
+            <input type="date" id="resumo-data-inicio" class="campo-texto">
+          </div>
+          <div class="campo-grupo">
+            <label class="campo-label">Até</label>
+            <input type="date" id="resumo-data-fim" class="campo-texto">
+          </div>
+          <button type="button" id="botao-filtrar-resumo-manual" class="botao-secundario">Filtrar</button>
+        </div>
+
+        <!-- Resumo do periodo pro cargo "Caixa" (so recebe pagamento de mesas de outros garcons) -->
+        <div id="resumo-funcionario-caixa-hoje" class="oculto" style="padding:14px;background:var(--admin-cor-fundo-card,#f9fafb);border-radius:10px;margin-bottom:14px;">
+          <div class="resumo-funcionario__secao-titulo" id="titulo-recebido-caixa-periodo">RECEBIDO NO CAIXA HOJE</div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;margin:8px 0 12px;">
+            <div><div style="font-size:1.3rem;font-weight:700;" id="caixa-total-hoje">R$ 0,00</div><div class="aba__descricao">Total recebido</div></div>
+            <div><div style="font-size:1.3rem;font-weight:700;" id="caixa-qtd-hoje">0</div><div class="aba__descricao">Pagamentos</div></div>
+          </div>
+          <div id="lista-caixa-pagamentos-hoje"></div>
+        </div>
+
+        <div id="resumo-funcionario-conteudo" class="resumo-funcionario__corpo">
+          <!-- TELA "CAIXA" (cards + fechamento + identificacao) -->
+          <div id="tela-resumo-caixa" class="resumo-funcionario__tela">
+            <div class="resumo-funcionario__cards">
+              <div class="resumo-card">
+                <div class="resumo-card__icone">📈</div>
+                <div class="resumo-card__label" id="rotulo-card-vendas">Vendas do dia</div>
+                <div id="card-vendas-do-dia" class="resumo-card__valor">R$ 0,00</div>
+              </div>
+              <div class="resumo-card">
+                <div class="resumo-card__icone">🧾</div>
+                <div class="resumo-card__label">Pedidos</div>
+                <div id="card-pedidos-hoje" class="resumo-card__valor">0</div>
+              </div>
+              <div class="resumo-card">
+                <div class="resumo-card__icone">📋</div>
+                <div class="resumo-card__label">Comandas abertas</div>
+                <div id="card-comandas-abertas" class="resumo-card__valor">0</div>
+              </div>
+              <div class="resumo-card">
+                <div class="resumo-card__icone">🍽️</div>
+                <div class="resumo-card__label">Comandas atendidas</div>
+                <div id="card-mesas-atendidas" class="resumo-card__valor">0</div>
+              </div>
+              <div class="resumo-card">
+                <div class="resumo-card__icone">🎯</div>
+                <div class="resumo-card__label">Ticket médio</div>
+                <div id="card-ticket-medio" class="resumo-card__valor">R$ 0,00</div>
+              </div>
+            </div>
+
+            <div class="resumo-funcionario__caixa-grid">
+              <div class="painel-fechamento-caixa">
+                <div class="painel-fechamento-caixa__titulo">FECHAMENTO DE CAIXA</div>
+                <div id="fechamento-total-recebido" class="painel-fechamento-caixa__total">R$ 0,00</div>
+                <div class="painel-fechamento-caixa__linha"><span>Total em dinheiro</span><strong id="fechamento-dinheiro">R$ 0,00</strong></div>
+                <div class="painel-fechamento-caixa__linha"><span>Total em cartão</span><strong id="fechamento-cartao">R$ 0,00</strong></div>
+                <div class="painel-fechamento-caixa__linha painel-fechamento-caixa__sub"><span>• Crédito</span><span id="fechamento-credito">R$ 0,00</span></div>
+                <div class="painel-fechamento-caixa__linha painel-fechamento-caixa__sub"><span>• Débito</span><span id="fechamento-debito">R$ 0,00</span></div>
+                <div class="painel-fechamento-caixa__linha"><span>Total em Pix</span><strong id="fechamento-pix">R$ 0,00</strong></div>
+              </div>
+
+              <div class="painel-resumo-cartoes">
+                <div class="painel-resumo-cartoes__card painel-resumo-cartoes__card--credito">
+                  <div>CRÉDITO</div>
+                  <strong id="resumo-cartao-credito-valor">R$ 0,00</strong>
+                  <span id="resumo-cartao-credito-qtd">0 transações</span>
+                </div>
+                <div class="painel-resumo-cartoes__card painel-resumo-cartoes__card--debito">
+                  <div>DÉBITO</div>
+                  <strong id="resumo-cartao-debito-valor">R$ 0,00</strong>
+                  <span id="resumo-cartao-debito-qtd">0 transações</span>
+                </div>
+              </div>
+
+              <div class="painel-identificacao-funcionario">
+                <div class="painel-identificacao-funcionario__titulo">IDENTIFICAÇÃO</div>
+                <div id="identificacao-nome-completo" class="painel-identificacao-funcionario__nome">-</div>
+                <div id="identificacao-cargo" class="painel-identificacao-funcionario__cargo">-</div>
+                <div id="identificacao-email" class="painel-identificacao-funcionario__email">-</div>
+              </div>
+
+              <div class="painel-gorjetas">
+                <div class="painel-gorjetas__titulo">🪙 <span id="titulo-gorjetas-periodo">GORJETAS DE HOJE</span> <span id="painel-gorjetas-total">R$ 0,00</span></div>
+                <div id="lista-gorjetas-hoje" class="painel-gorjetas__lista">
+                  <p class="aba__descricao">Nenhuma gorjeta ainda no período.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TELA "PEDIDOS" (movimentacao por mesa/comanda) -->
+          <div id="tela-resumo-pedidos" class="resumo-funcionario__tela">
+            <div class="resumo-funcionario__secao-titulo" id="titulo-movimentacao-periodo">MOVIMENTAÇÃO POR MESA / COMANDA (hoje)</div>
+            <div id="lista-movimentacao-comandas"></div>
+          </div>
+
+          <!-- TELA "HISTÓRICO" (todas as comandas fechadas desse funcionario, sem limite de data) -->
+          <div id="tela-resumo-historico" class="resumo-funcionario__tela">
+            <div class="resumo-funcionario__secao-titulo">HISTÓRICO COMPLETO DESSE FUNCIONÁRIO (todas as comandas fechadas, sem limite de data)</div>
+            <div id="lista-historico-funcionario"></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div id="modal-qrcode-entregador" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa" style="text-align:center;">
+      <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+      <h3>QR Code do dia - Entregadores</h3>
+      <p class="aba__descricao">Exiba (ou imprima) esse QR Code na loja. O entregador aponta a câmera do app dele pra confirmar presença e entrar na fila de hoje. Ele muda automaticamente todo dia.</p>
+      <img id="imagem-qrcode-entregador" src="" alt="QR Code do dia" style="max-width:280px; width:100%; margin:10px auto;">
+      <p class="aba__descricao">Câmera quebrada? O entregador pode digitar esse código no app:</p>
+      <p style="font-family: monospace; font-size: 14px; background:#f7f7f7; padding:8px; border-radius:8px; word-break: break-all;">
+        <a id="codigo-qrcode-entregador" href="#" target="_blank" rel="noopener"></a>
+      </p>
+      <button type="button" id="botao-copiar-link-acesso" class="botao-secundario">📋 Copiar link</button>
+    </div>
+  </div>
+
+  <div id="modal-senha-admin" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa" style="max-width:360px;">
+      <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+      <h3>🔒 Senha de administrador</h3>
+      <p class="aba__descricao" id="modal-senha-admin-descricao">Confirme sua senha pra ver o resumo de operação.</p>
+      <label class="campo-label">Sua senha</label>
+      <input type="password" id="input-senha-admin" autocomplete="current-password">
+      <p id="erro-senha-admin" class="erro-form oculto"></p>
+      <div class="botoes-linha-admin" style="margin-top:14px;">
+        <button type="button" class="botao-secundario" data-fechar-modal-admin>Cancelar</button>
+        <button type="button" id="botao-confirmar-senha-admin" class="botao-primario">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-corrigir-comanda" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa" style="max-width:360px;">
+      <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+      <h3>✏️ Corrigir valores da comanda</h3>
+      <p class="aba__descricao" id="modal-corrigir-comanda-descricao">-</p>
+      <label class="campo-label">Subtotal (R$)</label>
+      <input type="number" id="input-corrigir-subtotal" min="0" step="0.01">
+      <label class="campo-label">Gorjeta / Caixinha (R$)</label>
+      <input type="number" id="input-corrigir-gorjeta" min="0" step="0.01">
+      <label class="campo-label">Motivo da correção</label>
+      <input type="text" id="input-corrigir-motivo" placeholder="Ex: item cobrado errado">
+      <p id="erro-corrigir-comanda" class="erro-form oculto"></p>
+      <div class="botoes-linha-admin" style="margin-top:14px;">
+        <button type="button" class="botao-secundario" data-fechar-modal-admin>Cancelar</button>
+        <button type="button" id="botao-confirmar-corrigir-comanda" class="botao-primario">Salvar correção</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-historico-comanda" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa" style="max-width:420px;">
+      <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+      <h3 id="historico-comanda-titulo">Comanda</h3>
+      <div id="historico-comanda-conteudo"></div>
+    </div>
+  </div>
+
+  <!-- Gate de senha da aba Atendimento: so Caixa/Gerente/Administrador, com a PROPRIA senha -->
+  <div id="fundo-modal-gate-atendimento" class="modal-admin__fundo oculto" style="position:fixed;inset:0;z-index:200;"></div>
+  <div id="modal-gate-atendimento" class="modal-admin__caixa oculto" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:201;max-width:340px;width:90%;background:#fff;border-radius:12px;padding:22px;">
+    <h3>🔒 Acesso ao Atendimento</h3>
+    <p class="aba__descricao" id="gate-atendimento-descricao">Caixa, Gerente, Administrador ou Proprietário — digite sua própria senha, sempre.</p>
+
+    <div id="gate-atendimento-modo-funcionario">
+      <label class="campo-label">Login (e-mail ou usuário)</label>
+      <input type="text" id="input-atendimento-login" autocomplete="off">
+      <label class="campo-label">Senha</label>
+      <input type="password" id="input-atendimento-senha">
+    </div>
+
+    <div id="gate-atendimento-modo-proprietario" class="oculto">
+      <label class="campo-label">Sua senha de proprietário</label>
+      <input type="password" id="input-atendimento-senha-proprietario" autocomplete="off">
+    </div>
+
+    <p id="erro-gate-atendimento" class="erro-form oculto"></p>
+
+    <button type="button" id="botao-alternar-gate-proprietario" class="botao-secundario" style="width:100%;margin-top:10px;">👑 Sou o Proprietário</button>
+
+    <div class="botoes-linha-admin" style="margin-top:14px;">
+      <button type="button" id="botao-cancelar-gate-atendimento" class="botao-secundario">Cancelar</button>
+      <button type="button" id="botao-confirmar-gate-atendimento" class="botao-primario">Entrar</button>
+    </div>
+  </div>
+
+  <!-- "Comanda Garçom": ve/cobra qualquer mesa aberta pelo app do garcom (mesmo que o Caixa faz no app dele) -->
+  <div id="fundo-modal-comanda-garcom" class="modal-admin__fundo oculto" style="position:fixed;inset:0;z-index:200;"></div>
+  <div id="modal-comanda-garcom" class="modal-admin__caixa oculto" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:201;max-width:440px;width:92%;max-height:85vh;overflow-y:auto;background:#fff;border-radius:12px;padding:22px;">
+    <button class="modal-admin__fechar" onclick="document.getElementById('fundo-modal-comanda-garcom').classList.add('oculto');document.getElementById('modal-comanda-garcom').classList.add('oculto');" aria-label="Fechar">&times;</button>
+    <h3>🍽️ Comanda Garçom</h3>
+    <p class="aba__descricao">Cobrar aqui fica marcado como "pago no caixa" no histórico do garçom dono da mesa. Só cobrança — valores e itens não podem ser alterados por aqui. Mostra só as comandas em aberto (pra ver comandas já cobradas, use Equipe → Histórico do funcionário).</p>
+
+  <!-- Descricao do produto, aberta ao clicar no nome/foto dentro do Novo Pedido -->
+  <div id="fundo-modal-descricao-produto" class="modal-admin__fundo oculto" style="position:fixed;inset:0;z-index:200;" onclick="document.getElementById('fundo-modal-descricao-produto').classList.add('oculto');document.getElementById('modal-descricao-produto').classList.add('oculto');"></div>
+  <div id="modal-descricao-produto" class="modal-admin__caixa oculto" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:201;max-width:420px;width:92%;max-height:85vh;overflow-y:auto;background:#fff;border-radius:12px;padding:22px;">
+    <button class="modal-admin__fechar" onclick="document.getElementById('fundo-modal-descricao-produto').classList.add('oculto');document.getElementById('modal-descricao-produto').classList.add('oculto');" aria-label="Fechar">&times;</button>
+    <div id="modal-descricao-produto-conteudo"></div>
+  </div>
+    <div id="lista-comanda-garcom-abertas"></div>
+  </div>
+
+  <div id="fundo-modal-cobranca-comanda" class="modal-admin__fundo oculto" style="position:fixed;inset:0;z-index:210;"></div>
+  <div id="modal-cobranca-comanda" class="modal-admin__caixa oculto" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:211;max-width:360px;width:90%;background:#fff;border-radius:12px;padding:22px;">
+    <button class="modal-admin__fechar" id="botao-fechar-cobranca-comanda" aria-label="Fechar">&times;</button>
+    <h3>💳 Cobrar comanda</h3>
+    <p id="cobranca-comanda-mesa" class="aba__descricao"></p>
+    <p style="font-size:1.4rem;font-weight:700;margin:4px 0 14px;">Total: <span id="cobranca-comanda-total"></span></p>
+    <label class="campo-label">Gorjeta (opcional)</label>
+    <input type="number" id="input-cobranca-gorjeta" min="0" step="0.01" value="0">
+    <label class="campo-label" style="margin-top:12px;">Forma de pagamento</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+      <button type="button" class="opcao-pagamento-admin" data-forma="dinheiro">💵 Dinheiro</button>
+      <button type="button" class="opcao-pagamento-admin" data-forma="pix">📱 PIX</button>
+      <button type="button" class="opcao-pagamento-admin" data-forma="cartao_credito">💳 Crédito</button>
+      <button type="button" class="opcao-pagamento-admin" data-forma="cartao_debito">💳 Débito</button>
+    </div>
+    <button type="button" id="botao-confirmar-cobranca-comanda" class="botao-primario" style="width:100%;margin-top:16px;" disabled>Confirmar cobrança</button>
+  </div>
+
+  <style>
+    .opcao-pagamento-admin { padding:12px 8px; border:2px solid #e2e2e2; border-radius:10px; background:#fff; cursor:pointer; font-size:0.9rem; }
+    .opcao-pagamento-admin--selecionada { border-color:var(--admin-cor-primaria,#2563eb); background:#eff6ff; font-weight:600; }
+  </style>
+
+  <div id="modal-editar-funcionario" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin aria-label="Fechar">&times;</button>
+      <h3>Editar funcionario</h3>
+      <input type="hidden" id="edit-func-id">
+
+      <label>Nome completo
+        <input type="text" id="edit-func-nome">
+      </label>
+      <label>E-mail
+        <input type="email" id="edit-func-email">
+      </label>
+      <label>Telefone
+        <input type="text" id="edit-func-telefone" placeholder="(00) 000000000">
+      </label>
+      <label>Categoria
+        <select id="edit-func-cargo">
+          <option value="administrador">Administrador (max. 1) - acesso total</option>
+          <option value="gerente">Gerente (max. 1)</option>
+          <option value="caixa">Caixa (max. 5)</option>
+          <option value="garcom">Garcom (sem limite)</option>
+          <option value="colaborador">Colaborador (sem limite)</option>
+          <option value="cozinha">Cozinha (sem limite)</option>
+          <option value="entregador">Entregador (sem limite)</option>
+        </select>
+      </label>
+      <label>
+        <span class="campo-label">Carga horaria (opcional)</span>
+        <div class="carga-horaria-dias" data-carga-dias="edit-func">
+          <label><input type="checkbox" class="edit-func-carga-dia" value="seg"> Seg</label>
+          <label><input type="checkbox" class="edit-func-carga-dia" value="ter"> Ter</label>
+          <label><input type="checkbox" class="edit-func-carga-dia" value="qua"> Qua</label>
+          <label><input type="checkbox" class="edit-func-carga-dia" value="qui"> Qui</label>
+          <label><input type="checkbox" class="edit-func-carga-dia" value="sex"> Sex</label>
+          <label><input type="checkbox" class="edit-func-carga-dia" value="sab"> Sab</label>
+          <label><input type="checkbox" class="edit-func-carga-dia" value="dom"> Dom</label>
+        </div>
+        <div class="campo-linha">
+          <label class="campo-label" style="flex:1;">Entrada
+            <input type="time" id="edit-func-carga-inicio">
+          </label>
+          <label class="campo-label" style="flex:1;">Saida
+            <input type="time" id="edit-func-carga-fim">
+          </label>
+        </div>
+      </label>
+      <label>
+        Pagamento por entrega (só usado para Entregadores)
+        <div class="campo-linha">
+          <select id="edit-func-forma-pagamento-entrega" style="flex:1;">
+            <option value="entrega">Valor fixo por entrega</option>
+            <option value="km">Valor por quilômetro rodado</option>
+          </select>
+        </div>
+        <div class="campo-linha">
+          <label class="campo-label" style="flex:1;">Valor por entrega (R$)
+            <input type="number" id="edit-func-valor-por-entrega" step="0.01" min="0" value="0">
+          </label>
+          <label class="campo-label" style="flex:1;">Valor por km (R$)
+            <input type="number" id="edit-func-valor-por-km" step="0.01" min="0" value="0">
+          </label>
+        </div>
+      </label>
+      <label>
+        <span class="campo-label">Permissoes</span>
+        <button type="button" class="botao-secundario botao-marcar-todas" data-alvo-permissoes="edit-grupo-permissoes" style="margin-bottom:8px;">Marcar todas / Desmarcar todas</button>
+        <div id="edit-grupo-permissoes" class="lista-permissoes">
+          <label class="permissao-item"><input type="checkbox" value="gerenciar_funcionarios"> Gerenciar funcionarios (cadastrar/descadastrar)</label>
+          <label class="permissao-item"><input type="checkbox" value="editar_funcionarios"> Editar dados / trocar senha de funcionarios</label>
+          <label class="permissao-item"><input type="checkbox" value="gerenciar_cardapio"> Gerenciar produtos, categorias e promocoes (com precos)</label>
+          <label class="permissao-item"><input type="checkbox" value="criar_pedidos"> Criar pedidos</label>
+          <label class="permissao-item"><input type="checkbox" value="cancelar_pedidos"> Cancelar pedidos</label>
+          <label class="permissao-item"><input type="checkbox" value="mudar_status_pedidos"> Mudar status do pedido (preparo/entrega)</label>
+          <label class="permissao-item"><input type="checkbox" value="ver_valores_concluidos"> Ver valores de pedidos concluidos/cancelados</label>
+          <label class="permissao-item"><input type="checkbox" value="corrigir_valores_concluidos"> Corrigir valores de pedidos concluidos</label>
+          <label class="permissao-item"><input type="checkbox" value="gerenciar_conta"> Gerenciar configuracoes da conta (pagamento, dados, paginas legais)</label>
+              <label class="permissao-item"><input type="checkbox" value="ver_caixa_geral"> Ver caixa geral (valores das entregas concluidas)</label>
+              <label class="permissao-item"><input type="checkbox" value="gerenciar_estoque"> Gerenciar Controle de Estoque</label>
+        </div>
+      </label>
+      <label class="permissao-item"><input type="checkbox" id="edit-func-ativo"> Funcionario ativo</label>
+
+      <div id="bloco-cadastro-completo-funcionario" class="oculto" style="margin-top:18px; padding-top:18px; border-top:1px solid var(--admin-cor-borda,#e2e2e2);">
+        <h3 style="margin-top:0;">Cadastro completo (opcional)</h3>
+        <p style="font-size:0.85rem; color:#777; margin-top:-8px;">Visivel so para proprietario/administrador. Preencha se quiser manter os dados pessoais completos do funcionario.</p>
+        <label>Celular (obrigatorio nesta secao)
+          <input type="text" id="edit-func-celular" placeholder="(00) 000000000">
+        </label>
+        <label>Data de nascimento
+          <input type="date" id="edit-func-nascimento">
+        </label>
+        <label>RG
+          <input type="text" id="edit-func-rg">
+        </label>
+        <label>CPF
+          <input type="text" id="edit-func-cpf" placeholder="000.000.000-00">
+        </label>
+        <button id="botao-salvar-cadastro-completo-funcionario" class="botao-secundario">Salvar cadastro completo</button>
+      </div>
+
+      <button id="botao-salvar-edicao-funcionario" class="botao-primario">Salvar alteracoes</button>
+      <button id="botao-resetar-senha-funcionario" class="botao-secundario">Redefinir senha</button>
+      <button id="botao-excluir-funcionario" class="botao-perigo">Excluir funcionario</button>
+    </div>
+  </div>
+
+      <div id="modal-categoria" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-categoria">Nova categoria</h3>
+      <form id="form-categoria">
+        <input type="hidden" id="categoria-id">
+        <label>Nome da categoria
+          <input type="text" id="categoria-nome" required maxlength="100">
+        </label>
+        <label>Descricao (opcional)
+          <textarea id="categoria-descricao" maxlength="500" placeholder="Ex: bebidas geladas, servidas com gelo e limao"></textarea>
+        </label>
+        <label>Icone (opcional)
+          <input type="file" id="categoria-icone" accept="image/*">
+        </label>
+        <p class="campo-dica">Imagem quadrada, minimo 300x300px (aparece como circulo pequeno no cardapio).</p>
+        <button type="submit" class="botao-primario">Salvar categoria</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-produto-admin" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-produto">Novo produto</h3>
+      <form id="form-produto">
+        <input type="hidden" id="produto-id">
+        <label>Categoria
+          <select id="produto-categoria"></select>
+        </label>
+        <label>Nome do produto
+          <input type="text" id="produto-nome" required maxlength="150">
+        </label>
+        <label>Codigo / codigo de barras (opcional)
+          <div class="campo-com-botao">
+            <input type="text" id="produto-codigo" maxlength="50">
+            <button type="button" id="botao-ler-codigo-barras" class="botao-secundario" title="Ler codigo de barras pela camera">📷 Ler</button>
+          </div>
+        </label>
+        <label>Descricao
+          <textarea id="produto-descricao" maxlength="500"></textarea>
+        </label>
+        <div class="campo-linha">
+          <label>Preco (R$)
+            <input type="number" id="produto-preco" step="0.01" min="0" required>
+          </label>
+          <label>Preco promocional (opcional)
+            <input type="number" id="produto-preco-promo" step="0.01" min="0">
+          </label>
+        </div>
+        <label>Quantidade em estoque (deixe em branco se não controla estoque para este produto)
+          <input type="number" id="produto-estoque" step="1" min="0" placeholder="Sem controle de estoque">
+        </label>
+
+        <label class="campo-checkbox">
+          <input type="checkbox" id="produto-controla-estoque">
+          Ativar Controle de Estoque para este produto (baixa automática nas vendas + alertas)
+        </label>
+
+        <div id="produto-estoque-avancado" class="oculto">
+          <label>Estoque mínimo (dispara alerta quando chegar nesse número)
+            <input type="number" id="produto-estoque-minimo" step="1" min="0" value="0">
+          </label>
+          <label>Custo de compra (unitário)
+            <input type="number" id="produto-custo-compra" step="0.01" min="0">
+          </label>
+          <label>Fornecedor (opcional)
+            <select id="produto-fornecedor"><option value="">Sem fornecedor</option></select>
+          </label>
+        </div>
+        <label>Foto do produto
+          <input type="file" id="produto-foto" accept="image/*">
+        </label>
+        <p class="campo-dica">Imagem quadrada, ideal 800x800px (aparece cortada em circulo/quadrado dependendo da tela).</p>
+        <label class="campo-checkbox">
+          <input type="checkbox" id="produto-disponivel" checked>
+          Disponivel para venda
+        </label>
+        <div class="modal-admin__acoes-rodape">
+          <button type="submit" class="botao-primario">Salvar produto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-carrossel" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-carrossel">Novo carrossel</h3>
+      <form id="form-carrossel">
+        <input type="hidden" id="carrossel-id">
+        <div class="campo-grupo">
+          <label class="campo-label">Nome (só para você identificar)</label>
+          <input type="text" id="carrossel-nome" class="campo-texto" maxlength="100" placeholder="Ex: Carrossel de sobremesas">
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Onde aparece na página</label>
+          <select id="carrossel-posicao" class="campo-select">
+            <option value="topo">No topo (antes do banner principal)</option>
+            <option value="apos-cabecalho">Logo após o cabeçalho</option>
+            <option value="apos-categorias">Após as categorias</option>
+            <option value="apos-produtos">Após os produtos</option>
+            <option value="antes-rodape">Antes do rodapé</option>
+          </select>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-checkbox">
+            <input type="checkbox" id="carrossel-ativo">
+            Ativar este carrossel no cardápio público
+          </label>
+        </div>
+        <button type="submit" class="botao-primario">Salvar carrossel</button>
+      </form>
+
+      <div class="campo-grupo" style="margin-top:20px;">
+        <label class="campo-label">Fotos do carrossel (sem limite)</label>
+        <p class="campo-dica">Imagem larga (paisagem), ideal 1600x400px — mesma proporcao do banner principal.</p>
+        <div id="lista-imagens-carrossel" class="lista-imagens-carrossel"></div>
+        <input type="file" id="input-nova-imagem-carrossel" accept="image/*">
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-vitrine" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-vitrine">Nova vitrine</h3>
+      <form id="form-vitrine">
+        <input type="hidden" id="vitrine-id">
+        <div class="campo-grupo">
+          <label class="campo-label">Nome (só aparece pra você, no painel)</label>
+          <input type="text" id="vitrine-nome" class="campo-texto" maxlength="100" placeholder="ex: Vitrine de sobremesas">
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Imagem (retrato, de 1350x1800 até 2000x2000px)</label>
+          <div class="upload-area">
+            <img id="preview-vitrine-imagem" class="upload-area__preview" alt="">
+            <input type="file" id="vitrine-imagem" accept="image/*">
+          </div>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Texto (a caixa de texto fica do mesmo tamanho da imagem)</label>
+          <textarea id="vitrine-texto" class="campo-textarea" maxlength="300"></textarea>
+          <span id="vitrine-texto-contador" class="campo-contador">0/300</span>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Produto vinculado (opcional)</label>
+          <select id="vitrine-produto" class="campo-select">
+            <option value="">Nenhum — imagem só ilustrativa</option>
+          </select>
+          <span class="campo-dica">Se escolher um produto, o cliente é levado direto pra ele ao tocar na imagem.</span>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Onde aparece na página</label>
+          <select id="vitrine-posicao" class="campo-select">
+            <option value="topo">No topo (antes do banner principal)</option>
+            <option value="apos-cabecalho">Logo após o cabeçalho</option>
+            <option value="apos-categorias">Após as categorias</option>
+            <option value="apos-produtos">Após os produtos</option>
+            <option value="antes-rodape">Antes do rodapé</option>
+          </select>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-checkbox">
+            <input type="checkbox" id="vitrine-ativo">
+            Ativar esta vitrine no cardápio público
+          </label>
+        </div>
+        <button type="submit" class="botao-primario">Salvar vitrine</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-caixa-texto" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-caixa-texto">Nova caixa de texto</h3>
+      <form id="form-caixa-texto">
+        <input type="hidden" id="caixa-texto-id">
+        <div class="campo-grupo">
+          <label class="campo-label">Título</label>
+          <input type="text" id="caixa-texto-titulo" class="campo-texto" maxlength="100" placeholder="ex: Boas-vindas, Promoção do dia...">
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Texto</label>
+          <textarea id="caixa-texto-corpo" class="campo-textarea" maxlength="600"></textarea>
+          <span id="caixa-texto-corpo-contador" class="campo-contador">0/600</span>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-label">Onde aparece na página</label>
+          <select id="caixa-texto-posicao" class="campo-select">
+            <option value="topo">No topo (antes do banner principal)</option>
+            <option value="apos-cabecalho">Logo após o cabeçalho</option>
+            <option value="apos-categorias">Após as categorias</option>
+            <option value="apos-produtos">Após os produtos</option>
+            <option value="antes-rodape">Antes do rodapé</option>
+          </select>
+        </div>
+        <div class="campo-grupo">
+          <label class="campo-checkbox">
+            <input type="checkbox" id="caixa-texto-ativo">
+            Ativar esta caixa de texto no cardápio público
+          </label>
+        </div>
+        <button type="submit" class="botao-primario">Salvar caixa de texto</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-promocao" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-promocao">Nova promocao</h3>
+      <form id="form-promocao">
+        <input type="hidden" id="promocao-id">
+        <label>Titulo
+          <input type="text" id="promocao-titulo" required maxlength="150">
+        </label>
+        <label>Descricao
+          <textarea id="promocao-descricao" maxlength="300"></textarea>
+        </label>
+        <label>Produto vinculado (opcional)
+          <select id="promocao-produto">
+            <option value="">Nenhum</option>
+          </select>
+        </label>
+        <label>Imagem do banner
+          <input type="file" id="promocao-imagem" accept="image/*">
+        </label>
+        <p class="campo-dica">Imagem paisagem, ideal 750x330px.</p>
+        <button type="submit" class="botao-primario">Salvar promocao</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-desativados" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3 id="titulo-modal-desativados">Desativados</h3>
+      <div id="lista-desativados-modal" class="lista-itens-admin"></div>
+    </div>
+  </div>
+
+  <div id="modal-filtro-categorias" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
+    <div class="modal-admin__caixa">
+      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
+      <h3>Ver produtos por categoria</h3>
+      <p class="aba__ajuda">Escolha uma categoria pra ver so os produtos dela, sem precisar sair desta pagina.</p>
+      <div id="lista-categorias-filtro" class="lista-categorias-filtro"></div>
+    </div>
+  </div>
+
+  <div id="modal-leitor-codigo-barras" class="modal-admin oculto">
+    <div class="modal-admin__fundo" data-fechar-leitor-codigo-barras></div>
+    <div class="modal-admin__caixa modal-admin__caixa--leitor">
+      <button class="modal-admin__fechar" data-fechar-leitor-codigo-barras>&times;</button>
+      <h3>Ler código de barras</h3>
+      <p class="aba__ajuda">Aponte a câmera para o código de barras do produto.</p>
+      <video id="video-leitor-codigo-barras" class="leitor-codigo-barras__video" playsinline></video>
+      <p id="leitor-codigo-barras-erro" class="leitor-codigo-barras__erro oculto"></p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast oculto"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="../js/config.js"></script>
+  <script src="js/admin-api.js?v=20260814a"></script>
+  <script src="js/admin.js?v=20260819b"></script>
+  <script src="js/admin-vitrines.js?v=20260720d"></script>
+  <script src="js/admin-caixatexto.js?v=20260720d"></script>
+  <script src="js/admin-construtor.js?v=20260722a"></script>
+  <script src="js/admin-estoque.js?v=20260818a"></script>
+</body>
+</html>
