@@ -486,6 +486,28 @@
         </p>
 
         <button id="botao-salvar-pagamento" class="botao-primario">Salvar credenciais</button>
+
+        <hr style="margin:24px 0; border:none; border-top:1px solid #e2e2e2;">
+
+        <h3 style="font-size:1rem; margin-bottom:4px;">Cartão no atendimento presencial</h3>
+        <p class="aba__descricao">
+          Por padrão, quando o garçom ou o caixa fecha uma comanda em Crédito ou Débito, o sistema
+          apenas registra a forma de pagamento — o cobrança de verdade acontece na maquininha física
+          da sua loja, separada do sistema.
+        </p>
+        <p class="aba__descricao">
+          Se preferir, você pode ativar a cobrança de cartão <strong>direto pelo Mercado Pago</strong>,
+          sem precisar de maquininha: o garçom digita os dados do cartão na tela e o valor é cobrado
+          na hora, do mesmo jeito que o Pix já funciona.
+        </p>
+
+        <div class="config-lista__item config-lista__item--toggle">
+          <span class="config-lista__rotulo">💳 Cobrar cartão online no atendimento (sem maquininha)</span>
+          <label class="interruptor" title="Quando desligado, crédito/débito no atendimento continuam sendo só registro manual (maquininha física).">
+            <input type="checkbox" id="campo-cartao-online-presencial">
+            <span class="interruptor__trilho"></span>
+          </label>
+        </div>
       </section>
 
       <section id="aba-paginas-legais" class="aba oculto">
