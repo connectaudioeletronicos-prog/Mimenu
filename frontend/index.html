@@ -215,6 +215,32 @@
             </label>
           </fieldset>
 
+          <div id="checkout-campos-cartao" class="oculto">
+            <label>Número do cartão
+              <input type="text" id="checkout-cartao-numero" inputmode="numeric" placeholder="0000 0000 0000 0000" maxlength="19">
+            </label>
+            <label>Nome impresso no cartão
+              <input type="text" id="checkout-cartao-nome" placeholder="Como está no cartão">
+            </label>
+            <div style="display:flex; gap:10px;">
+              <label style="flex:1;">Validade (MM/AA)
+                <input type="text" id="checkout-cartao-validade" inputmode="numeric" placeholder="MM/AA" maxlength="5">
+              </label>
+              <label style="flex:1;">CVV
+                <input type="text" id="checkout-cartao-cvv" inputmode="numeric" placeholder="000" maxlength="4">
+              </label>
+            </div>
+            <label>CPF do titular do cartão
+              <input type="text" id="checkout-cartao-cpf" inputmode="numeric" placeholder="000.000.000-00" maxlength="14">
+            </label>
+            <div id="checkout-cartao-parcelas-grupo" class="oculto">
+              <label>Parcelas
+                <select id="checkout-cartao-parcelas"></select>
+              </label>
+            </div>
+            <p id="checkout-cartao-erro" class="aviso-pix oculto"></p>
+          </div>
+
           <fieldset class="form-checkout__gorjeta">
             <legend>Gorjeta (opcional)</legend>
             <div class="gorjeta-opcoes">
@@ -252,6 +278,9 @@
     </div>
   </div>
 
+  <!-- SDK oficial do Mercado Pago -- tokeniza o cartao no proprio
+       navegador do cliente; numero/validade/CVV nunca chegam no backend. -->
+  <script src="https://sdk.mercadopago.com/js/v2"></script>
   <script src="js/config.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/api.js"></script>
