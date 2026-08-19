@@ -175,6 +175,48 @@
     </div>
   </div>
 
+  <!-- ===================== MODAL: CARTÃO ONLINE (sem maquininha) ===================== -->
+  <!-- So aparece se a loja ligou "Cartao online no atendimento" em Configuracoes > Pagamento.
+       Com a chave desligada, credito/debito fecham direto (fluxo antigo, maquininha fisica). -->
+  <div id="fundo-modal-cartao" class="fundo-modal oculto"></div>
+  <div id="modal-cartao" class="modal oculto">
+    <h2>Cobrar cartão</h2>
+    <p class="ajuda">Total a cobrar: <strong id="cartao-total">R$ 0,00</strong></p>
+    <p class="ajuda" id="cartao-forma-label">Cartão de crédito</p>
+
+    <label>Número do cartão</label>
+    <input type="text" id="input-cartao-numero" inputmode="numeric" placeholder="0000 0000 0000 0000" maxlength="19">
+
+    <label>Nome impresso no cartão</label>
+    <input type="text" id="input-cartao-nome" placeholder="Como está no cartão">
+
+    <div class="campo-mesa-comanda" style="display:flex; gap:10px;">
+      <div style="flex:1;">
+        <label>Validade (MM/AA)</label>
+        <input type="text" id="input-cartao-validade" inputmode="numeric" placeholder="MM/AA" maxlength="5">
+      </div>
+      <div style="flex:1;">
+        <label>CVV</label>
+        <input type="text" id="input-cartao-cvv" inputmode="numeric" placeholder="000" maxlength="4">
+      </div>
+    </div>
+
+    <label>CPF do titular do cartão</label>
+    <input type="text" id="input-cartao-cpf" inputmode="numeric" placeholder="000.000.000-00" maxlength="14">
+
+    <div id="cartao-parcelas-grupo" class="oculto">
+      <label>Parcelas</label>
+      <select id="input-cartao-parcelas"></select>
+    </div>
+
+    <p id="cartao-erro" class="aviso-pix oculto"></p>
+
+    <div class="botoes-linha">
+      <button id="botao-cancelar-cartao" class="botao botao-secundario" type="button">Cancelar</button>
+      <button id="botao-confirmar-cartao" class="botao botao-principal" type="button">Cobrar agora</button>
+    </div>
+  </div>
+
   <!-- ===================== MODAL: PIX (QR Code / aguardando pagamento) ===================== -->
   <div id="fundo-modal-pix" class="fundo-modal oculto"></div>
   <div id="modal-pix" class="modal oculto">
@@ -245,6 +287,11 @@
 
   <div id="toast" class="toast oculto"></div>
 
+  <!-- SDK oficial do Mercado Pago -- so' e' usado se a loja ligar "Cartao
+       online no atendimento" (Configuracoes > Pagamento). Tokeniza o
+       cartao no proprio navegador; numero/validade/CVV nunca chegam no
+       nosso backend. -->
+  <script src="https://sdk.mercadopago.com/js/v2"></script>
   <script src="../js/config.js"></script>
   <script src="../js/utils.js"></script>
   <script src="atendente.js?v=20260812b"></script>
