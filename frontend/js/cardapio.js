@@ -1,4 +1,8 @@
 let DADOS = null;
+// Instancia do SDK do Mercado Pago -- so' fica pronta se a loja tiver
+// Public Key configurada (Configuracoes > Pagamento). Sem ela, a opcao
+// "Cartao (online)" continua aparecendo mas avisa que nao esta disponivel.
+let mpSDK = null;
 let PRODUTO_SELECIONADO = null;
 let QUANTIDADE_MODAL = 1;
 let INTERVALO_ACOMPANHAMENTO = null;
@@ -28,6 +32,13 @@ async function iniciar() {
   }
   try {
     DADOS = await buscarDadosEstabelecimento(SLUG_ESTABELECIMENTO);
+    if (DADOS.estabelecimento.mp_public_key && typeof MercadoPago !== 'undefined') {
+      try {
+        mpSDK = new MercadoPago(DADOS.estabelecimento.mp_public_key, { locale: 'pt-BR' });
+      } catch (erroSdk) {
+        console.error('Erro ao iniciar SDK do Mercado Pago:', erroSdk);
+      }
+    }
     aplicarIdentidadeVisual(DADOS.estabelecimento);
     montarCabecalho(DADOS.estabelecimento);
     montarPromocoes(DADOS.promocoes, DADOS.produtos);
@@ -528,6 +539,27 @@ function configurarEventosGlobais() {
   document.getElementById('form-checkout').addEventListener('submit', finalizarPedido);
   configurarEventosTipoPedido();
   configurarEventosGorjeta();
+  configurarEventosPagamentoCartao();
+}
+
+// Mostra/esconde os campos de cartao conforme a forma de pagamento
+// escolhida. Se a loja nao tiver SDK/Public Key configurada, a opcao
+// "Cartao" ainda aparece, mas o envio do pedido avisa que nao esta
+// disponivel (ver finalizarPedido).
+function configurarEventosPagamentoCartao() {
+  document.querySelectorAll('input[name="pagamento"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const ehCartao = radio.value === 'cartao' && radio.checked;
+      document.getElementById('checkout-campos-cartao').classList.toggle('oculto', !ehCartao);
+      document.getElementById('checkout-cartao-parcelas-grupo').classList.toggle('oculto', !ehCartao);
+    });
+  });
+
+  const selectParcelas = document.getElementById('checkout-cartao-parcelas');
+  if (selectParcelas && selectParcelas.options.length === 0) {
+    selectParcelas.innerHTML = Array.from({ length: 12 }, (_, i) => i + 1)
+      .map(n => `<option value="${n}">${n}x</option>`).join('');
+  }
 }
 
 let GORJETA_ATUAL = 0;
@@ -757,6 +789,65 @@ async function finalizarPedido(evento) {
 
   try {
     const formaPagamento = document.querySelector('input[name="pagamento"]:checked').value;
+
+    // Cartao precisa ser tokenizado ANTES de mandar o pedido -- numero,
+    // validade e CVV nunca saem do navegador em direcao ao nosso backend,
+    // so' o token seguro que o Mercado Pago devolve.
+    let dadosCartao = {};
+    if (formaPagamento === 'cartao') {
+      const erroEl = document.getElementById('checkout-cartao-erro');
+      erroEl.classList.add('oculto');
+
+      if (!mpSDK) {
+        alert('Pagamento com cartão não está disponível para esta loja no momento. Escolha Pix ou Dinheiro.');
+        botao.disabled = false;
+        botao.textContent = 'Finalizar pedido';
+        return;
+      }
+
+      const numeroCartao = document.getElementById('checkout-cartao-numero').value.replace(/\s+/g, '');
+      const nomeCartao = document.getElementById('checkout-cartao-nome').value.trim();
+      const validade = document.getElementById('checkout-cartao-validade').value.trim();
+      const cvv = document.getElementById('checkout-cartao-cvv').value.trim();
+      const cpf = document.getElementById('checkout-cartao-cpf').value.replace(/\D/g, '');
+      const [mes, ano] = validade.split('/');
+
+      if (!numeroCartao || !nomeCartao || !mes || !ano || !cvv || cpf.length !== 11) {
+        alert('Preencha todos os campos do cartão corretamente.');
+        botao.disabled = false;
+        botao.textContent = 'Finalizar pedido';
+        return;
+      }
+
+      try {
+        const tokenResp = await mpSDK.createCardToken({
+          cardNumber: numeroCartao,
+          cardholderName: nomeCartao,
+          cardExpirationMonth: mes.padStart(2, '0'),
+          cardExpirationYear: ano.length === 2 ? `20${ano}` : ano,
+          securityCode: cvv,
+          identificationType: 'CPF',
+          identificationNumber: cpf
+        });
+        if (!tokenResp || !tokenResp.id) throw new Error('Cartão inválido.');
+
+        const metodosResp = await mpSDK.getPaymentMethods({ bin: numeroCartao.slice(0, 6) });
+        const metodoPagamentoId = metodosResp?.results?.[0]?.id;
+        if (!metodoPagamentoId) throw new Error('Bandeira do cartão não reconhecida.');
+
+        dadosCartao = {
+          token_cartao: tokenResp.id,
+          parcelas_cartao: Number(document.getElementById('checkout-cartao-parcelas').value) || 1,
+          metodo_pagamento_id: metodoPagamentoId
+        };
+      } catch (erroToken) {
+        alert(erroToken.message || 'Não foi possível validar o cartão. Confira os dados e tente novamente.');
+        botao.disabled = false;
+        botao.textContent = 'Finalizar pedido';
+        return;
+      }
+    }
+
     const dadosPedido = {
       cliente_nome: nome,
       cliente_telefone: telefone,
@@ -771,7 +862,8 @@ async function finalizarPedido(evento) {
         produto_id: item.produto_id,
         quantidade: item.quantidade,
         observacao: item.observacao
-      }))
+      })),
+      ...dadosCartao
     };
 
     if (!ehRetirada) {
@@ -811,15 +903,31 @@ function mostrarConfirmacao(resultado, formaPagamento) {
       </div>
     `;
     monitorarPagamentoPix(resultado.pedido.id);
-  } else if (formaPagamento === 'cartao' && resultado.pagamento?.ticket_url) {
+  } else if (formaPagamento === 'cartao' && resultado.pedido.status_pagamento === 'pago') {
     conteudo.innerHTML = `
       <div class="confirmacao-sucesso">
-        <div class="confirmacao-sucesso__icone">💳</div>
-        <p>Clique no botao abaixo para concluir o pagamento com cartao.</p>
-        <a class="botao-primario" style="display:block;text-align:center;text-decoration:none;margin-top:14px;"
-           href="${escaparAspas(resultado.pagamento.ticket_url)}" target="_blank" rel="noopener">
-          Pagar com cartao
-        </a>
+        <div class="confirmacao-sucesso__icone">✅</div>
+        <p>Pagamento aprovado! Pedido <strong>#${resultado.pedido.id.substring(0, 8)}</strong> recebido.</p>
+        <p style="margin-top:8px;color:var(--cor-texto-claro);">⏱️ ${textoTempo}</p>
+        ${whatsapp ? `
+          <a class="botao-primario" style="display:block;text-align:center;text-decoration:none;margin-top:14px;"
+             href="https://wa.me/${whatsapp.replace(/\D/g, '')}" target="_blank" rel="noopener">
+            Falar no WhatsApp
+          </a>` : ''}
+      </div>
+    `;
+  } else if (formaPagamento === 'cartao' && resultado.aviso_pagamento) {
+    conteudo.innerHTML = `
+      <div class="confirmacao-sucesso">
+        <div class="confirmacao-sucesso__icone">⚠️</div>
+        <p>Seu pedido foi recebido, mas o pagamento não foi concluído:</p>
+        <p style="margin-top:8px;color:var(--cor-texto-claro);">${escaparAspas(resultado.aviso_pagamento)}</p>
+        ${whatsapp ? `
+          <p style="margin-top:8px;color:var(--cor-texto-claro);">Fale com a loja para combinar outra forma de pagamento.</p>
+          <a class="botao-primario" style="display:block;text-align:center;text-decoration:none;margin-top:14px;"
+             href="https://wa.me/${whatsapp.replace(/\D/g, '')}" target="_blank" rel="noopener">
+            Falar no WhatsApp
+          </a>` : ''}
       </div>
     `;
   } else {
