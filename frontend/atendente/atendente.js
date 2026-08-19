@@ -237,10 +237,29 @@ document.getElementById('botao-sair-menu').addEventListener('click', () => {
 
 // ===================== Tela principal =====================
 
+// Instancia do SDK do Mercado Pago, so' criada se a loja tiver ligado
+// "Cartao online no atendimento" e tiver uma Public Key configurada.
+// Public Key nao e' segredo (e' feita pra rodar no navegador) -- por isso
+// pode vir direto no retorno do login, ao contrario do Access Token.
+let mpSDK = null;
+function iniciarSdkMercadoPago(dados) {
+  if (!dados.cartaoOnlinePresencial || !dados.mpPublicKey || typeof MercadoPago === 'undefined') {
+    mpSDK = null;
+    return;
+  }
+  try {
+    mpSDK = new MercadoPago(dados.mpPublicKey, { locale: 'pt-BR' });
+  } catch (erro) {
+    console.error('Erro ao iniciar SDK do Mercado Pago:', erro);
+    mpSDK = null;
+  }
+}
+
 async function mostrarApp() {
   const dados = JSON.parse(sessionStorage.getItem(CHAVE_DADOS));
   document.getElementById('tela-login').classList.add('oculto');
   document.getElementById('tela-app').classList.remove('oculto');
+  iniciarSdkMercadoPago(dados);
   document.getElementById('saudacao-atendente').textContent = `Olá, ${dados.nome.split(' ')[0]}!`;
   document.getElementById('menu-nome-funcionario').textContent = dados.nome;
   document.getElementById('menu-cargo-funcionario').textContent = dados.cargo === 'caixa' ? 'Caixa' : 'Garçom';
@@ -731,9 +750,20 @@ function fecharModalPagamento() {
   document.getElementById('modal-pagamento').classList.add('oculto');
 }
 document.getElementById('botao-cancelar-pagamento').addEventListener('click', fecharModalPagamento);
+// Credito/debito abrem o modal de cartao (cobranca online) so' se a loja
+// ligou essa opcao E o SDK carregou direito. Caso contrario, segue o fluxo
+// de sempre: so seleciona e fecha na hora (maquininha fisica separada).
 document.querySelectorAll('.opcao-pagamento').forEach(botao => {
   botao.addEventListener('click', () => {
-    formaPagamentoSelecionada = botao.dataset.forma;
+    const forma = botao.dataset.forma;
+    const ehCartaoOnline = ['cartao_credito', 'cartao_debito'].includes(forma) && !!mpSDK;
+
+    if (ehCartaoOnline) {
+      abrirModalCartao(forma);
+      return;
+    }
+
+    formaPagamentoSelecionada = forma;
     document.querySelectorAll('.opcao-pagamento').forEach(b => b.classList.remove('opcao-pagamento--selecionada'));
     botao.classList.add('opcao-pagamento--selecionada');
     document.getElementById('botao-confirmar-pagamento').disabled = false;
@@ -743,26 +773,139 @@ document.querySelectorAll('.opcao-pagamento').forEach(botao => {
 document.getElementById('botao-confirmar-pagamento').addEventListener('click', async () => {
   if (!formaPagamentoSelecionada) return;
   const gorjeta = parseFloat(document.getElementById('input-gorjeta').value) || 0;
-  const mesaCliente = comandaAtual.mesaCliente;
-  const comandaId = comandaAtual.id;
 
   try {
-    const resposta = await chamarApi(`/comandas/${comandaId}/fechar`, {
+    const resposta = await chamarApi(`/comandas/${comandaAtual.id}/fechar`, {
       method: 'POST',
       body: JSON.stringify({ forma_pagamento: formaPagamentoSelecionada, gorjeta })
     });
     fecharModalPagamento();
-
-    if (resposta.pagamento) {
-      abrirModalPix(comandaId, resposta.pagamento, mesaCliente);
-    } else {
-      mostrarToast(`Comanda "${mesaCliente}" fechada e paga!`);
-      comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
-      sessionStorage.removeItem(CHAVE_TELA_ATUAL);
-      renderizarComanda();
-    }
+    tratarRespostaFechamento(resposta);
   } catch (erro) {
     mostrarToast(erro.message, true);
+  }
+});
+
+// Usado tanto pelo fechamento normal (dinheiro/maquininha/pix) quanto pelo
+// modal de cartao online -- os dois chamam a mesma rota de fechar comanda.
+function tratarRespostaFechamento(resposta) {
+  const mesaCliente = comandaAtual.mesaCliente;
+  const comandaId = comandaAtual.id;
+  if (resposta.pagamento) {
+    abrirModalPix(comandaId, resposta.pagamento, mesaCliente);
+  } else {
+    mostrarToast(`Comanda "${mesaCliente}" fechada e paga!`);
+    comandaAtual = { id: null, mesaCliente: '', subtotalEnviado: 0, rodadas: [] };
+    sessionStorage.removeItem(CHAVE_TELA_ATUAL);
+    renderizarComanda();
+  }
+}
+
+// ===================== Modal Cartão online (sem maquininha) =====================
+
+let formaCartaoAtual = null;
+
+function abrirModalCartao(forma) {
+  formaCartaoAtual = forma;
+  fecharModalPagamento();
+  document.getElementById('cartao-erro').classList.add('oculto');
+  document.getElementById('cartao-forma-label').textContent = forma === 'cartao_credito' ? 'Cartão de crédito' : 'Cartão de débito';
+  document.getElementById('cartao-total').textContent = document.getElementById('pagamento-total').textContent;
+  document.getElementById('input-cartao-numero').value = '';
+  document.getElementById('input-cartao-nome').value = '';
+  document.getElementById('input-cartao-validade').value = '';
+  document.getElementById('input-cartao-cvv').value = '';
+  document.getElementById('input-cartao-cpf').value = '';
+
+  const grupoParcelas = document.getElementById('cartao-parcelas-grupo');
+  const selectParcelas = document.getElementById('input-cartao-parcelas');
+  if (forma === 'cartao_credito') {
+    selectParcelas.innerHTML = Array.from({ length: 12 }, (_, i) => i + 1)
+      .map(n => `<option value="${n}">${n}x</option>`).join('');
+    grupoParcelas.classList.remove('oculto');
+  } else {
+    grupoParcelas.classList.add('oculto');
+  }
+
+  document.getElementById('fundo-modal-cartao').classList.remove('oculto');
+  document.getElementById('modal-cartao').classList.remove('oculto');
+}
+
+function fecharModalCartao() {
+  document.getElementById('fundo-modal-cartao').classList.add('oculto');
+  document.getElementById('modal-cartao').classList.add('oculto');
+}
+document.getElementById('botao-cancelar-cartao').addEventListener('click', fecharModalCartao);
+
+document.getElementById('botao-confirmar-cartao').addEventListener('click', async () => {
+  const erroEl = document.getElementById('cartao-erro');
+  erroEl.classList.add('oculto');
+
+  const numero = document.getElementById('input-cartao-numero').value.replace(/\s+/g, '');
+  const nome = document.getElementById('input-cartao-nome').value.trim();
+  const validade = document.getElementById('input-cartao-validade').value.trim();
+  const cvv = document.getElementById('input-cartao-cvv').value.trim();
+  const cpf = document.getElementById('input-cartao-cpf').value.replace(/\D/g, '');
+  const [mes, ano] = validade.split('/');
+
+  if (!numero || !nome || !mes || !ano || !cvv || cpf.length !== 11) {
+    erroEl.textContent = 'Preencha todos os campos do cartão corretamente.';
+    erroEl.classList.remove('oculto');
+    return;
+  }
+
+  const botao = document.getElementById('botao-confirmar-cartao');
+  botao.disabled = true;
+  botao.textContent = 'Processando...';
+
+  try {
+    // Tokeniza o cartao direto com o Mercado Pago -- numero/validade/cvv
+    // saem do navegador do garcom direto pro Mercado Pago, nunca passam
+    // pelo nosso backend.
+    const tokenResp = await mpSDK.createCardToken({
+      cardNumber: numero,
+      cardholderName: nome,
+      cardExpirationMonth: mes.padStart(2, '0'),
+      cardExpirationYear: ano.length === 2 ? `20${ano}` : ano,
+      securityCode: cvv,
+      identificationType: 'CPF',
+      identificationNumber: cpf
+    });
+
+    if (!tokenResp || !tokenResp.id) {
+      throw new Error('Não foi possível validar o cartão. Confira os dados e tente novamente.');
+    }
+
+    const metodosResp = await mpSDK.getPaymentMethods({ bin: numero.slice(0, 6) });
+    const metodoPagamentoId = metodosResp?.results?.[0]?.id;
+    if (!metodoPagamentoId) {
+      throw new Error('Bandeira do cartão não reconhecida.');
+    }
+
+    const parcelas = formaCartaoAtual === 'cartao_credito'
+      ? Number(document.getElementById('input-cartao-parcelas').value) || 1
+      : 1;
+    const gorjeta = parseFloat(document.getElementById('input-gorjeta').value) || 0;
+
+    const resposta = await chamarApi(`/comandas/${comandaAtual.id}/fechar`, {
+      method: 'POST',
+      body: JSON.stringify({
+        forma_pagamento: formaCartaoAtual,
+        gorjeta,
+        token_cartao: tokenResp.id,
+        parcelas_cartao: parcelas,
+        metodo_pagamento_id: metodoPagamentoId
+      })
+    });
+
+    fecharModalCartao();
+    tratarRespostaFechamento(resposta);
+  } catch (erro) {
+    erroEl.textContent = erro.message || 'Não foi possível processar o cartão. Tente novamente.';
+    erroEl.classList.remove('oculto');
+  } finally {
+    botao.disabled = false;
+    botao.textContent = 'Cobrar agora';
   }
 });
 
