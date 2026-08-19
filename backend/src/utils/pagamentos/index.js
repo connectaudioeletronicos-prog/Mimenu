@@ -31,6 +31,15 @@ async function criarCobrancaPix(estabelecimento, dados) {
   return provedor.criarCobrancaPix({ accessToken, ...dados });
 }
 
+async function criarCobrancaCartao(estabelecimento, dados) {
+  const provedor = obterProvedor(estabelecimento);
+  if (!estabelecimento.mp_access_token) {
+    throw new Error('Essa loja ainda nao configurou a chave de pagamento em Configurações > Pagamento.');
+  }
+  const accessToken = descriptografar(estabelecimento.mp_access_token);
+  return provedor.criarCobrancaCartao({ accessToken, ...dados });
+}
+
 async function consultarPagamento(estabelecimento, idPagamento) {
   const provedor = obterProvedor(estabelecimento);
   if (!estabelecimento.mp_access_token) {
@@ -40,4 +49,4 @@ async function consultarPagamento(estabelecimento, idPagamento) {
   return provedor.consultarPagamento({ accessToken, idPagamento });
 }
 
-module.exports = { criarCobrancaPix, consultarPagamento };
+module.exports = { criarCobrancaPix, criarCobrancaCartao, consultarPagamento };
