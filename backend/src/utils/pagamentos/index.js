@@ -4,6 +4,7 @@
 // futuro: criar o arquivo (ex: stone.js) com criarCobrancaPix/consultarPagamento,
 // importar aqui embaixo e adicionar o `case` correspondente.
 const mercadopago = require('./mercadopago');
+const { descriptografar } = require('../criptografia');
 
 const PROVEDORES = {
   mercadopago
@@ -23,19 +24,19 @@ function obterProvedor(estabelecimento) {
 // chave global do .env, pra o dinheiro cair na conta de quem e dono da loja.
 async function criarCobrancaPix(estabelecimento, dados) {
   const provedor = obterProvedor(estabelecimento);
-  const accessToken = estabelecimento.mp_access_token;
-  if (!accessToken) {
+  if (!estabelecimento.mp_access_token) {
     throw new Error('Essa loja ainda nao configurou a chave de pagamento em Configurações > Pagamento.');
   }
+  const accessToken = descriptografar(estabelecimento.mp_access_token);
   return provedor.criarCobrancaPix({ accessToken, ...dados });
 }
 
 async function consultarPagamento(estabelecimento, idPagamento) {
   const provedor = obterProvedor(estabelecimento);
-  const accessToken = estabelecimento.mp_access_token;
-  if (!accessToken) {
+  if (!estabelecimento.mp_access_token) {
     throw new Error('Essa loja ainda nao configurou a chave de pagamento em Configurações > Pagamento.');
   }
+  const accessToken = descriptografar(estabelecimento.mp_access_token);
   return provedor.consultarPagamento({ accessToken, idPagamento });
 }
 
