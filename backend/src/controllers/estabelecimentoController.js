@@ -4,6 +4,7 @@
 // ===================================================================
 const { query } = require('../config/database');
 const { uploadImagem } = require('../utils/storage');
+const { criptografar } = require('../utils/criptografia');
 
 const CAMPOS_EDITAVEIS = [
   'nome', 'cor_principal', 'cor_secundaria', 'cor_botoes', 'fonte', 'tema',
@@ -143,9 +144,12 @@ async function atualizarConfiguracoes(req, res) {
     for (const campo of CAMPOS_EDITAVEIS) {
       if (dados[campo] !== undefined) {
         campos.push(`${campo} = $${indice}`);
-        valores.push(
-          campo === 'horario_funcionamento' ? JSON.stringify(dados[campo]) : dados[campo]
-        );
+        let valor = dados[campo];
+        if (campo === 'horario_funcionamento') valor = JSON.stringify(valor);
+        // Access Token do Mercado Pago e sensivel (da acesso ao dinheiro da
+        // loja) -- nunca fica em texto puro no banco. Ver utils/criptografia.js.
+        if (campo === 'mp_access_token') valor = criptografar(valor);
+        valores.push(valor);
         indice++;
       }
     }
@@ -159,7 +163,13 @@ async function atualizarConfiguracoes(req, res) {
     const sql = `UPDATE estabelecimentos SET ${campos.join(', ')} WHERE id = $${indice} RETURNING *`;
     const resultado = await query(sql, valores);
 
-    res.json({ mensagem: 'Configuracoes atualizadas com sucesso.', estabelecimento: resultado.rows[0] });
+    // Mesmo criptografado, o token nunca deve voltar na resposta da API --
+    // o frontend ja limpa o campo localmente apos salvar (admin.js) e nao
+    // precisa desse valor de volta.
+    const estabelecimentoAtualizado = resultado.rows[0];
+    delete estabelecimentoAtualizado.mp_access_token;
+
+    res.json({ mensagem: 'Configuracoes atualizadas com sucesso.', estabelecimento: estabelecimentoAtualizado });
 
   } catch (error) {
     console.error('Erro ao atualizar configuracoes:', error);
