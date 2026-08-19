@@ -10,7 +10,7 @@ const CAMPOS_EDITAVEIS = [
   'nome', 'cor_principal', 'cor_secundaria', 'cor_botoes', 'fonte', 'tema',
   'texto_apresentacao', 'whatsapp', 'telefone', 'endereco', 'instagram',
   'facebook', 'linkedin', 'email_contato', 'horario_funcionamento',
-  'mp_access_token', 'mp_public_key', 'tempo_preparo_min',
+  'mp_access_token', 'mp_public_key', 'tempo_preparo_min', 'cartao_online_presencial',
   'termos_uso', 'politica_privacidade', 'cookies'
 ];
 
