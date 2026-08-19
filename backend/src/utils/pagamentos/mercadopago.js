@@ -37,6 +37,35 @@ async function criarCobrancaPix({ accessToken, valor, descricao, referenciaExter
   };
 }
 
+// Cobra um cartao de credito/debito ja tokenizado no navegador (o numero,
+// validade e CVV NUNCA passam pelo nosso backend -- o formulario do proprio
+// Mercado Pago no frontend gera esse "token" e e' so ele que chega aqui).
+// Usada tanto no pedido online do cliente quanto, se o lojista ligar a
+// chave "cartao_online_presencial", no fechamento de comanda pelo garcom.
+async function criarCobrancaCartao({ accessToken, valor, descricao, referenciaExterna, emailPagador, token, parcelas, metodoPagamentoId, notificationUrl }) {
+  const client = new MercadoPagoConfig({ accessToken, options: { timeout: 8000 } });
+  const payment = new Payment(client);
+
+  const resultado = await payment.create({
+    body: {
+      transaction_amount: Number(valor.toFixed(2)),
+      description: descricao,
+      token,
+      installments: Number(parcelas) || 1,
+      payment_method_id: metodoPagamentoId,
+      payer: { email: emailPagador },
+      external_reference: referenciaExterna,
+      notification_url: notificationUrl
+    }
+  });
+
+  return {
+    idPagamento: String(resultado.id),
+    status: mapearStatus(resultado.status),
+    statusDetalhe: resultado.status_detail || null
+  };
+}
+
 // Consulta o status atual de um pagamento direto na API do Mercado Pago --
 // nunca confia so no conteudo que o webhook mandou (o webhook so avisa
 // "algo mudou", quem confirma de verdade e essa consulta).
@@ -60,4 +89,4 @@ function mapearStatus(statusMercadoPago) {
   return 'pendente'; // pending, in_process, in_mediation etc.
 }
 
-module.exports = { criarCobrancaPix, consultarPagamento };
+module.exports = { criarCobrancaPix, criarCobrancaCartao, consultarPagamento };
