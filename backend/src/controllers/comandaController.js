@@ -272,7 +272,7 @@ async function adicionarItens(req, res) {
 async function fechar(req, res) {
   try {
     const { id } = req.params;
-    const { forma_pagamento, gorjeta, operador_atendimento_id } = req.body;
+    const { forma_pagamento, gorjeta, operador_atendimento_id, token_cartao, parcelas_cartao } = req.body;
 
     if (!FORMAS_PAGAMENTO_VALIDAS.includes(forma_pagamento)) {
       return res.status(400).json({ erro: 'Forma de pagamento invalida.' });
@@ -336,14 +336,66 @@ async function fechar(req, res) {
     // ficam bloqueados (mesmo credito/debito nao dependendo do Pix hoje,
     // no futuro tambem vao passar pela maquininha integrada via Mercado
     // Pago Point, entao a mesma chave vai valer pra eles).
+    let estabelecimentoConfig = null;
     if (forma_pagamento !== 'dinheiro') {
-      const estConfigRes = await query('SELECT mp_access_token FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
-      if (!estConfigRes.rows[0]?.mp_access_token) {
+      const estConfigRes = await query(
+        'SELECT id, mp_access_token, provedor_pagamento, cartao_online_presencial FROM estabelecimentos WHERE id = $1',
+        [req.estabelecimentoId]
+      );
+      estabelecimentoConfig = estConfigRes.rows[0];
+      if (!estabelecimentoConfig?.mp_access_token) {
         return res.status(400).json({ erro: 'Essa loja ainda nao configurou a chave de pagamento em Configurações > Pagamento. Por enquanto, só é possível cobrar em Dinheiro.' });
       }
     }
 
+    // Credito/debito so viram cobranca online se o LOJISTA ligou essa opcao
+    // (Configuracoes > Pagamento > "Aceitar cartao online no atendimento").
+    // Desligado (padrao), continua o comportamento de sempre: o garcom so
+    // registra que recebeu numa maquininha fisica separada, e a comanda
+    // fecha na hora, sem chamar o Mercado Pago.
+    const ehCartaoOnline = ['cartao_credito', 'cartao_debito'].includes(forma_pagamento)
+      && estabelecimentoConfig?.cartao_online_presencial
+      && !!token_cartao;
+
     const totalFinal = Number(comanda.subtotal) + gorjetaValor;
+
+    if (ehCartaoOnline) {
+      const notificationUrl = `${process.env.BACKEND_URL}/api/webhooks/mercadopago?estabelecimento_id=${req.estabelecimentoId}`;
+      let cobranca;
+      try {
+        cobranca = await pagamentos.criarCobrancaCartao(estabelecimentoConfig, {
+          valor: totalFinal,
+          descricao: `Comanda ${comanda.mesa_cliente} - Palatos`,
+          referenciaExterna: `comanda:${id}`,
+          emailPagador: `comanda-${id.slice(0, 8)}@palatos.com.br`,
+          token: token_cartao,
+          parcelas: parcelas_cartao || 1,
+          metodoPagamentoId: req.body.metodo_pagamento_id,
+          notificationUrl
+        });
+      } catch (erroCartao) {
+        console.error('Erro ao cobrar cartao online na comanda:', erroCartao.message);
+        return res.status(400).json({ erro: 'Nao foi possivel processar o cartao. Tente novamente ou use a maquininha.' });
+      }
+
+      if (cobranca.status !== 'pago') {
+        return res.status(400).json({ erro: 'Pagamento recusado pela operadora do cartao. Tente outro cartao ou use a maquininha.' });
+      }
+
+      const fechadoCartao = await query(
+        `UPDATE comandas SET forma_pagamento = $1, gorjeta = $2, total = $3, status = 'fechada',
+                              status_pagamento = 'pago', fechada_em = NOW(), mp_payment_id = $4,
+                              fechada_por_funcionario_id = $5, fechada_por_funcionario_nome = $6, fechada_por_funcionario_cargo = $9,
+                              pago_no_caixa = $8
+         WHERE id = $7 RETURNING *`,
+        [forma_pagamento, gorjetaValor, totalFinal, cobranca.idPagamento, fechadaPorId, fechadaPorNome, id, pagoNoCaixa, fechadaPorCargo]
+      );
+
+      const { registrarAuditoria: registrarAuditoriaCartao } = require('./funcionarioController');
+      await registrarAuditoriaCartao(req.estabelecimentoId, fechadaPorId, fechadaPorNome, 'FECHAR_COMANDA', 'comandas', id, null, fechadoCartao.rows[0], req.ip);
+
+      return res.json({ comanda: fechadoCartao.rows[0] });
+    }
 
     if (forma_pagamento === 'pix') {
       const estRes = await query('SELECT id, mp_access_token, provedor_pagamento FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
