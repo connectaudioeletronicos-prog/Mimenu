@@ -37,7 +37,8 @@ async function criarPedido(req, res) {
     const { slug } = req.params;
     const {
       cliente_nome, cliente_telefone, cliente_endereco, cliente_cep,
-      observacoes, forma_pagamento, taxa_entrega, gorjeta, tipo_pedido, itens, troco_para
+      observacoes, forma_pagamento, taxa_entrega, gorjeta, tipo_pedido, itens, troco_para,
+      token_cartao, parcelas_cartao, metodo_pagamento_id, email_pagador
     } = req.body;
 
     const tipoPedidoFinal = tipo_pedido === 'retirada' ? 'retirada' : 'entrega';
@@ -155,6 +156,47 @@ async function criarPedido(req, res) {
       } catch (erroPix) {
         console.error('Erro ao gerar cobranca Pix:', erroPix.message);
         avisoPagamento = 'Nao foi possivel gerar o QR Code Pix agora. Tente outra forma de pagamento ou fale com a loja.';
+      }
+    }
+
+    // Cartao no pedido do cliente e' SEMPRE cobrado online, na hora --
+    // nunca depende do toggle "cartao_online_presencial" (esse e' so pro
+    // atendimento presencial/comanda). Aqui o proprio cliente digitou o
+    // cartao no formulario do Mercado Pago no navegador, que devolveu um
+    // token seguro -- e' esse token que chega em token_cartao, nunca o
+    // numero do cartao em si.
+    if (forma_pagamento === 'cartao') {
+      if (!token_cartao) {
+        // Pedido ainda e' criado (fica pendente) pra nao perder a venda,
+        // mas sem cobranca nenhuma -- o cliente precisa tentar de novo.
+        avisoPagamento = 'Nao foi possivel processar o cartao (dados nao recebidos). Tente novamente ou escolha outra forma de pagamento.';
+      } else {
+        try {
+          const notificationUrl = `${process.env.BACKEND_URL}/api/webhooks/mercadopago?estabelecimento_id=${estabelecimentoId}`;
+          const cobranca = await pagamentos.criarCobrancaCartao(estRes.rows[0], {
+            valor: total,
+            descricao: `Pedido ${numeroPedidoPublico} - Palatos`,
+            referenciaExterna: `pedido:${pedido.id}`,
+            emailPagador: email_pagador || `pedido-${pedido.id.slice(0, 8)}@palatos.com.br`,
+            token: token_cartao,
+            parcelas: parcelas_cartao || 1,
+            metodoPagamentoId: metodo_pagamento_id,
+            notificationUrl
+          });
+
+          const atualizadoCartao = await query(
+            `UPDATE pedidos SET status_pagamento = $1, mp_payment_id = $2 WHERE id = $3 RETURNING *`,
+            [cobranca.status, cobranca.idPagamento, pedido.id]
+          );
+          pedidoFinal = atualizadoCartao.rows[0];
+
+          if (cobranca.status !== 'pago') {
+            avisoPagamento = 'Pagamento recusado pela operadora do cartao. Tente outro cartao ou escolha outra forma de pagamento.';
+          }
+        } catch (erroCartao) {
+          console.error('Erro ao cobrar cartao no pedido:', erroCartao.message);
+          avisoPagamento = 'Nao foi possivel processar o cartao agora. Tente novamente ou escolha outra forma de pagamento.';
+        }
       }
     }
 
