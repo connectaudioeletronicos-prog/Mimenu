@@ -61,12 +61,18 @@ async function loginFuncionario(req, res) {
       return res.status(400).json({ erro: 'Login, senha e slug sao obrigatorios.' });
     }
 
-    const estRes = await query('SELECT id, nome, logo_apps_url, mp_access_token FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
+    const estRes = await query('SELECT id, nome, logo_apps_url, mp_access_token, mp_public_key, cartao_online_presencial FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
     if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
     const estabelecimentoId = estRes.rows[0].id;
     const estabelecimentoNome = estRes.rows[0].nome;
     const estabelecimentoLogoAppsUrl = estRes.rows[0].logo_apps_url;
     const pagamentoConfigurado = !!estRes.rows[0].mp_access_token;
+    // Chave publica (nao e' sensivel, e' feita pra ir pro navegador) e o
+    // toggle do lojista -- o app do garcom usa os dois pra decidir se
+    // mostra a opcao de cobrar credito/debito online pelo Mercado Pago,
+    // em vez do fluxo antigo (so registrar o que foi pago na maquininha).
+    const mpPublicKey = estRes.rows[0].mp_public_key;
+    const cartaoOnlinePresencial = !!estRes.rows[0].cartao_online_presencial;
 
     const resultado = await query(
       `SELECT id, nome, email, username, senha_hash, cargo, permissoes, ativo,
@@ -93,6 +99,7 @@ async function loginFuncionario(req, res) {
       funcionario: {
         id: funcionario.id, nome: funcionario.nome, cargo: funcionario.cargo, permissoes, slug,
         estabelecimentoNome, estabelecimentoLogoAppsUrl, pagamentoConfigurado,
+        mpPublicKey, cartaoOnlinePresencial,
         formaPagamentoEntrega: funcionario.forma_pagamento_entrega,
         valorPorEntrega: funcionario.valor_por_entrega,
         valorPorKm: funcionario.valor_por_km
@@ -114,7 +121,8 @@ async function acessarPorLink(req, res) {
       `SELECT f.id, f.nome, f.cargo, f.permissoes, f.ativo,
               f.forma_pagamento_entrega, f.valor_por_entrega, f.valor_por_km,
               e.id AS estabelecimento_id, e.slug, e.nome AS estabelecimento_nome,
-              e.logo_apps_url AS estabelecimento_logo_apps_url, e.mp_access_token
+              e.logo_apps_url AS estabelecimento_logo_apps_url, e.mp_access_token,
+              e.mp_public_key, e.cartao_online_presencial
        FROM funcionarios f JOIN estabelecimentos e ON e.id = f.estabelecimento_id
        WHERE f.token_acesso = $1`,
       [token]
@@ -131,6 +139,7 @@ async function acessarPorLink(req, res) {
       funcionario: {
         id: f.id, nome: f.nome, cargo: f.cargo, permissoes, slug: f.slug, estabelecimentoNome: f.estabelecimento_nome,
         estabelecimentoLogoAppsUrl: f.estabelecimento_logo_apps_url, pagamentoConfigurado: !!f.mp_access_token,
+        mpPublicKey: f.mp_public_key, cartaoOnlinePresencial: !!f.cartao_online_presencial,
         formaPagamentoEntrega: f.forma_pagamento_entrega, valorPorEntrega: f.valor_por_entrega, valorPorKm: f.valor_por_km
       }
     });
