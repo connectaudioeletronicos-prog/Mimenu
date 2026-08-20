@@ -267,6 +267,9 @@ body.conta-pagina {
   font-size: 0.72rem; font-weight: 700; padding: 4px 10px; border-radius: 999px;
   background: var(--auth-fundo-suave); color: var(--auth-verde-texto); white-space: nowrap;
 }
+.conta-pedido-card__status--confirmado { background: #e6f4ea; color: #146c43; }
+.conta-pedido-card__status--aguardando { background: #fef3e2; color: #b25e00; }
+.conta-pedido-card__status--cancelado { background: #fde8e8; color: #c0392b; }
 .conta-pedido-card__seta { transition: transform 0.15s; color: var(--auth-texto-claro); }
 .conta-pedido-card.selecionado .conta-pedido-card__seta { transform: rotate(180deg); }
 
