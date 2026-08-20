@@ -20,5 +20,6 @@ router.post('/:slug/pedidos', limitadorPedidos, pedidoController.criarPedido);
 router.get('/:slug/pedidos/:id/status', pedidoController.consultarStatusPedido);
 router.get('/:slug/pedidos/cliente/:telefone', pedidoController.listarPedidosCliente);
 router.post('/:slug/reservas', limitadorPedidos, reservaController.criar);
+router.get('/:slug/reservas/cliente/:telefone', reservaController.listarReservasCliente);
 
 module.exports = router;
