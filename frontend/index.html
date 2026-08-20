@@ -53,8 +53,18 @@
         <textarea id="reserva-observacoes" rows="2"></textarea>
       </label>
       <p id="reserva-erro" class="oculto" style="color:#c0392b; font-size:13px;"></p>
-      <button type="submit" class="botao-principal" style="width:100%; margin-top:10px;">Confirmar reserva</button>
+      <button type="submit" id="botao-confirmar-reserva" class="botao-principal" style="width:100%; margin-top:10px;">📅 Confirmar reserva</button>
     </form>
+
+    <!-- Card de confirmacao (imagem de referencia) -- some pra fora do fluxo
+         normal do form, aparece so' depois que a reserva e' criada com sucesso. -->
+    <div id="reserva-confirmada" class="oculto" style="margin:0 16px 16px; padding:16px; background:#eaf6ee; border-radius:12px; display:flex; align-items:center; gap:12px;">
+      <span style="font-size:1.4rem;">✅</span>
+      <div>
+        <strong style="display:block; color:#146c43;">Confirmado</strong>
+        <span style="font-size:0.85rem; color:#3a5a45;">Seu código de reserva é: <strong id="reserva-confirmada-codigo"></strong></span>
+      </div>
+    </div>
   </div>
 
   <div id="tela-erro" class="tela-erro oculto">
