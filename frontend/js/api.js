@@ -48,3 +48,10 @@ async function criarReserva(slug, dados) {
   if (!resposta.ok) throw new Error(resultado.erro || 'Nao foi possivel criar a reserva.');
   return resultado;
 }
+
+async function buscarReservasCliente(slug, telefone) {
+  const telefoneLimpo = telefone.replace(/\D/g, '');
+  const resposta = await fetch(`${API_BASE_URL}/publico/${encodeURIComponent(slug)}/reservas/cliente/${telefoneLimpo}`);
+  if (!resposta.ok) throw new Error('Erro ao buscar reservas');
+  return resposta.json();
+}
