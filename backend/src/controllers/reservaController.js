@@ -93,4 +93,27 @@ async function alternarReservaAtiva(req, res) {
   }
 }
 
-module.exports = { criar, listar, atualizarStatus, alternarReservaAtiva };
+// Cliente consulta o historico de reservas dele mesmo (rota publica, sem
+// login -- usa o telefone, igual ja funciona pra "Meus pedidos").
+async function listarReservasCliente(req, res) {
+  try {
+    const { slug, telefone } = req.params;
+    const estRes = await query('SELECT id FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
+    if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
+
+    const telefoneLimpo = (telefone || '').replace(/\D/g, '');
+    const resultado = await query(
+      `SELECT * FROM reservas
+       WHERE estabelecimento_id = $1
+         AND regexp_replace(cliente_telefone, '\\D', '', 'g') LIKE $2
+       ORDER BY data_reserva DESC, horario_reserva DESC LIMIT 30`,
+      [estRes.rows[0].id, `%${telefoneLimpo}%`]
+    );
+    res.json(resultado.rows);
+  } catch (error) {
+    console.error('Erro ao listar reservas do cliente:', error);
+    res.status(500).json({ erro: 'Erro ao listar reservas.' });
+  }
+}
+
+module.exports = { criar, listar, listarReservasCliente, atualizarStatus, alternarReservaAtiva };
