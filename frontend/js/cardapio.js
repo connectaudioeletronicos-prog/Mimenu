@@ -1073,6 +1073,8 @@ function configurarReserva() {
 
   botaoAbrir.addEventListener('click', () => {
     erroEl.classList.add('oculto');
+    document.getElementById('reserva-confirmada').classList.add('oculto');
+    form.classList.remove('oculto');
     modal.classList.remove('oculto');
   });
   botaoFechar.addEventListener('click', () => modal.classList.add('oculto'));
@@ -1091,7 +1093,7 @@ function configurarReserva() {
     const botaoEnviar = form.querySelector('button[type="submit"]');
     botaoEnviar.disabled = true;
     try {
-      await criarReserva(SLUG_ESTABELECIMENTO, {
+      const reserva = await criarReserva(SLUG_ESTABELECIMENTO, {
         cliente_nome: dadosClienteLogado
           ? `${dadosClienteLogado.nome} ${dadosClienteLogado.sobrenome || ''}`.trim()
           : campoNome.value.trim(),
@@ -1105,8 +1107,12 @@ function configurarReserva() {
       });
       form.reset();
       document.getElementById('reserva-pessoas').value = 2;
-      modal.classList.add('oculto');
-      alert('Reserva enviada! Aguarde a confirmacao da loja.');
+
+      // Em vez de alert(), mostra o card de confirmacao com o codigo da
+      // reserva na propria tela, igual ao design de referencia.
+      document.getElementById('reserva-confirmada-codigo').textContent = `#${reserva.id.substring(0, 8).toUpperCase()}`;
+      form.classList.add('oculto');
+      document.getElementById('reserva-confirmada').classList.remove('oculto');
     } catch (erro) {
       erroEl.textContent = erro.message;
       erroEl.classList.remove('oculto');
