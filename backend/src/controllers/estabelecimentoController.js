@@ -10,7 +10,7 @@ const CAMPOS_EDITAVEIS = [
   'nome', 'cor_principal', 'cor_secundaria', 'cor_botoes', 'fonte', 'tema',
   'texto_apresentacao', 'whatsapp', 'telefone', 'endereco', 'instagram',
   'facebook', 'linkedin', 'email_contato', 'horario_funcionamento',
-  'mp_access_token', 'mp_public_key', 'tempo_preparo_min', 'cartao_online_presencial',
+  'mp_access_token', 'mp_public_key', 'mp_login', 'mp_senha', 'tempo_preparo_min', 'cartao_online_presencial',
   'termos_uso', 'politica_privacidade', 'cookies'
 ];
 
@@ -149,6 +149,10 @@ async function atualizarConfiguracoes(req, res) {
         // Access Token do Mercado Pago e sensivel (da acesso ao dinheiro da
         // loja) -- nunca fica em texto puro no banco. Ver utils/criptografia.js.
         if (campo === 'mp_access_token') valor = criptografar(valor);
+        // Login/senha do proprietario na conta do Mercado Pago -- mesmo
+        // tratamento: nunca em texto puro (a senha em especial da acesso
+        // total a conta, nao so ao escopo da API).
+        if (campo === 'mp_login' || campo === 'mp_senha') valor = criptografar(valor);
         valores.push(valor);
         indice++;
       }
@@ -163,11 +167,13 @@ async function atualizarConfiguracoes(req, res) {
     const sql = `UPDATE estabelecimentos SET ${campos.join(', ')} WHERE id = $${indice} RETURNING *`;
     const resultado = await query(sql, valores);
 
-    // Mesmo criptografado, o token nunca deve voltar na resposta da API --
-    // o frontend ja limpa o campo localmente apos salvar (admin.js) e nao
-    // precisa desse valor de volta.
+    // Mesmo criptografado, o token/login/senha nunca devem voltar na
+    // resposta da API -- o frontend ja limpa os campos localmente apos
+    // salvar (admin.js) e nao precisa desses valores de volta.
     const estabelecimentoAtualizado = resultado.rows[0];
     delete estabelecimentoAtualizado.mp_access_token;
+    delete estabelecimentoAtualizado.mp_login;
+    delete estabelecimentoAtualizado.mp_senha;
 
     res.json({ mensagem: 'Configuracoes atualizadas com sucesso.', estabelecimento: estabelecimentoAtualizado });
 
