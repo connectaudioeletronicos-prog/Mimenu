@@ -154,15 +154,31 @@ function configurarEventosMinhaConta() {
     window.location.href = linkComSlug('index.html');
   });
 
-  // "Minhas reservas" e "Suporte": dependem de telas que ainda nao
-  // existem (reserva por conta / canal de suporte com push). Por
-  // enquanto ficam visiveis mas com um aviso, em vez de link quebrado.
   const linkReservas = document.getElementById('link-minhas-reservas');
   const linkSuporte = document.getElementById('link-suporte');
   if (linkReservas) {
     linkReservas.addEventListener('click', (evento) => {
       evento.preventDefault();
-      alert('Suas reservas por aqui chegam em breve. Por enquanto, acompanhe pelo WhatsApp da loja.');
+      document.querySelectorAll('.aba-cliente').forEach(a => a.classList.add('oculto'));
+      document.getElementById('aba-cliente-reservas').classList.remove('oculto');
+      titulo.innerHTML = 'Minhas <strong>reservas</strong>';
+      linkReservas.classList.add('oculto');
+      if (linkSuporte) linkSuporte.classList.add('oculto');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      carregarMinhasReservas();
+    });
+  }
+  const botaoVoltarReservas = document.getElementById('botao-voltar-reservas');
+  if (botaoVoltarReservas) {
+    botaoVoltarReservas.addEventListener('click', () => {
+      document.getElementById('aba-cliente-reservas').classList.add('oculto');
+      document.getElementById('aba-cliente-pedidos').classList.remove('oculto');
+      document.querySelector('[data-aba-cliente="pedidos"]').classList.add('ativo');
+      document.querySelector('[data-aba-cliente="dados"]').classList.remove('ativo');
+      titulo.innerHTML = 'Meus <strong>pedidos</strong>';
+      linkReservas.classList.remove('oculto');
+      if (linkSuporte) linkSuporte.classList.remove('oculto');
+      window.scrollTo({ top: 0, behavior: 'instant' });
     });
   }
   if (linkSuporte) {
@@ -183,6 +199,12 @@ function configurarEventosMinhaConta() {
       if (linkReservas) linkReservas.classList.toggle('oculto', !ehPedidos);
       if (linkSuporte) linkSuporte.classList.toggle('oculto', !ehPedidos);
       if (ehPedidos) carregarMeusPedidos();
+
+      // Ao trocar de aba, volta pro topo da pagina -- sem isso, se o
+      // cliente tiver rolado pra baixo em "Meus dados" (formulario e'
+      // longo), "Meus pedidos" abre no mesmo ponto de rolagem e parece
+      // que nada aconteceu ate ele rolar pra cima manualmente.
+      window.scrollTo({ top: 0, behavior: 'instant' });
     });
   });
 
@@ -298,6 +320,54 @@ function renderizarResumoPedidos(pedidos) {
     </div>
   `;
   container.classList.remove('oculto');
+}
+
+const STATUS_RESERVA_INFO = {
+  pendente: { texto: 'Aguardando confirmação', icone: '⏳', classe: 'aguardando' },
+  confirmada: { texto: 'Confirmada', icone: '✅', classe: 'confirmado' },
+  cancelada: { texto: 'Cancelada', icone: '✕', classe: 'cancelado' }
+};
+
+async function carregarMinhasReservas() {
+  const container = document.getElementById('lista-reservas-cliente');
+
+  if (!SLUG_ESTABELECIMENTO) {
+    container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Abra "Minha conta" a partir do cardapio de uma loja para ver suas reservas.</p>';
+    return;
+  }
+  if (!CONTA_ATUAL.telefone) {
+    container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Preencha seu telefone em "Meus dados" para ver seu histórico de reservas.</p>';
+    return;
+  }
+
+  container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Carregando reservas...</p>';
+
+  try {
+    const reservas = await buscarReservasCliente(SLUG_ESTABELECIMENTO, CONTA_ATUAL.telefone);
+    if (reservas.length === 0) {
+      container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Você ainda não fez nenhuma reserva nesta loja.</p>';
+      return;
+    }
+
+    container.innerHTML = reservas.map(reserva => {
+      const info = STATUS_RESERVA_INFO[reserva.status] || STATUS_RESERVA_INFO.pendente;
+      const dataFormatada = new Date(`${reserva.data_reserva}T00:00:00`).toLocaleDateString('pt-BR');
+      return `
+        <div class="conta-pedido-card">
+          <div class="conta-pedido-card__linha">
+            <span class="conta-pedido-card__icone">${info.icone}</span>
+            <div class="conta-pedido-card__texto">
+              <div class="conta-pedido-card__codigo">Reserva #${reserva.id.substring(0, 8)}</div>
+              <div class="conta-pedido-card__data">${dataFormatada} às ${reserva.horario_reserva.substring(0, 5)} · ${reserva.quantidade_pessoas} pessoa${reserva.quantidade_pessoas > 1 ? 's' : ''}</div>
+            </div>
+            <span class="conta-pedido-card__status conta-pedido-card__status--${info.classe}">${info.texto}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (erro) {
+    container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Não foi possível carregar suas reservas agora.</p>';
+  }
 }
 
 async function carregarMeusPedidos() {
