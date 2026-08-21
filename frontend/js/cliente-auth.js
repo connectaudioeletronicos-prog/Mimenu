@@ -38,7 +38,11 @@ function apresLoginBemSucedido(token, conta) {
   if (conta && conta.nome) {
     salvarDadosCliente({ nome: `${conta.nome} ${conta.sobrenome || ''}`.trim() });
   }
-  window.location.href = linkComSlug('index.html');
+  // Se o login veio do botao "Reserva" (usuario nao estava logado), volta
+  // direto pra tela de reserva em vez do cardapio normal.
+  const veioDaReserva = new URLSearchParams(window.location.search).get('depoisReserva') === '1';
+  const destino = linkComSlug('index.html');
+  window.location.href = veioDaReserva ? `${destino}${destino.includes('?') ? '&' : '?'}abrirReserva=1` : destino;
 }
 
 // -------------------------------------------------------------
