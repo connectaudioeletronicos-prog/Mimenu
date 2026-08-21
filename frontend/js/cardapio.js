@@ -1037,41 +1037,46 @@ function configurarReserva() {
   const form = document.getElementById('form-reserva');
   const botaoFechar = document.getElementById('botao-fechar-reserva');
   const erroEl = document.getElementById('reserva-erro');
-  const camposIdentificacao = document.getElementById('reserva-campos-identificacao');
   const saudacaoLogado = document.getElementById('reserva-saudacao-logado');
-  const campoNome = document.getElementById('reserva-nome');
-  const campoTelefone = document.getElementById('reserva-telefone');
+  const saudacaoLogadoTexto = document.getElementById('reserva-saudacao-logado-texto');
 
   if (!DADOS.estabelecimento.reserva_mesa_ativa) return;
   botaoAbrir.classList.remove('oculto');
   const logoEl = document.getElementById('reserva-logo-estabelecimento');
   if (logoEl) logoEl.src = DADOS.estabelecimento.logo_url || '';
 
-  // Se o cliente ja estiver logado, busca nome/telefone da conta e nao pede
-  // de novo no formulario - so data, horario e quantidade de pessoas.
+  // Reserva exige login: todo cliente que reserva ja tem cadastro, entao o
+  // nome/telefone vem direto da conta -- nunca se pede de novo no formulario.
   let dadosClienteLogado = null;
-  async function carregarClienteLogadoSeHouver() {
+  async function garantirClienteLogado() {
     const token = sessionStorage.getItem('palatos_token_cliente');
-    if (!token) return;
+    if (!token) return false;
     try {
       const resposta = await fetch(`${API_BASE_URL}/clientes/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (!resposta.ok) return;
-      const conta = await resposta.json();
-      dadosClienteLogado = conta;
-      camposIdentificacao.classList.add('oculto');
-      campoNome.required = false;
-      campoTelefone.required = false;
-      saudacaoLogado.textContent = `Reservando como ${conta.nome} · ${conta.telefone || 'sem telefone cadastrado'}`;
+      if (!resposta.ok) return false;
+      dadosClienteLogado = await resposta.json();
+      saudacaoLogadoTexto.textContent = `Reservando como ${dadosClienteLogado.nome}`;
       saudacaoLogado.classList.remove('oculto');
+      return true;
     } catch (erro) {
-      // Sem conexao ou sessao invalida: mantem o formulario normal (com nome/telefone).
+      // Sem conexao: trata como nao logado, o botao manda pro login.
+      return false;
     }
   }
-  carregarClienteLogadoSeHouver();
 
-  botaoAbrir.addEventListener('click', () => {
+  // Manda pro login guardando a intencao de voltar direto pra reserva.
+  function irParaLoginComReserva() {
+    const parametros = new URLSearchParams();
+    if (SLUG_ESTABELECIMENTO) parametros.set('slug', SLUG_ESTABELECIMENTO);
+    parametros.set('depoisReserva', '1');
+    window.location.href = `cliente-login.html?${parametros.toString()}`;
+  }
+
+  botaoAbrir.addEventListener('click', async () => {
+    const logado = await garantirClienteLogado();
+    if (!logado) { irParaLoginComReserva(); return; }
     erroEl.classList.add('oculto');
     document.getElementById('reserva-confirmada').classList.add('oculto');
     form.classList.remove('oculto');
@@ -1079,27 +1084,27 @@ function configurarReserva() {
   });
   botaoFechar.addEventListener('click', () => modal.classList.add('oculto'));
 
-  // Veio do link "So quero reservar uma mesa" na tela de login: abre o
-  // modal direto, sem precisar clicar no botao de novo.
+  // Veio do login apos clicar em "Reserva" sem estar logado: abre o modal
+  // direto assim que confirmar que a sessao esta valida.
   const parametros = new URLSearchParams(window.location.search);
   if (parametros.get('abrirReserva') === '1') {
-    erroEl.classList.add('oculto');
-    modal.classList.remove('oculto');
+    garantirClienteLogado().then((logado) => {
+      if (!logado) return;
+      erroEl.classList.add('oculto');
+      modal.classList.remove('oculto');
+    });
   }
 
   form.addEventListener('submit', async (evento) => {
     evento.preventDefault();
     erroEl.classList.add('oculto');
+    if (!dadosClienteLogado) { irParaLoginComReserva(); return; }
     const botaoEnviar = form.querySelector('button[type="submit"]');
     botaoEnviar.disabled = true;
     try {
       const reserva = await criarReserva(SLUG_ESTABELECIMENTO, {
-        cliente_nome: dadosClienteLogado
-          ? `${dadosClienteLogado.nome} ${dadosClienteLogado.sobrenome || ''}`.trim()
-          : campoNome.value.trim(),
-        cliente_telefone: dadosClienteLogado
-          ? (dadosClienteLogado.telefone || '')
-          : campoTelefone.value.trim(),
+        cliente_nome: `${dadosClienteLogado.nome} ${dadosClienteLogado.sobrenome || ''}`.trim(),
+        cliente_telefone: dadosClienteLogado.telefone || '',
         data_reserva: document.getElementById('reserva-data').value,
         horario_reserva: document.getElementById('reserva-hora').value,
         quantidade_pessoas: document.getElementById('reserva-pessoas').value,
