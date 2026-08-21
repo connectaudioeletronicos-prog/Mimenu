@@ -5,12 +5,13 @@
 const { query } = require('../config/database');
 const { uploadImagem } = require('../utils/storage');
 const { criptografar } = require('../utils/criptografia');
+const bcrypt = require('bcrypt');
 
 const CAMPOS_EDITAVEIS = [
   'nome', 'cor_principal', 'cor_secundaria', 'cor_botoes', 'fonte', 'tema',
   'texto_apresentacao', 'whatsapp', 'telefone', 'endereco', 'instagram',
   'facebook', 'linkedin', 'email_contato', 'horario_funcionamento',
-  'mp_access_token', 'mp_public_key', 'mp_login', 'mp_senha', 'tempo_preparo_min', 'cartao_online_presencial',
+  'mp_access_token', 'mp_public_key', 'tempo_preparo_min', 'cartao_online_presencial',
   'termos_uso', 'politica_privacidade', 'cookies'
 ];
 
@@ -117,7 +118,7 @@ async function buscarMeuEstabelecimento(req, res) {
               horario_funcionamento, dominio_proprio,
               mp_public_key, plano, criado_em,
               termos_uso, politica_privacidade, cookies, reserva_mesa_ativa,
-              estoque_modulo_ativo, estoque_senha_protegida
+              estoque_modulo_ativo, estoque_senha_protegida, pagamento_senha_protegida
        FROM estabelecimentos WHERE id = $1`,
       [req.estabelecimentoId]
     );
@@ -149,10 +150,6 @@ async function atualizarConfiguracoes(req, res) {
         // Access Token do Mercado Pago e sensivel (da acesso ao dinheiro da
         // loja) -- nunca fica em texto puro no banco. Ver utils/criptografia.js.
         if (campo === 'mp_access_token') valor = criptografar(valor);
-        // Login/senha do proprietario na conta do Mercado Pago -- mesmo
-        // tratamento: nunca em texto puro (a senha em especial da acesso
-        // total a conta, nao so ao escopo da API).
-        if (campo === 'mp_login' || campo === 'mp_senha') valor = criptografar(valor);
         valores.push(valor);
         indice++;
       }
@@ -167,13 +164,11 @@ async function atualizarConfiguracoes(req, res) {
     const sql = `UPDATE estabelecimentos SET ${campos.join(', ')} WHERE id = $${indice} RETURNING *`;
     const resultado = await query(sql, valores);
 
-    // Mesmo criptografado, o token/login/senha nunca devem voltar na
-    // resposta da API -- o frontend ja limpa os campos localmente apos
-    // salvar (admin.js) e nao precisa desses valores de volta.
+    // Mesmo criptografado, o token nunca deve voltar na resposta da API --
+    // o frontend ja limpa o campo localmente apos salvar (admin.js) e nao
+    // precisa desse valor de volta.
     const estabelecimentoAtualizado = resultado.rows[0];
     delete estabelecimentoAtualizado.mp_access_token;
-    delete estabelecimentoAtualizado.mp_login;
-    delete estabelecimentoAtualizado.mp_senha;
 
     res.json({ mensagem: 'Configuracoes atualizadas com sucesso.', estabelecimento: estabelecimentoAtualizado });
 
@@ -225,11 +220,57 @@ async function uploadLogoApps(req, res) {
   }
 }
 
+// ---------- Protecao por senha da tela de Pagamentos ----------
+// Mesmo esquema ja usado no Controle de Estoque (ver estoqueController.js):
+// usa a PROPRIA senha de login do estabelecimento (senha_hash) pra travar
+// o acesso a essa tela -- objetivo e impedir que qualquer funcionario com
+// acesso ao painel abra Pagamentos sem querer (ou de proposito) e veja as
+// chaves do Mercado Pago, ou ligue/desligue "cobrar cartao online" por
+// engano.
+async function verificarSenhaPagamento(req, res) {
+  try {
+    const { senha } = req.body;
+    if (!senha) return res.status(400).json({ erro: 'Informe a senha.' });
+
+    const resultado = await query('SELECT senha_hash FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
+    if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
+
+    const senhaCorreta = await bcrypt.compare(senha, resultado.rows[0].senha_hash);
+    if (!senhaCorreta) return res.status(401).json({ valido: false, erro: 'Senha incorreta.' });
+
+    res.json({ valido: true });
+  } catch (error) {
+    console.error('Erro ao verificar senha da tela de pagamento:', error);
+    res.status(500).json({ erro: 'Erro interno.' });
+  }
+}
+
+async function alternarProtecaoSenhaPagamento(req, res) {
+  try {
+    const { ativo, senha } = req.body;
+    if (!senha) return res.status(400).json({ erro: 'Confirme sua senha para alterar essa configuracao.' });
+
+    const resultado = await query('SELECT senha_hash FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
+    if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
+
+    const senhaCorreta = await bcrypt.compare(senha, resultado.rows[0].senha_hash);
+    if (!senhaCorreta) return res.status(401).json({ erro: 'Senha incorreta.' });
+
+    await query('UPDATE estabelecimentos SET pagamento_senha_protegida = $1 WHERE id = $2', [!!ativo, req.estabelecimentoId]);
+    res.json({ mensagem: ativo ? 'Protecao por senha ativada.' : 'Protecao por senha desativada.' });
+  } catch (error) {
+    console.error('Erro ao alternar protecao por senha de pagamento:', error);
+    res.status(500).json({ erro: 'Erro interno.' });
+  }
+}
+
 module.exports = {
   buscarPorSlug,
   buscarMeuEstabelecimento,
   atualizarConfiguracoes,
   uploadLogo,
   uploadLogoApps,
-  uploadBanner
+  uploadBanner,
+  verificarSenhaPagamento,
+  alternarProtecaoSenhaPagamento
 };
