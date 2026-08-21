@@ -21,5 +21,6 @@ router.get('/:slug/pedidos/:id/status', pedidoController.consultarStatusPedido);
 router.get('/:slug/pedidos/cliente/:telefone', pedidoController.listarPedidosCliente);
 router.post('/:slug/reservas', limitadorPedidos, reservaController.criar);
 router.get('/:slug/reservas/cliente/:telefone', reservaController.listarReservasCliente);
+router.put('/:slug/reservas/:id/cancelar', reservaController.cancelarPropria);
 
 module.exports = router;
