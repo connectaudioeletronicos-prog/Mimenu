@@ -70,7 +70,7 @@ async function atualizarStatus(req, res) {
     if (!STATUS_VALIDOS.includes(status)) return res.status(400).json({ erro: 'Status invalido.' });
 
     const resultado = await query(
-      'UPDATE reservas SET status = $1 WHERE id = $2 AND estabelecimento_id = $3 RETURNING *',
+      'UPDATE reservas SET status = $1, atualizado_em = NOW() WHERE id = $2 AND estabelecimento_id = $3 RETURNING *',
       [status, id, req.estabelecimentoId]
     );
     if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Reserva nao encontrada.' });
