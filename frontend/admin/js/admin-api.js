@@ -234,6 +234,12 @@ const apiEstoqueAjustarManual = (dados) => chamarApiAdmin('/estoque/ajuste', { m
 const apiEstoqueMovimentacoes = (produtoId = '') => chamarApiAdmin(`/estoque/movimentacoes${produtoId ? `?produto_id=${produtoId}` : ''}`);
 const apiEstoqueNotificacoes = () => chamarApiAdmin('/estoque/notificacoes');
 
+// ===================================================================
+// PAGAMENTO -- protecao por senha da tela (mesmo esquema do Estoque)
+// ===================================================================
+const apiPagamentoVerificarSenha = (senha) => chamarApiAdmin('/pagamento/verificar-senha', { method: 'POST', body: { senha } });
+const apiPagamentoAlternarSenha = (ativo, senha) => chamarApiAdmin('/pagamento/config/senha', { method: 'PUT', body: { ativo, senha } });
+
 const apiFornecedoresListar = () => chamarApiAdmin('/fornecedores');
 const apiFornecedoresCriar = (dados) => chamarApiAdmin('/fornecedores', { method: 'POST', body: dados });
 const apiFornecedoresAtualizar = (id, dados) => chamarApiAdmin(`/fornecedores/${id}`, { method: 'PUT', body: dados });
