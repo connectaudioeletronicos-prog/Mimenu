@@ -1282,40 +1282,14 @@
    ============================================= */
 .tela-cliente__cabecalho--reserva {
   position: relative;
-  overflow: hidden;
   background: var(--cor-fundo, #fff);
   border-bottom: 1px solid var(--cor-borda, #e5e5e5);
 }
 .tela-cliente__cabecalho--reserva .tela-cliente__voltar {
-  position: relative;
-  z-index: 2;
   color: var(--cor-botoes, #2A9D8F);
 }
 .tela-cliente__cabecalho--reserva .tela-cliente__titulo {
-  position: relative;
-  z-index: 2;
   color: var(--cor-texto, #2b2b2b);
-}
-.tela-cliente__cabecalho--reserva::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 90px;
-  height: 90px;
-  background: var(--cor-secundaria, #1D3557);
-  clip-path: polygon(35% 0, 100% 0, 100% 100%);
-}
-.tela-cliente__cabecalho--reserva::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 90px;
-  height: 90px;
-  background: var(--cor-principal, #E63946);
-  clip-path: polygon(60% 0, 100% 0, 100% 65%);
-  z-index: 1;
 }
 
 .reserva__card {
@@ -1409,12 +1383,12 @@
   gap: 12px;
   margin-top: 16px;
   padding: 14px;
-  background: var(--cor-fundo-alternativo, #f7f7f7);
+  background: #fef3e2;
   border-radius: var(--raio-borda-pequeno, 8px);
 }
 .reserva__confirmacao-icone {
   display: flex;
-  color: var(--cor-sucesso, #2a9d4f);
+  color: #b25e00;
   flex-shrink: 0;
 }
 .reserva__confirmacao-texto {
@@ -1424,7 +1398,7 @@
   flex: 1;
 }
 .reserva__confirmacao-texto strong {
-  color: var(--cor-sucesso, #2a9d4f);
+  color: #b25e00;
   font-size: 0.9rem;
 }
 .reserva__confirmacao-texto span {
