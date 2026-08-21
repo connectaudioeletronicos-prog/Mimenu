@@ -1,6 +1,17 @@
 const ChaveSessao = 'cardapio_admin_token';
 const ChaveEstabelecimento = 'cardapio_admin_estabelecimento';
 
+// Evita que varias chamadas 401 em paralelo (ex: as 7 requisicoes de
+// carregarTudo() disparadas juntas) acionem varios limparSessao()/reload()
+// ao mesmo tempo, o que fazia a tela piscar/recarregar em rajada.
+let _sessaoExpiradaTratada = false;
+function tratarSessaoExpirada() {
+  if (_sessaoExpiradaTratada) return;
+  _sessaoExpiradaTratada = true;
+  limparSessao();
+  window.location.reload();
+}
+
 function obterToken() {
   return sessionStorage.getItem(ChaveSessao);
 }
@@ -48,8 +59,7 @@ async function chamarApiAdmin(caminho, { method = 'GET', body = null, isFormData
   });
 
   if (resposta.status === 401) {
-    limparSessao();
-    window.location.reload();
+    tratarSessaoExpirada();
     throw new Error('Sessao expirada. Faca login novamente.');
   }
 
@@ -144,8 +154,7 @@ async function chamarApiFuncionarios(caminho, { method = 'GET', body = null } = 
   });
 
   if (resposta.status === 401) {
-    limparSessao();
-    window.location.reload();
+    tratarSessaoExpirada();
     throw new Error('Sessao expirada. Faca login novamente.');
   }
 
