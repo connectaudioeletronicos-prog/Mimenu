@@ -55,3 +55,14 @@ async function buscarReservasCliente(slug, telefone) {
   if (!resposta.ok) throw new Error('Erro ao buscar reservas');
   return resposta.json();
 }
+
+async function cancelarReservaCliente(slug, reservaId, telefone) {
+  const resposta = await fetch(`${API_BASE_URL}/publico/${encodeURIComponent(slug)}/reservas/${reservaId}/cancelar`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ telefone })
+  });
+  const resultado = await resposta.json();
+  if (!resposta.ok) throw new Error(resultado.erro || 'Nao foi possivel cancelar a reserva.');
+  return resultado;
+}
