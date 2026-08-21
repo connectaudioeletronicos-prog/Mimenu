@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&family=Inter:wght@400;700&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Montserrat:wght@400;700&family=Lato:wght@400;700&family=Nunito:wght@400;700&family=Quicksand:wght@400;700&family=Raleway:wght@400;700&family=Work+Sans:wght@400;700&family=DM+Sans:wght@400;700&family=Merriweather:wght@400;700&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css?v=20260819c">
+  <link rel="stylesheet" href="css/admin.css?v=20260820a">
   <link rel="stylesheet" href="css/admin-estoque.css?v=1">
 </head>
 <body>
@@ -466,6 +466,18 @@
 
       <section id="aba-pagamento" class="aba oculto">
         <h2 class="aba__titulo">Configuracao de pagamento</h2>
+
+        <div id="pagamento-bloqueado" class="estoque-bloqueio oculto">
+          <div class="estoque-bloqueio__card">
+            <h2>🔒 Área protegida</h2>
+            <p>Digite sua senha de acesso para continuar.</p>
+            <input type="password" id="pagamento-senha-input" class="campo-texto" placeholder="Sua senha">
+            <div id="pagamento-senha-erro" class="login-card__erro oculto"></div>
+            <button id="pagamento-senha-confirmar" class="botao-primario">Entrar</button>
+          </div>
+        </div>
+
+        <div id="pagamento-conteudo">
         <p class="aba__descricao">
           Conecte sua propria conta do Mercado Pago para receber os pagamentos diretamente.
           Caso deixe em branco, o sistema usara a conta padrao da plataforma (modo de testes).
@@ -478,22 +490,6 @@
         <div class="campo-grupo">
           <label class="campo-label">Public Key (Mercado Pago)</label>
           <input type="text" id="campo-mp-public" class="campo-texto" placeholder="APP_USR-...">
-        </div>
-
-        <hr style="margin:20px 0; border:none; border-top:1px solid #e2e2e2;">
-
-        <h3 style="font-size:1rem; margin-bottom:4px;">Login do proprietário na conta Mercado Pago</h3>
-        <p class="aba__descricao" style="margin-top:0;">Guardado de forma criptografada, só pra ter tudo num lugar só se precisar acessar a conta depois.</p>
-        <div class="campo-grupo">
-          <label class="campo-label">Login (e-mail)</label>
-          <input type="text" id="campo-mp-login" class="campo-texto" placeholder="email@exemplo.com" autocomplete="off">
-        </div>
-        <div class="campo-grupo">
-          <label class="campo-label">Senha</label>
-          <div class="campo-senha-wrapper">
-            <input type="password" id="campo-mp-senha" class="campo-texto" placeholder="Senha da conta Mercado Pago" autocomplete="new-password">
-            <button type="button" class="botao-olho" data-alvo-senha="campo-mp-senha" aria-label="Mostrar senha"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></button>
-          </div>
         </div>
 
         <p class="aba__ajuda">
@@ -523,6 +519,23 @@
             <input type="checkbox" id="campo-cartao-online-presencial">
             <span class="interruptor__trilho"></span>
           </label>
+        </div>
+
+        <hr style="margin:24px 0; border:none; border-top:1px solid #e2e2e2;">
+
+        <h3 style="font-size:1rem; margin-bottom:4px;">🔒 Proteger essa tela com senha</h3>
+        <p class="aba__descricao">
+          Quando ativado, qualquer pessoa (inclusive você) precisa digitar a senha de login do
+          estabelecimento pra abrir essa tela de Pagamentos de novo — evita que alguém veja as
+          chaves do Mercado Pago ou ligue/desligue a cobrança de cartão sem querer.
+        </p>
+        <div class="config-lista__item config-lista__item--toggle">
+          <span class="config-lista__rotulo">Proteger tela de Pagamentos com senha</span>
+          <label class="interruptor" title="Exige a senha de login pra abrir a tela de Pagamentos.">
+            <input type="checkbox" id="config-pagamento-senha-protegida">
+            <span class="interruptor__trilho"></span>
+          </label>
+        </div>
         </div>
       </section>
 
@@ -1763,57 +1776,4 @@
           <select id="promocao-produto">
             <option value="">Nenhum</option>
           </select>
-        </label>
-        <label>Imagem do banner
-          <input type="file" id="promocao-imagem" accept="image/*">
-        </label>
-        <p class="campo-dica">Imagem paisagem, ideal 750x330px.</p>
-        <button type="submit" class="botao-primario">Salvar promocao</button>
-      </form>
-    </div>
-  </div>
-
-  <div id="modal-desativados" class="modal-admin oculto">
-    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
-    <div class="modal-admin__caixa">
-      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
-      <h3 id="titulo-modal-desativados">Desativados</h3>
-      <div id="lista-desativados-modal" class="lista-itens-admin"></div>
-    </div>
-  </div>
-
-  <div id="modal-filtro-categorias" class="modal-admin oculto">
-    <div class="modal-admin__fundo" data-fechar-modal-admin></div>
-    <div class="modal-admin__caixa">
-      <button class="modal-admin__fechar" data-fechar-modal-admin>&times;</button>
-      <h3>Ver produtos por categoria</h3>
-      <p class="aba__ajuda">Escolha uma categoria pra ver so os produtos dela, sem precisar sair desta pagina.</p>
-      <div id="lista-categorias-filtro" class="lista-categorias-filtro"></div>
-    </div>
-  </div>
-
-  <div id="modal-leitor-codigo-barras" class="modal-admin oculto">
-    <div class="modal-admin__fundo" data-fechar-leitor-codigo-barras></div>
-    <div class="modal-admin__caixa modal-admin__caixa--leitor">
-      <button class="modal-admin__fechar" data-fechar-leitor-codigo-barras>&times;</button>
-      <h3>Ler código de barras</h3>
-      <p class="aba__ajuda">Aponte a câmera para o código de barras do produto.</p>
-      <video id="video-leitor-codigo-barras" class="leitor-codigo-barras__video" playsinline></video>
-      <p id="leitor-codigo-barras-erro" class="leitor-codigo-barras__erro oculto"></p>
-    </div>
-  </div>
-
-  <div id="toast" class="toast oculto"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="../js/config.js"></script>
-  <script src="js/admin-api.js?v=20260814a"></script>
-  <script src="js/admin.js?v=20260819c"></script>
-  <script src="js/admin-vitrines.js?v=20260720d"></script>
-  <script src="js/admin-caixatexto.js?v=20260720d"></script>
-  <script src="js/admin-construtor.js?v=20260722a"></script>
-  <script src="js/admin-estoque.js?v=20260818a"></script>
-</body>
-</html>
+    
