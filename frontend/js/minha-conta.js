@@ -325,48 +325,96 @@ function renderizarResumoPedidos(pedidos) {
 const STATUS_RESERVA_INFO = {
   pendente: { texto: 'Aguardando confirmação', icone: '⏳', classe: 'aguardando' },
   confirmada: { texto: 'Confirmada', icone: '✅', classe: 'confirmado' },
-  cancelada: { texto: 'Cancelada', icone: '✕', classe: 'cancelado' }
+  cancelada: { texto: 'Recusada', icone: '✕', classe: 'cancelado' }
 };
+
+function formatarDataHoraReserva(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+// Uma reserva sai de "ativa" e vai pro historico assim que o horario
+// agendado ja passou, ou assim que a loja recusa (cancelada) -- nao importa
+// se ja passou ou nao, uma recusa ja e' definitiva.
+function reservaEstaNoHistorico(reserva) {
+  if (reserva.status === 'cancelada') return true;
+  const dataHoraAgendada = new Date(`${reserva.data_reserva}T${reserva.horario_reserva.substring(0, 5)}:00`);
+  return dataHoraAgendada.getTime() < Date.now();
+}
+
+// No historico, "concluida" (verde) so' quando a loja tinha confirmado e o
+// horario passou -- cliente efetivamente foi atendido. Qualquer outro caso
+// (recusada, ou nunca respondida a tempo) conta como nao concluida (vermelho).
+function infoHistoricoReserva(reserva) {
+  if (reserva.status === 'confirmada') return { texto: 'Concluída', classe: 'confirmado' };
+  if (reserva.status === 'cancelada') return { texto: 'Recusada', classe: 'cancelado' };
+  return { texto: 'Não concluída', classe: 'cancelado' };
+}
+
+function renderizarCardReserva(reserva, { historico = false } = {}) {
+  const info = historico ? infoHistoricoReserva(reserva) : (STATUS_RESERVA_INFO[reserva.status] || STATUS_RESERVA_INFO.pendente);
+  const dataFormatada = new Date(`${reserva.data_reserva}T00:00:00`).toLocaleDateString('pt-BR');
+
+  const linhasExtras = [`Solicitada em ${formatarDataHoraReserva(reserva.criado_em)}`];
+  if (reserva.status !== 'pendente' && reserva.atualizado_em) {
+    const rotulo = reserva.status === 'confirmada' ? 'Confirmada' : 'Recusada';
+    linhasExtras.push(`${rotulo} em ${formatarDataHoraReserva(reserva.atualizado_em)}`);
+  }
+
+  return `
+    <div class="conta-pedido-card">
+      <div class="conta-pedido-card__linha">
+        <span class="conta-pedido-card__icone">${STATUS_RESERVA_INFO[reserva.status]?.icone || '📅'}</span>
+        <div class="conta-pedido-card__texto">
+          <div class="conta-pedido-card__codigo">Reserva #${reserva.id.substring(0, 8)}</div>
+          <div class="conta-pedido-card__data">${dataFormatada} às ${reserva.horario_reserva.substring(0, 5)} · ${reserva.quantidade_pessoas} pessoa${reserva.quantidade_pessoas > 1 ? 's' : ''}</div>
+          <div class="conta-pedido-card__data" style="opacity:0.75;">${linhasExtras.join(' · ')}</div>
+        </div>
+        <span class="conta-pedido-card__status conta-pedido-card__status--${info.classe}">${info.texto}</span>
+      </div>
+    </div>
+  `;
+}
 
 async function carregarMinhasReservas() {
   const container = document.getElementById('lista-reservas-cliente');
+  const containerHistorico = document.getElementById('lista-reservas-historico-cliente');
 
   if (!SLUG_ESTABELECIMENTO) {
     container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Abra "Minha conta" a partir do cardapio de uma loja para ver suas reservas.</p>';
+    containerHistorico.innerHTML = '';
     return;
   }
   if (!CONTA_ATUAL.telefone) {
     container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Preencha seu telefone em "Meus dados" para ver seu histórico de reservas.</p>';
+    containerHistorico.innerHTML = '';
     return;
   }
 
   container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Carregando reservas...</p>';
+  containerHistorico.innerHTML = '';
 
   try {
     const reservas = await buscarReservasCliente(SLUG_ESTABELECIMENTO, CONTA_ATUAL.telefone);
     if (reservas.length === 0) {
       container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Você ainda não fez nenhuma reserva nesta loja.</p>';
+      containerHistorico.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Nenhum agendamento no histórico ainda.</p>';
       return;
     }
 
-    container.innerHTML = reservas.map(reserva => {
-      const info = STATUS_RESERVA_INFO[reserva.status] || STATUS_RESERVA_INFO.pendente;
-      const dataFormatada = new Date(`${reserva.data_reserva}T00:00:00`).toLocaleDateString('pt-BR');
-      return `
-        <div class="conta-pedido-card">
-          <div class="conta-pedido-card__linha">
-            <span class="conta-pedido-card__icone">${info.icone}</span>
-            <div class="conta-pedido-card__texto">
-              <div class="conta-pedido-card__codigo">Reserva #${reserva.id.substring(0, 8)}</div>
-              <div class="conta-pedido-card__data">${dataFormatada} às ${reserva.horario_reserva.substring(0, 5)} · ${reserva.quantidade_pessoas} pessoa${reserva.quantidade_pessoas > 1 ? 's' : ''}</div>
-            </div>
-            <span class="conta-pedido-card__status conta-pedido-card__status--${info.classe}">${info.texto}</span>
-          </div>
-        </div>
-      `;
-    }).join('');
+    const ativas = reservas.filter(r => !reservaEstaNoHistorico(r));
+    const historico = reservas.filter(r => reservaEstaNoHistorico(r));
+
+    container.innerHTML = ativas.length
+      ? ativas.map(r => renderizarCardReserva(r)).join('')
+      : '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Nenhuma reserva ativa no momento.</p>';
+
+    containerHistorico.innerHTML = historico.length
+      ? historico.map(r => renderizarCardReserva(r, { historico: true })).join('')
+      : '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Nenhum agendamento no histórico ainda.</p>';
   } catch (erro) {
     container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Não foi possível carregar suas reservas agora.</p>';
+    containerHistorico.innerHTML = '';
   }
 }
 
