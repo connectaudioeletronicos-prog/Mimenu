@@ -42,6 +42,8 @@ router.put('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimen
 router.post('/estabelecimento/logo', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadLogo);
 router.post('/estabelecimento/logo-apps', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadLogoApps);
 router.post('/estabelecimento/banner', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadBanner);
+router.put('/pagamento/config/senha', exigirPermissao('gerenciar_conta'), estabelecimentoController.alternarProtecaoSenhaPagamento);
+router.post('/pagamento/verificar-senha', exigirPermissao('gerenciar_conta'), estabelecimentoController.verificarSenhaPagamento);
 
 // Configuracoes / Reserva de mesa (opcional, liga/desliga por loja)
 router.put('/configuracoes/reserva-mesa', exigirPermissao('gerenciar_conta'), reservaController.alternarReservaAtiva);
