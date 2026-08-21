@@ -294,3 +294,24 @@ body.conta-pagina {
 @media (min-width: 640px) {
   .conta-resumo { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* ---------- Cancelar reserva (Minhas reservas) ---------- */
+.conta-botao-cancelar-reserva {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 12px;
+  padding-top: 12px;
+  border: none;
+  border-top: 1px dashed var(--auth-borda);
+  background: none;
+  color: var(--auth-erro);
+  font-family: var(--auth-fonte);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.conta-botao-cancelar-reserva:hover { text-decoration: underline; }
+.conta-botao-cancelar-reserva:disabled { opacity: 0.6; cursor: default; text-decoration: none; }
