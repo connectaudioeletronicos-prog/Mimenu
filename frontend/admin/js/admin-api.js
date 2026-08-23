@@ -121,6 +121,7 @@ const apiListarProdutos = () => chamarApiAdmin('/produtos');
 const apiCriarProduto = (formData) => chamarApiAdmin('/produtos', { method: 'POST', body: formData, isFormData: true });
 const apiAtualizarProduto = (id, formData) => chamarApiAdmin(`/produtos/${id}`, { method: 'PUT', body: formData, isFormData: true });
 const apiExcluirProduto = (id) => chamarApiAdmin(`/produtos/${id}`, { method: 'DELETE' });
+const apiConsultarCodigoBarras = (codigo) => chamarApiAdmin(`/produtos/consulta-codigo-barras/${encodeURIComponent(codigo)}`);
 
 const apiListarPromocoes = () => chamarApiAdmin('/promocoes');
 const apiCriarPromocao = (formData) => chamarApiAdmin('/promocoes', { method: 'POST', body: formData, isFormData: true });
