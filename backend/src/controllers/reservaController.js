@@ -69,9 +69,14 @@ async function atualizarStatus(req, res) {
     const { status } = req.body;
     if (!STATUS_VALIDOS.includes(status)) return res.status(400).json({ erro: 'Status invalido.' });
 
+    // Quando e' a propria loja que cancela/recusa (painel do admin), marca
+    // cancelada_por = 'loja' pra distinguir de um cancelamento feito pelo
+    // cliente em "Minhas reservas" (funcao cancelarPropria, abaixo).
+    const canceladaPor = status === 'cancelada' ? 'loja' : null;
+
     const resultado = await query(
-      'UPDATE reservas SET status = $1, atualizado_em = NOW() WHERE id = $2 AND estabelecimento_id = $3 RETURNING *',
-      [status, id, req.estabelecimentoId]
+      'UPDATE reservas SET status = $1, atualizado_em = NOW(), cancelada_por = $2 WHERE id = $3 AND estabelecimento_id = $4 RETURNING *',
+      [status, canceladaPor, id, req.estabelecimentoId]
     );
     if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Reserva nao encontrada.' });
     res.json(resultado.rows[0]);
@@ -131,7 +136,7 @@ async function cancelarPropria(req, res) {
     }
 
     const resultado = await query(
-      "UPDATE reservas SET status = 'cancelada', atualizado_em = NOW() WHERE id = $1 RETURNING *",
+      "UPDATE reservas SET status = 'cancelada', atualizado_em = NOW(), cancelada_por = 'cliente' WHERE id = $1 RETURNING *",
       [id]
     );
     res.json(resultado.rows[0]);
