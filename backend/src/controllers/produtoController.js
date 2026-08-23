@@ -157,4 +157,68 @@ async function excluir(req, res) {
   }
 }
 
-module.exports = { listar, criar, atualizar, excluir };
+// ===================================================================
+// Consulta de produto por codigo de barras (GTIN/EAN) na base Cosmos
+// (Bluesoft) -- usado pra preencher automaticamente nome/preco/embalagem
+// quando o lojista le um codigo de barras (camera ou leitor fisico).
+// O token FICA SO AQUI no backend (variavel de ambiente COSMOS_API_TOKEN);
+// nunca deve ir pro frontend, que e' hospedado publico no GitHub Pages.
+// Plano gratuito do Cosmos: ate 25 consultas por dia.
+// ===================================================================
+async function consultarCodigoBarras(req, res) {
+  try {
+    const { codigo } = req.params;
+    const codigoLimpo = (codigo || '').replace(/\D/g, '');
+
+    if (!codigoLimpo || codigoLimpo.length < 8) {
+      return res.status(400).json({ erro: 'Codigo de barras invalido.' });
+    }
+
+    if (!process.env.COSMOS_API_TOKEN) {
+      // Sem token configurado ainda -- responde "nao encontrado" de forma
+      // silenciosa (o lojista so preenche manualmente, como ja acontecia
+      // antes dessa integracao existir).
+      return res.status(200).json({ encontrado: false });
+    }
+
+    const respostaCosmos = await fetch(
+      `https://api.cosmos.bluesoft.com.br/gtins/${encodeURIComponent(codigoLimpo)}.json`,
+      { headers: { 'X-Cosmos-Token': process.env.COSMOS_API_TOKEN } }
+    );
+
+    if (respostaCosmos.status === 404) {
+      return res.status(200).json({ encontrado: false });
+    }
+    if (!respostaCosmos.ok) {
+      console.error('Cosmos respondeu com erro:', respostaCosmos.status);
+      return res.status(200).json({ encontrado: false });
+    }
+
+    const dados = await respostaCosmos.json();
+
+    // Monta um "conteudo da embalagem" legivel a partir do peso liquido
+    // (em gramas), quando o Cosmos tiver essa informacao.
+    let conteudoEmbalagem = null;
+    if (dados.net_weight) {
+      const gramas = Number(dados.net_weight);
+      conteudoEmbalagem = gramas >= 1000
+        ? `${(gramas / 1000).toFixed(gramas % 1000 === 0 ? 0 : 2)} kg`
+        : `${gramas} g`;
+    }
+
+    res.status(200).json({
+      encontrado: true,
+      nome: dados.description || null,
+      preco_sugerido: dados.avg_price || dados.price || null,
+      marca: dados.brand?.name || null,
+      conteudo_embalagem: conteudoEmbalagem,
+      foto_url: dados.thumbnail || null
+    });
+  } catch (error) {
+    console.error('Erro ao consultar Cosmos:', error);
+    // Falha na consulta externa nao pode travar o cadastro manual.
+    res.status(200).json({ encontrado: false });
+  }
+}
+
+module.exports = { listar, criar, atualizar, excluir, consultarCodigoBarras };
