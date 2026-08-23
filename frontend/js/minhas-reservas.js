@@ -13,6 +13,13 @@ const STATUS_RESERVA_INFO = {
   cancelada: { texto: 'Recusada', icone: '✕', classe: 'cancelado' }
 };
 
+// Reserva com status 'cancelada' pode ter sido recusada PELA LOJA ou
+// cancelada PELO PROPRIO CLIENTE (ver reservaController.js -- coluna
+// cancelada_por). O texto/rotulo muda dependendo de quem cancelou.
+function textoCancelamento(reserva) {
+  return reserva.cancelada_por === 'cliente' ? 'Cancelado pelo cliente' : 'Recusada';
+}
+
 document.addEventListener('DOMContentLoaded', iniciarMinhasReservas);
 
 async function iniciarMinhasReservas() {
@@ -46,17 +53,20 @@ function reservaEstaNoHistorico(reserva) {
 // (recusada, ou nunca respondida a tempo) conta como nao concluida (vermelho).
 function infoHistoricoReserva(reserva) {
   if (reserva.status === 'confirmada') return { texto: 'Concluída', classe: 'confirmado' };
-  if (reserva.status === 'cancelada') return { texto: 'Recusada', classe: 'cancelado' };
+  if (reserva.status === 'cancelada') return { texto: textoCancelamento(reserva), classe: 'cancelado' };
   return { texto: 'Não concluída', classe: 'cancelado' };
 }
 
 function renderizarCardReserva(reserva, { historico = false } = {}) {
-  const info = historico ? infoHistoricoReserva(reserva) : (STATUS_RESERVA_INFO[reserva.status] || STATUS_RESERVA_INFO.pendente);
+  let info = historico ? infoHistoricoReserva(reserva) : (STATUS_RESERVA_INFO[reserva.status] || STATUS_RESERVA_INFO.pendente);
+  if (!historico && reserva.status === 'cancelada') {
+    info = { ...info, texto: textoCancelamento(reserva) };
+  }
   const dataFormatada = new Date(`${reserva.data_reserva}T00:00:00`).toLocaleDateString('pt-BR');
 
   const linhasExtras = [`Solicitada em ${formatarDataHoraReserva(reserva.criado_em)}`];
   if (reserva.status !== 'pendente' && reserva.atualizado_em) {
-    const rotulo = reserva.status === 'confirmada' ? 'Confirmada' : 'Recusada';
+    const rotulo = reserva.status === 'confirmada' ? 'Confirmada' : textoCancelamento(reserva);
     linhasExtras.push(`${rotulo} em ${formatarDataHoraReserva(reserva.atualizado_em)}`);
   }
 
