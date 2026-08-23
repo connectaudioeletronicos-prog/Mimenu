@@ -5,10 +5,13 @@
 // ===================================================================
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 
 const { autenticar, exigirPermissao, exigirCargoAdministrativo, exigirAdministradorOuGerente } = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
+const { uploadDocumentos } = require('../middlewares/upload');
 
+const authController = require('../controllers/authController');
 const estabelecimentoController = require('../controllers/estabelecimentoController');
 const categoriaController = require('../controllers/categoriaController');
 const produtoController = require('../controllers/produtoController');
@@ -24,7 +27,30 @@ const fornecedorController = require('../controllers/fornecedorController');
 const relatorioVendasController = require('../controllers/relatorioVendasController');
 const inteligenciaController = require('../controllers/inteligenciaController');
 
+// ===================================================================
+// Rotas PUBLICAS (nao passam pelo middleware "autenticar" abaixo) --
+// login do proprietario da loja, cadastro, e recuperacao de senha.
+// Precisam vir ANTES do router.use(autenticar), senao a requisicao
+// e barrada por falta de token antes mesmo de chegar no controller.
+// ===================================================================
+const limitadorLogin = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: { erro: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' }
+});
+
+router.post('/login', limitadorLogin, authController.login);
+router.post('/cadastrar', limitadorLogin, uploadDocumentos.fields([
+  { name: 'documento_identidade', maxCount: 1 },
+  { name: 'comprovante_residencia', maxCount: 1 }
+]), authController.cadastrar);
+router.post('/esqueci-senha', limitadorLogin, authController.esqueciSenha);
+router.post('/redefinir-senha', limitadorLogin, authController.redefinirSenha);
+
 router.use(autenticar);
+
+// Troca de senha exige sessao ativa (usa req.estabelecimentoId do token).
+router.put('/trocar-senha', authController.trocarSenha);
 
 // O entregador nao usa mais o painel administrativo -- ele tem o proprio
 // app, mais simples (login -> checkin por QR -> aceitar/recusar/encerrar
