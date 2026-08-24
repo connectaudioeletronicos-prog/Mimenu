@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redefinir senha - Palatos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/cliente-auth.css?v=20260729a">
+</head>
+<body class="auth-pagina">
+
+  <div class="auth-shell">
+
+    <svg class="auth-swoosh auth-mobile-apenas" viewBox="0 0 400 400" fill="none" aria-hidden="true">
+      <path d="M400 0 L400 260 C400 150 290 50 120 0 Z" fill="#146c43"/>
+      <path d="M138 -18 C310 34 418 142 418 262" stroke="#f3a01c" stroke-width="7" stroke-linecap="round" fill="none"/>
+    </svg>
+
+    <div class="auth-painel-foto auth-desktop-apenas" style="background-image:url('img/foto-login.jpg')">
+      <div class="auth-logo auth-logo--grande">
+        <img src="img/logo-icone.png" class="auth-logo__icone" alt="">
+        <div class="auth-logo__bloco">
+          <span class="auth-logo__texto">pal<span class="auth-logo__destaque">a</span>tos</span>
+          <div class="auth-logo__slogan">
+            <span class="auth-logo__slogan-traco auth-logo__slogan-traco--verde"></span>
+            <span class="auth-logo__slogan--verde">MAIS SABOR.</span>
+            <span class="auth-logo__slogan--laranja">MAIS PRATICIDADE.</span>
+            <span class="auth-logo__slogan-traco auth-logo__slogan-traco--laranja"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-shell__conteudo auth-shell__conteudo--desktop">
+      <div class="auth-caixa-formulario">
+
+        <div class="auth-logo auth-mobile-apenas" style="justify-content:center;">
+          <div class="auth-logo__bloco" style="align-items:center;">
+            <img src="img/logo-icone.png" class="auth-logo__icone" alt="" style="margin-bottom:6px;">
+            <span class="auth-logo__texto">pal<span class="auth-logo__destaque">a</span>tos</span>
+            <div class="auth-logo__slogan">
+              <span class="auth-logo__slogan-traco auth-logo__slogan-traco--verde"></span>
+              <span class="auth-logo__slogan--verde">MAIS SABOR.</span>
+              <span class="auth-logo__slogan--laranja">MAIS PRATICIDADE.</span>
+              <span class="auth-logo__slogan-traco auth-logo__slogan-traco--laranja"></span>
+            </div>
+          </div>
+        </div>
+
+        <div id="painel-redefinir-senha" class="auth-etapa-painel">
+          <h1 class="auth-titulo">Redefinir <strong>senha</strong></h1>
+          <p class="auth-subtitulo">Escolha sua nova senha de acesso à conta <strong>Palatos</strong>.</p>
+
+          <div class="auth-aviso" id="redefinir-aviso"></div>
+
+          <form id="form-redefinir-senha" novalidate>
+            <div class="auth-campo">
+              <div class="auth-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                <input type="password" id="redefinir-senha-nova" placeholder="Nova senha" required minlength="6" autocomplete="new-password">
+                <button type="button" class="auth-campo__olho" data-alvo-senha="redefinir-senha-nova" aria-label="Mostrar senha">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="auth-campo">
+              <div class="auth-campo__caixa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                <input type="password" id="redefinir-senha-confirmar" placeholder="Confirmar nova senha" required minlength="6" autocomplete="new-password">
+                <button type="button" class="auth-campo__olho" data-alvo-senha="redefinir-senha-confirmar" aria-label="Mostrar senha">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" class="auth-botao auth-botao--principal" id="botao-salvar-senha">Salvar nova senha</button>
+          </form>
+
+          <p class="auth-rodape"><a href="cliente-login.html" id="link-voltar-login">Voltar ao login</a></p>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="auth-foto-rodape auth-mobile-apenas" style="background-image:url('img/foto-login.jpg')"></div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/redefinir-senha-cliente.js"></script>
+</body>
+</html>
