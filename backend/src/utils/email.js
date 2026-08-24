@@ -41,6 +41,38 @@ async function enviarEmailRecuperacaoSenha(destinatario, nomeEstabelecimento, li
   }
 }
 
+async function enviarEmailRecuperacaoSenhaCliente(destinatario, nomeCliente, linkRedefinir) {
+  const resend = obterCliente();
+  if (!resend) return { enviado: false, motivo: 'sem_chave_configurada' };
+
+  try {
+    const { error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      to: destinatario,
+      replyTo: process.env.RESEND_REPLY_TO || 'palatosoficial@gmail.com',
+      subject: 'Recuperacao de senha - Mimenu',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+          <h2>Recuperacao de senha</h2>
+          <p>Ola${nomeCliente ? ', ' + nomeCliente : ''}!</p>
+          <p>Recebemos um pedido para redefinir a sua senha.</p>
+          <p><a href="${linkRedefinir}" style="display:inline-block;background:#ff00d6;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Redefinir minha senha</a></p>
+          <p>Esse link expira em 1 hora. Se voce nao pediu essa alteracao, pode ignorar este e-mail.</p>
+        </div>
+      `
+    });
+
+    if (error) {
+      console.error('Resend recusou o envio:', error.message || error);
+      return { enviado: false, motivo: error.message || 'recusado_pela_resend' };
+    }
+    return { enviado: true };
+  } catch (erro) {
+    console.error('Erro ao enviar e-mail via Resend:', erro.message);
+    return { enviado: false, motivo: 'falha_envio' };
+  }
+}
+
 async function enviarEmailGenerico(destinatario, nomeEstabelecimento, assunto, mensagem) {
   const resend = obterCliente();
   if (!resend) return { enviado: false, motivo: 'sem_chave_configurada' };
@@ -71,4 +103,4 @@ async function enviarEmailGenerico(destinatario, nomeEstabelecimento, assunto, m
   }
 }
 
-module.exports = { enviarEmailRecuperacaoSenha, enviarEmailGenerico };
+module.exports = { enviarEmailRecuperacaoSenha, enviarEmailRecuperacaoSenhaCliente, enviarEmailGenerico };
