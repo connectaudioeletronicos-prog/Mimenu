@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { query } = require('../config/database');
 const { validarCPF, validarTelefone } = require('../utils/validadores');
 const { validarFormatoCep } = require('../utils/geocoding');
+const { enviarEmailRecuperacaoSenhaCliente } = require('../utils/email');
 
 async function cadastrar(req, res) {
   try {
@@ -337,9 +338,10 @@ async function esqueciSenha(req, res) {
       [tokenHash, expira, conta.id]
     );
 
-    // TODO: reaproveitar utils/email.js para mandar esse link por e-mail
-    // (mesmo servico ja usado em authController -> enviarEmailRecuperacaoSenha)
-    console.log(`[cliente] link de recuperacao de senha para ${conta.email}: token=${tokenBruto}`);
+    const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5500').replace(/\/$/, '');
+    const link = `${baseUrl}/redefinir-senha.html?token=${tokenBruto}`;
+
+    await enviarEmailRecuperacaoSenhaCliente(conta.email, conta.nome, link);
 
     res.json(respostaGenerica);
   } catch (error) {
@@ -348,7 +350,42 @@ async function esqueciSenha(req, res) {
   }
 }
 
-module.exports = { cadastrar, login, loginGoogle, finalizarCadastroGoogle, esqueciSenha };
+async function redefinirSenha(req, res) {
+  try {
+    const { token, novaSenha } = req.body;
+
+    if (!token || !novaSenha) {
+      return res.status(400).json({ erro: 'Token e nova senha sao obrigatorios.' });
+    }
+    if (novaSenha.length < 6) {
+      return res.status(400).json({ erro: 'A nova senha deve ter pelo menos 6 caracteres.' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const resultado = await query(
+      'SELECT id FROM contas_clientes WHERE reset_token = $1 AND reset_token_expira > NOW()',
+      [tokenHash]
+    );
+
+    if (resultado.rows.length === 0) {
+      return res.status(400).json({ erro: 'Link invalido ou expirado. Solicite a recuperacao novamente.' });
+    }
+
+    const novoHash = await bcrypt.hash(novaSenha, 10);
+    await query(
+      'UPDATE contas_clientes SET senha_hash = $1, reset_token = NULL, reset_token_expira = NULL WHERE id = $2',
+      [novoHash, resultado.rows[0].id]
+    );
+
+    res.json({ mensagem: 'Senha redefinida com sucesso. Voce ja pode entrar com a nova senha.' });
+  } catch (error) {
+    console.error('Erro ao redefinir senha do cliente:', error);
+    res.status(500).json({ erro: 'Erro interno ao redefinir senha.' });
+  }
+}
+
+module.exports = { cadastrar, login, loginGoogle, finalizarCadastroGoogle, esqueciSenha, redefinirSenha };
 
 // ===================================================================
 // Conta logada: "Meus dados" (ver/editar) -- exige token de cliente valido.
