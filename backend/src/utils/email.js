@@ -17,6 +17,7 @@ async function enviarEmailRecuperacaoSenha(destinatario, nomeEstabelecimento, li
     const { error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
       to: destinatario,
+      replyTo: process.env.RESEND_REPLY_TO || 'palatosoficial@gmail.com',
       subject: 'Recuperacao de senha - Mimenu',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
