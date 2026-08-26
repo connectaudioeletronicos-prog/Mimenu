@@ -294,16 +294,16 @@ function calcularIdade(dataNascimento) {
 }
 
 async function esqueciSenha(req, res) {
-  const respostaGenerica = { mensagem: 'Se esse e-mail estiver cadastrado, enviamos um link de recuperacao.' };
+  const respostaContaNaoEncontrada = { mensagem: 'Se esse e-mail estiver cadastrado, enviamos um link de recuperacao.' };
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ erro: 'Informe o e-mail.' });
 
     const resultado = await query('SELECT id, nome, email FROM estabelecimentos WHERE email = $1', [email]);
 
-    // Sempre responde a mesma coisa, exista ou nao o e-mail (evita revelar quais e-mails estao cadastrados).
+    // Sempre responde a mesma coisa quando o e-mail nao existe (evita revelar quais e-mails estao cadastrados).
     if (resultado.rows.length === 0) {
-      return res.json(respostaGenerica);
+      return res.json(respostaContaNaoEncontrada);
     }
 
     const estabelecimento = resultado.rows[0];
@@ -316,16 +316,23 @@ async function esqueciSenha(req, res) {
       [tokenHash, expira, estabelecimento.id]
     );
 
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5500';
+    const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5500').replace(/\/$/, '');
     const link = `${baseUrl}/admin/redefinir-senha.html?token=${tokenBruto}`;
 
-    await enviarEmailRecuperacaoSenha(estabelecimento.email, estabelecimento.nome, link);
+    const resultadoEnvio = await enviarEmailRecuperacaoSenha(estabelecimento.email, estabelecimento.nome, link);
 
-    res.json(respostaGenerica);
+    if (!resultadoEnvio || !resultadoEnvio.enviado) {
+      console.error('Falha ao enviar e-mail de recuperacao para estabelecimento:', resultadoEnvio && resultadoEnvio.motivo);
+      return res.status(502).json({
+        erro: 'Nao foi possivel enviar o e-mail de recuperacao de senha, por favor entrar em contato com o suporte.',
+        motivo_interno: resultadoEnvio && resultadoEnvio.motivo
+      });
+    }
+
+    res.json({ mensagem: 'Um e-mail de recuperacao de senha foi enviado para seu e-mail cadastrado.' });
   } catch (error) {
     console.error('Erro ao solicitar recuperacao de senha:', error);
-    // Mesmo em erro interno, nao expomos detalhes ao cliente.
-    res.json(respostaGenerica);
+    res.status(502).json({ erro: 'Nao foi possivel enviar o e-mail de recuperacao de senha, por favor entrar em contato com o suporte.' });
   }
 }
 
