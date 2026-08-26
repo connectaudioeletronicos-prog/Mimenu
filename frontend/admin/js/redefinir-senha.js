@@ -50,7 +50,7 @@ document.getElementById('form-redefinir-senha').addEventListener('submit', async
     const dados = await resposta.json();
     if (!resposta.ok) throw new Error(dados.erro || 'Nao foi possivel redefinir a senha.');
 
-    sucessoEl.textContent = dados.mensagem + ' Redirecionando para o login...';
+    sucessoEl.textContent = (dados.mensagem || 'Sua senha foi cadastrada com sucesso.') + ' Redirecionando para o login...';
     sucessoEl.classList.remove('oculto');
     evento.target.querySelector('button[type="submit"]').style.display = 'none';
     setTimeout(() => { window.location.href = 'index.html'; }, 2500);
