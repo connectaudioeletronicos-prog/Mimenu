@@ -133,8 +133,13 @@ if (formEsqueciSenha) {
         body: JSON.stringify({ email })
       });
       const dados = await resposta.json();
-      mostrarAviso(avisoEl, dados.mensagem || 'Se esse e-mail estiver cadastrado, enviamos um link de recuperacao.', 'sucesso');
-      formEsqueciSenha.reset();
+
+      if (!resposta.ok) {
+        mostrarAviso(avisoEl, dados.erro || 'Nao foi possivel enviar o e-mail de recuperacao de senha, por favor entrar em contato com o suporte.');
+      } else {
+        mostrarAviso(avisoEl, dados.mensagem || 'Um e-mail de recuperacao de senha foi enviado para seu e-mail cadastrado.', 'sucesso');
+        formEsqueciSenha.reset();
+      }
     } catch (erro) {
       mostrarAviso(avisoEl, 'Sem conexao com o servidor. Tente novamente em instantes.');
     } finally {
