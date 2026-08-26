@@ -23,6 +23,7 @@ const estoqueController = require('../controllers/estoqueController');
 const fornecedorController = require('../controllers/fornecedorController');
 const relatorioVendasController = require('../controllers/relatorioVendasController');
 const inteligenciaController = require('../controllers/inteligenciaController');
+const suporteController = require('../controllers/suporteController');
 
 router.use(autenticar);
 
@@ -146,5 +147,11 @@ router.get('/estoque/vendas/produtos', exigirPermissao('gerenciar_estoque'), rel
 router.get('/estoque/vendas/lucro-produtos', exigirPermissao('gerenciar_estoque'), relatorioVendasController.lucroPorProduto);
 
 router.get('/estoque/inteligencia', exigirPermissao('gerenciar_estoque'), inteligenciaController.obterInteligencia);
+
+// ---------- Suporte (chamados do lojista com o admin supremo) ----------
+router.get('/suporte/tickets', exigirPermissao('gerenciar_conta'), suporteController.listarTicketsLoja);
+router.get('/suporte/tickets/:id', exigirPermissao('gerenciar_conta'), suporteController.buscarTicketLoja);
+router.post('/suporte/tickets', exigirPermissao('gerenciar_conta'), upload.single('anexo'), suporteController.criarTicketLoja);
+router.post('/suporte/tickets/:id/mensagens', exigirPermissao('gerenciar_conta'), upload.single('anexo'), suporteController.responderTicketLoja);
 
 module.exports = router;
