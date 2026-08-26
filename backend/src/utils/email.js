@@ -103,4 +103,38 @@ async function enviarEmailGenerico(destinatario, nomeEstabelecimento, assunto, m
   }
 }
 
-module.exports = { enviarEmailRecuperacaoSenha, enviarEmailRecuperacaoSenhaCliente, enviarEmailGenerico };
+// Avisa o lojista que o suporte respondeu um ticket dele. Nao inclui o
+// texto da resposta no e-mail (evita expor dados sensiveis por e-mail);
+// so avisa e manda o link direto para a conversa no painel.
+async function enviarEmailRespostaSuporte(destinatario, nomeEstabelecimento, assunto, linkTicket) {
+  const resend = obterCliente();
+  if (!resend) return { enviado: false, motivo: 'sem_chave_configurada' };
+
+  try {
+    const { error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      to: destinatario,
+      replyTo: process.env.RESEND_REPLY_TO || 'palatosoficial@gmail.com',
+      subject: `Nova resposta no suporte: ${assunto}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+          <h2>Nova resposta do suporte</h2>
+          <p>Ola${nomeEstabelecimento ? ', ' + nomeEstabelecimento : ''}!</p>
+          <p>O suporte do Mimenu respondeu ao seu chamado <strong>"${assunto}"</strong>.</p>
+          <p><a href="${linkTicket}" style="display:inline-block;background:#0a3d2f;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Ver resposta no painel</a></p>
+        </div>
+      `
+    });
+
+    if (error) {
+      console.error('Resend recusou o envio:', error.message || error);
+      return { enviado: false, motivo: error.message || 'recusado_pela_resend' };
+    }
+    return { enviado: true };
+  } catch (erro) {
+    console.error('Erro ao enviar e-mail via Resend:', erro.message);
+    return { enviado: false, motivo: 'falha_envio' };
+  }
+}
+
+module.exports = { enviarEmailRecuperacaoSenha, enviarEmailRecuperacaoSenhaCliente, enviarEmailGenerico, enviarEmailRespostaSuporte };
