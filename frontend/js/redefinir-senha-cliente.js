@@ -62,11 +62,8 @@ if (formRedefinirSenha) {
       const dados = await resposta.json();
       if (!resposta.ok) throw new Error(dados.erro || 'Nao foi possivel redefinir a senha.');
 
-      mostrarAvisoRedefinir(avisoEl, dados.mensagem + ' Redirecionando para o login...', 'sucesso');
+      mostrarAvisoRedefinir(avisoEl, dados.mensagem || 'Sua senha foi cadastrada com sucesso.', 'sucesso');
       formRedefinirSenha.style.display = 'none';
-      setTimeout(() => {
-        window.location.href = linkComSlug('cliente-login.html');
-      }, 2500);
     } catch (erro) {
       mostrarAvisoRedefinir(avisoEl, erro.message);
       botao.disabled = false;
