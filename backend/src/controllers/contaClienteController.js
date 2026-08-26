@@ -318,14 +318,14 @@ async function finalizarCadastroGoogle(req, res) {
 }
 
 async function esqueciSenha(req, res) {
-  const respostaGenerica = { mensagem: 'Se esse e-mail estiver cadastrado, enviamos um link de recuperacao.' };
+  const respostaContaNaoEncontrada = { mensagem: 'Se esse e-mail estiver cadastrado, enviamos um link de recuperacao.' };
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ erro: 'Informe o e-mail.' });
 
     const resultado = await query('SELECT id, nome, email FROM contas_clientes WHERE email = $1', [email.toLowerCase().trim()]);
     if (resultado.rows.length === 0) {
-      return res.json(respostaGenerica);
+      return res.json(respostaContaNaoEncontrada);
     }
 
     const conta = resultado.rows[0];
@@ -341,12 +341,20 @@ async function esqueciSenha(req, res) {
     const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5500').replace(/\/$/, '');
     const link = `${baseUrl}/redefinir-senha.html?token=${tokenBruto}`;
 
-    await enviarEmailRecuperacaoSenhaCliente(conta.email, conta.nome, link);
+    const resultadoEnvio = await enviarEmailRecuperacaoSenhaCliente(conta.email, conta.nome, link);
 
-    res.json(respostaGenerica);
+    if (!resultadoEnvio || !resultadoEnvio.enviado) {
+      console.error('Falha ao enviar e-mail de recuperacao para cliente:', resultadoEnvio && resultadoEnvio.motivo);
+      return res.status(502).json({
+        erro: 'Nao foi possivel enviar o e-mail de recuperacao de senha, por favor entrar em contato com o suporte.',
+        motivo_interno: resultadoEnvio && resultadoEnvio.motivo
+      });
+    }
+
+    res.json({ mensagem: 'Um e-mail de recuperacao de senha foi enviado para seu e-mail cadastrado.' });
   } catch (error) {
     console.error('Erro ao solicitar recuperacao de senha do cliente:', error);
-    res.json(respostaGenerica);
+    res.status(502).json({ erro: 'Nao foi possivel enviar o e-mail de recuperacao de senha, por favor entrar em contato com o suporte.' });
   }
 }
 
