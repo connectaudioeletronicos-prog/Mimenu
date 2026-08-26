@@ -99,7 +99,7 @@ async function apiSolicitarRecuperacaoSenha(email) {
     body: JSON.stringify({ email })
   });
   const dados = await resposta.json();
-  if (!resposta.ok) throw new Error(dados.erro || 'Nao foi possivel enviar o link de recuperacao.');
+  if (!resposta.ok) throw new Error(dados.erro || 'Nao foi possivel enviar o e-mail de recuperacao de senha, por favor entrar em contato com o suporte.');
   return dados;
 }
 
