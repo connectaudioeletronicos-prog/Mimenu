@@ -364,7 +364,7 @@ async function redefinirSenha(req, res) {
       [novoHash, resultado.rows[0].id]
     );
 
-    res.json({ mensagem: 'Senha redefinida com sucesso. Voce ja pode entrar com a nova senha.' });
+    res.json({ mensagem: 'Sua senha foi cadastrada com sucesso.' });
   } catch (error) {
     console.error('Erro ao redefinir senha:', error);
     res.status(500).json({ erro: 'Erro interno ao redefinir senha.' });
