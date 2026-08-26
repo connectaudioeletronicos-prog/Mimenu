@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 
 const painelController = require('../controllers/painelController');
 const comunicacaoController = require('../controllers/comunicacaoController');
+const suporteController = require('../controllers/suporteController');
 
 const limitador = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -20,5 +21,9 @@ router.put('/convites/:id/cancelar', limitador, painelController.cancelarConvite
 
 router.get('/contatos', limitador, comunicacaoController.listarContatos);
 router.post('/contatos/email', limitador, comunicacaoController.enviarEmail);
+
+router.get('/suporte/tickets', limitador, suporteController.listarTicketsAdmin);
+router.get('/suporte/tickets/:id', limitador, suporteController.buscarTicketAdmin);
+router.post('/suporte/tickets/:id/mensagens', limitador, suporteController.responderTicketAdmin);
 
 module.exports = router;
