@@ -51,6 +51,7 @@ async function carregarListaSuporte() {
 }
 
 async function atualizarContadorSuporte() {
+  if (!obterToken()) return; // ainda nao logado -- nao ha sessao pra consultar
   try {
     const tickets = await chamarApiAdmin('/suporte/tickets');
     const naoLidos = tickets.filter(t => t.nao_lido_pelo_lojista).length;
@@ -176,7 +177,17 @@ function configurarEntradaSuporte() {
 
 document.addEventListener('DOMContentLoaded', () => {
   configurarEntradaSuporte();
-  // Atualiza o contador de nao-lidos assim que o painel carrega, sem
-  // precisar entrar na aba (mesma ideia dos outros contadores do menu).
+  // So verifica chamados novos se ja existir uma sessao (evita bater na
+  // API antes do login, o que derrubava a pagina por "sessao expirada").
   setTimeout(atualizarContadorSuporte, 1500);
+
+  // Tambem atualiza assim que o login e concluido com sucesso: escuta o
+  // envio do formulario de login e, se der certo, atualiza o contador
+  // pouco depois (dando tempo do token ser salvo).
+  const formLogin = document.getElementById('form-login');
+  if (formLogin) {
+    formLogin.addEventListener('submit', () => {
+      setTimeout(atualizarContadorSuporte, 1000);
+    });
+  }
 });
