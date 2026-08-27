@@ -129,7 +129,7 @@ async function carregarTickets() {
   const div = document.getElementById('listaTickets');
   div.innerHTML = 'Carregando...';
   try {
-    const resposta = await fetch(API_BASE_URL + '/painel/suporte/tickets?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA));
+    const resposta = await fetch(API_BASE_URL + '/painel/suporte/tickets?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA), { cache: 'no-store' });
     const dados = await resposta.json();
     if (!resposta.ok) {
       div.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao carregar.') + '</div>';
@@ -172,7 +172,7 @@ async function abrirTicket(id) {
   document.getElementById('view-detalhe').classList.remove('oculto');
   document.getElementById('detalheThread').innerHTML = 'Carregando...';
   try {
-    const resposta = await fetch(API_BASE_URL + '/painel/suporte/tickets/' + id + '?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA));
+    const resposta = await fetch(API_BASE_URL + '/painel/suporte/tickets/' + id + '?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA), { cache: 'no-store' });
     const dados = await resposta.json();
     if (!resposta.ok) {
       document.getElementById('detalheThread').innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao carregar.') + '</div>';
@@ -220,6 +220,14 @@ async function enviarResposta() {
       resultadoDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao enviar.') + '</div>';
     } else {
       resultadoDiv.innerHTML = '<div class="msg ok">Resposta enviada' + (dados.email_notificacao_enviado ? ' e o lojista foi avisado por e-mail.' : ', mas o e-mail de aviso falhou (o lojista ainda ve a resposta no painel).') + '</div>';
+      // Mostra a resposta na hora, sem esperar o recarregamento (evita a
+      // impressao de que "sumiu" caso a rebusca demore ou pegue cache).
+      document.getElementById('detalheThread').insertAdjacentHTML('beforeend', renderizarBolha({
+        autor: 'admin', mensagem, anexo_url: null, criado_em: new Date().toISOString()
+      }));
+      document.getElementById('detalheResposta').value = '';
+      const thread = document.getElementById('detalheThread');
+      thread.scrollTop = thread.scrollHeight;
       abrirTicket(TICKET_ATUAL);
     }
   } catch (e) {
