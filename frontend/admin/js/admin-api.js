@@ -55,6 +55,7 @@ async function chamarApiAdmin(caminho, { method = 'GET', body = null, isFormData
   const resposta = await fetch(`${API_BASE_URL}/admin${caminho}`, {
     method,
     headers,
+    cache: 'no-store',
     body: isFormData ? body : (body ? JSON.stringify(body) : undefined)
   });
 
