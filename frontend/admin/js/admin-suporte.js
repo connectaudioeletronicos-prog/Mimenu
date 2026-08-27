@@ -55,8 +55,11 @@ async function atualizarContadorSuporte() {
   try {
     const tickets = await chamarApiAdmin('/suporte/tickets');
     const naoLidos = tickets.filter(t => t.nao_lido_pelo_lojista).length;
+    const rotulo = naoLidos > 0 ? naoLidos : '';
     const badge = document.querySelector('[data-menu-contador="suporte-nao-lidos"]');
-    if (badge) badge.textContent = naoLidos > 0  ? naoLidos : '';
+    if (badge) badge.textContent = rotulo;
+    const badgeSidebar = document.querySelector('[data-menu-contador="suporte-nao-lidos-sidebar"]');
+    if (badgeSidebar) badgeSidebar.textContent = rotulo;
   } catch (erro) {
     // Silencioso -- contador e so um indicador visual, nao trava a tela.
   }
