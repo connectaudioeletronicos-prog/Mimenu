@@ -23,7 +23,7 @@ async function listarContatos(req, res) {
     const resultado = await query(
       `SELECT e.id, e.slug, e.nome, e.email, e.ativo,
               dl.nome AS nome_responsavel, dl.sobrenome AS sobrenome_responsavel,
-              dl.telefone
+              COALESCE(e.whatsapp, e.telefone, dl.telefone) AS telefone
        FROM estabelecimentos e
        LEFT JOIN dados_legais dl ON dl.estabelecimento_id = e.id
        ORDER BY e.criado_em DESC`
