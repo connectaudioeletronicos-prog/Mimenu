@@ -204,7 +204,12 @@ async function enviarPorEmail() {
 }
 
 function enviarPorWhatsapp() {
-  if (!CONTATO_SELECIONADO || !CONTATO_SELECIONADO.telefone) return;
+  const resultadoDiv = document.getElementById('resultadoMensagem');
+  if (!CONTATO_SELECIONADO) return;
+  if (!CONTATO_SELECIONADO.telefone) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Este lojista nao tem telefone cadastrado. Nao e possivel enviar por WhatsApp.</div>';
+    return;
+  }
   const mensagem = document.getElementById('mensagem').value.trim();
   let telefone = CONTATO_SELECIONADO.telefone.replace(/\D/g, '');
   if (telefone.length <= 11) telefone = '55' + telefone; // adiciona o DDI do Brasil se ainda nao tiver
