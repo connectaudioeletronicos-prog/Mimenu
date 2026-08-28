@@ -59,7 +59,7 @@
         <h1 style="margin:0">Painel do Administrador</h1>
         <div>
           <button class="secundario" onclick="window.location.href='comunicacao.html'">💬 Comunicação</button>
-          <button class="secundario" onclick="window.location.href='suporte-tickets.html'">🆘 Suporte (chamados)</button>
+          <button class="secundario" onclick="window.location.href='suporte-tickets.html'">🆘 Suporte (chamados) <span id="badgeSuporteNaoLido" class="badge badge-pendente oculto"></span></button>
           <button class="secundario" onclick="sair()">Sair</button>
         </div>
       </div>
@@ -113,6 +113,25 @@ function entrar() {
   document.getElementById('painel-principal').classList.remove('oculto');
   carregarConvites();
   carregarLojistas();
+  atualizarBadgeSuporte();
+}
+
+async function atualizarBadgeSuporte() {
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/suporte/tickets?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA), { cache: 'no-store' });
+    const dados = await resposta.json();
+    if (!resposta.ok) return;
+    const naoLidos = dados.filter(t => t.nao_lido_pelo_admin).length;
+    const badge = document.getElementById('badgeSuporteNaoLido');
+    if (naoLidos > 0) {
+      badge.textContent = naoLidos;
+      badge.classList.remove('oculto');
+    } else {
+      badge.classList.add('oculto');
+    }
+  } catch (e) {
+    // Silencioso -- badge e so um indicador visual, nao trava o painel.
+  }
 }
 
 function sair() {
