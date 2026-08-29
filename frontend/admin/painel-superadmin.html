@@ -42,6 +42,7 @@
     display: flex; align-items: flex-start; justify-content: center; z-index: 1000;
     overflow-y: auto; padding: 16px 0;
   }
+  .modal-fundo.oculto { display: none; }
   .modal-caixa { background: white; border-radius: 12px; max-width: 560px; width: 92%; padding: 20px; margin-top: 20px; }
   .modal-caixa h2 { display:flex; justify-content: space-between; align-items:center; }
   .modal-caixa h3 { font-size: 14px; color: #666; margin: 18px 0 6px; text-transform: uppercase; }
@@ -129,8 +130,8 @@
         <div><label>Telefone do responsável</label><input type="text" id="campoResponsavelTelefone"></div>
       </div>
       <div class="campo-2col">
-        <div><label>CPF (mascarado - LGPD)</label><input type="text" id="campoCpf" disabled class="somente-leitura"></div>
-        <div><label>CNPJ (mascarado - LGPD)</label><input type="text" id="campoCnpj" disabled class="somente-leitura"></div>
+        <div><label>CPF (mascarado - LGPD)</label><input type="text" id="campoCpf" disabled class="somente-leitura"><p class="sub" style="margin:4px 0 0; font-size:12px;">Para confirmar identidade, peça ao lojista os <strong>4 últimos dígitos</strong> do CPF.</p></div>
+        <div><label>CNPJ (mascarado - LGPD)</label><input type="text" id="campoCnpj" disabled class="somente-leitura"><p class="sub" style="margin:4px 0 0; font-size:12px;">Para confirmar identidade, peça ao lojista os <strong>4 primeiros dígitos</strong> do CNPJ.</p></div>
       </div>
       <label>Razão social / Nome fantasia</label>
       <input type="text" id="campoRazaoSocial" disabled class="somente-leitura">
