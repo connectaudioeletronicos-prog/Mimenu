@@ -125,6 +125,7 @@
       <input type="text" id="campoEndereco">
 
       <h3>Dados cadastrais (KYC)</h3>
+      <p id="avisoSemDadosLegais" class="msg erro oculto">Esta loja não tem cadastro de dados legais (KYC) registrado no sistema — provavelmente foi criada antes dessa etapa existir, ou por um cadastro manual. Os campos abaixo ficarão vazios até o lojista preencher isso pelo suporte.</p>
       <div class="campo-2col">
         <div><label>Nome do responsável</label><input type="text" id="campoResponsavelNome" disabled class="somente-leitura"></div>
         <div><label>Telefone do responsável</label><input type="text" id="campoResponsavelTelefone"></div>
@@ -133,8 +134,10 @@
         <div><label>CPF (mascarado - LGPD)</label><input type="text" id="campoCpf" disabled class="somente-leitura"><p class="sub" style="margin:4px 0 0; font-size:12px;">Para confirmar identidade, peça ao lojista os <strong>4 últimos dígitos</strong> do CPF.</p></div>
         <div><label>CNPJ (mascarado - LGPD)</label><input type="text" id="campoCnpj" disabled class="somente-leitura"><p class="sub" style="margin:4px 0 0; font-size:12px;">Para confirmar identidade, peça ao lojista os <strong>4 primeiros dígitos</strong> do CNPJ.</p></div>
       </div>
-      <label>Razão social / Nome fantasia</label>
+      <label>Razão social</label>
       <input type="text" id="campoRazaoSocial" disabled class="somente-leitura">
+      <label>Nome fantasia</label>
+      <input type="text" id="campoNomeFantasia" disabled class="somente-leitura">
 
       <h3>Endereço cadastral (KYC)</h3>
       <div class="campo-2col">
@@ -362,6 +365,14 @@ async function abrirDetalheLoja(id) {
 
     document.getElementById('detalheLojaNome').textContent = dados.nome;
     document.getElementById('detalheLojaSlug').textContent = '/' + dados.slug;
+
+    const avisoSemKyc = document.getElementById('avisoSemDadosLegais');
+    if (!dados.tipo_registro && !dados.cpf && !dados.cnpj) {
+      avisoSemKyc.classList.remove('oculto');
+    } else {
+      avisoSemKyc.classList.add('oculto');
+    }
+
     preencherCampo('campoEmail', dados.email);
     preencherCampo('campoWhatsapp', dados.whatsapp);
     preencherCampo('campoTelefone', dados.telefone);
@@ -370,7 +381,8 @@ async function abrirDetalheLoja(id) {
     preencherCampo('campoResponsavelTelefone', dados.responsavel_telefone);
     preencherCampo('campoCpf', dados.cpf);
     preencherCampo('campoCnpj', dados.cnpj);
-    preencherCampo('campoRazaoSocial', [dados.razao_social, dados.nome_fantasia].filter(Boolean).join(' / '));
+    preencherCampo('campoRazaoSocial', dados.razao_social);
+    preencherCampo('campoNomeFantasia', dados.nome_fantasia);
     preencherCampo('campoCep', dados.cep);
     preencherCampo('campoRua', dados.rua);
     preencherCampo('campoNumero', dados.numero);
