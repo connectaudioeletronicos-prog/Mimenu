@@ -178,48 +178,6 @@ function configurarEntradaSuporte() {
   });
 }
 
-// -------------------------------------------------------------------
-// Dados cadastrais (KYC) -- bloco somente-leitura na aba Informacoes
-// -------------------------------------------------------------------
-function renderizarDadosLegais(dados) {
-  const linha = (rotulo, valor) => `
-    <div style="margin-bottom:8px;">
-      <strong style="display:block; font-size:12px; color:#888;">${rotulo}</strong>
-      <span>${valor || '-'}</span>
-    </div>`;
-
-  const enderecoPartes = [dados.rua, dados.numero, dados.bairro, dados.cidade, dados.uf, dados.cep].filter(Boolean).join(', ');
-
-  return `
-    ${linha('Responsavel', [dados.nome, dados.sobrenome].filter(Boolean).join(' '))}
-    ${linha('Telefone do responsavel', dados.telefone)}
-    ${dados.cpf ? linha('CPF (mascarado)', dados.cpf) : ''}
-    ${dados.cnpj ? linha('CNPJ (mascarado)', dados.cnpj) : ''}
-    ${dados.razao_social ? linha('Razao social', dados.razao_social) : ''}
-    ${dados.nome_fantasia ? linha('Nome fantasia', dados.nome_fantasia) : ''}
-    ${linha('Endereco cadastral', enderecoPartes)}
-  `;
-}
-
-async function carregarDadosLegaisLojista() {
-  const container = document.getElementById('dados-legais-somente-leitura');
-  if (!container) return;
-  container.innerHTML = 'Carregando...';
-  try {
-    const dados = await chamarApiAdmin('/estabelecimento/dados-legais');
-    container.innerHTML = renderizarDadosLegais(dados);
-  } catch (erro) {
-    container.innerHTML = `<p class="msg erro">${erro.message}</p>`;
-  }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const botaoInformacoes = document.querySelector('.painel__menu-item[data-aba="informacoes"]');
-  if (botaoInformacoes) {
-    botaoInformacoes.addEventListener('click', carregarDadosLegaisLojista);
-  }
-});
-
 document.addEventListener('DOMContentLoaded', () => {
   configurarEntradaSuporte();
   // So verifica chamados novos se ja existir uma sessao (evita bater na
