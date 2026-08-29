@@ -39,6 +39,7 @@ router.use((req, res, next) => {
 
 // Configuracoes da conta (dados, pagamento, paginas legais)
 router.get('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimentoController.buscarMeuEstabelecimento);
+router.get('/estabelecimento/dados-legais', exigirPermissao('gerenciar_conta'), estabelecimentoController.buscarMeusDadosLegais);
 router.put('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimentoController.atualizarConfiguracoes);
 router.post('/estabelecimento/logo', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadLogo);
 router.post('/estabelecimento/logo-apps', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadLogoApps);
