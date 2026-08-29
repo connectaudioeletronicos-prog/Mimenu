@@ -162,7 +162,7 @@
         </div>
 
         <div id="blocoCpf">
-          <label>CPF</label>
+          <label>CPF do responsável</label>
           <input type="text" id="cpf" placeholder="000.000.000-00">
         </div>
 
@@ -171,9 +171,10 @@
           <input type="text" id="cnpj" placeholder="00.000.000/0000-00">
           <label>Razão social (nome oficial do CNPJ)</label>
           <input type="text" id="razaoSocial">
-          <label>Nome fantasia</label>
-          <input type="text" id="nomeFantasia">
         </div>
+
+        <label>Nome fantasia (nome da sua loja)</label>
+        <input type="text" id="nomeFantasia">
       </fieldset>
 
       <button class="principal" id="btnCadastrar" onclick="cadastrar()">Concluir cadastro</button>
@@ -250,7 +251,6 @@ async function validarConviteAoAbrir() {
 
 function alternarTipoRegistro() {
   const tipo = document.querySelector('input[name="tipoRegistro"]:checked').value;
-  document.getElementById('blocoCpf').style.display = tipo === 'cpf' ? 'block' : 'none';
   document.getElementById('blocoCnpj').style.display = tipo === 'cnpj' ? 'block' : 'none';
 }
 
@@ -342,8 +342,12 @@ async function cadastrar() {
   const razaoSocial = document.getElementById('razaoSocial').value.trim();
   const nomeFantasia = document.getElementById('nomeFantasia').value.trim();
 
-  if (tipoRegistro === 'cpf' && cpf.replace(/\D/g, '').length !== 11) {
-    resultadoDiv.innerHTML = '<div class="msg erro">Informe um CPF válido.</div>';
+  if (cpf.replace(/\D/g, '').length !== 11) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Informe o CPF do responsável.</div>';
+    return;
+  }
+  if (!nomeFantasia) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Informe o nome fantasia da loja.</div>';
     return;
   }
   if (tipoRegistro === 'cnpj') {
@@ -353,10 +357,6 @@ async function cadastrar() {
     }
     if (!razaoSocial) {
       resultadoDiv.innerHTML = '<div class="msg erro">Informe a razão social (nome oficial do CNPJ).</div>';
-      return;
-    }
-    if (!nomeFantasia) {
-      resultadoDiv.innerHTML = '<div class="msg erro">Informe o nome fantasia da empresa.</div>';
       return;
     }
   }
@@ -382,12 +382,11 @@ async function cadastrar() {
   Object.entries(campos).forEach(([chave, valor]) => dadosFormulario.append(chave, valor));
 
   dadosFormulario.append('tipoRegistro', tipoRegistro);
-  if (tipoRegistro === 'cpf') {
-    dadosFormulario.append('cpf', cpf);
-  } else {
+  dadosFormulario.append('cpf', cpf);
+  dadosFormulario.append('nomeFantasia', nomeFantasia);
+  if (tipoRegistro === 'cnpj') {
     dadosFormulario.append('cnpj', cnpj);
     dadosFormulario.append('razaoSocial', razaoSocial);
-    dadosFormulario.append('nomeFantasia', nomeFantasia);
   }
 
   dadosFormulario.append('documento_identidade', arquivoDocumento);
