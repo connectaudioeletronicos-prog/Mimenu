@@ -292,6 +292,27 @@ async function buscarMeusDadosLegais(req, res) {
   }
 }
 
+// Exige a senha de login do proprio dono para liberar a visualizacao dos
+// dados cadastrais (CPF/CNPJ). Assim, funcionarios com acesso ao painel
+// (mas sem a senha do dono) nao conseguem ver esses dados sensiveis.
+async function verificarSenhaDadosLegais(req, res) {
+  try {
+    const { senha } = req.body;
+    if (!senha) return res.status(400).json({ erro: 'Informe a senha.' });
+
+    const resultado = await query('SELECT senha_hash FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
+    if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
+
+    const senhaCorreta = await bcrypt.compare(senha, resultado.rows[0].senha_hash);
+    if (!senhaCorreta) return res.status(401).json({ valido: false, erro: 'Senha incorreta.' });
+
+    res.json({ valido: true });
+  } catch (error) {
+    console.error('Erro ao verificar senha dos dados legais:', error);
+    res.status(500).json({ erro: 'Erro interno.' });
+  }
+}
+
 module.exports = {
   buscarPorSlug,
   buscarMeuEstabelecimento,
@@ -301,5 +322,6 @@ module.exports = {
   uploadBanner,
   verificarSenhaPagamento,
   alternarProtecaoSenhaPagamento,
-  buscarMeusDadosLegais
+  buscarMeusDadosLegais,
+  verificarSenhaDadosLegais
 };
