@@ -3,6 +3,7 @@
 // Protegido pela mesma CHAVE_CADASTRO_ADMIN usada nos convites.
 // ===================================================================
 const { query } = require('../config/database');
+const { mascararDocumento } = require('../utils/mascarar');
 
 function chaveValida(chave) {
   return !!chave && chave === process.env.CHAVE_CADASTRO_ADMIN;
@@ -84,4 +85,87 @@ async function cancelarConvite(req, res) {
   }
 }
 
-module.exports = { listarEstabelecimentos, alternarStatusEstabelecimento, cancelarConvite };
+// Detalhe completo de UM estabelecimento (dados de contato + dados legais),
+// para o admin supremo consultar/corrigir quando o lojista pedir suporte
+// (ex: perdeu acesso ao telefone/e-mail antigo). CPF/CNPJ sempre mascarados.
+async function buscarEstabelecimentoDetalhe(req, res) {
+  try {
+    const { chaveMestra } = req.query;
+    if (!chaveValida(chaveMestra)) {
+      return res.status(403).json({ erro: 'Chave mestra invalida.' });
+    }
+
+    const { id } = req.params;
+    const resultado = await query(
+      `SELECT e.id, e.slug, e.nome, e.email, e.whatsapp, e.telefone, e.endereco, e.ativo, e.criado_em,
+              dl.nome AS responsavel_nome, dl.sobrenome AS responsavel_sobrenome,
+              dl.telefone AS responsavel_telefone, dl.tipo_registro,
+              dl.cpf, dl.cnpj, dl.razao_social, dl.nome_fantasia,
+              dl.cep, dl.rua, dl.numero, dl.bairro, dl.zona, dl.cidade, dl.uf
+       FROM estabelecimentos e
+       LEFT JOIN dados_legais dl ON dl.estabelecimento_id = e.id
+       WHERE e.id = $1`,
+      [id]
+    );
+
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
+    }
+
+    const dados = resultado.rows[0];
+    dados.cpf = mascararDocumento('cpf', dados.cpf);
+    dados.cnpj = mascararDocumento('cnpj', dados.cnpj);
+
+    res.json(dados);
+  } catch (error) {
+    console.error('Erro ao buscar detalhe do estabelecimento:', error);
+    res.status(500).json({ erro: 'Erro interno ao buscar os dados da loja.' });
+  }
+}
+
+// Atualiza dados de contato/cadastrais de um estabelecimento (uso do admin
+// supremo, tipicamente a pedido do lojista via suporte). CPF/CNPJ, nome e
+// tipo de registro NAO sao editaveis por aqui -- sao dados de identidade
+// verificados no cadastro; mudar exigiria nova verificacao.
+async function atualizarEstabelecimentoDetalhe(req, res) {
+  try {
+    const { chaveMestra, email, whatsapp, telefone, endereco, responsavel_telefone, cep, rua, numero, bairro, zona, cidade, uf } = req.body;
+    if (!chaveValida(chaveMestra)) {
+      return res.status(403).json({ erro: 'Chave mestra invalida.' });
+    }
+
+    const { id } = req.params;
+    const existe = await query('SELECT id FROM estabelecimentos WHERE id = $1', [id]);
+    if (existe.rows.length === 0) {
+      return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
+    }
+
+    await query(
+      `UPDATE estabelecimentos SET
+         email = COALESCE($1, email), whatsapp = COALESCE($2, whatsapp),
+         telefone = COALESCE($3, telefone), endereco = COALESCE($4, endereco),
+         atualizado_em = NOW()
+       WHERE id = $5`,
+      [email || null, whatsapp || null, telefone || null, endereco || null, id]
+    );
+
+    const temDadosLegais = await query('SELECT id FROM dados_legais WHERE estabelecimento_id = $1', [id]);
+    if (temDadosLegais.rows.length > 0) {
+      await query(
+        `UPDATE dados_legais SET
+           telefone = COALESCE($1, telefone), cep = COALESCE($2, cep), rua = COALESCE($3, rua),
+           numero = COALESCE($4, numero), bairro = COALESCE($5, bairro), zona = COALESCE($6, zona),
+           cidade = COALESCE($7, cidade), uf = COALESCE($8, uf)
+         WHERE estabelecimento_id = $9`,
+        [responsavel_telefone || null, cep || null, rua || null, numero || null, bairro || null, zona || null, cidade || null, uf || null, id]
+      );
+    }
+
+    res.json({ mensagem: 'Dados atualizados com sucesso.' });
+  } catch (error) {
+    console.error('Erro ao atualizar dados do estabelecimento:', error);
+    res.status(500).json({ erro: 'Erro interno ao atualizar os dados da loja.' });
+  }
+}
+
+module.exports = { listarEstabelecimentos, alternarStatusEstabelecimento, cancelarConvite, buscarEstabelecimentoDetalhe, atualizarEstabelecimentoDetalhe };
