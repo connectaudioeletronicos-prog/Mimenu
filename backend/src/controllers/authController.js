@@ -153,21 +153,23 @@ async function cadastrar(req, res) {
       return res.status(400).json({ erro: 'Zona do endereco invalida.' });
     }
 
-    if (tipoRegistro === 'cpf') {
-      if (!validarCPF(cpf)) {
-        return res.status(400).json({ erro: 'Informe o CPF no formato 000.000.000-00.' });
-      }
-    } else if (tipoRegistro === 'cnpj') {
+    // CPF do responsavel e sempre obrigatorio (pessoa fisica ou juridica).
+    if (!validarCPF(cpf)) {
+      return res.status(400).json({ erro: 'Informe o CPF do responsavel no formato 000.000.000-00.' });
+    }
+    // Nome fantasia e sempre obrigatorio, seja CPF ou CNPJ.
+    if (!nomeFantasia) {
+      return res.status(400).json({ erro: 'Informe o nome fantasia da loja.' });
+    }
+
+    if (tipoRegistro === 'cnpj') {
       if (!cnpj || cnpj.replace(/\D/g, '').length !== 14) {
         return res.status(400).json({ erro: 'Informe um CNPJ valido.' });
       }
       if (!razaoSocial) {
         return res.status(400).json({ erro: 'Informe a razao social (nome oficial do CNPJ).' });
       }
-      if (!nomeFantasia) {
-        return res.status(400).json({ erro: 'Informe o nome fantasia da empresa.' });
-      }
-    } else {
+    } else if (tipoRegistro !== 'cpf') {
       return res.status(400).json({ erro: 'Escolha CPF ou CNPJ.' });
     }
 
