@@ -16,6 +16,8 @@ const limitador = rateLimit({
 });
 
 router.get('/estabelecimentos', limitador, painelController.listarEstabelecimentos);
+router.get('/estabelecimentos/:id', limitador, painelController.buscarEstabelecimentoDetalhe);
+router.put('/estabelecimentos/:id', limitador, painelController.atualizarEstabelecimentoDetalhe);
 router.put('/estabelecimentos/:id/status', limitador, painelController.alternarStatusEstabelecimento);
 router.put('/convites/:id/cancelar', limitador, painelController.cancelarConvite);
 
