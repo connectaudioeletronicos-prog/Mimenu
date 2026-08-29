@@ -5,6 +5,7 @@
 const { query } = require('../config/database');
 const { uploadImagem } = require('../utils/storage');
 const { criptografar } = require('../utils/criptografia');
+const { mascararDocumento } = require('../utils/mascarar');
 const bcrypt = require('bcrypt');
 
 const CAMPOS_EDITAVEIS = [
@@ -264,6 +265,33 @@ async function alternarProtecaoSenhaPagamento(req, res) {
   }
 }
 
+// Dados cadastrais (KYC) do PROPRIO estabelecimento, so leitura. CPF/CNPJ
+// sempre mascarados -- se o lojista precisar corrigir algo aqui, deve
+// falar com o suporte (o admin supremo tem uma tela propria para isso).
+async function buscarMeusDadosLegais(req, res) {
+  try {
+    const resultado = await query(
+      `SELECT nome, sobrenome, telefone, tipo_registro, cpf, cnpj,
+              razao_social, nome_fantasia, cep, rua, numero, bairro, zona, cidade, uf
+       FROM dados_legais WHERE estabelecimento_id = $1`,
+      [req.estabelecimentoId]
+    );
+
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({ erro: 'Dados cadastrais nao encontrados.' });
+    }
+
+    const dados = resultado.rows[0];
+    dados.cpf = mascararDocumento('cpf', dados.cpf);
+    dados.cnpj = mascararDocumento('cnpj', dados.cnpj);
+
+    res.json(dados);
+  } catch (error) {
+    console.error('Erro ao buscar dados legais do estabelecimento:', error);
+    res.status(500).json({ erro: 'Erro interno ao buscar os dados cadastrais.' });
+  }
+}
+
 module.exports = {
   buscarPorSlug,
   buscarMeuEstabelecimento,
@@ -272,5 +300,6 @@ module.exports = {
   uploadLogoApps,
   uploadBanner,
   verificarSenhaPagamento,
-  alternarProtecaoSenhaPagamento
+  alternarProtecaoSenhaPagamento,
+  buscarMeusDadosLegais
 };
