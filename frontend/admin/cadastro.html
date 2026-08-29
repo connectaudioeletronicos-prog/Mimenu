@@ -355,6 +355,10 @@ async function cadastrar() {
       resultadoDiv.innerHTML = '<div class="msg erro">Informe a razão social (nome oficial do CNPJ).</div>';
       return;
     }
+    if (!nomeFantasia) {
+      resultadoDiv.innerHTML = '<div class="msg erro">Informe o nome fantasia da empresa.</div>';
+      return;
+    }
   }
 
   const arquivoDocumento = document.getElementById('documentoIdentidade').files[0];
@@ -383,7 +387,7 @@ async function cadastrar() {
   } else {
     dadosFormulario.append('cnpj', cnpj);
     dadosFormulario.append('razaoSocial', razaoSocial);
-    if (nomeFantasia) dadosFormulario.append('nomeFantasia', nomeFantasia);
+    dadosFormulario.append('nomeFantasia', nomeFantasia);
   }
 
   dadosFormulario.append('documento_identidade', arquivoDocumento);
