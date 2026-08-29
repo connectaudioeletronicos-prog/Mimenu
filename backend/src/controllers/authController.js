@@ -164,6 +164,9 @@ async function cadastrar(req, res) {
       if (!razaoSocial) {
         return res.status(400).json({ erro: 'Informe a razao social (nome oficial do CNPJ).' });
       }
+      if (!nomeFantasia) {
+        return res.status(400).json({ erro: 'Informe o nome fantasia da empresa.' });
+      }
     } else {
       return res.status(400).json({ erro: 'Escolha CPF ou CNPJ.' });
     }
