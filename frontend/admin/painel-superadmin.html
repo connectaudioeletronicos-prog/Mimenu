@@ -37,6 +37,17 @@
   .link-copiavel { font-size: 12px; word-break: break-all; color: #444; background: #f7f7f7; padding: 6px; border-radius: 6px; margin-top: 6px; }
   .topo { display:flex; justify-content: space-between; align-items:center; }
   .topo button { margin-top: 0; }
+  .modal-fundo {
+    position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5);
+    display: flex; align-items: flex-start; justify-content: center; z-index: 1000;
+    overflow-y: auto; padding: 16px 0;
+  }
+  .modal-caixa { background: white; border-radius: 12px; max-width: 560px; width: 92%; padding: 20px; margin-top: 20px; }
+  .modal-caixa h2 { display:flex; justify-content: space-between; align-items:center; }
+  .modal-caixa h3 { font-size: 14px; color: #666; margin: 18px 0 6px; text-transform: uppercase; }
+  .campo-2col { display: flex; gap: 10px; }
+  .campo-2col > div { flex: 1; }
+  .somente-leitura { background: #f0f0f0; color: #555; }
 </style>
 </head>
 <body>
@@ -88,7 +99,7 @@
     <!-- LISTA DE LOJISTAS -->
     <div class="card">
       <div class="topo">
-        <h2 style="margin:0">Lojistas cadastrados</h2>
+        <h2 style="margin:0">Lojas cadastradas</h2>
         <button class="secundario" onclick="carregarLojistas()">Atualizar</button>
       </div>
       <div id="listaLojistas">Carregando...</div>
@@ -96,9 +107,57 @@
 
   </div>
 
+  <!-- MODAL DE DETALHE/EDICAO DA LOJA -->
+  <div id="modalDetalheLoja" class="modal-fundo oculto" onclick="if (event.target === this) fecharDetalheLoja()">
+    <div class="modal-caixa">
+      <h2><span id="detalheLojaNome">Loja</span> <button class="secundario" onclick="fecharDetalheLoja()">Fechar</button></h2>
+      <p class="sub" id="detalheLojaSlug"></p>
+
+      <h3>Contato (visivel no cardapio)</h3>
+      <label>E-mail de login</label>
+      <input type="email" id="campoEmail">
+      <div class="campo-2col">
+        <div><label>WhatsApp</label><input type="text" id="campoWhatsapp"></div>
+        <div><label>Telefone</label><input type="text" id="campoTelefone"></div>
+      </div>
+      <label>Endereço (texto livre do cardápio)</label>
+      <input type="text" id="campoEndereco">
+
+      <h3>Dados cadastrais (KYC)</h3>
+      <div class="campo-2col">
+        <div><label>Nome do responsável</label><input type="text" id="campoResponsavelNome" disabled class="somente-leitura"></div>
+        <div><label>Telefone do responsável</label><input type="text" id="campoResponsavelTelefone"></div>
+      </div>
+      <div class="campo-2col">
+        <div><label>CPF (mascarado - LGPD)</label><input type="text" id="campoCpf" disabled class="somente-leitura"></div>
+        <div><label>CNPJ (mascarado - LGPD)</label><input type="text" id="campoCnpj" disabled class="somente-leitura"></div>
+      </div>
+      <label>Razão social / Nome fantasia</label>
+      <input type="text" id="campoRazaoSocial" disabled class="somente-leitura">
+
+      <h3>Endereço cadastral (KYC)</h3>
+      <div class="campo-2col">
+        <div><label>CEP</label><input type="text" id="campoCep"></div>
+        <div><label>Número</label><input type="text" id="campoNumero"></div>
+      </div>
+      <label>Rua</label>
+      <input type="text" id="campoRua">
+      <div class="campo-2col">
+        <div><label>Bairro</label><input type="text" id="campoBairro"></div>
+        <div><label>Cidade</label><input type="text" id="campoCidade"></div>
+      </div>
+      <label>UF</label>
+      <input type="text" id="campoUf" maxlength="2" style="max-width:80px;">
+
+      <button onclick="salvarDetalheLoja()" id="btnSalvarDetalheLoja">Salvar alterações</button>
+      <div id="resultadoDetalheLoja"></div>
+    </div>
+  </div>
+
 <script src="../js/config.js"></script>
 <script>
 let CHAVE_MESTRA = '';
+let LOJA_DETALHE_ATUAL = null;
 
 function entrar() {
   const chave = document.getElementById('inputChaveMestra').value.trim();
@@ -251,7 +310,7 @@ async function carregarLojistas() {
     let html = '<table><tr><th>Loja</th><th>Status</th><th></th></tr>';
     dados.forEach(l => {
       html += `<tr>
-        <td>${l.nome}<br><span class="sub" style="font-size:11px">${l.slug}</span></td>
+        <td style="cursor:pointer" onclick="abrirDetalheLoja('${l.id}')">${l.nome}<br><span class="sub" style="font-size:11px">${l.slug}</span></td>
         <td><span class="badge ${l.ativo ? 'badge-ativo' : 'badge-bloqueado'}">${l.ativo ? 'Ativo' : 'Bloqueado'}</span></td>
         <td class="acoes-tabela">
           <button class="${l.ativo ? 'perigo' : 'sucesso'}" onclick="alternarStatus('${l.id}', ${!l.ativo})">${l.ativo ? 'Bloquear' : 'Desbloquear'}</button>
@@ -280,6 +339,94 @@ async function alternarStatus(id, novoAtivo) {
   } catch (e) {
     alert('Não foi possível conectar à API.');
   }
+}
+
+function preencherCampo(id, valor) {
+  document.getElementById(id).value = valor || '';
+}
+
+async function abrirDetalheLoja(id) {
+  LOJA_DETALHE_ATUAL = id;
+  document.getElementById('modalDetalheLoja').classList.remove('oculto');
+  document.getElementById('detalheLojaNome').textContent = 'Carregando...';
+  document.getElementById('resultadoDetalheLoja').innerHTML = '';
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/estabelecimentos/' + id + '?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA), { cache: 'no-store' });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      document.getElementById('detalheLojaNome').textContent = 'Erro';
+      document.getElementById('resultadoDetalheLoja').innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao carregar.') + '</div>';
+      return;
+    }
+
+    document.getElementById('detalheLojaNome').textContent = dados.nome;
+    document.getElementById('detalheLojaSlug').textContent = '/' + dados.slug;
+    preencherCampo('campoEmail', dados.email);
+    preencherCampo('campoWhatsapp', dados.whatsapp);
+    preencherCampo('campoTelefone', dados.telefone);
+    preencherCampo('campoEndereco', dados.endereco);
+    preencherCampo('campoResponsavelNome', [dados.responsavel_nome, dados.responsavel_sobrenome].filter(Boolean).join(' '));
+    preencherCampo('campoResponsavelTelefone', dados.responsavel_telefone);
+    preencherCampo('campoCpf', dados.cpf);
+    preencherCampo('campoCnpj', dados.cnpj);
+    preencherCampo('campoRazaoSocial', [dados.razao_social, dados.nome_fantasia].filter(Boolean).join(' / '));
+    preencherCampo('campoCep', dados.cep);
+    preencherCampo('campoRua', dados.rua);
+    preencherCampo('campoNumero', dados.numero);
+    preencherCampo('campoBairro', dados.bairro);
+    preencherCampo('campoCidade', dados.cidade);
+    preencherCampo('campoUf', dados.uf);
+  } catch (e) {
+    document.getElementById('resultadoDetalheLoja').innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+}
+
+function fecharDetalheLoja() {
+  document.getElementById('modalDetalheLoja').classList.add('oculto');
+  LOJA_DETALHE_ATUAL = null;
+}
+
+async function salvarDetalheLoja() {
+  if (!LOJA_DETALHE_ATUAL) return;
+  const resultadoDiv = document.getElementById('resultadoDetalheLoja');
+  const botao = document.getElementById('btnSalvarDetalheLoja');
+  resultadoDiv.innerHTML = '';
+  botao.disabled = true;
+  botao.textContent = 'Salvando...';
+
+  const corpo = {
+    chaveMestra: CHAVE_MESTRA,
+    email: document.getElementById('campoEmail').value.trim(),
+    whatsapp: document.getElementById('campoWhatsapp').value.trim(),
+    telefone: document.getElementById('campoTelefone').value.trim(),
+    endereco: document.getElementById('campoEndereco').value.trim(),
+    responsavel_telefone: document.getElementById('campoResponsavelTelefone').value.trim(),
+    cep: document.getElementById('campoCep').value.trim(),
+    rua: document.getElementById('campoRua').value.trim(),
+    numero: document.getElementById('campoNumero').value.trim(),
+    bairro: document.getElementById('campoBairro').value.trim(),
+    cidade: document.getElementById('campoCidade').value.trim(),
+    uf: document.getElementById('campoUf').value.trim()
+  };
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/estabelecimentos/' + LOJA_DETALHE_ATUAL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo)
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      resultadoDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao salvar.') + '</div>';
+    } else {
+      resultadoDiv.innerHTML = '<div class="msg ok">Dados atualizados com sucesso.</div>';
+      carregarLojistas();
+    }
+  } catch (e) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+  botao.disabled = false;
+  botao.textContent = 'Salvar alterações';
 }
 </script>
 </body>
