@@ -1,63 +1,56 @@
 // ===================================================================
-// DADOS CADASTRAIS (KYC) -- protegido pela senha de login do dono
-// Caminho no projeto: frontend/admin/js/admin-dados-legais.js
+// INFORMACOES DA LOJA (contato + KYC), tudo protegido pela senha de
+// login do proprio dono. Caminho: frontend/admin/js/admin-dados-legais.js
 // ===================================================================
 
-let DADOS_LEGAIS_DESBLOQUEADO = false;
+let INFORMACOES_DESBLOQUEADO = false;
 
-function renderizarDadosLegais(dados) {
-  const linha = (rotulo, valor) => `
-    <div style="margin-bottom:8px;">
-      <strong style="display:block; font-size:12px; color:#888;">${rotulo}</strong>
-      <span>${valor || '-'}</span>
-    </div>`;
-
-  if (!dados || (!dados.nome && !dados.cpf && !dados.cnpj)) {
-    return '<p>Nenhum dado cadastral (KYC) encontrado para esta loja.</p>';
-  }
-
-  const enderecoPartes = [dados.rua, dados.numero, dados.bairro, dados.cidade, dados.uf, dados.cep].filter(Boolean).join(', ');
-
-  return `
-    ${linha('Responsavel', [dados.nome, dados.sobrenome].filter(Boolean).join(' '))}
-    ${linha('Telefone do responsavel', dados.telefone)}
-    ${dados.cpf ? linha('CPF (ultimos 4 digitos)', dados.cpf) : ''}
-    ${dados.cnpj ? linha('CNPJ (primeiros 4 digitos)', dados.cnpj) : ''}
-    ${dados.razao_social ? linha('Razao social', dados.razao_social) : ''}
-    ${dados.nome_fantasia ? linha('Nome fantasia', dados.nome_fantasia) : ''}
-    ${linha('Endereco cadastral', enderecoPartes)}
-  `;
+function preencherCampoKyc(id, valor) {
+  const el = document.getElementById(id);
+  if (el) el.value = valor || '';
 }
 
 async function carregarDadosLegaisLojista() {
-  const container = document.getElementById('dados-legais-somente-leitura');
-  if (!container) return;
-  container.innerHTML = 'Carregando...';
+  const aviso = document.getElementById('informacoes-aviso-sem-kyc');
   try {
     const dados = await chamarApiAdmin('/estabelecimento/dados-legais');
-    container.innerHTML = renderizarDadosLegais(dados);
+    aviso.classList.add('oculto');
+    preencherCampoKyc('kyc-nome-responsavel', [dados.nome, dados.sobrenome].filter(Boolean).join(' '));
+    preencherCampoKyc('kyc-telefone-responsavel', dados.telefone);
+    preencherCampoKyc('kyc-cpf', dados.cpf);
+    preencherCampoKyc('kyc-cnpj', dados.cnpj);
+    preencherCampoKyc('kyc-razao-social', dados.razao_social);
+    preencherCampoKyc('kyc-nome-fantasia', dados.nome_fantasia);
+    preencherCampoKyc('kyc-cep', dados.cep);
+    preencherCampoKyc('kyc-rua', dados.rua);
+    preencherCampoKyc('kyc-numero', dados.numero);
+    preencherCampoKyc('kyc-bairro', dados.bairro);
+    preencherCampoKyc('kyc-cidade', dados.cidade);
+    preencherCampoKyc('kyc-uf', dados.uf);
   } catch (erro) {
-    container.innerHTML = `<p class="msg erro">${erro.message}</p>`;
+    // 404 = loja sem cadastro de KYC ainda (ex: conta antiga/de teste).
+    aviso.textContent = erro.message || 'Esta loja não tem cadastro de dados legais (KYC) registrado no sistema.';
+    aviso.classList.remove('oculto');
   }
 }
 
 function configurarEntradaDadosLegais() {
-  const botaoAbrir = document.getElementById('botao-ir-para-dados-legais');
+  const botaoAbrir = document.getElementById('botao-ir-para-informacoes');
   if (!botaoAbrir) return;
 
   botaoAbrir.addEventListener('click', () => {
     document.querySelectorAll('.painel__menu-item[data-aba]').forEach(b => b.classList.remove('ativo'));
     document.querySelectorAll('.aba').forEach(a => a.classList.add('oculto'));
-    document.getElementById('aba-dados-legais').classList.remove('oculto');
+    document.getElementById('aba-informacoes').classList.remove('oculto');
 
-    const bloqueio = document.getElementById('dados-legais-bloqueado');
-    const conteudo = document.getElementById('dados-legais-conteudo');
+    const bloqueio = document.getElementById('informacoes-bloqueado');
+    const conteudo = document.getElementById('informacoes-conteudo');
 
-    if (!DADOS_LEGAIS_DESBLOQUEADO) {
+    if (!INFORMACOES_DESBLOQUEADO) {
       bloqueio.classList.remove('oculto');
       conteudo.classList.add('oculto');
-      document.getElementById('dados-legais-senha-input').value = '';
-      document.getElementById('dados-legais-senha-erro').classList.add('oculto');
+      document.getElementById('informacoes-senha-input').value = '';
+      document.getElementById('informacoes-senha-erro').classList.add('oculto');
     } else {
       bloqueio.classList.add('oculto');
       conteudo.classList.remove('oculto');
@@ -65,21 +58,21 @@ function configurarEntradaDadosLegais() {
     }
   });
 
-  document.getElementById('botao-voltar-config-de-dados-legais').addEventListener('click', () => {
+  document.getElementById('botao-voltar-config-de-informacoes').addEventListener('click', () => {
     document.querySelectorAll('.aba').forEach(a => a.classList.add('oculto'));
     document.getElementById('aba-configuracoes').classList.remove('oculto');
   });
 
-  document.getElementById('dados-legais-senha-confirmar').addEventListener('click', async () => {
-    const senha = document.getElementById('dados-legais-senha-input').value;
-    const erro = document.getElementById('dados-legais-senha-erro');
+  document.getElementById('informacoes-senha-confirmar').addEventListener('click', async () => {
+    const senha = document.getElementById('informacoes-senha-input').value;
+    const erro = document.getElementById('informacoes-senha-erro');
     if (!senha) return;
     try {
       const resultado = await chamarApiAdmin('/estabelecimento/dados-legais/verificar-senha', { method: 'POST', body: { senha } });
       if (resultado.valido) {
-        DADOS_LEGAIS_DESBLOQUEADO = true;
-        document.getElementById('dados-legais-bloqueado').classList.add('oculto');
-        document.getElementById('dados-legais-conteudo').classList.remove('oculto');
+        INFORMACOES_DESBLOQUEADO = true;
+        document.getElementById('informacoes-bloqueado').classList.add('oculto');
+        document.getElementById('informacoes-conteudo').classList.remove('oculto');
         await carregarDadosLegaisLojista();
       }
     } catch (e) {
@@ -87,6 +80,11 @@ function configurarEntradaDadosLegais() {
       erro.classList.remove('oculto');
     }
   });
+
+  // Aplica as mascaras de telefone/WhatsApp com hifen nos campos de contato
+  // (o campo de telefone do responsavel/KYC e so-leitura, nao precisa).
+  aplicarMascaraTelefoneComHifen(document.getElementById('campo-whatsapp'));
+  aplicarMascaraTelefoneComHifen(document.getElementById('campo-telefone'));
 }
 
 document.addEventListener('DOMContentLoaded', () => {
