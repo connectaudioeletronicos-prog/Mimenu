@@ -58,10 +58,16 @@ function configurarEntradaDadosLegais() {
     }
   });
 
-  document.getElementById('botao-voltar-config-de-informacoes').addEventListener('click', () => {
+  const fecharInformacoes = () => {
     document.querySelectorAll('.aba').forEach(a => a.classList.add('oculto'));
     document.getElementById('aba-configuracoes').classList.remove('oculto');
-  });
+  };
+
+  document.getElementById('botao-voltar-config-de-informacoes').addEventListener('click', fecharInformacoes);
+
+  // Botao "X" no topo do cartao faz a mesma acao do botao "Fechar".
+  const botaoFecharX = document.getElementById('botao-fechar-informacoes-x');
+  if (botaoFecharX) botaoFecharX.addEventListener('click', fecharInformacoes);
 
   document.getElementById('informacoes-senha-confirmar').addEventListener('click', async () => {
     const senha = document.getElementById('informacoes-senha-input').value;
