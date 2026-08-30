@@ -2,8 +2,10 @@
 // Controller do PAINEL SUPER-ADMIN (uso exclusivo seu, dono do sistema)
 // Protegido pela mesma CHAVE_CADASTRO_ADMIN usada nos convites.
 // ===================================================================
+const crypto = require('crypto');
 const { query } = require('../config/database');
 const { mascararDocumento } = require('../utils/mascarar');
+const { hashToken } = require('./conviteController');
 
 function chaveValida(chave) {
   return !!chave && chave === process.env.CHAVE_CADASTRO_ADMIN;
@@ -149,6 +151,15 @@ async function atualizarEstabelecimentoDetalhe(req, res) {
       [email || null, whatsapp || null, telefone || null, endereco || null, id]
     );
 
+    // Antes: se a loja nao tivesse nenhuma linha em dados_legais (contas
+    // antigas/de teste criadas antes dessa etapa existir, ou sem KYC ainda),
+    // este UPDATE simplesmente nao encontrava nada pra atualizar e o
+    // endereco/telefone do responsavel eram perdidos silenciosamente --
+    // mesmo assim a resposta dizia "sucesso". Agora, se nao existir a
+    // linha, criamos uma (parcial, so com os campos que este painel edita;
+    // CPF/CNPJ/nome/tipo_registro continuam nulos ate a loja completar o
+    // KYC de verdade) em vez de descartar o que o admin preencheu.
+    let avisoDadosLegais = null;
     const temDadosLegais = await query('SELECT id FROM dados_legais WHERE estabelecimento_id = $1', [id]);
     if (temDadosLegais.rows.length > 0) {
       await query(
@@ -159,13 +170,77 @@ async function atualizarEstabelecimentoDetalhe(req, res) {
          WHERE estabelecimento_id = $9`,
         [responsavel_telefone || null, cep || null, rua || null, numero || null, bairro || null, zona || null, cidade || null, uf || null, id]
       );
+    } else {
+      try {
+        await query(
+          `INSERT INTO dados_legais (estabelecimento_id, telefone, cep, rua, numero, bairro, zona, cidade, uf)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [id, responsavel_telefone || null, cep || null, rua || null, numero || null, bairro || null, zona || null, cidade || null, uf || null]
+        );
+      } catch (erroInsercao) {
+        console.error('Nao foi possivel criar registro parcial de dados_legais:', erroInsercao.message);
+        avisoDadosLegais = 'O e-mail, WhatsApp, telefone e endereco (do cardapio) foram salvos. Mas o endereco cadastral (KYC) e telefone do responsavel nao puderam ser salvos: esta loja ainda nao tem nenhum cadastro de dados legais no sistema, e a criacao automatica falhou.';
+      }
     }
 
-    res.json({ mensagem: 'Dados atualizados com sucesso.' });
+    res.json({ mensagem: 'Dados atualizados com sucesso.', aviso: avisoDadosLegais || undefined });
   } catch (error) {
     console.error('Erro ao atualizar dados do estabelecimento:', error);
     res.status(500).json({ erro: 'Erro interno ao atualizar os dados da loja.' });
   }
 }
 
-module.exports = { listarEstabelecimentos, alternarStatusEstabelecimento, cancelarConvite, buscarEstabelecimentoDetalhe, atualizarEstabelecimentoDetalhe };
+// Gera um link temporario de autoatendimento para UMA loja especifica,
+// para o proprio lojista usar (em vez do superadmin editar os dados
+// diretamente). Dois tipos:
+//  - completar_kyc: para lojas que nunca tiveram dados_legais (o link
+//    fica valido por 30 dias, sem pressa, ja que normalmente e usado
+//    uma vez so, por uma loja que ja existe ha tempos).
+//  - editar_contato: valido por 24h, so para telefone/WhatsApp/endereco.
+async function gerarLinkAutoatendimento(req, res) {
+  try {
+    const { chaveMestra, tipo } = req.body;
+    const { id } = req.params;
+
+    if (!chaveValida(chaveMestra)) {
+      return res.status(403).json({ erro: 'Chave mestra invalida.' });
+    }
+    if (!['completar_kyc', 'editar_contato'].includes(tipo)) {
+      return res.status(400).json({ erro: 'Tipo de link invalido.' });
+    }
+
+    const existe = await query('SELECT id FROM estabelecimentos WHERE id = $1', [id]);
+    if (existe.rows.length === 0) {
+      return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
+    }
+
+    if (tipo === 'completar_kyc') {
+      const jaTemDadosLegais = await query('SELECT id FROM dados_legais WHERE estabelecimento_id = $1', [id]);
+      if (jaTemDadosLegais.rows.length > 0) {
+        return res.status(409).json({ erro: 'Esta loja ja tem cadastro de dados legais (KYC). Use "Gerar link de edicao de contato" para correcoes pontuais.' });
+      }
+    }
+
+    const tokenBruto = crypto.randomBytes(24).toString('base64url');
+    const tokenHash = hashToken(tokenBruto);
+    const horasValidade = tipo === 'editar_contato' ? 24 : (24 * 30);
+    const expiraEm = new Date(Date.now() + horasValidade * 60 * 60 * 1000);
+
+    await query(
+      `INSERT INTO convites_cadastro (token, status, tipo, estabelecimento_id, expira_em)
+       VALUES ($1, 'pendente', $2, $3, $4)`,
+      [tokenHash, tipo, id, expiraEm]
+    );
+
+    const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5500').replace(/\/$/, '');
+    const pagina = tipo === 'completar_kyc' ? 'completar-cadastro-loja.html' : 'editar-contato-loja.html';
+    const link = `${baseUrl}/frontend/admin/${pagina}?token=${tokenBruto}`;
+
+    res.status(201).json({ link, expira_em: expiraEm });
+  } catch (error) {
+    console.error('Erro ao gerar link de autoatendimento:', error);
+    res.status(500).json({ erro: 'Erro interno ao gerar o link.' });
+  }
+}
+
+module.exports = { listarEstabelecimentos, alternarStatusEstabelecimento, cancelarConvite, buscarEstabelecimentoDetalhe, atualizarEstabelecimentoDetalhe, gerarLinkAutoatendimento };
