@@ -1,1 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Completar cadastro (KYC) - Mimenu</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #f4f4f4; display: flex; justify-content: center; padding: 40px 16px; margin: 0; }
+  .card { background: white; padding: 24px; border-radius: 12px; max-width: 460px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  h1 { font-size: 20px; margin-bottom: 4px; text-align: center; }
+  h2 { font-size: 15px; margin: 18px 0 6px; }
+  p.sub { color: #666; margin-top: 0; margin-bottom: 20px; font-size: 14px; text-align: center; }
+  label { display: block; font-weight: bold; margin-top: 12px; margin-bottom: 4px; font-size: 14px; }
+  input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; box-sizing: border-box; }
+  .linha2 { display: flex; gap: 8px; }
+  .linha2 > div { flex: 1; }
+  .linha3 { display: flex; gap: 8px; }
+  .linha3 > div:first-child { flex: 1; }
+  .linha3 > div:last-child { flex: 2; }
+  button.principal { margin-top: 20px; width: 100%; padding: 12px; background: #1D3557; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+  button:disabled { opacity: 0.6; }
+  .msg { margin-top: 14px; padding: 10px; border-radius: 6px; font-size: 14px; text-align: left; }
+  .erro { background: #fde2e2; color: #b00; }
+  .ok { background: #e2fde2; color: #060; }
+  small { color: #999; display:block; text-align:left; }
+  #tela-invalida, #tela-sucesso { display: none; }
+  .icone { font-size: 40px; text-align: center; }
+  fieldset { border: 1px solid #ddd; border-radius: 8px; margin-top: 14px; padding: 10px 12px 14px; }
+  legend { font-weight: bold; font-size: 14px; padding: 0 6px; }
+</style>
+</head>
+<body>
 
+  <div class="card" id="tela-invalida">
+    <div class="icone">⚠️</div>
+    <h1>Link indisponível</h1>
+    <p class="sub" id="motivo-invalido">Este link não é mais válido.</p>
+    <p class="sub">Entre em contato com o suporte para receber um novo link.</p>
+  </div>
+
+  <div class="card" id="tela-formulario" style="display:none;">
+    <h1>Completar cadastro</h1>
+    <p class="sub" id="nome-loja-sub">Preencha seus dados legais para continuar usando o Mimenu.</p>
+
+    <fieldset>
+      <legend>Responsável</legend>
+      <div class="linha2">
+        <div>
+          <label>Nome</label>
+          <input type="text" id="nomePessoal">
+        </div>
+        <div>
+          <label>Sobrenome</label>
+          <input type="text" id="sobrenome">
+        </div>
+      </div>
+      <label>Data de nascimento</label>
+      <input type="date" id="dataNascimento">
+      <label>Telefone / WhatsApp</label>
+      <input type="tel" id="telefone" placeholder="(11) 912345678">
+    </fieldset>
+
+    <fieldset>
+      <legend>Endereço</legend>
+      <div class="linha2">
+        <div>
+          <label>CEP</label>
+          <input type="text" id="cep" placeholder="00000-000">
+        </div>
+        <div>
+          <label>Zona</label>
+          <select id="zona">
+            <option value="">Selecione</option>
+            <option value="norte">Norte</option>
+            <option value="sul">Sul</option>
+            <option value="leste">Leste</option>
+            <option value="oeste">Oeste</option>
+            <option value="centro">Centro</option>
+          </select>
+        </div>
+      </div>
+      <div class="linha3">
+        <div>
+          <label>Número</label>
+          <input type="text" id="numero">
+        </div>
+        <div>
+          <label>Rua</label>
+          <input type="text" id="rua">
+        </div>
+      </div>
+      <label>Bairro</label>
+      <input type="text" id="bairro">
+      <div class="linha2">
+        <div>
+          <label>Cidade</label>
+          <input type="text" id="cidade">
+        </div>
+        <div>
+          <label>UF</label>
+          <input type="text" id="uf" maxlength="2" placeholder="SP">
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Documento de identidade</legend>
+      <label>Tipo</label>
+      <select id="tipoDocumentoIdentidade">
+        <option value="rg">RG</option>
+        <option value="cnh">CNH</option>
+        <option value="passaporte">Passaporte</option>
+      </select>
+      <label>Foto ou PDF do documento</label>
+      <input type="file" id="documentoIdentidade" accept="image/*,application/pdf">
+    </fieldset>
+
+    <fieldset>
+      <legend>Comprovante de residência</legend>
+      <label>Foto ou PDF do comprovante</label>
+      <input type="file" id="comprovanteResidencia" accept="image/*,application/pdf">
+    </fieldset>
+
+    <fieldset>
+      <legend>Registro</legend>
+      <div class="linha2">
+        <label style="display:flex;align-items:center;gap:6px;font-weight:normal;">
+          <input type="radio" name="tipoRegistro" value="cpf" checked onchange="alternarTipoRegistro()" style="width:auto;"> CPF
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:normal;">
+          <input type="radio" name="tipoRegistro" value="cnpj" onchange="alternarTipoRegistro()" style="width:auto;"> CNPJ
+        </label>
+      </div>
+
+      <div id="blocoCpf">
+        <label>CPF do responsável</label>
+        <input type="text" id="cpf" placeholder="000.000.000-00">
+      </div>
+
+      <div id="blocoCnpj" style="display:none;">
+        <label>CNPJ</label>
+        <input type="text" id="cnpj" placeholder="00.000.000/0000-00">
+        <label>Razão social (nome oficial do CNPJ)</label>
+        <input type="text" id="razaoSocial">
+      </div>
+
+      <label>Nome fantasia (nome da sua loja)</label>
+      <input type="text" id="nomeFantasia">
+    </fieldset>
+
+    <button class="principal" id="btnEnviar" onclick="enviar()">Concluir cadastro</button>
+    <div id="resultado"></div>
+  </div>
+
+  <div class="card" id="tela-sucesso">
+    <div class="icone">✅</div>
+    <h1>Cadastro concluído!</h1>
+    <p class="sub">Seus dados legais foram enviados com sucesso. Este link não pode mais ser usado.</p>
+    <a href="index.html" style="display:block; margin-top: 12px; padding: 12px; background:#2A9D8F; color:white; border-radius:6px; text-decoration:none; text-align:center;">Entrar no painel</a>
+  </div>
+
+<script src="../js/config.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+const parametros = new URLSearchParams(window.location.search);
+const TOKEN = parametros.get('token');
+
+async function validarLinkAoAbrir() {
+  const telaInvalida = document.getElementById('tela-invalida');
+  const telaFormulario = document.getElementById('tela-formulario');
+
+  if (!TOKEN) {
+    document.getElementById('motivo-invalido').textContent = 'Link ausente ou incompleto.';
+    telaInvalida.style.display = 'block';
+    return;
+  }
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/convites/' + encodeURIComponent(TOKEN) + '/validar');
+    const dados = await resposta.json();
+
+    if (!dados.valido) {
+      document.getElementById('motivo-invalido').textContent = dados.motivo || 'Este link não é mais válido.';
+      telaInvalida.style.display = 'block';
+      return;
+    }
+    if (dados.tipo !== 'completar_kyc') {
+      document.getElementById('motivo-invalido').textContent = 'Este link não é para completar cadastro.';
+      telaInvalida.style.display = 'block';
+      return;
+    }
+
+    if (dados.nome_loja) {
+      document.getElementById('nome-loja-sub').textContent = `Loja: ${dados.nome_loja} — preencha os dados legais para continuar usando o Mimenu.`;
+    }
+    telaFormulario.style.display = 'block';
+  } catch (e) {
+    document.getElementById('motivo-invalido').textContent = 'Não foi possível verificar o link agora. Tente novamente em instantes.';
+    telaInvalida.style.display = 'block';
+  }
+}
+
+function alternarTipoRegistro() {
+  const tipo = document.querySelector('input[name="tipoRegistro"]:checked').value;
+  document.getElementById('blocoCnpj').style.display = tipo === 'cnpj' ? 'block' : 'none';
+}
+
+function calcularIdade(dataTexto) {
+  const nascimento = new Date(dataTexto);
+  if (isNaN(nascimento.getTime())) return null;
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - nascimento.getFullYear();
+  const aindaNao = hoje.getMonth() < nascimento.getMonth() ||
+    (hoje.getMonth() === nascimento.getMonth() && hoje.getDate() < nascimento.getDate());
+  if (aindaNao) idade--;
+  return idade;
+}
+
+async function enviar() {
+  const resultadoDiv = document.getElementById('resultado');
+  const botao = document.getElementById('btnEnviar');
+  resultadoDiv.innerHTML = '';
+
+  const campos = {
+    nomePessoal: document.getElementById('nomePessoal').value.trim(),
+    sobrenome: document.getElementById('sobrenome').value.trim(),
+    dataNascimento: document.getElementById('dataNascimento').value,
+    telefone: document.getElementById('telefone').value.trim(),
+    cep: document.getElementById('cep').value.trim(),
+    zona: document.getElementById('zona').value,
+    numero: document.getElementById('numero').value.trim(),
+    rua: document.getElementById('rua').value.trim(),
+    bairro: document.getElementById('bairro').value.trim(),
+    cidade: document.getElementById('cidade').value.trim(),
+    uf: document.getElementById('uf').value.trim().toUpperCase(),
+    tipoDocumentoIdentidade: document.getElementById('tipoDocumentoIdentidade').value
+  };
+
+  for (const valor of Object.values(campos)) {
+    if (!valor) {
+      resultadoDiv.innerHTML = '<div class="msg erro">Preencha todos os dados pessoais e de endereço.</div>';
+      return;
+    }
+  }
+
+  const idade = calcularIdade(campos.dataNascimento);
+  if (idade === null || idade < 18) {
+    resultadoDiv.innerHTML = '<div class="msg erro">É preciso ser maior de 18 anos.</div>';
+    return;
+  }
+
+  const tipoRegistro = document.querySelector('input[name="tipoRegistro"]:checked').value;
+  const cpf = document.getElementById('cpf').value.trim();
+  const cnpj = document.getElementById('cnpj').value.trim();
+  const razaoSocial = document.getElementById('razaoSocial').value.trim();
+  const nomeFantasia = document.getElementById('nomeFantasia').value.trim();
+
+  if (cpf.replace(/\D/g, '').length !== 11) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Informe o CPF do responsável.</div>';
+    return;
+  }
+  if (!nomeFantasia) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Informe o nome fantasia da loja.</div>';
+    return;
+  }
+  if (tipoRegistro === 'cnpj') {
+    if (cnpj.replace(/\D/g, '').length !== 14) {
+      resultadoDiv.innerHTML = '<div class="msg erro">Informe um CNPJ válido.</div>';
+      return;
+    }
+    if (!razaoSocial) {
+      resultadoDiv.innerHTML = '<div class="msg erro">Informe a razão social (nome oficial do CNPJ).</div>';
+      return;
+    }
+  }
+
+  const arquivoDocumento = document.getElementById('documentoIdentidade').files[0];
+  const arquivoComprovante = document.getElementById('comprovanteResidencia').files[0];
+  if (!arquivoDocumento) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Envie a foto ou PDF do documento de identidade.</div>';
+    return;
+  }
+  if (!arquivoComprovante) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Envie a foto ou PDF do comprovante de residência.</div>';
+    return;
+  }
+
+  const dadosFormulario = new FormData();
+  Object.entries(campos).forEach(([chave, valor]) => dadosFormulario.append(chave, valor));
+  dadosFormulario.append('tipoRegistro', tipoRegistro);
+  dadosFormulario.append('cpf', cpf);
+  dadosFormulario.append('nomeFantasia', nomeFantasia);
+  if (tipoRegistro === 'cnpj') {
+    dadosFormulario.append('cnpj', cnpj);
+    dadosFormulario.append('razaoSocial', razaoSocial);
+  }
+  dadosFormulario.append('documento_identidade', arquivoDocumento);
+  dadosFormulario.append('comprovante_residencia', arquivoComprovante);
+
+  botao.disabled = true;
+  botao.textContent = 'Enviando...';
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/convites/' + encodeURIComponent(TOKEN) + '/completar-kyc', {
+      method: 'POST',
+      body: dadosFormulario
+    });
+    const dados = await resposta.json();
+
+    if (resposta.ok) {
+      document.getElementById('tela-formulario').style.display = 'none';
+      document.getElementById('tela-sucesso').style.display = 'block';
+    } else {
+      resultadoDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Não foi possível concluir o cadastro.') + '</div>';
+      botao.disabled = false;
+      botao.textContent = 'Concluir cadastro';
+    }
+  } catch (e) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Erro de conexão. Tente novamente.</div>';
+    botao.disabled = false;
+    botao.textContent = 'Concluir cadastro';
+  }
+}
+
+validarLinkAoAbrir();
+
+// Formatacao automatica (mesma logica do cadastro.html: o usuario so
+// digita numeros; telefone SEM hifen, formato exigido pelo backend).
+aplicarMascaraTelefone(document.getElementById('telefone'));
+aplicarMascaraCpf(document.getElementById('cpf'));
+aplicarMascaraCnpj(document.getElementById('cnpj'));
+aplicarMascaraCep(document.getElementById('cep'));
+</script>
+</body>
+</html>
