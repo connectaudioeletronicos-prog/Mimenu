@@ -86,7 +86,7 @@
         <label>Data de nascimento</label>
         <input type="date" id="dataNascimento">
         <label>Telefone / WhatsApp</label>
-        <input type="tel" id="telefone" placeholder="(11) 91234-5678">
+        <input type="tel" id="telefone" placeholder="(11) 912345678">
       </fieldset>
 
       <fieldset>
@@ -194,6 +194,7 @@
   </div>
 
 <script src="../js/config.js"></script>
+<script src="../js/utils.js"></script>
 <script>
 // Mantido em espelho com backend/src/utils/validadores.js (SLUGS_RESERVADOS).
 // So para dar feedback mais cedo aqui na Etapa 1; a validacao que vale
@@ -422,6 +423,11 @@ async function cadastrar() {
 }
 
 validarConviteAoAbrir();
+
+// Formatacao automatica dos campos (o usuario so digita numeros).
+aplicarMascaraTelefone(document.getElementById('telefone'));
+aplicarMascaraCpf(document.getElementById('cpf'));
+aplicarMascaraCnpj(document.getElementById('cnpj'));
 </script>
 </body>
 </html>
