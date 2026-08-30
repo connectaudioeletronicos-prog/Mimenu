@@ -65,7 +65,10 @@ async function validarConvite(req, res) {
 
     const tokenHash = hashToken(token);
     const resultado = await query(
-      `SELECT id, status, expira_em FROM convites_cadastro WHERE token = $1`,
+      `SELECT c.id, c.status, c.expira_em, c.tipo, c.estabelecimento_id, e.nome AS nome_loja
+       FROM convites_cadastro c
+       LEFT JOIN estabelecimentos e ON e.id = c.estabelecimento_id
+       WHERE c.token = $1`,
       [tokenHash]
     );
 
@@ -90,7 +93,11 @@ async function validarConvite(req, res) {
       await query(`UPDATE convites_cadastro SET status = 'em_andamento' WHERE id = $1`, [convite.id]);
     }
 
-    res.json({ valido: true });
+    // "tipo" e "nome_loja" sao usados pelas paginas de autoatendimento
+    // (completar-cadastro-loja.html / editar-contato-loja.html) para
+    // saber qual formulario mostrar e para quem. O fluxo antigo de
+    // cadastro de loja nova (cadastro.html) ignora esses dois campos.
+    res.json({ valido: true, tipo: convite.tipo || 'novo_cadastro', nome_loja: convite.nome_loja || null });
   } catch (error) {
     console.error('Erro ao validar convite:', error);
     res.status(500).json({ valido: false, motivo: 'Erro interno ao validar convite.' });
