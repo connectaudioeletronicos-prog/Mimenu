@@ -1,0 +1,18 @@
+-- Permite reaproveitar a tabela convites_cadastro (mesmo mecanismo de
+-- token com hash + expiracao ja usado no cadastro de lojas novas) para
+-- dois novos tipos de link de autoatendimento:
+--
+--  - completar_kyc: a loja JA EXISTE mas nunca teve um registro em
+--    dados_legais (ex: "loja teste", criada manualmente antes dessa
+--    etapa existir). O lojista usa o link pra preencher o KYC completo
+--    (documento + comprovante), sem precisar apagar/recriar a loja e
+--    perder produtos ja cadastrados.
+--
+--  - editar_contato: link temporario (24h, gerado pelo superadmin a
+--    pedido do lojista) so para trocar telefone/WhatsApp/endereco.
+--    Nao da acesso a CPF/CNPJ/nome do responsavel/razao social/nome
+--    fantasia -- esses continuam bloqueados por aqui.
+--
+-- O tipo "novo_cadastro" (valor padrao) e o fluxo que ja existia antes
+-- desta migracao (convite de cadastro para loja nova).
+ALTER TABLE convites_cadastro ADD COLUMN IF NOT EXISTS tipo VARCHAR(20) NOT NULL DEFAULT 'novo_cadastro';
