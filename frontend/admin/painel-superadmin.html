@@ -125,7 +125,9 @@
       <input type="text" id="campoEndereco">
 
       <h3>Dados cadastrais (KYC)</h3>
-      <p id="avisoSemDadosLegais" class="msg erro oculto">Esta loja não tem cadastro de dados legais (KYC) registrado no sistema — provavelmente foi criada antes dessa etapa existir, ou por um cadastro manual. Os campos abaixo ficarão vazios até o lojista preencher isso pelo suporte.</p>
+      <p id="avisoSemDadosLegais" class="msg erro oculto">Esta loja não tem cadastro de dados legais (KYC) registrado no sistema — provavelmente foi criada antes dessa etapa existir, ou por um cadastro manual. Os campos abaixo ficarão vazios até o lojista preencher isso.</p>
+      <button type="button" id="btnGerarLinkKyc" class="oculto" onclick="gerarLinkAutoatendimento('completar_kyc')">🔗 Gerar link para o lojista completar o KYC</button>
+      <div id="resultadoLinkKyc"></div>
       <div class="campo-2col">
         <div><label>Nome do responsável</label><input type="text" id="campoResponsavelNome" disabled class="somente-leitura"></div>
         <div><label>Telefone do responsável</label><input type="text" id="campoResponsavelTelefone"></div>
@@ -155,10 +157,16 @@
 
       <button onclick="salvarDetalheLoja()" id="btnSalvarDetalheLoja">Salvar alterações</button>
       <div id="resultadoDetalheLoja"></div>
+
+      <h3>Link de autoatendimento (edição de contato)</h3>
+      <p class="sub" style="margin-top:0;">Gera um link válido por 24h para o próprio lojista trocar telefone, WhatsApp e endereço. Não dá acesso a CPF/CNPJ/nome/razão social/nome fantasia.</p>
+      <button type="button" class="secundario" onclick="gerarLinkAutoatendimento('editar_contato')">🔗 Gerar link de edição de contato (24h)</button>
+      <div id="resultadoLinkContato"></div>
     </div>
   </div>
 
 <script src="../js/config.js"></script>
+<script src="../js/utils.js"></script>
 <script>
 let CHAVE_MESTRA = '';
 let LOJA_DETALHE_ATUAL = null;
@@ -212,6 +220,11 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('inputChaveMestra').value = salva;
     entrar();
   }
+  // Mascara (11) 98765-4321 nos campos de telefone/WhatsApp do modal de
+  // detalhe da loja -- mesmo formato usado no painel do proprio lojista.
+  aplicarMascaraTelefoneComHifen(document.getElementById('campoWhatsapp'));
+  aplicarMascaraTelefoneComHifen(document.getElementById('campoTelefone'));
+  aplicarMascaraTelefoneComHifen(document.getElementById('campoResponsavelTelefone'));
 });
 
 async function gerarConvite() {
@@ -354,6 +367,8 @@ async function abrirDetalheLoja(id) {
   document.getElementById('modalDetalheLoja').classList.remove('oculto');
   document.getElementById('detalheLojaNome').textContent = 'Carregando...';
   document.getElementById('resultadoDetalheLoja').innerHTML = '';
+  document.getElementById('resultadoLinkKyc').innerHTML = '';
+  document.getElementById('resultadoLinkContato').innerHTML = '';
   try {
     const resposta = await fetch(API_BASE_URL + '/painel/estabelecimentos/' + id + '?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA), { cache: 'no-store' });
     const dados = await resposta.json();
@@ -367,10 +382,13 @@ async function abrirDetalheLoja(id) {
     document.getElementById('detalheLojaSlug').textContent = '/' + dados.slug;
 
     const avisoSemKyc = document.getElementById('avisoSemDadosLegais');
+    const btnGerarLinkKyc = document.getElementById('btnGerarLinkKyc');
     if (!dados.tipo_registro && !dados.cpf && !dados.cnpj) {
       avisoSemKyc.classList.remove('oculto');
+      btnGerarLinkKyc.classList.remove('oculto');
     } else {
       avisoSemKyc.classList.add('oculto');
+      btnGerarLinkKyc.classList.add('oculto');
     }
 
     preencherCampo('campoEmail', dados.email);
@@ -431,6 +449,9 @@ async function salvarDetalheLoja() {
     const dados = await resposta.json();
     if (!resposta.ok) {
       resultadoDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao salvar.') + '</div>';
+    } else if (dados.aviso) {
+      resultadoDiv.innerHTML = '<div class="msg erro">' + dados.aviso + '</div>';
+      carregarLojistas();
     } else {
       resultadoDiv.innerHTML = '<div class="msg ok">Dados atualizados com sucesso.</div>';
       carregarLojistas();
@@ -440,6 +461,34 @@ async function salvarDetalheLoja() {
   }
   botao.disabled = false;
   botao.textContent = 'Salvar alterações';
+}
+
+async function gerarLinkAutoatendimento(tipo) {
+  if (!LOJA_DETALHE_ATUAL) return;
+  const divResultado = document.getElementById(tipo === 'completar_kyc' ? 'resultadoLinkKyc' : 'resultadoLinkContato');
+  divResultado.innerHTML = 'Gerando link...';
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/estabelecimentos/' + LOJA_DETALHE_ATUAL + '/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chaveMestra: CHAVE_MESTRA, tipo })
+    });
+    const dados = await resposta.json();
+
+    if (!resposta.ok) {
+      divResultado.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao gerar link.') + '</div>';
+      return;
+    }
+
+    divResultado.innerHTML = `
+      <div class="msg ok">Link gerado! Válido até ${new Date(dados.expira_em).toLocaleString('pt-BR')}</div>
+      <div class="link-copiavel">${dados.link}</div>
+      <button class="secundario" onclick="navigator.clipboard.writeText('${dados.link}').then(()=>alert('Link copiado!'))">Copiar link</button>
+    `;
+  } catch (e) {
+    divResultado.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
 }
 </script>
 </body>
