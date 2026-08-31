@@ -162,6 +162,11 @@
       <p class="sub" style="margin-top:0;">Gera um link válido por 24h para o próprio lojista trocar telefone, WhatsApp e endereço. Não dá acesso a CPF/CNPJ/nome/razão social/nome fantasia.</p>
       <button type="button" class="secundario" onclick="gerarLinkAutoatendimento('editar_contato')">🔗 Gerar link de edição de contato (24h)</button>
       <div id="resultadoLinkContato"></div>
+
+      <h3 style="color:#b00020;">Zona de risco</h3>
+      <p class="sub" style="margin-top:0;">Exclui a loja e TODOS os dados dela (produtos, pedidos, categorias, etc). Não tem como desfazer.</p>
+      <button type="button" class="perigo" onclick="excluirLoja()">🗑️ Excluir esta loja permanentemente</button>
+      <div id="resultadoExcluirLoja"></div>
     </div>
   </div>
 
@@ -486,6 +491,36 @@ async function gerarLinkAutoatendimento(tipo) {
       <div class="link-copiavel">${dados.link}</div>
       <button class="secundario" onclick="navigator.clipboard.writeText('${dados.link}').then(()=>alert('Link copiado!'))">Copiar link</button>
     `;
+  } catch (e) {
+    divResultado.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+}
+
+async function excluirLoja() {
+  if (!LOJA_DETALHE_ATUAL) return;
+  const nomeAtual = document.getElementById('detalheLojaNome').textContent;
+  const divResultado = document.getElementById('resultadoExcluirLoja');
+
+  const digitado = prompt(`Isso vai excluir "${nomeAtual}" e TODOS os dados dela (produtos, pedidos, categorias, etc) PARA SEMPRE.\n\nDigite o nome exato da loja para confirmar:`);
+  if (digitado === null) return;
+
+  divResultado.innerHTML = 'Excluindo...';
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/estabelecimentos/' + LOJA_DETALHE_ATUAL, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chaveMestra: CHAVE_MESTRA, confirmacaoNome: digitado })
+    });
+    const dados = await resposta.json();
+
+    if (!resposta.ok) {
+      divResultado.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao excluir.') + '</div>';
+      return;
+    }
+
+    alert(dados.mensagem || 'Loja excluída com sucesso.');
+    fecharDetalheLoja();
+    carregarLojistas();
   } catch (e) {
     divResultado.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
   }
