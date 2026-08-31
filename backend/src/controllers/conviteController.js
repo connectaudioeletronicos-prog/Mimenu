@@ -12,10 +12,19 @@ function hashToken(tokenBruto) {
   return crypto.createHash('sha256').update(tokenBruto).digest('hex');
 }
 
+// Monta a base da URL do frontend de forma resistente a como o
+// FRONTEND_URL estiver configurado no Render -- com ou sem "/frontend"
+// no final. Sem isso, se a variavel ja incluir "/frontend", o link final
+// saia duplicado (ex: "palatos.com.br/frontend/frontend/admin/...").
+function montarBaseFrontend() {
+  let base = (process.env.FRONTEND_URL || 'http://localhost:5500').replace(/\/+$/, '');
+  base = base.replace(/\/frontend$/i, '');
+  return base;
+}
+
 // Monta o link publico de cadastro a partir do token "cru" (nao hasheado).
 function montarLinkConvite(tokenBruto) {
-  const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5500').replace(/\/$/, '');
-  return `${baseUrl}/frontend/admin/cadastro.html?convite=${tokenBruto}`;
+  return `${montarBaseFrontend()}/frontend/admin/cadastro.html?convite=${tokenBruto}`;
 }
 
 // -------------------------------------------------------------------
@@ -126,4 +135,4 @@ async function listarConvites(req, res) {
   }
 }
 
-module.exports = { gerarConvite, validarConvite, listarConvites, hashToken, montarLinkConvite };
+module.exports = { gerarConvite, validarConvite, listarConvites, hashToken, montarLinkConvite, montarBaseFrontend };
