@@ -20,6 +20,7 @@ router.get('/estabelecimentos/:id', limitador, painelController.buscarEstabeleci
 router.put('/estabelecimentos/:id', limitador, painelController.atualizarEstabelecimentoDetalhe);
 router.put('/estabelecimentos/:id/status', limitador, painelController.alternarStatusEstabelecimento);
 router.post('/estabelecimentos/:id/links', limitador, painelController.gerarLinkAutoatendimento);
+router.delete('/estabelecimentos/:id', limitador, painelController.excluirEstabelecimento);
 router.put('/convites/:id/cancelar', limitador, painelController.cancelarConvite);
 
 router.get('/contatos', limitador, comunicacaoController.listarContatos);
