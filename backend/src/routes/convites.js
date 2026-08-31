@@ -28,7 +28,8 @@ router.get('/', conviteController.listarConvites);
 // Usam o mesmo token/tabela dos convites acima, diferenciados por
 // "tipo". Veja backend/src/controllers/linkAutoatendimentoController.js
 router.post('/:token/completar-kyc', limitador, uploadDocumentos.fields([
-  { name: 'documento_identidade', maxCount: 1 },
+  { name: 'documento_identidade_frente', maxCount: 1 },
+  { name: 'documento_identidade_verso', maxCount: 1 },
   { name: 'comprovante_residencia', maxCount: 1 }
 ]), linkAutoatendimentoController.completarKyc);
 
