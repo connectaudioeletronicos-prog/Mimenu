@@ -41,7 +41,8 @@ const limitadorLogin = rateLimit({
 
 router.post('/login', limitadorLogin, authController.login);
 router.post('/cadastrar', limitadorLogin, uploadDocumentos.fields([
-  { name: 'documento_identidade', maxCount: 1 },
+  { name: 'documento_identidade_frente', maxCount: 1 },
+  { name: 'documento_identidade_verso', maxCount: 1 },
   { name: 'comprovante_residencia', maxCount: 1 }
 ]), authController.cadastrar);
 router.post('/esqueci-senha', limitadorLogin, authController.esqueciSenha);
