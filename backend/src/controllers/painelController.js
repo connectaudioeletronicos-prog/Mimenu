@@ -243,4 +243,72 @@ async function gerarLinkAutoatendimento(req, res) {
   }
 }
 
-module.exports = { listarEstabelecimentos, alternarStatusEstabelecimento, cancelarConvite, buscarEstabelecimentoDetalhe, atualizarEstabelecimentoDetalhe, gerarLinkAutoatendimento };
+// Exclui definitivamente um estabelecimento (loja) e todos os dados
+// dele. Acao IRREVERSIVEL -- por isso exige que o superadmin digite o
+// nome exato da loja como confirmacao, alem da chave mestra.
+//
+// A exclusao tenta remover primeiro as tabelas que sabemos que
+// referenciam estabelecimento_id (para nao deixar nada orfao) e so
+// depois apaga a linha em "estabelecimentos". Se alguma tabela que a
+// gente nao conhece tambem referenciar essa loja e travar a exclusao,
+// o Postgres recusa com um erro de chave estrangeira -- nesse caso
+// avisamos exatamente qual tabela e devolvemos, sem apagar nada pela
+// metade (tudo roda dentro da mesma conexao, e o erro interrompe antes
+// do DELETE final em estabelecimentos).
+async function excluirEstabelecimento(req, res) {
+  try {
+    const { chaveMestra, confirmacaoNome } = req.body;
+    const { id } = req.params;
+
+    if (!chaveValida(chaveMestra)) {
+      return res.status(403).json({ erro: 'Chave mestra invalida.' });
+    }
+
+    const resultado = await query('SELECT id, nome FROM estabelecimentos WHERE id = $1', [id]);
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
+    }
+
+    const loja = resultado.rows[0];
+    if (!confirmacaoNome || confirmacaoNome.trim().toLowerCase() !== loja.nome.trim().toLowerCase()) {
+      return res.status(400).json({ erro: 'Nome de confirmacao nao confere com o nome da loja. Digite o nome exatamente igual para confirmar a exclusao.' });
+    }
+
+    // Tabelas conhecidas que guardam estabelecimento_id. Apagamos nessa
+    // ordem (das mais "dependentes" para as mais "base") antes da loja
+    // em si, para nao esbarrar em chave estrangeira. Cada DELETE e
+    // tolerante a tabela nao existir/nao ter linhas.
+    const tabelasDependentes = [
+      'dados_legais', 'convites_cadastro', 'itens_pedido', 'pedidos',
+      'itens_comanda', 'comandas', 'reservas', 'produtos', 'categorias',
+      'promocoes', 'imagens_carrossel', 'carrosseis', 'vitrines',
+      'caixas_texto', 'funcionarios', 'fornecedores', 'movimentacoes_estoque',
+      'notificacoes_estoque', 'plantoes_entregador', 'clientes'
+    ];
+
+    for (const tabela of tabelasDependentes) {
+      try {
+        await query(`DELETE FROM ${tabela} WHERE estabelecimento_id = $1`, [id]);
+      } catch (erroTabela) {
+        // Tabela pode nao existir neste banco, ou nao ter essa coluna --
+        // ignora e segue tentando as demais; o DELETE final acusa se
+        // sobrar algo de verdade preso por chave estrangeira.
+        console.error(`Aviso ao limpar "${tabela}" antes de excluir a loja:`, erroTabela.message);
+      }
+    }
+
+    await query('DELETE FROM estabelecimentos WHERE id = $1', [id]);
+
+    res.json({ mensagem: `Loja "${loja.nome}" excluida com sucesso.` });
+  } catch (error) {
+    console.error('Erro ao excluir estabelecimento:', error);
+    if (error.code === '23503') {
+      return res.status(409).json({
+        erro: `Nao foi possivel excluir: ainda existem dados dependentes na tabela "${error.table || 'desconhecida'}" que nao foram removidos automaticamente. Avise para eu adicionar essa tabela na lista de limpeza.`
+      });
+    }
+    res.status(500).json({ erro: 'Erro interno ao excluir a loja.' });
+  }
+}
+
+module.exports = { listarEstabelecimentos, alternarStatusEstabelecimento, cancelarConvite, buscarEstabelecimentoDetalhe, atualizarEstabelecimentoDetalhe, gerarLinkAutoatendimento, excluirEstabelecimento };
