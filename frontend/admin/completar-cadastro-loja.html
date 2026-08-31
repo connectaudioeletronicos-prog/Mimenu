@@ -111,8 +111,10 @@
         <option value="cnh">CNH</option>
         <option value="passaporte">Passaporte</option>
       </select>
-      <label>Foto ou PDF do documento</label>
-      <input type="file" id="documentoIdentidade" accept="image/*,application/pdf">
+      <label>Foto ou PDF da FRENTE do documento</label>
+      <input type="file" id="documentoIdentidadeFrente" accept="image/*,application/pdf">
+      <label>Foto ou PDF do VERSO do documento</label>
+      <input type="file" id="documentoIdentidadeVerso" accept="image/*,application/pdf">
     </fieldset>
 
     <fieldset>
@@ -236,9 +238,16 @@ async function enviar() {
     tipoDocumentoIdentidade: document.getElementById('tipoDocumentoIdentidade').value
   };
 
-  for (const valor of Object.values(campos)) {
+  const rotulos = {
+    nomePessoal: 'Nome', sobrenome: 'Sobrenome', dataNascimento: 'Data de nascimento',
+    telefone: 'Telefone / WhatsApp', cep: 'CEP', zona: 'Zona', numero: 'Número',
+    rua: 'Rua', bairro: 'Bairro', cidade: 'Cidade', uf: 'UF',
+    tipoDocumentoIdentidade: 'Tipo de documento'
+  };
+
+  for (const [chave, valor] of Object.entries(campos)) {
     if (!valor) {
-      resultadoDiv.innerHTML = '<div class="msg erro">Preencha todos os dados pessoais e de endereço.</div>';
+      resultadoDiv.innerHTML = '<div class="msg erro">Preencha o campo "' + (rotulos[chave] || chave) + '".</div>';
       return;
     }
   }
@@ -274,10 +283,15 @@ async function enviar() {
     }
   }
 
-  const arquivoDocumento = document.getElementById('documentoIdentidade').files[0];
+  const arquivoDocumentoFrente = document.getElementById('documentoIdentidadeFrente').files[0];
+  const arquivoDocumentoVerso = document.getElementById('documentoIdentidadeVerso').files[0];
   const arquivoComprovante = document.getElementById('comprovanteResidencia').files[0];
-  if (!arquivoDocumento) {
-    resultadoDiv.innerHTML = '<div class="msg erro">Envie a foto ou PDF do documento de identidade.</div>';
+  if (!arquivoDocumentoFrente) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Envie a foto ou PDF da FRENTE do documento de identidade.</div>';
+    return;
+  }
+  if (!arquivoDocumentoVerso) {
+    resultadoDiv.innerHTML = '<div class="msg erro">Envie a foto ou PDF do VERSO do documento de identidade.</div>';
     return;
   }
   if (!arquivoComprovante) {
@@ -294,7 +308,8 @@ async function enviar() {
     dadosFormulario.append('cnpj', cnpj);
     dadosFormulario.append('razaoSocial', razaoSocial);
   }
-  dadosFormulario.append('documento_identidade', arquivoDocumento);
+  dadosFormulario.append('documento_identidade_frente', arquivoDocumentoFrente);
+  dadosFormulario.append('documento_identidade_verso', arquivoDocumentoVerso);
   dadosFormulario.append('comprovante_residencia', arquivoComprovante);
 
   botao.disabled = true;
