@@ -5,7 +5,7 @@
 const crypto = require('crypto');
 const { query } = require('../config/database');
 const { mascararDocumento } = require('../utils/mascarar');
-const { hashToken } = require('./conviteController');
+const { hashToken, montarBaseFrontend } = require('./conviteController');
 
 function chaveValida(chave) {
   return !!chave && chave === process.env.CHAVE_CADASTRO_ADMIN;
@@ -232,7 +232,7 @@ async function gerarLinkAutoatendimento(req, res) {
       [tokenHash, tipo, id, expiraEm]
     );
 
-    const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5500').replace(/\/$/, '');
+    const baseUrl = montarBaseFrontend();
     const pagina = tipo === 'completar_kyc' ? 'completar-cadastro-loja.html' : 'editar-contato-loja.html';
     const link = `${baseUrl}/frontend/admin/${pagina}?token=${tokenBruto}`;
 
