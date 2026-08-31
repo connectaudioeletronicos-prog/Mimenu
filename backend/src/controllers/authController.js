@@ -173,10 +173,14 @@ async function cadastrar(req, res) {
       return res.status(400).json({ erro: 'Escolha CPF ou CNPJ.' });
     }
 
-    const arquivoDocumento = arquivos.documento_identidade ? arquivos.documento_identidade[0] : null;
+    const arquivoDocumentoFrente = arquivos.documento_identidade_frente ? arquivos.documento_identidade_frente[0] : null;
+    const arquivoDocumentoVerso = arquivos.documento_identidade_verso ? arquivos.documento_identidade_verso[0] : null;
     const arquivoComprovante = arquivos.comprovante_residencia ? arquivos.comprovante_residencia[0] : null;
-    if (!arquivoDocumento) {
-      return res.status(400).json({ erro: 'Envie a foto/PDF do documento de identidade.' });
+    if (!arquivoDocumentoFrente) {
+      return res.status(400).json({ erro: 'Envie a foto/PDF da FRENTE do documento de identidade.' });
+    }
+    if (!arquivoDocumentoVerso) {
+      return res.status(400).json({ erro: 'Envie a foto/PDF do VERSO do documento de identidade.' });
     }
     if (!arquivoComprovante) {
       return res.status(400).json({ erro: 'Envie a foto/PDF do comprovante de residencia.' });
@@ -227,8 +231,11 @@ async function cadastrar(req, res) {
     // (evita loja "fantasma" sem dados legais completos).
     try {
       // Envia os documentos para o bucket privado
-      const documentoUrl = await uploadDocumentoPrivado(
-        arquivoDocumento.buffer, arquivoDocumento.mimetype, `${novoEstabelecimentoId}/documento`
+      const documentoFrenteUrl = await uploadDocumentoPrivado(
+        arquivoDocumentoFrente.buffer, arquivoDocumentoFrente.mimetype, `${novoEstabelecimentoId}/documento-frente`
+      );
+      const documentoVersoUrl = await uploadDocumentoPrivado(
+        arquivoDocumentoVerso.buffer, arquivoDocumentoVerso.mimetype, `${novoEstabelecimentoId}/documento-verso`
       );
       const comprovanteUrl = await uploadDocumentoPrivado(
         arquivoComprovante.buffer, arquivoComprovante.mimetype, `${novoEstabelecimentoId}/comprovante`
@@ -237,13 +244,13 @@ async function cadastrar(req, res) {
       await query(
         `INSERT INTO dados_legais (
           estabelecimento_id, nome, sobrenome, data_nascimento, telefone,
-          tipo_documento_identidade, documento_identidade_url, comprovante_residencia_url,
+          tipo_documento_identidade, documento_identidade_url, documento_identidade_verso_url, comprovante_residencia_url,
           cep, rua, numero, bairro, zona, cidade, uf,
           tipo_registro, cpf, cnpj, razao_social, nome_fantasia
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
         [
           novoEstabelecimentoId, nomePessoal, sobrenome, dataNascimento, telefone,
-          tipoDocumentoIdentidade, documentoUrl, comprovanteUrl,
+          tipoDocumentoIdentidade, documentoFrenteUrl, documentoVersoUrl, comprovanteUrl,
           cep, rua, numero, bairro, zona, cidade, uf,
           tipoRegistro, tipoRegistro === 'cpf' ? cpf : null, tipoRegistro === 'cnpj' ? cnpj : null,
           tipoRegistro === 'cnpj' ? razaoSocial : null, tipoRegistro === 'cnpj' ? (nomeFantasia || null) : null
