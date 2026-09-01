@@ -52,6 +52,7 @@ router.post('/pagamento/verificar-senha', exigirPermissao('gerenciar_conta'), es
 router.put('/configuracoes/reserva-mesa', exigirPermissao('gerenciar_conta'), reservaController.alternarReservaAtiva);
 router.get('/reservas', exigirPermissao('gerenciar_conta'), reservaController.listar);
 router.put('/reservas/:id/status', exigirPermissao('gerenciar_conta'), reservaController.atualizarStatus);
+router.put('/reservas/:id/checkin', exigirPermissao('gerenciar_conta'), reservaController.fazerCheckIn);
 
 // Cardapio (produtos, categorias, promocoes)
 router.get('/categorias', categoriaController.listar);
