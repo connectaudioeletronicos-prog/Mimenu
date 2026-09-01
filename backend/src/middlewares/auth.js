@@ -52,6 +52,19 @@ async function autenticar(req, res, next) {
     req.slug = payload.slug;
     req.cargo = payload.cargo || 'proprietario';
     req.funcionarioId = null;
+
+    // BUGFIX: bloquear uma loja pelo painel super admin so tinha efeito
+    // na PROXIMA vez que o dono fizesse login -- quem ja estava logado
+    // continuava acessando normalmente ate o token expirar, mesmo depois
+    // de recarregar a pagina (o token guardado no navegador nao muda so
+    // porque a pagina recarregou). Agora confere o "ativo" da loja no
+    // banco a cada requisicao, igual ja era feito para funcionarios logo
+    // acima -- bloqueio passa a valer imediatamente na proxima acao.
+    const resultadoLoja = await query('SELECT ativo FROM estabelecimentos WHERE id = $1', [req.estabelecimentoId]);
+    if (resultadoLoja.rows.length === 0 || !resultadoLoja.rows[0].ativo) {
+      return res.status(401).json({ erro: 'Esta loja foi bloqueada. Entre em contato com o suporte.' });
+    }
+
     // Nome do proprietario pro rastro de auditoria/atendimento (mesma
     // logica: nunca confia no nome do token, busca o atual no banco).
     req.funcionarioNome = payload.nomeProprietario || 'Proprietário';
