@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const estabelecimentoController = require('../controllers/estabelecimentoController');
 const pedidoController = require('../controllers/pedidoController');
 const reservaController = require('../controllers/reservaController');
+const notificacaoClienteController = require('../controllers/notificacaoClienteController');
 
 const limitadorPedidos = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -22,5 +23,8 @@ router.get('/:slug/pedidos/cliente/:telefone', pedidoController.listarPedidosCli
 router.post('/:slug/reservas', limitadorPedidos, reservaController.criar);
 router.get('/:slug/reservas/cliente/:telefone', reservaController.listarReservasCliente);
 router.put('/:slug/reservas/:id/cancelar', reservaController.cancelarPropria);
+router.get('/:slug/notificacoes/cliente/:telefone', notificacaoClienteController.listar);
+router.get('/:slug/notificacoes/cliente/:telefone/nao-lidas', notificacaoClienteController.contarNaoLidas);
+router.put('/:slug/notificacoes/cliente/:telefone/marcar-lidas', notificacaoClienteController.marcarTodasLidas);
 
 module.exports = router;
