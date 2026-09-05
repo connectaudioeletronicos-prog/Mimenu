@@ -66,3 +66,26 @@ async function cancelarReservaCliente(slug, reservaId, telefone) {
   if (!resposta.ok) throw new Error(resultado.erro || 'Nao foi possivel cancelar a reserva.');
   return resultado;
 }
+
+async function buscarNotificacoesCliente(slug, telefone) {
+  const telefoneLimpo = telefone.replace(/\D/g, '');
+  const resposta = await fetch(`${API_BASE_URL}/publico/${encodeURIComponent(slug)}/notificacoes/cliente/${telefoneLimpo}`);
+  if (!resposta.ok) throw new Error('Erro ao buscar notificacoes');
+  return resposta.json();
+}
+
+async function contarNotificacoesNaoLidas(slug, telefone) {
+  const telefoneLimpo = telefone.replace(/\D/g, '');
+  const resposta = await fetch(`${API_BASE_URL}/publico/${encodeURIComponent(slug)}/notificacoes/cliente/${telefoneLimpo}/nao-lidas`);
+  if (!resposta.ok) throw new Error('Erro ao contar notificacoes');
+  return resposta.json();
+}
+
+async function marcarNotificacoesComoLidas(slug, telefone) {
+  const telefoneLimpo = telefone.replace(/\D/g, '');
+  const resposta = await fetch(`${API_BASE_URL}/publico/${encodeURIComponent(slug)}/notificacoes/cliente/${telefoneLimpo}/marcar-lidas`, {
+    method: 'PUT'
+  });
+  if (!resposta.ok) throw new Error('Erro ao marcar notificacoes como lidas');
+  return resposta.json();
+}
