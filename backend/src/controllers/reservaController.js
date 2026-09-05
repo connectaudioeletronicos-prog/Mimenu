@@ -28,6 +28,14 @@ const STATUS_VALIDOS = ['pendente', 'confirmada', 'cancelada'];
 // Chamada no INICIO de toda consulta que lista reservas (painel do
 // admin e "Minhas reservas" do cliente), pra manter o status sempre
 // correto sem precisar de um job agendado rodando separado.
+//
+// BUGFIX: o servidor roda em UTC, mas a data/hora da reserva e' sempre
+// horario de Brasilia (sem fuso salvo no banco). Comparar direto com
+// NOW() (UTC) fazia qualquer reserva pra daqui a menos de 3h ser
+// marcada como "nao compareceu" na hora -- ANTES do horario marcado
+// (Brasilia esta 3h atras de UTC). "NOW() AT TIME ZONE
+// 'America/Sao_Paulo'" converte o instante atual pro horario de parede
+// de Brasilia, comparando corretamente com o horario da reserva.
 async function sweepReservasExpiradas(estabelecimentoId) {
   await query(
     `UPDATE reservas
@@ -35,7 +43,7 @@ async function sweepReservasExpiradas(estabelecimentoId) {
            atualizado_em = NOW()
      WHERE estabelecimento_id = $1
        AND status IN ('pendente', 'confirmada')
-       AND (data_reserva + horario_reserva::time) < NOW()`,
+       AND (data_reserva + horario_reserva::time) < (NOW() AT TIME ZONE 'America/Sao_Paulo')`,
     [estabelecimentoId]
   );
 }
@@ -109,16 +117,15 @@ async function atualizarStatus(req, res) {
 
     if (status === 'cancelada') {
       const atual = await query(
-        'SELECT data_reserva, horario_reserva, status FROM reservas WHERE id = $1 AND estabelecimento_id = $2',
+        `SELECT status, (data_reserva + horario_reserva::time) < (NOW() AT TIME ZONE 'America/Sao_Paulo') AS ja_passou
+         FROM reservas WHERE id = $1 AND estabelecimento_id = $2`,
         [id, req.estabelecimentoId]
       );
       if (atual.rows.length === 0) return res.status(404).json({ erro: 'Reserva nao encontrada.' });
       if (!['pendente', 'confirmada'].includes(atual.rows[0].status)) {
         return res.status(400).json({ erro: 'Essa reserva ja foi finalizada e nao pode mais ser cancelada.' });
       }
-      const r = atual.rows[0];
-      const dataHoraAgendada = new Date(`${r.data_reserva instanceof Date ? r.data_reserva.toISOString().substring(0, 10) : String(r.data_reserva).substring(0, 10)}T${String(r.horario_reserva).substring(0, 5)}:00`);
-      if (dataHoraAgendada.getTime() < Date.now()) {
+      if (atual.rows[0].ja_passou) {
         return res.status(400).json({ erro: 'Essa reserva ja passou da data/hora e nao pode mais ser cancelada.' });
       }
     }
@@ -211,7 +218,8 @@ async function cancelarPropria(req, res) {
     await sweepReservasExpiradas(estRes.rows[0].id);
 
     const reservaRes = await query(
-      'SELECT * FROM reservas WHERE id = $1 AND estabelecimento_id = $2',
+      `SELECT *, (data_reserva + horario_reserva::time) < (NOW() AT TIME ZONE 'America/Sao_Paulo') AS ja_passou
+       FROM reservas WHERE id = $1 AND estabelecimento_id = $2`,
       [id, estRes.rows[0].id]
     );
     if (reservaRes.rows.length === 0) return res.status(404).json({ erro: 'Reserva nao encontrada.' });
@@ -227,8 +235,7 @@ async function cancelarPropria(req, res) {
       return res.status(400).json({ erro: 'Essa reserva ja foi finalizada e nao pode mais ser cancelada.' });
     }
 
-    const dataHoraAgendada = new Date(`${reserva.data_reserva instanceof Date ? reserva.data_reserva.toISOString().substring(0, 10) : String(reserva.data_reserva).substring(0, 10)}T${String(reserva.horario_reserva).substring(0, 5)}:00`);
-    if (dataHoraAgendada.getTime() < Date.now()) {
+    if (reserva.ja_passou) {
       return res.status(400).json({ erro: 'Essa reserva ja passou e nao pode mais ser cancelada.' });
     }
 
