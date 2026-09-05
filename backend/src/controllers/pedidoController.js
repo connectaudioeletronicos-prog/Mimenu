@@ -6,6 +6,7 @@ const { baixarEstoquePorVenda } = require('../utils/estoque');
 const { resolverIntervalo } = require('../utils/periodo');
 const { proximoNumero } = require('../utils/numeracao');
 const pagamentos = require('../utils/pagamentos');
+const { notificar } = require('./notificacaoClienteController');
 
 // Monta a cobranca Pix pra um pedido ja inserido (status 'pendente') e
 // grava o QR Code nele. Usado tanto pelo pedido publico (cliente) quanto
@@ -555,7 +556,30 @@ async function atualizarStatusPedido(req, res) {
     }
 
     const final = await query('SELECT * FROM pedidos WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    res.json(final.rows[0]);
+    const pedido = final.rows[0];
+
+    // Avisa o cliente no proprio app (badge "nao lida" + pagina de
+    // notificacoes) a cada mudanca de status relevante pra ele -- nao
+    // avisa em "novo" porque essa e' a criacao do proprio pedido, o
+    // cliente ja sabe (acabou de fazer).
+    const codigo = pedido.numero_pedido ? `#${pedido.numero_pedido}` : '';
+    const mensagensPorStatus = {
+      preparando: { titulo: 'Pedido confirmado', mensagem: `Seu pedido ${codigo} foi confirmado pela loja e já está sendo preparado!` },
+      pronto: {
+        titulo: 'Pedido pronto',
+        mensagem: pedido.tipo_pedido === 'entrega'
+          ? `Seu pedido ${codigo} está pronto e logo sai para entrega!`
+          : `Seu pedido ${codigo} está pronto!`
+      },
+      entregue: { titulo: 'Pedido entregue', mensagem: `Seu pedido ${codigo} foi entregue. Bom apetite!` },
+      cancelado: { titulo: 'Pedido cancelado', mensagem: `Seu pedido ${codigo} foi cancelado.` }
+    };
+    const avisoStatus = mensagensPorStatus[status_pedido];
+    if (avisoStatus) {
+      notificar(req.estabelecimentoId, pedido.cliente_telefone, 'pedido', pedido.id, avisoStatus.titulo, avisoStatus.mensagem);
+    }
+
+    res.json(pedido);
   } catch (error) {
     console.error('Erro ao atualizar status do pedido:', error);
     res.status(500).json({ erro: 'Erro ao atualizar status.' });
@@ -892,7 +916,11 @@ async function aceitarEntrega(req, res) {
     if (resultado.rows.length === 0) {
       return res.status(409).json({ erro: 'Esse convite de entrega ja nao esta mais disponivel.' });
     }
-    res.json(resultado.rows[0]);
+    const pedido = resultado.rows[0];
+    const codigo = pedido.numero_pedido ? `#${pedido.numero_pedido}` : '';
+    notificar(req.estabelecimentoId, pedido.cliente_telefone, 'pedido', pedido.id,
+      'Pedido saiu para entrega', `Seu pedido ${codigo} saiu para entrega!`);
+    res.json(pedido);
   } catch (error) {
     console.error('Erro ao aceitar entrega:', error);
     res.status(500).json({ erro: 'Erro ao aceitar entrega.' });
@@ -950,11 +978,16 @@ async function encerrarEntrega(req, res) {
       [req.funcionarioId]
     );
 
+    const pedido = resultado.rows[0];
+    const codigo = pedido.numero_pedido ? `#${pedido.numero_pedido}` : '';
+    notificar(req.estabelecimentoId, pedido.cliente_telefone, 'pedido', pedido.id,
+      'Pedido entregue', `Seu pedido ${codigo} foi entregue. Bom apetite!`);
+
     // Ao ficar livre de novo, ja tenta puxar algum pedido "pronto" que
     // estivesse esperando fila vazia.
     await tentarOfertarPedidosPendentes(req.estabelecimentoId);
 
-    res.json(resultado.rows[0]);
+    res.json(pedido);
   } catch (error) {
     console.error('Erro ao encerrar entrega:', error);
     res.status(500).json({ erro: 'Erro ao encerrar entrega.' });
