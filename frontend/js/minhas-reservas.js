@@ -43,6 +43,7 @@ async function iniciarMinhasReservas() {
 
   preencherSaudacaoConta(conta);
   configurarNavegacaoConta('reservas');
+  atualizarBadgeAbaNotificacoes();
   await carregarMinhasReservas();
 
   document.getElementById('tela-carregando').classList.add('oculto');
