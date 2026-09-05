@@ -97,6 +97,7 @@ async function iniciarMeusPedidos() {
 
   preencherSaudacaoConta(conta);
   configurarNavegacaoConta('pedidos');
+  atualizarBadgeAbaNotificacoes();
   await carregarMeusPedidos();
 
   document.getElementById('tela-carregando').classList.add('oculto');
