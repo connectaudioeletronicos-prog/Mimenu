@@ -19,6 +19,7 @@
 // ===================================================================
 const { query } = require('../config/database');
 const { validarTelefone } = require('../utils/validadores');
+const { notificar } = require('./notificacaoClienteController');
 
 const STATUS_VALIDOS = ['pendente', 'confirmada', 'cancelada'];
 
@@ -134,7 +135,23 @@ async function atualizarStatus(req, res) {
       [status, canceladaPor, id, req.estabelecimentoId]
     );
     if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Reserva nao encontrada ou ja finalizada.' });
-    res.json(resultado.rows[0]);
+
+    const reserva = resultado.rows[0];
+    const dataReservaISO = reserva.data_reserva instanceof Date
+      ? reserva.data_reserva.toISOString().substring(0, 10)
+      : String(reserva.data_reserva).substring(0, 10);
+    const dataFormatada = new Date(`${dataReservaISO}T00:00:00`).toLocaleDateString('pt-BR');
+    if (status === 'confirmada') {
+      notificar(req.estabelecimentoId, reserva.cliente_telefone, 'reserva', reserva.id,
+        'Reserva confirmada',
+        `Sua reserva para ${dataFormatada} às ${String(reserva.horario_reserva).substring(0, 5)} foi confirmada!`);
+    } else if (status === 'cancelada') {
+      notificar(req.estabelecimentoId, reserva.cliente_telefone, 'reserva', reserva.id,
+        'Reserva recusada',
+        `Sua reserva para ${dataFormatada} às ${String(reserva.horario_reserva).substring(0, 5)} não pôde ser confirmada pela loja.`);
+    }
+
+    res.json(reserva);
   } catch (error) {
     console.error('Erro ao atualizar status da reserva:', error);
     res.status(500).json({ erro: 'Erro ao atualizar reserva.' });
