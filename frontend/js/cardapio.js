@@ -507,10 +507,41 @@ function fecharModais() {
   document.querySelectorAll('.modal').forEach(m => m.classList.add('oculto'));
 }
 
+// Atualiza o numerozinho vermelho de notificacoes nao lidas no botao
+// "Minha conta". So funciona pra quem ja esta logado numa conta (a
+// mesma conta global usada em minha-conta.html/meus-pedidos.html), pois
+// e' o telefone dela que identifica as notificacoes -- convidado (sem
+// login) simplesmente nao ve o badge, sem erro nenhum na tela.
+async function atualizarBadgeNotificacoes() {
+  const badge = document.getElementById('badge-notificacoes-nao-lidas');
+  if (!badge || !SLUG_ESTABELECIMENTO) return;
+
+  const token = sessionStorage.getItem('palatos_token_cliente');
+  if (!token) { badge.classList.add('oculto'); return; }
+
+  try {
+    const resposta = await fetch(`${API_BASE_URL}/clientes/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!resposta.ok) { badge.classList.add('oculto'); return; }
+    const conta = await resposta.json();
+    if (!conta.telefone) { badge.classList.add('oculto'); return; }
+
+    const { nao_lidas } = await contarNotificacoesNaoLidas(SLUG_ESTABELECIMENTO, conta.telefone);
+    if (nao_lidas > 0) {
+      badge.textContent = nao_lidas > 99 ? '99+' : String(nao_lidas);
+      badge.classList.remove('oculto');
+    } else {
+      badge.classList.add('oculto');
+    }
+  } catch (erro) {
+    badge.classList.add('oculto');
+  }
+}
+
 function configurarEventosGlobais() {
   verificarBloqueioHorario();
   const linkMinhaConta = document.getElementById('link-minha-conta');
   if (linkMinhaConta) linkMinhaConta.setAttribute('href', linkComSlug('minha-conta.html'));
+  atualizarBadgeNotificacoes();
   document.querySelectorAll('[data-fechar-modal]').forEach(el => el.addEventListener('click', fecharModais));
   document.getElementById('produto-modal-menos').addEventListener('click', () => {
     if (QUANTIDADE_MODAL > 1) QUANTIDADE_MODAL--;
