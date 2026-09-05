@@ -77,7 +77,7 @@ function configurarNavegacaoConta(paginaAtual) {
       return;
     }
     botao.classList.remove('ativo');
-    const paginas = { dados: 'minha-conta.html', pedidos: 'meus-pedidos.html', reservas: 'minhas-reservas.html' };
+    const paginas = { dados: 'minha-conta.html', pedidos: 'meus-pedidos.html', reservas: 'minhas-reservas.html', notificacoes: 'notificacoes.html' };
     botao.addEventListener('click', () => {
       window.location.href = linkComSlug(paginas[destino]);
     });
@@ -97,4 +97,24 @@ function configurarNavegacaoConta(paginaAtual) {
 function preencherSaudacaoConta(conta) {
   const elemento = document.getElementById('conta-nome-topo');
   if (elemento) elemento.textContent = conta.nome || 'usuário';
+}
+
+// Numerozinho vermelho de notificacoes nao lidas na aba "Notificacoes"
+// do menu -- chamado nas 4 paginas da conta (nao so' na propria pagina
+// de notificacoes), pra o cliente ver que tem algo novo mesmo enquanto
+// esta em "Meus dados"/"Meus pedidos"/"Minhas reservas".
+async function atualizarBadgeAbaNotificacoes() {
+  const badge = document.getElementById('badge-aba-notificacoes');
+  if (!badge || !SLUG_ESTABELECIMENTO || !CONTA_ATUAL || !CONTA_ATUAL.telefone) return;
+  try {
+    const { nao_lidas } = await contarNotificacoesNaoLidas(SLUG_ESTABELECIMENTO, CONTA_ATUAL.telefone);
+    if (nao_lidas > 0) {
+      badge.textContent = nao_lidas > 99 ? '99+' : String(nao_lidas);
+      badge.classList.remove('oculto');
+    } else {
+      badge.classList.add('oculto');
+    }
+  } catch (erro) {
+    badge.classList.add('oculto');
+  }
 }
