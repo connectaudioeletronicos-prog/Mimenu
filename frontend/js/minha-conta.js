@@ -19,7 +19,7 @@ async function iniciarMinhaConta() {
   preencherDadosConta();
   configurarNavegacaoConta('dados');
   configurarEventosMinhaConta();
-  atualizarBadgeAbaNotificacoes();
+  atualizarBadgesNavegacaoConta('dados');
 
   document.getElementById('tela-carregando').classList.add('oculto');
   document.getElementById('tela-cliente').classList.remove('oculto');
