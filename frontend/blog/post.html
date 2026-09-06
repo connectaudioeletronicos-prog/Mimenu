@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blog - Palatos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #146c43;
+    --verde-escura: #0e5535;
+    --laranja: #f3a01c;
+    --texto: #1b1f1d;
+    --texto-claro: #6f7975;
+    --borda: #dbe2de;
+    --fundo-suave: #f6f8f6;
+    --erro: #d64545;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--fundo-suave);
+    color: var(--texto);
+    margin: 0;
+  }
+  .conteudo { max-width: 640px; margin: 0 auto; padding: 20px 20px 60px; }
+  .voltar { display: inline-block; margin-bottom: 16px; color: var(--verde-escura); text-decoration: none; font-size: 14px; font-weight: 500; }
+  .capa { width: 100%; max-height: 320px; object-fit: cover; border-radius: 14px; margin-bottom: 18px; }
+  h1 { font-size: 24px; margin: 0 0 6px; color: var(--verde-escura); }
+  .data { font-size: 13px; color: var(--texto-claro); margin-bottom: 18px; }
+  .texto-post { font-size: 15px; line-height: 1.7; white-space: pre-wrap; }
+  .botao-link {
+    display: inline-block; margin-top: 20px; padding: 13px 22px;
+    background: var(--verde); color: white; border-radius: 10px;
+    text-decoration: none; font-weight: 600; font-size: 15px;
+  }
+  .botao-link:hover { background: var(--verde-escura); }
+  .secao-comentarios { margin-top: 40px; }
+  .secao-comentarios h2 { font-size: 18px; margin-bottom: 14px; }
+  .comentario-form {
+    background: white; border-radius: 12px; padding: 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 22px;
+  }
+  .comentario-form label { display: block; font-size: 13px; font-weight: 600; margin-top: 10px; margin-bottom: 4px; }
+  .comentario-form input, .comentario-form textarea {
+    width: 100%; padding: 10px; border: 1px solid var(--borda); border-radius: 8px;
+    font-size: 14px; font-family: inherit;
+  }
+  .comentario-form textarea { min-height: 90px; resize: vertical; }
+  .comentario-form small { display: block; margin-top: 4px; color: var(--texto-claro); font-size: 12px; }
+  .comentario-form button {
+    margin-top: 14px; padding: 11px 18px; background: var(--verde); color: white;
+    border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .comentario-form button:disabled { opacity: 0.6; }
+  .msg-form { margin-top: 10px; padding: 9px; border-radius: 6px; font-size: 13px; }
+  .msg-form.erro { background: #fde2e2; color: var(--erro); }
+  .msg-form.ok { background: #e2fde2; color: var(--verde-escura); }
+  .comentario-item {
+    background: white; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  }
+  .comentario-item .nome { font-weight: 600; font-size: 14px; }
+  .comentario-item .data-c { font-size: 12px; color: var(--texto-claro); margin-left: 6px; font-weight: 400; }
+  .comentario-item .texto { font-size: 14px; margin-top: 4px; line-height: 1.5; }
+  .resposta-admin {
+    margin-top: 10px; padding: 10px 12px; background: var(--fundo-suave);
+    border-left: 3px solid var(--verde); border-radius: 6px; font-size: 13px;
+  }
+  .resposta-admin strong { color: var(--verde-escura); }
+  .sem-comentarios { color: var(--texto-claro); font-size: 14px; }
+  .carregando, .erro-pagina { text-align: center; padding: 60px 20px; color: var(--texto-claro); }
+</style>
+</head>
+<body>
+  <div class="conteudo">
+    <a class="voltar" href="/blog">&larr; Voltar para o blog</a>
+    <div id="conteudoPost" class="carregando">Carregando...</div>
+  </div>
+
+<script src="../js/config.js"></script>
+<script>
+let POST_ATUAL = null;
+
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto || '';
+  return div.innerHTML;
+}
+
+function formatarData(iso) {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+async function carregarPost() {
+  const div = document.getElementById('conteudoPost');
+  const slugPost = SLUG_ESTABELECIMENTO; // reaproveita o "?slug=" que o 404.html ja preenche
+
+  if (!slugPost) {
+    div.innerHTML = '<div class="erro-pagina">Post não encontrado.</div>';
+    return;
+  }
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/posts/' + encodeURIComponent(slugPost));
+    const post = await resposta.json();
+    if (!resposta.ok) {
+      div.innerHTML = '<div class="erro-pagina">' + (post.erro || 'Post não encontrado.') + '</div>';
+      return;
+    }
+    POST_ATUAL = post;
+    document.title = post.titulo + ' - Blog Palatos';
+
+    div.innerHTML = `
+      ${post.imagem_capa_url ? `<img class="capa" src="${post.imagem_capa_url}" alt="">` : ''}
+      <h1>${escaparHtml(post.titulo)}</h1>
+      <div class="data">${formatarData(post.criado_em)}</div>
+      <div class="texto-post">${escaparHtml(post.conteudo)}</div>
+      ${post.link_url ? `<a class="botao-link" href="${escaparHtml(post.link_url)}">${escaparHtml(post.link_texto || 'Saiba mais')}</a>` : ''}
+
+      <div class="secao-comentarios">
+        <h2>Comentários</h2>
+        <div class="comentario-form">
+          <div id="msgComentario"></div>
+          <label>Nome</label>
+          <input type="text" id="campoNome" placeholder="Seu nome">
+          <label>E-mail</label>
+          <input type="email" id="campoEmail" placeholder="seu@email.com">
+          <small>Seu e-mail não aparece publicamente.</small>
+          <label>Comentário</label>
+          <textarea id="campoComentario" placeholder="O que você achou?"></textarea>
+          <button onclick="enviarComentario()" id="btnEnviarComentario">Comentar</button>
+        </div>
+        <div id="listaComentarios">
+          ${renderizarComentarios(post.comentarios)}
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    div.innerHTML = '<div class="erro-pagina">Não foi possível conectar. Verifique sua internet.</div>';
+  }
+}
+
+function renderizarComentarios(comentarios) {
+  if (!comentarios || comentarios.length === 0) {
+    return '<p class="sem-comentarios">Seja o primeiro a comentar.</p>';
+  }
+  return comentarios.map(c => `
+    <div class="comentario-item">
+      <span class="nome">${escaparHtml(c.nome)}</span><span class="data-c">${formatarData(c.criado_em)}</span>
+      <div class="texto">${escaparHtml(c.comentario)}</div>
+      ${c.resposta_admin ? `<div class="resposta-admin"><strong>Resposta do Palatos:</strong> ${escaparHtml(c.resposta_admin)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+async function enviarComentario() {
+  const nome = document.getElementById('campoNome').value.trim();
+  const email = document.getElementById('campoEmail').value.trim();
+  const comentario = document.getElementById('campoComentario').value.trim();
+  const msgDiv = document.getElementById('msgComentario');
+  const botao = document.getElementById('btnEnviarComentario');
+  msgDiv.innerHTML = '';
+
+  if (!nome || !email || !comentario) {
+    msgDiv.innerHTML = '<div class="msg-form erro">Preencha nome, e-mail e comentário.</div>';
+    return;
+  }
+
+  botao.disabled = true;
+  botao.textContent = 'Enviando...';
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/posts/' + encodeURIComponent(POST_ATUAL.slug) + '/comentarios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, email, comentario })
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      msgDiv.innerHTML = '<div class="msg-form erro">' + (dados.erro || 'Erro ao publicar o comentário.') + '</div>';
+    } else {
+      POST_ATUAL.comentarios.push(dados);
+      document.getElementById('listaComentarios').innerHTML = renderizarComentarios(POST_ATUAL.comentarios);
+      document.getElementById('campoComentario').value = '';
+      msgDiv.innerHTML = '<div class="msg-form ok">Comentário publicado!</div>';
+    }
+  } catch (e) {
+    msgDiv.innerHTML = '<div class="msg-form erro">Não foi possível conectar. Tente novamente.</div>';
+  }
+
+  botao.disabled = false;
+  botao.textContent = 'Comentar';
+}
+
+carregarPost();
+</script>
+</body>
+</html>
