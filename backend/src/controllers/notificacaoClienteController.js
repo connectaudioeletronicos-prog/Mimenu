@@ -27,44 +27,30 @@ async function notificar(estabelecimentoId, clienteTelefone, tipo, referenciaId,
   }
 }
 
-// Cliente ve suas notificacoes (rota publica, sem login -- so pelo
-// telefone, igual "Meus pedidos"/"Minhas reservas").
-async function listar(req, res) {
-  try {
-    const { slug, telefone } = req.params;
-    const estRes = await query('SELECT id FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
-    if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
-
-    const telefoneLimpo = (telefone || '').replace(/\D/g, '');
-    const resultado = await query(
-      `SELECT * FROM notificacoes_cliente
-       WHERE estabelecimento_id = $1
-         AND regexp_replace(cliente_telefone, '\\D', '', 'g') LIKE $2
-       ORDER BY criado_em DESC LIMIT 50`,
-      [estRes.rows[0].id, `%${telefoneLimpo}%`]
-    );
-    res.json(resultado.rows);
-  } catch (error) {
-    console.error('Erro ao listar notificacoes do cliente:', error);
-    res.status(500).json({ erro: 'Erro ao listar notificacoes.' });
-  }
-}
-
 // Badge de "nao lidas" -- chamado com frequencia (toda vez que o cardapio
-// carrega), entao e' uma consulta enxuta, so a contagem.
+// carrega), entao e' uma consulta enxuta, so a contagem. Aceita "tipo"
+// opcional (?tipo=reserva ou ?tipo=pedido) pra contar so daquele tipo --
+// o numero fica direto no botao correspondente (Reserva / Meus pedidos /
+// Minhas reservas), sem precisar de um botao dedicado de notificacoes.
 async function contarNaoLidas(req, res) {
   try {
     const { slug, telefone } = req.params;
+    const { tipo } = req.query;
     const estRes = await query('SELECT id FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
     if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
 
     const telefoneLimpo = (telefone || '').replace(/\D/g, '');
+    const params = [estRes.rows[0].id, `%${telefoneLimpo}%`];
+    let filtroTipo = '';
+    if (tipo) { params.push(tipo); filtroTipo = 'AND tipo = $3'; }
+
     const resultado = await query(
       `SELECT COUNT(*)::int AS nao_lidas FROM notificacoes_cliente
        WHERE estabelecimento_id = $1
          AND regexp_replace(cliente_telefone, '\\D', '', 'g') LIKE $2
-         AND lida = false`,
-      [estRes.rows[0].id, `%${telefoneLimpo}%`]
+         AND lida = false
+         ${filtroTipo}`,
+      params
     );
     res.json({ nao_lidas: resultado.rows[0].nao_lidas });
   } catch (error) {
@@ -73,21 +59,29 @@ async function contarNaoLidas(req, res) {
   }
 }
 
-// Marca todas como lidas de uma vez -- chamado quando o cliente abre a
-// pagina "Notificacoes".
+// Marca como lidas -- tambem aceita "tipo" opcional, pra so limpar o
+// badge da secao que a pessoa realmente acabou de abrir (ex: abrir
+// "Minhas reservas" so marca as notificacoes de reserva, sem mexer nas
+// de pedido).
 async function marcarTodasLidas(req, res) {
   try {
     const { slug, telefone } = req.params;
+    const { tipo } = req.body || {};
     const estRes = await query('SELECT id FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
     if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
 
     const telefoneLimpo = (telefone || '').replace(/\D/g, '');
+    const params = [estRes.rows[0].id, `%${telefoneLimpo}%`];
+    let filtroTipo = '';
+    if (tipo) { params.push(tipo); filtroTipo = 'AND tipo = $3'; }
+
     await query(
       `UPDATE notificacoes_cliente SET lida = true
        WHERE estabelecimento_id = $1
          AND regexp_replace(cliente_telefone, '\\D', '', 'g') LIKE $2
-         AND lida = false`,
-      [estRes.rows[0].id, `%${telefoneLimpo}%`]
+         AND lida = false
+         ${filtroTipo}`,
+      params
     );
     res.json({ mensagem: 'Notificacoes marcadas como lidas.' });
   } catch (error) {
@@ -96,4 +90,4 @@ async function marcarTodasLidas(req, res) {
   }
 }
 
-module.exports = { notificar, listar, contarNaoLidas, marcarTodasLidas };
+module.exports = { notificar, contarNaoLidas, marcarTodasLidas };
