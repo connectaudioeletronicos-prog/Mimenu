@@ -110,16 +110,17 @@ body.conta-pagina {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 4px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
   background: #e63946;
   color: #fff;
   border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: 0.74rem;
+  font-weight: 800;
   line-height: 1;
 }
+.badge-notificacao.oculto { display: none; }
 
 .conta-conteudo { position: relative; z-index: 2; }
 
