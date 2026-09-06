@@ -507,34 +507,50 @@ function fecharModais() {
   document.querySelectorAll('.modal').forEach(m => m.classList.add('oculto'));
 }
 
-// Atualiza o numerozinho vermelho de notificacoes nao lidas no botao
-// "Minha conta". So funciona pra quem ja esta logado numa conta (a
-// mesma conta global usada em minha-conta.html/meus-pedidos.html), pois
-// e' o telefone dela que identifica as notificacoes -- convidado (sem
-// login) simplesmente nao ve o badge, sem erro nenhum na tela.
+// Atualiza o numerozinho vermelho de notificacoes nao lidas nos botoes
+// "☰ Reserva" (avisos de reserva confirmada/recusada) e "Minha conta"
+// (avisos de pedido, ja que nao ha um botao dedicado de pedidos nesta
+// tela -- o acesso a "Meus pedidos" e' via "Minha conta"). So funciona
+// pra quem ja esta logado numa conta (a mesma conta global usada em
+// minha-conta.html/meus-pedidos.html), pois e' o telefone dela que
+// identifica as notificacoes -- convidado (sem login) simplesmente nao
+// ve os badges, sem erro nenhum na tela.
 async function atualizarBadgeNotificacoes() {
-  const badge = document.getElementById('badge-notificacoes-nao-lidas');
-  if (!badge || !SLUG_ESTABELECIMENTO) return;
-
+  if (!SLUG_ESTABELECIMENTO) return;
   const token = sessionStorage.getItem('palatos_token_cliente');
-  if (!token) { badge.classList.add('oculto'); return; }
 
+  const badgePedido = document.getElementById('badge-notificacoes-nao-lidas');
+  const badgeReserva = document.getElementById('badge-reserva-nao-lidas');
+  if (!token) {
+    if (badgePedido) badgePedido.classList.add('oculto');
+    if (badgeReserva) badgeReserva.classList.add('oculto');
+    return;
+  }
+
+  let telefone = null;
   try {
     const resposta = await fetch(`${API_BASE_URL}/clientes/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!resposta.ok) { badge.classList.add('oculto'); return; }
-    const conta = await resposta.json();
-    if (!conta.telefone) { badge.classList.add('oculto'); return; }
+    if (resposta.ok) telefone = (await resposta.json()).telefone;
+  } catch (erro) { /* trata como sem telefone abaixo */ }
 
-    const { nao_lidas } = await contarNotificacoesNaoLidas(SLUG_ESTABELECIMENTO, conta.telefone);
-    if (nao_lidas > 0) {
-      badge.textContent = nao_lidas > 99 ? '99+' : String(nao_lidas);
-      badge.classList.remove('oculto');
-    } else {
+  const aplicar = async (badge, tipo) => {
+    if (!badge) return;
+    if (!telefone) { badge.classList.add('oculto'); return; }
+    try {
+      const { nao_lidas } = await contarNotificacoesNaoLidas(SLUG_ESTABELECIMENTO, telefone, tipo);
+      if (nao_lidas > 0) {
+        badge.textContent = nao_lidas > 99 ? '99+' : String(nao_lidas);
+        badge.classList.remove('oculto');
+      } else {
+        badge.classList.add('oculto');
+      }
+    } catch (erro) {
       badge.classList.add('oculto');
     }
-  } catch (erro) {
-    badge.classList.add('oculto');
-  }
+  };
+
+  await aplicar(badgePedido, 'pedido');
+  await aplicar(badgeReserva, 'reserva');
 }
 
 function configurarEventosGlobais() {
@@ -1105,34 +1121,51 @@ function configurarReserva() {
     window.location.href = `cliente-login.html?${parametros.toString()}`;
   }
 
-  botaoAbrir.addEventListener('click', async () => {
-    const logado = await garantirClienteLogado();
-    if (!logado) { irParaLoginComReserva(); return; }
+  // Guarda "estou com a reserva aberta" no sessionStorage -- assim, se a
+  // pagina for recarregada enquanto o modal esta aberto, ela reabre
+  // sozinha (regra geral: reload preserva a tela em que a pessoa estava).
+  // So e' apagado quando a pessoa realmente fecha o modal (clique no X).
+  function marcarReservaAberta() { sessionStorage.setItem('palatos_reserva_aberta', '1'); }
+  function marcarReservaFechada() { sessionStorage.removeItem('palatos_reserva_aberta'); }
+
+  function abrirModalReserva() {
     erroEl.classList.add('oculto');
     document.getElementById('reserva-confirmada').classList.add('oculto');
     form.classList.remove('oculto');
     modal.classList.remove('oculto');
+    marcarReservaAberta();
+  }
+
+  botaoAbrir.addEventListener('click', async () => {
+    const logado = await garantirClienteLogado();
+    if (!logado) { irParaLoginComReserva(); return; }
+    abrirModalReserva();
   });
-  botaoFechar.addEventListener('click', () => modal.classList.add('oculto'));
+  botaoFechar.addEventListener('click', () => {
+    modal.classList.add('oculto');
+    marcarReservaFechada();
+  });
 
   // Veio do login apos clicar em "Reserva" sem estar logado: abre o modal
-  // direto assim que confirmar que a sessao esta valida.
-  // BUGFIX: o parametro "abrirReserva=1" ficava preso na URL pra sempre
-  // depois de usado -- por isso RECARREGAR a pagina reabria a reserva de
-  // novo sozinho, mesmo o cliente ja tendo saido dali e voltado pro
-  // cardapio. Reload nunca deve mudar de tela sozinho; so troca de tela
-  // quando o cliente realmente clica em algo. Por isso removemos o
-  // parametro da URL assim que ele e' consumido, uma unica vez.
+  // direto assim que confirmar que a sessao esta valida. O parametro na
+  // URL e' de uso unico (removido logo depois de lido), mas a partir daqui
+  // quem controla se o modal deve reabrir num reload e' o sessionStorage
+  // acima -- assim reload MANTEM a tela de reserva aberta enquanto a
+  // pessoa nao fechar o modal, e nao muda de tela sozinho em nenhum caso.
   const parametros = new URLSearchParams(window.location.search);
-  if (parametros.get('abrirReserva') === '1') {
+  const veioDoLogin = parametros.get('abrirReserva') === '1';
+  if (veioDoLogin) {
     const urlLimpa = new URL(window.location.href);
     urlLimpa.searchParams.delete('abrirReserva');
     window.history.replaceState({}, '', urlLimpa);
+  }
 
+  if (veioDoLogin || sessionStorage.getItem('palatos_reserva_aberta') === '1') {
     garantirClienteLogado().then((logado) => {
-      if (!logado) return;
+      if (!logado) { marcarReservaFechada(); return; }
       erroEl.classList.add('oculto');
       modal.classList.remove('oculto');
+      marcarReservaAberta();
     });
   }
 
