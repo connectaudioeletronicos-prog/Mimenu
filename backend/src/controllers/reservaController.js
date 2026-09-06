@@ -24,18 +24,17 @@ const { notificar } = require('./notificacaoClienteController');
 const STATUS_VALIDOS = ['pendente', 'confirmada', 'cancelada'];
 
 // Vira' 'concluida' (se teve check-in) ou 'nao_concluida' (se nao teve)
-// qualquer reserva "pendente"/"confirmada" cuja data+hora ja passou.
+// qualquer reserva "pendente"/"confirmada" cuja data+hora ja passou, com
+// 5 minutos de tolerancia (reserva pra 18:00 so' vira "nao compareceu"
+// as 18:05 -- antes disso ainda da pra fazer check-in ou cancelar).
 // Chamada no INICIO de toda consulta que lista reservas (painel do
 // admin e "Minhas reservas" do cliente), pra manter o status sempre
 // correto sem precisar de um job agendado rodando separado.
 //
-// BUGFIX: o servidor roda em UTC, mas a data/hora da reserva e' sempre
-// horario de Brasilia (sem fuso salvo no banco). Comparar direto com
-// NOW() (UTC) fazia qualquer reserva pra daqui a menos de 3h ser
-// marcada como "nao compareceu" na hora -- ANTES do horario marcado
-// (Brasilia esta 3h atras de UTC). "NOW() AT TIME ZONE
+// O servidor roda em UTC, mas a data/hora da reserva e' sempre horario
+// de Brasilia (sem fuso salvo no banco). "NOW() AT TIME ZONE
 // 'America/Sao_Paulo'" converte o instante atual pro horario de parede
-// de Brasilia, comparando corretamente com o horario da reserva.
+// de Brasilia, pra comparar corretamente com o horario da reserva.
 async function sweepReservasExpiradas(estabelecimentoId) {
   await query(
     `UPDATE reservas
@@ -43,7 +42,7 @@ async function sweepReservasExpiradas(estabelecimentoId) {
            atualizado_em = NOW()
      WHERE estabelecimento_id = $1
        AND status IN ('pendente', 'confirmada')
-       AND (data_reserva + horario_reserva::time) < (NOW() AT TIME ZONE 'America/Sao_Paulo')`,
+       AND (data_reserva + horario_reserva::time + INTERVAL '5 minutes') < (NOW() AT TIME ZONE 'America/Sao_Paulo')`,
     [estabelecimentoId]
   );
 }
@@ -117,7 +116,7 @@ async function atualizarStatus(req, res) {
 
     if (status === 'cancelada') {
       const atual = await query(
-        `SELECT status, (data_reserva + horario_reserva::time) < (NOW() AT TIME ZONE 'America/Sao_Paulo') AS ja_passou
+        `SELECT status, (data_reserva + horario_reserva::time + INTERVAL '5 minutes') < (NOW() AT TIME ZONE 'America/Sao_Paulo') AS ja_passou
          FROM reservas WHERE id = $1 AND estabelecimento_id = $2`,
         [id, req.estabelecimentoId]
       );
@@ -218,7 +217,7 @@ async function cancelarPropria(req, res) {
     await sweepReservasExpiradas(estRes.rows[0].id);
 
     const reservaRes = await query(
-      `SELECT *, (data_reserva + horario_reserva::time) < (NOW() AT TIME ZONE 'America/Sao_Paulo') AS ja_passou
+      `SELECT *, (data_reserva + horario_reserva::time + INTERVAL '5 minutes') < (NOW() AT TIME ZONE 'America/Sao_Paulo') AS ja_passou
        FROM reservas WHERE id = $1 AND estabelecimento_id = $2`,
       [id, estRes.rows[0].id]
     );
