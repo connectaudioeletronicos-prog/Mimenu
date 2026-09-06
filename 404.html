@@ -18,6 +18,23 @@
   }
 
   var slug = partes[0];
+
+  // "/blog" e "/blog/algum-post" nao sao lojas -- sao o blog publico do
+  // super admin. Trata antes de cair na logica de slug de loja abaixo.
+  if (slug === 'blog') {
+    var slugPost = partes[1];
+    var paramsBlog = new URLSearchParams(window.location.search);
+    var destinoBlog;
+    if (slugPost) {
+      paramsBlog.set('slug', slugPost);
+      destinoBlog = '/frontend/blog/post.html?' + paramsBlog.toString();
+    } else {
+      destinoBlog = '/frontend/blog/index.html' + (paramsBlog.toString() ? '?' + paramsBlog.toString() : '');
+    }
+    window.location.replace(destinoBlog);
+    return;
+  }
+
   var ehAdmin = partes[1] === 'admin';
 
   var paramsFinal = new URLSearchParams(window.location.search);
