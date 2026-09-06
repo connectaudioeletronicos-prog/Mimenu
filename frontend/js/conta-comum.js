@@ -77,7 +77,7 @@ function configurarNavegacaoConta(paginaAtual) {
       return;
     }
     botao.classList.remove('ativo');
-    const paginas = { dados: 'minha-conta.html', pedidos: 'meus-pedidos.html', reservas: 'minhas-reservas.html', notificacoes: 'notificacoes.html' };
+    const paginas = { dados: 'minha-conta.html', pedidos: 'meus-pedidos.html', reservas: 'minhas-reservas.html' };
     botao.addEventListener('click', () => {
       window.location.href = linkComSlug(paginas[destino]);
     });
@@ -99,22 +99,43 @@ function preencherSaudacaoConta(conta) {
   if (elemento) elemento.textContent = conta.nome || 'usuário';
 }
 
-// Numerozinho vermelho de notificacoes nao lidas na aba "Notificacoes"
-// do menu -- chamado nas 4 paginas da conta (nao so' na propria pagina
-// de notificacoes), pra o cliente ver que tem algo novo mesmo enquanto
-// esta em "Meus dados"/"Meus pedidos"/"Minhas reservas".
-async function atualizarBadgeAbaNotificacoes() {
-  const badge = document.getElementById('badge-aba-notificacoes');
-  if (!badge || !SLUG_ESTABELECIMENTO || !CONTA_ATUAL || !CONTA_ATUAL.telefone) return;
-  try {
-    const { nao_lidas } = await contarNotificacoesNaoLidas(SLUG_ESTABELECIMENTO, CONTA_ATUAL.telefone);
-    if (nao_lidas > 0) {
-      badge.textContent = nao_lidas > 99 ? '99+' : String(nao_lidas);
-      badge.classList.remove('oculto');
-    } else {
+// Numerozinho vermelho de notificacoes nao lidas DIRETO nos botoes "Meus
+// pedidos" e "Minhas reservas" (nada de botao dedicado de notificacao --
+// cada aviso pertence ao botao da secao correspondente). Chamado nas 3
+// paginas da conta. Se a pessoa estiver justamente na pagina de
+// pedidos/reservas, marca as notificacoes daquele tipo como lidas
+// primeiro (ela acabou de ver a informacao ali mesmo, na propria lista).
+async function atualizarBadgesNavegacaoConta(paginaAtual) {
+  if (!SLUG_ESTABELECIMENTO || !CONTA_ATUAL || !CONTA_ATUAL.telefone) return;
+
+  if (paginaAtual === 'pedidos') {
+    await marcarNotificacoesComoLidas(SLUG_ESTABELECIMENTO, CONTA_ATUAL.telefone, 'pedido').catch(() => {});
+  } else if (paginaAtual === 'reservas') {
+    await marcarNotificacoesComoLidas(SLUG_ESTABELECIMENTO, CONTA_ATUAL.telefone, 'reserva').catch(() => {});
+  }
+
+  const aplicarBadge = async (seletorBotao, tipo) => {
+    const botao = document.querySelector(seletorBotao);
+    if (!botao) return;
+    let badge = botao.querySelector('.badge-notificacao');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'badge-notificacao oculto';
+      botao.appendChild(badge);
+    }
+    try {
+      const { nao_lidas } = await contarNotificacoesNaoLidas(SLUG_ESTABELECIMENTO, CONTA_ATUAL.telefone, tipo);
+      if (nao_lidas > 0) {
+        badge.textContent = nao_lidas > 99 ? '99+' : String(nao_lidas);
+        badge.classList.remove('oculto');
+      } else {
+        badge.classList.add('oculto');
+      }
+    } catch (erro) {
       badge.classList.add('oculto');
     }
-  } catch (erro) {
-    badge.classList.add('oculto');
-  }
+  };
+
+  await aplicarBadge('[data-aba-cliente="pedidos"]', 'pedido');
+  await aplicarBadge('[data-aba-cliente="reservas"]', 'reserva');
 }
