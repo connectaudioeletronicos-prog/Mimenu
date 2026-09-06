@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blog - Mimenu</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 16px; color: #222; }
+  .card { background: white; padding: 20px; border-radius: 12px; max-width: 720px; margin: 0 auto 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 0 0 12px; color: #1D3557; }
+  p.sub { color: #666; margin-top: 0; font-size: 14px; }
+  label { display: block; font-weight: bold; margin-top: 12px; margin-bottom: 4px; font-size: 14px; }
+  input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; font-family: inherit; }
+  textarea { resize: vertical; min-height: 100px; }
+  textarea#conteudo { min-height: 220px; }
+  button { margin-top: 16px; padding: 11px 16px; background: #1D3557; color: white; border: none; border-radius: 6px; font-size: 15px; cursor: pointer; }
+  button.secundario { background: #6c757d; }
+  button.perigo { background: #b00020; }
+  button.pequeno { padding: 7px 10px; font-size: 13px; margin-top: 0; }
+  button:disabled { opacity: 0.6; }
+  .msg { margin-top: 12px; padding: 10px; border-radius: 6px; font-size: 14px; }
+  .erro { background: #fde2e2; color: #b00; }
+  .ok { background: #e2fde2; color: #060; }
+  .oculto { display: none; }
+  .topo { display:flex; justify-content: space-between; align-items:center; flex-wrap: wrap; gap: 8px; }
+  .topo button { margin-top: 0; }
+  .voltar { display: inline-block; margin-bottom: 12px; color: #1D3557; text-decoration: none; font-size: 14px; }
+  .checkbox-linha { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .checkbox-linha input { width: auto; }
+  .post-item { padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-top: 10px; }
+  .post-item .titulo { font-weight: bold; font-size: 15px; }
+  .post-item .detalhe { font-size: 12px; color: #777; margin-top: 2px; }
+  .selo { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; margin-left: 6px; }
+  .selo.publicado { background: #e2fde2; color: #060; }
+  .selo.rascunho { background: #fff3cd; color: #856404; }
+  .post-item .acoes { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .comentario-item { padding: 10px; background: #fafafa; border-radius: 8px; margin-top: 8px; }
+  .comentario-item .autor { font-weight: bold; font-size: 13px; }
+  .comentario-item .autor-email { font-weight: normal; color: #777; font-size: 12px; }
+  .comentario-item .texto { font-size: 14px; margin-top: 4px; }
+  .comentario-item .resposta { margin-top: 8px; padding: 8px; background: #eef2f7; border-radius: 6px; font-size: 13px; }
+  .comentario-item .resposta-form { margin-top: 8px; }
+  .comentario-item .resposta-form textarea { min-height: 60px; }
+</style>
+</head>
+<body>
+
+  <div class="card" id="tela-login">
+    <h1>Blog</h1>
+    <p class="sub">Área restrita — só você tem acesso.</p>
+    <label>Chave mestra</label>
+    <input type="password" id="inputChaveMestra" placeholder="Sua CHAVE_CADASTRO_ADMIN">
+    <button onclick="entrar()">Entrar</button>
+    <div id="msgLogin"></div>
+  </div>
+
+  <div id="painel-principal" class="oculto">
+    <div class="card">
+      <a class="voltar" href="painel-superadmin.html">&larr; Painel do administrador</a>
+      <div class="topo">
+        <h1 style="margin:0">Blog</h1>
+        <button class="secundario" onclick="sair()">Sair</button>
+      </div>
+      <p class="sub">Publicações públicas em palatos.com.br/blog. Só você publica e responde comentários.</p>
+    </div>
+
+    <div class="card">
+      <h2 id="tituloFormulario">Novo post</h2>
+      <input type="hidden" id="postIdEmEdicao" value="">
+
+      <label>Título</label>
+      <input type="text" id="campoTitulo" placeholder="ex: Novidades de setembro">
+
+      <label>Resumo (aparece na listagem, opcional)</label>
+      <textarea id="campoResumo" style="min-height:60px" placeholder="Um resumo curto do post..."></textarea>
+
+      <label>Conteúdo</label>
+      <textarea id="conteudo" placeholder="Escreva o post aqui..."></textarea>
+
+      <label>Imagem de capa (opcional)</label>
+      <input type="file" id="campoImagem" accept="image/png,image/jpeg,image/webp">
+      <img id="previewImagemAtual" class="oculto" style="max-width:100%;margin-top:8px;border-radius:8px;">
+
+      <label>Link do botão (opcional — leva pra uma loja, produto ou site externo)</label>
+      <input type="text" id="campoLinkUrl" placeholder="ex: https://palatos.com.br/loja-teste">
+
+      <label>Texto do botão</label>
+      <input type="text" id="campoLinkTexto" placeholder="ex: Ver cardápio da Loja Teste">
+
+      <div class="checkbox-linha">
+        <input type="checkbox" id="campoPublicado" checked>
+        <label style="margin:0">Publicado (desmarque para deixar como rascunho)</label>
+      </div>
+
+      <div class="topo" style="margin-top:16px;">
+        <button onclick="salvarPost()" id="btnSalvarPost">Publicar post</button>
+        <button class="secundario oculto" id="btnCancelarEdicao" onclick="cancelarEdicao()">Cancelar edição</button>
+      </div>
+      <div id="msgFormulario"></div>
+    </div>
+
+    <div class="card">
+      <div class="topo">
+        <h2 style="margin:0">Posts</h2>
+        <button class="secundario pequeno" onclick="carregarPosts()">Atualizar</button>
+      </div>
+      <div id="listaPosts">Carregando...</div>
+    </div>
+  </div>
+
+<script src="../js/config.js"></script>
+<script>
+let CHAVE_MESTRA = '';
+let POSTS = [];
+
+function entrar() {
+  const chave = document.getElementById('inputChaveMestra').value.trim();
+  const msgDiv = document.getElementById('msgLogin');
+  if (!chave) {
+    msgDiv.innerHTML = '<div class="msg erro">Informe a chave mestra.</div>';
+    return;
+  }
+  CHAVE_MESTRA = chave;
+  sessionStorage.setItem('chaveMestraPainel', chave);
+  document.getElementById('tela-login').classList.add('oculto');
+  document.getElementById('painel-principal').classList.remove('oculto');
+  carregarPosts();
+}
+
+function sair() {
+  CHAVE_MESTRA = '';
+  sessionStorage.removeItem('chaveMestraPainel');
+  document.getElementById('tela-login').classList.remove('oculto');
+  document.getElementById('painel-principal').classList.add('oculto');
+  document.getElementById('inputChaveMestra').value = '';
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const salva = sessionStorage.getItem('chaveMestraPainel');
+  if (salva) {
+    document.getElementById('inputChaveMestra').value = salva;
+    entrar();
+  }
+});
+
+function escaparHtmlLocal(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto || '';
+  return div.innerHTML;
+}
+
+function formatarData(iso) {
+  return new Date(iso).toLocaleString('pt-BR');
+}
+
+// ---------------------------------------------------------------
+// Criar / editar post
+// ---------------------------------------------------------------
+
+async function salvarPost() {
+  const id = document.getElementById('postIdEmEdicao').value;
+  const titulo = document.getElementById('campoTitulo').value.trim();
+  const conteudo = document.getElementById('conteudo').value.trim();
+  const msgDiv = document.getElementById('msgFormulario');
+  msgDiv.innerHTML = '';
+
+  if (!titulo || !conteudo) {
+    msgDiv.innerHTML = '<div class="msg erro">Preencha pelo menos o título e o conteúdo.</div>';
+    return;
+  }
+
+  const dadosFormulario = new FormData();
+  dadosFormulario.append('chaveMestra', CHAVE_MESTRA);
+  dadosFormulario.append('titulo', titulo);
+  dadosFormulario.append('resumo', document.getElementById('campoResumo').value.trim());
+  dadosFormulario.append('conteudo', conteudo);
+  dadosFormulario.append('link_url', document.getElementById('campoLinkUrl').value.trim());
+  dadosFormulario.append('link_texto', document.getElementById('campoLinkTexto').value.trim());
+  dadosFormulario.append('publicado', document.getElementById('campoPublicado').checked ? 'true' : 'false');
+
+  const arquivoImagem = document.getElementById('campoImagem').files[0];
+  if (arquivoImagem) dadosFormulario.append('imagem', arquivoImagem);
+
+  const botao = document.getElementById('btnSalvarPost');
+  botao.disabled = true;
+  botao.textContent = 'Salvando...';
+
+  try {
+    const resposta = await fetch(
+      API_BASE_URL + '/painel/blog/posts' + (id ? '/' + id : ''),
+      { method: id ? 'PUT' : 'POST', body: dadosFormulario }
+    );
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      msgDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao salvar o post.') + '</div>';
+    } else {
+      msgDiv.innerHTML = '<div class="msg ok">Post salvo com sucesso.</div>';
+      cancelarEdicao();
+      carregarPosts();
+    }
+  } catch (e) {
+    msgDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+
+  botao.disabled = false;
+  botao.textContent = id ? 'Salvar alterações' : 'Publicar post';
+}
+
+function editarPost(id) {
+  const post = POSTS.find(p => p.id === id);
+  if (!post) return;
+
+  document.getElementById('postIdEmEdicao').value = post.id;
+  document.getElementById('tituloFormulario').textContent = 'Editando: ' + post.titulo;
+  document.getElementById('campoTitulo').value = post.titulo;
+  document.getElementById('campoResumo').value = post.resumo || '';
+  document.getElementById('conteudo').value = post.conteudo || '';
+  document.getElementById('campoLinkUrl').value = post.link_url || '';
+  document.getElementById('campoLinkTexto').value = post.link_texto || '';
+  document.getElementById('campoPublicado').checked = !!post.publicado;
+  document.getElementById('campoImagem').value = '';
+
+  const preview = document.getElementById('previewImagemAtual');
+  if (post.imagem_capa_url) {
+    preview.src = post.imagem_capa_url;
+    preview.classList.remove('oculto');
+  } else {
+    preview.classList.add('oculto');
+  }
+
+  document.getElementById('btnSalvarPost').textContent = 'Salvar alterações';
+  document.getElementById('btnCancelarEdicao').classList.remove('oculto');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelarEdicao() {
+  document.getElementById('postIdEmEdicao').value = '';
+  document.getElementById('tituloFormulario').textContent = 'Novo post';
+  document.getElementById('campoTitulo').value = '';
+  document.getElementById('campoResumo').value = '';
+  document.getElementById('conteudo').value = '';
+  document.getElementById('campoLinkUrl').value = '';
+  document.getElementById('campoLinkTexto').value = '';
+  document.getElementById('campoPublicado').checked = true;
+  document.getElementById('campoImagem').value = '';
+  document.getElementById('previewImagemAtual').classList.add('oculto');
+  document.getElementById('btnSalvarPost').textContent = 'Publicar post';
+  document.getElementById('btnCancelarEdicao').classList.add('oculto');
+}
+
+async function excluirPost(id, titulo) {
+  if (!confirm('Excluir o post "' + titulo + '"? Isso também apaga todos os comentários dele. Não tem como desfazer.')) return;
+  try {
+    const resposta = await fetch(
+      API_BASE_URL + '/painel/blog/posts/' + id + '?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA),
+      { method: 'DELETE' }
+    );
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      alert(dados.erro || 'Erro ao excluir o post.');
+      return;
+    }
+    carregarPosts();
+  } catch (e) {
+    alert('Não foi possível conectar à API.');
+  }
+}
+
+// ---------------------------------------------------------------
+// Listagem de posts
+// ---------------------------------------------------------------
+
+async function carregarPosts() {
+  const listaDiv = document.getElementById('listaPosts');
+  listaDiv.textContent = 'Carregando...';
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/blog/posts?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA));
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      listaDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao carregar posts.') + '</div>';
+      return;
+    }
+    POSTS = dados;
+    if (POSTS.length === 0) {
+      listaDiv.innerHTML = '<p class="sub">Nenhum post ainda.</p>';
+      return;
+    }
+    listaDiv.innerHTML = POSTS.map(p => `
+      <div class="post-item" id="post-${p.id}">
+        <div class="titulo">${escaparHtmlLocal(p.titulo)}
+          <span class="selo ${p.publicado ? 'publicado' : 'rascunho'}">${p.publicado ? 'Publicado' : 'Rascunho'}</span>
+        </div>
+        <div class="detalhe">${formatarData(p.criado_em)} · ${p.total_comentarios} comentário(s)</div>
+        <div class="acoes">
+          <button class="pequeno" onclick="buscarPostCompletoParaEditar('${p.id}')">Editar</button>
+          <button class="pequeno secundario" onclick="alternarComentarios('${p.id}')" id="btnComentarios-${p.id}">Ver comentários</button>
+          <button class="pequeno perigo" onclick="excluirPost('${p.id}', '${escaparHtmlLocal(p.titulo).replace(/'/g, "\\'")}')">Excluir</button>
+        </div>
+        <div id="comentarios-${p.id}" class="oculto"></div>
+      </div>
+    `).join('');
+  } catch (e) {
+    listaDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+}
+
+// A listagem principal nao traz o conteudo completo (pra ficar leve) --
+// busca o post individual antes de abrir pra edicao.
+async function buscarPostCompletoParaEditar(id) {
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/blog/posts?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA));
+    const dados = await resposta.json();
+    const resumoPost = dados.find(p => p.id === id);
+    // Busca os campos completos (conteudo, link etc.) pela rota publica
+    // do proprio slug quando o post estiver publicado; se for rascunho,
+    // usa os dados que ja temos em memoria (POSTS) como fallback.
+    if (resumoPost && resumoPost.publicado) {
+      const respostaPost = await fetch(API_BASE_URL + '/blog/posts/' + resumoPost.slug);
+      const postCompleto = await respostaPost.json();
+      const indice = POSTS.findIndex(p => p.id === id);
+      POSTS[indice] = { ...POSTS[indice], ...postCompleto };
+    }
+    editarPost(id);
+  } catch (e) {
+    alert('Não foi possível carregar os dados completos do post.');
+  }
+}
+
+// ---------------------------------------------------------------
+// Comentários
+// ---------------------------------------------------------------
+
+async function alternarComentarios(postId) {
+  const div = document.getElementById('comentarios-' + postId);
+  const botao = document.getElementById('btnComentarios-' + postId);
+  if (!div.classList.contains('oculto')) {
+    div.classList.add('oculto');
+    botao.textContent = 'Ver comentários';
+    return;
+  }
+  div.classList.remove('oculto');
+  botao.textContent = 'Ocultar comentários';
+  div.innerHTML = 'Carregando...';
+
+  try {
+    const resposta = await fetch(
+      API_BASE_URL + '/painel/blog/posts/' + postId + '/comentarios?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA)
+    );
+    const comentarios = await resposta.json();
+    if (!resposta.ok) {
+      div.innerHTML = '<div class="msg erro">' + (comentarios.erro || 'Erro ao carregar comentários.') + '</div>';
+      return;
+    }
+    if (comentarios.length === 0) {
+      div.innerHTML = '<p class="sub">Nenhum comentário ainda.</p>';
+      return;
+    }
+    div.innerHTML = comentarios.map(c => `
+      <div class="comentario-item" id="comentario-${c.id}">
+        <div class="autor">${escaparHtmlLocal(c.nome)} <span class="autor-email">(${escaparHtmlLocal(c.email)})</span></div>
+        <div class="texto">${escaparHtmlLocal(c.comentario)}</div>
+        ${c.resposta_admin ? `<div class="resposta"><strong>Sua resposta:</strong> ${escaparHtmlLocal(c.resposta_admin)}</div>` : ''}
+        <div class="resposta-form">
+          <textarea id="respostaTexto-${c.id}" placeholder="${c.resposta_admin ? 'Editar resposta...' : 'Responder...'}">${c.resposta_admin ? escaparHtmlLocal(c.resposta_admin) : ''}</textarea>
+          <div class="acoes">
+            <button class="pequeno" onclick="responderComentario('${c.id}')">Responder</button>
+            <button class="pequeno perigo" onclick="excluirComentario('${c.id}', '${postId}')">Excluir comentário</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    div.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+}
+
+async function responderComentario(comentarioId) {
+  const resposta = document.getElementById('respostaTexto-' + comentarioId).value.trim();
+  if (!resposta) {
+    alert('Escreva uma resposta antes de enviar.');
+    return;
+  }
+  try {
+    const respostaApi = await fetch(API_BASE_URL + '/painel/blog/comentarios/' + comentarioId + '/resposta', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chaveMestra: CHAVE_MESTRA, resposta })
+    });
+    const dados = await respostaApi.json();
+    if (!respostaApi.ok) {
+      alert(dados.erro || 'Erro ao responder o comentário.');
+      return;
+    }
+    alert('Resposta enviada.');
+  } catch (e) {
+    alert('Não foi possível conectar à API.');
+  }
+}
+
+async function excluirComentario(comentarioId, postId) {
+  if (!confirm('Excluir este comentário? Não tem como desfazer.')) return;
+  try {
+    const resposta = await fetch(
+      API_BASE_URL + '/painel/blog/comentarios/' + comentarioId + '?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA),
+      { method: 'DELETE' }
+    );
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      alert(dados.erro || 'Erro ao excluir o comentário.');
+      return;
+    }
+    document.getElementById('comentario-' + comentarioId).remove();
+  } catch (e) {
+    alert('Não foi possível conectar à API.');
+  }
+}
+</script>
+</body>
+</html>
