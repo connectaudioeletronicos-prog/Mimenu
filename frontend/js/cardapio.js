@@ -1117,8 +1117,18 @@ function configurarReserva() {
 
   // Veio do login apos clicar em "Reserva" sem estar logado: abre o modal
   // direto assim que confirmar que a sessao esta valida.
+  // BUGFIX: o parametro "abrirReserva=1" ficava preso na URL pra sempre
+  // depois de usado -- por isso RECARREGAR a pagina reabria a reserva de
+  // novo sozinho, mesmo o cliente ja tendo saido dali e voltado pro
+  // cardapio. Reload nunca deve mudar de tela sozinho; so troca de tela
+  // quando o cliente realmente clica em algo. Por isso removemos o
+  // parametro da URL assim que ele e' consumido, uma unica vez.
   const parametros = new URLSearchParams(window.location.search);
   if (parametros.get('abrirReserva') === '1') {
+    const urlLimpa = new URL(window.location.href);
+    urlLimpa.searchParams.delete('abrirReserva');
+    window.history.replaceState({}, '', urlLimpa);
+
     garantirClienteLogado().then((logado) => {
       if (!logado) return;
       erroEl.classList.add('oculto');
