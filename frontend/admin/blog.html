@@ -78,6 +78,12 @@
 
       <label>Conteúdo</label>
       <textarea id="conteudo" placeholder="Escreva o post aqui..."></textarea>
+      <div class="topo" style="margin-top:8px;">
+        <input type="file" id="campoImagemInline" accept="image/png,image/jpeg,image/webp" style="display:none">
+        <button type="button" class="secundario pequeno" onclick="document.getElementById('campoImagemInline').click()">🖼️ Inserir imagem no texto</button>
+        <span id="msgImagemInline" style="font-size:13px;"></span>
+      </div>
+      <p class="sub" style="margin-top:6px;">A imagem é inserida na posição do cursor dentro do texto acima — coloque o cursor onde quiser (no meio, no final, etc.) antes de clicar.</p>
 
       <label>Imagem de capa (opcional)</label>
       <input type="file" id="campoImagem" accept="image/png,image/jpeg,image/webp">
@@ -111,6 +117,21 @@
       </div>
       <div id="listaPosts">Carregando...</div>
     </div>
+
+    <div class="card">
+      <h2>Redes sociais</h2>
+      <p class="sub">Aparecem no rodapé do blog público — só o que estiver preenchido aqui é exibido.</p>
+      <label>Facebook (link completo)</label>
+      <input type="text" id="configFacebook" placeholder="https://facebook.com/seuusuario">
+      <label>Instagram (link completo)</label>
+      <input type="text" id="configInstagram" placeholder="https://instagram.com/seuusuario">
+      <label>YouTube (link completo)</label>
+      <input type="text" id="configYoutube" placeholder="https://youtube.com/@seucanal">
+      <label>TikTok (link completo)</label>
+      <input type="text" id="configTiktok" placeholder="https://tiktok.com/@seuusuario">
+      <button onclick="salvarConfiguracoes()">Salvar redes sociais</button>
+      <div id="msgConfiguracoes"></div>
+    </div>
   </div>
 
 <script src="../js/config.js"></script>
@@ -130,6 +151,7 @@ function entrar() {
   document.getElementById('tela-login').classList.add('oculto');
   document.getElementById('painel-principal').classList.remove('oculto');
   carregarPosts();
+  carregarConfiguracoes();
 }
 
 function sair() {
@@ -147,6 +169,87 @@ window.addEventListener('DOMContentLoaded', () => {
     entrar();
   }
 });
+
+// ---------------------------------------------------------------
+// Inserir imagem no meio do texto (upload avulso + markdown na
+// posicao do cursor da textarea de conteudo)
+// ---------------------------------------------------------------
+
+document.getElementById('campoImagemInline').addEventListener('change', async (evento) => {
+  const arquivo = evento.target.files[0];
+  if (!arquivo) return;
+
+  const msg = document.getElementById('msgImagemInline');
+  msg.textContent = 'Enviando imagem...';
+
+  const dadosFormulario = new FormData();
+  dadosFormulario.append('chaveMestra', CHAVE_MESTRA);
+  dadosFormulario.append('imagem', arquivo);
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/blog/imagens', { method: 'POST', body: dadosFormulario });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      msg.textContent = dados.erro || 'Erro ao enviar imagem.';
+      return;
+    }
+
+    const area = document.getElementById('conteudo');
+    const posicao = area.selectionStart ?? area.value.length;
+    const trecho = `\n\n![](${dados.url})\n\n`;
+    area.value = area.value.slice(0, posicao) + trecho + area.value.slice(posicao);
+    area.focus();
+    area.selectionStart = area.selectionEnd = posicao + trecho.length;
+    msg.textContent = 'Imagem inserida no texto.';
+  } catch (e) {
+    msg.textContent = 'Não foi possível conectar à API.';
+  }
+
+  evento.target.value = '';
+});
+
+// ---------------------------------------------------------------
+// Configuracoes (redes sociais)
+// ---------------------------------------------------------------
+
+async function carregarConfiguracoes() {
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/configuracoes');
+    const dados = await resposta.json();
+    document.getElementById('configFacebook').value = dados.facebook || '';
+    document.getElementById('configInstagram').value = dados.instagram || '';
+    document.getElementById('configYoutube').value = dados.youtube || '';
+    document.getElementById('configTiktok').value = dados.tiktok || '';
+  } catch (e) {
+    // silencioso -- os campos so ficam vazios se nao carregar
+  }
+}
+
+async function salvarConfiguracoes() {
+  const msgDiv = document.getElementById('msgConfiguracoes');
+  msgDiv.innerHTML = '';
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/blog/configuracoes', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chaveMestra: CHAVE_MESTRA,
+        facebook: document.getElementById('configFacebook').value.trim(),
+        instagram: document.getElementById('configInstagram').value.trim(),
+        youtube: document.getElementById('configYoutube').value.trim(),
+        tiktok: document.getElementById('configTiktok').value.trim()
+      })
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      msgDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao salvar.') + '</div>';
+    } else {
+      msgDiv.innerHTML = '<div class="msg ok">Redes sociais salvas.</div>';
+    }
+  } catch (e) {
+    msgDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+}
 
 function escaparHtmlLocal(texto) {
   const div = document.createElement('div');
