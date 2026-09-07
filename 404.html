@@ -25,7 +25,10 @@
     var slugPost = partes[1];
     var paramsBlog = new URLSearchParams(window.location.search);
     var destinoBlog;
-    if (slugPost) {
+    if (slugPost === 'sobre-nos' || slugPost === 'contato') {
+      paramsBlog.set('tipo', slugPost);
+      destinoBlog = '/frontend/blog/pagina.html?' + paramsBlog.toString();
+    } else if (slugPost) {
       paramsBlog.set('slug', slugPost);
       destinoBlog = '/frontend/blog/post.html?' + paramsBlog.toString();
     } else {
