@@ -77,6 +77,7 @@
       <div class="menu-abas">
         <button class="aba-botao ativa" data-aba="posts" onclick="mostrarAba('posts')">📰 Posts</button>
         <button class="aba-botao" data-aba="paginas" onclick="mostrarAba('paginas')">📄 Páginas</button>
+        <button class="aba-botao" data-aba="legal" onclick="mostrarAba('legal')">⚖️ Legal</button>
         <button class="aba-botao" data-aba="banner" onclick="mostrarAba('banner')">🖼️ Banner</button>
         <button class="aba-botao" data-aba="cabecalho" onclick="mostrarAba('cabecalho')">🏷️ Cabeçalho</button>
         <button class="aba-botao" data-aba="redes" onclick="mostrarAba('redes')">🔗 Redes sociais</button>
@@ -235,6 +236,48 @@
       <div id="msgContato"></div>
     </div>
     </div>
+
+    <div class="secao-aba oculto" data-secao="legal">
+    <div class="card">
+      <h2>Termos de Serviço</h2>
+      <p class="sub">Aparece em palatos.com.br/termos-servico.html. Este texto é um modelo inicial — revise com um advogado antes de publicar em definitivo.</p>
+      <label>Título</label>
+      <input type="text" id="termosTitulo" placeholder="ex: Termos de Serviço">
+      <label>Imagem (opcional)</label>
+      <input type="file" id="termosArquivoImagem" accept="image/png,image/jpeg,image/webp">
+      <img id="termosPreviewImagem" class="oculto" style="max-width:100%;margin-top:8px;border-radius:8px;">
+      <label>Conteúdo</label>
+      <textarea id="termosConteudo" style="min-height:260px"></textarea>
+      <div class="topo" style="margin-top:8px;">
+        <input type="file" id="termosArquivoInline" accept="image/png,image/jpeg,image/webp" style="display:none">
+        <button type="button" class="secundario pequeno" onclick="document.getElementById('termosArquivoInline').click()">🖼️ Inserir imagem no texto</button>
+        <span id="termosMsgInline" style="font-size:13px;"></span>
+      </div>
+      <p class="sub" style="margin-top:6px;">Use <code>## Título</code> para subtítulos numerados, linhas começando com <code>- </code> para listas, e <code>**texto**</code> para negrito.</p>
+      <button onclick="salvarPagina('termos-servico')">Salvar "Termos de Serviço"</button>
+      <div id="msgTermos"></div>
+    </div>
+
+    <div class="card">
+      <h2>Política de Privacidade</h2>
+      <p class="sub">Aparece em palatos.com.br/politica-privacidade.html. Este texto é um modelo inicial — revise com um advogado antes de publicar em definitivo.</p>
+      <label>Título</label>
+      <input type="text" id="privacidadeTitulo" placeholder="ex: Política de Privacidade">
+      <label>Imagem (opcional)</label>
+      <input type="file" id="privacidadeArquivoImagem" accept="image/png,image/jpeg,image/webp">
+      <img id="privacidadePreviewImagem" class="oculto" style="max-width:100%;margin-top:8px;border-radius:8px;">
+      <label>Conteúdo</label>
+      <textarea id="privacidadeConteudo" style="min-height:260px"></textarea>
+      <div class="topo" style="margin-top:8px;">
+        <input type="file" id="privacidadeArquivoInline" accept="image/png,image/jpeg,image/webp" style="display:none">
+        <button type="button" class="secundario pequeno" onclick="document.getElementById('privacidadeArquivoInline').click()">🖼️ Inserir imagem no texto</button>
+        <span id="privacidadeMsgInline" style="font-size:13px;"></span>
+      </div>
+      <p class="sub" style="margin-top:6px;">Use <code>## Título</code> para subtítulos numerados, linhas começando com <code>- </code> para listas, e <code>**texto**</code> para negrito.</p>
+      <button onclick="salvarPagina('politica-privacidade')">Salvar "Política de Privacidade"</button>
+      <div id="msgPrivacidade"></div>
+    </div>
+    </div>
   </div>
 
 <script src="../js/config.js"></script>
@@ -257,6 +300,8 @@ function entrar() {
   carregarConfiguracoes();
   carregarPagina('sobre-nos');
   carregarPagina('contato');
+  carregarPagina('termos-servico');
+  carregarPagina('politica-privacidade');
 }
 
 function sair() {
@@ -430,8 +475,9 @@ async function salvarConfiguracoes() {
 // Paginas fixas (Sobre nos / Contato)
 // ---------------------------------------------------------------
 
-const IMAGEM_URL_PAGINA = { 'sobre-nos': '', 'contato': '' };
-const PREFIXO_CAMPO = { 'sobre-nos': 'sobre', 'contato': 'contato' };
+const IMAGEM_URL_PAGINA = { 'sobre-nos': '', 'contato': '', 'termos-servico': '', 'politica-privacidade': '' };
+const PREFIXO_CAMPO = { 'sobre-nos': 'sobre', 'contato': 'contato', 'termos-servico': 'termos', 'politica-privacidade': 'privacidade' };
+const ROTULO_MSG = { 'sobre-nos': 'Sobre', 'contato': 'Contato', 'termos-servico': 'Termos', 'politica-privacidade': 'Privacidade' };
 
 async function carregarPagina(tipo) {
   const prefixo = PREFIXO_CAMPO[tipo];
@@ -452,7 +498,7 @@ async function carregarPagina(tipo) {
   }
 }
 
-['sobre-nos', 'contato'].forEach((tipo) => {
+['sobre-nos', 'contato', 'termos-servico', 'politica-privacidade'].forEach((tipo) => {
   const prefixo = PREFIXO_CAMPO[tipo];
 
   document.getElementById(prefixo + 'ArquivoImagem').addEventListener('change', async (evento) => {
@@ -491,7 +537,7 @@ async function carregarPagina(tipo) {
 
 async function salvarPagina(tipo) {
   const prefixo = PREFIXO_CAMPO[tipo];
-  const rotulo = tipo === 'sobre-nos' ? 'Sobre' : 'Contato';
+  const rotulo = ROTULO_MSG[tipo];
   const msgDiv = document.getElementById('msg' + rotulo);
   msgDiv.innerHTML = '';
 
