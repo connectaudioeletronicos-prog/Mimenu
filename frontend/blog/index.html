@@ -43,6 +43,10 @@
   @media (max-width: 520px) { .topo .tagline { display: none; } }
 
   .pagina { max-width: 720px; margin: 0 auto; padding: 28px 20px 40px; text-align: left; }
+  @media (min-width: 900px) {
+    .pagina { max-width: 900px; padding: 40px 20px 50px; }
+    .texto-preview { font-size: 17px; }
+  }
 
   .post-preview { margin-bottom: 36px; padding-bottom: 30px; border-bottom: 1px solid var(--borda); }
   .post-preview:last-child { border-bottom: none; }
@@ -103,7 +107,7 @@ function formatarData(iso) {
 function primeirosParagrafos(conteudo, quantidade) {
   const blocos = (conteudo || '').split(/\n\s*\n/)
     .map(b => b.trim())
-    .filter(b => b && !b.startsWith('## '));
+    .filter(b => b && !b.startsWith('## ') && !b.startsWith('!['));
   return blocos.slice(0, quantidade).map(b => `<p>${escaparHtml(b).replace(/\n/g, '<br>')}</p>`).join('');
 }
 
