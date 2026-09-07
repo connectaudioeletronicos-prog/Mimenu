@@ -47,6 +47,10 @@
   @media (max-width: 520px) { .cabecalho .tagline { display: none; } }
 
   .pagina { max-width: 720px; margin: 0 auto; padding: 28px 20px 40px; text-align: left; }
+  @media (min-width: 900px) {
+    .pagina { max-width: 900px; padding: 40px 20px 50px; }
+    .texto-post { font-size: 17px; }
+  }
 
   .voltar-topo { display: none; }
 
@@ -60,6 +64,7 @@
   .texto-post { font-size: 15.5px; line-height: 1.75; text-align: left; }
   .texto-post p { margin: 0 0 16px; text-align: left; }
   .texto-post h3 { font-size: 19px; color: var(--verde-escura); margin: 26px 0 8px; font-weight: 700; text-align: left; }
+  .texto-post img.imagem-inline { width: 100%; border-radius: 12px; margin: 20px 0; display: block; }
 
   .botao-link {
     display: inline-block; margin-top: 8px; padding: 13px 24px;
@@ -132,6 +137,8 @@
 
   /* ---------- redes sociais (acima do rodape) ---------- */
   .redes-sociais { display: flex; justify-content: center; gap: 14px; margin: 30px auto 0; max-width: 720px; padding: 0 20px; }
+  @media (min-width: 900px) { .redes-sociais { max-width: 900px; } }
+  .redes-sociais.oculto { display: none; }
   .redes-sociais a {
     width: 40px; height: 40px; border-radius: 50%; background: var(--verde-clara);
     display: flex; align-items: center; justify-content: center; color: var(--verde-escura);
@@ -166,17 +173,7 @@
     <div id="conteudoPost" class="carregando">Carregando...</div>
   </div>
 
-  <div class="redes-sociais">
-    <a href="#" title="Facebook" aria-label="Facebook">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12Z"/></svg>
-    </a>
-    <a href="#" title="Instagram" aria-label="Instagram">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>
-    </a>
-    <a href="#" title="YouTube" aria-label="YouTube">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M23 12s0-3.6-.5-5.3c-.3-1-1-1.7-2-2C18.8 4.2 12 4.2 12 4.2s-6.8 0-8.5.5c-1 .3-1.7 1-2 2C1 8.4 1 12 1 12s0 3.6.5 5.3c.3 1 1 1.7 2 2 1.7.5 8.5.5 8.5.5s6.8 0 8.5-.5c1-.3 1.7-1 2-2 .5-1.7.5-5.3.5-5.3ZM10 15.5v-7l6 3.5-6 3.5Z"/></svg>
-    </a>
-  </div>
+  <div class="redes-sociais oculto" id="redesSociais"></div>
 
   <div class="rodape">
     <div>
@@ -206,9 +203,10 @@ function formatarData(iso) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-// Markdown bem simples: linhas "## Titulo" viram subtitulo, linhas em
-// branco separam paragrafos. Cobre o "Dica 1: ...", "Dica 2: ..." sem
-// precisar de um editor rico de verdade.
+// Markdown bem simples: linhas "## Titulo" viram subtitulo, uma linha
+// "![](url)" sozinha vira imagem no meio do texto, linhas em branco
+// separam paragrafos. Cobre o "Dica 1: ...", "Dica 2: ..." e imagens
+// extras sem precisar de um editor rico de verdade.
 function renderizarConteudo(texto) {
   const blocos = (texto || '').split(/\n\s*\n/);
   return blocos.map(bloco => {
@@ -216,9 +214,45 @@ function renderizarConteudo(texto) {
     if (linha.startsWith('## ')) {
       return `<h3>${escaparHtml(linha.slice(3).trim())}</h3>`;
     }
+    const imagem = linha.match(/^!\[([^\]]*)\]\((\S+)\)$/);
+    if (imagem) {
+      return `<img class="imagem-inline" src="${escaparHtml(imagem[2])}" alt="${escaparHtml(imagem[1])}">`;
+    }
     return `<p>${escaparHtml(linha).replace(/\n/g, '<br>')}</p>`;
   }).join('');
 }
+
+function iconeRedeSocial(nome) {
+  const icones = {
+    facebook: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12Z"/></svg>',
+    instagram: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>',
+    youtube: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M23 12s0-3.6-.5-5.3c-.3-1-1-1.7-2-2C18.8 4.2 12 4.2 12 4.2s-6.8 0-8.5.5c-1 .3-1.7 1-2 2C1 8.4 1 12 1 12s0 3.6.5 5.3c.3 1 1 1.7 2 2 1.7.5 8.5.5 8.5.5s6.8 0 8.5-.5c1-.3 1.7-1 2-2 .5-1.7.5-5.3.5-5.3ZM10 15.5v-7l6 3.5-6 3.5Z"/></svg>',
+    tiktok: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 2h-3v13.5a2.5 2.5 0 1 1-2.5-2.5c.17 0 .34.01.5.04V9.9a5.6 5.6 0 0 0-.5-.02A5.6 5.6 0 1 0 16.5 15V8.3a7.7 7.7 0 0 0 4.5 1.4V6.7a4.7 4.7 0 0 1-4.5-4.7Z"/></svg>'
+  };
+  return icones[nome] || '';
+}
+
+// So mostra a fileira de redes sociais se pelo menos uma estiver
+// configurada no painel admin (blog.html > "Redes sociais").
+async function carregarRedesSociais() {
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/configuracoes');
+    const config = await resposta.json();
+    const redes = ['facebook', 'instagram', 'youtube', 'tiktok'].filter(nome => config[nome]);
+    if (redes.length === 0) return;
+
+    const div = document.getElementById('redesSociais');
+    div.innerHTML = redes.map(nome => `
+      <a href="${escaparHtml(config[nome])}" title="${nome}" aria-label="${nome}" target="_blank" rel="noopener">
+        ${iconeRedeSocial(nome)}
+      </a>
+    `).join('');
+    div.classList.remove('oculto');
+  } catch (e) {
+    // sem redes sociais configuradas ou API fora do ar -- so nao mostra a fileira
+  }
+}
+carregarRedesSociais();
 
 async function carregarPost() {
   const div = document.getElementById('conteudoPost');
