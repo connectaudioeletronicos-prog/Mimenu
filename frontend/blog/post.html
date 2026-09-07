@@ -43,8 +43,10 @@
     flex-shrink: 0;
   }
   .cabecalho h1 { font-size: 19px; margin: 0; font-weight: 700; }
-  .cabecalho .tagline { margin-left: auto; font-size: 13px; opacity: 0.85; text-align: right; }
-  @media (max-width: 520px) { .cabecalho .tagline { display: none; } }
+  .cabecalho .nav-topo { margin-left: auto; display: flex; gap: 18px; font-size: 13px; }
+  .cabecalho .nav-topo a { color: white; opacity: 0.85; text-decoration: none; }
+  .cabecalho .nav-topo a:hover { opacity: 1; text-decoration: underline; }
+  @media (max-width: 520px) { .cabecalho .nav-topo { display: none; } }
 
   .pagina { max-width: 720px; margin: 0 auto; padding: 28px 20px 40px; text-align: left; }
   @media (min-width: 900px) {
@@ -166,7 +168,11 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
     </div>
     <h1>Nosso Blog</h1>
-    <div class="tagline">Dicas, novidades e muito mais!</div>
+    <div class="nav-topo">
+      <a href="/blog">Posts</a>
+      <a href="/blog/sobre-nos">Sobre nós</a>
+      <a href="/blog/contato">Contato</a>
+    </div>
   </div>
 
   <div class="pagina">
@@ -182,9 +188,10 @@
     </div>
     <div class="links">
       <a href="/">Início</a>
+      <a href="/blog/sobre-nos">Sobre nós</a>
+      <a href="/blog/contato">Contato</a>
       <a href="/termos-servico.html">Termos de Uso</a>
       <a href="/politica-privacidade.html">Política de Privacidade</a>
-      <a href="#">Contato</a>
     </div>
   </div>
 
