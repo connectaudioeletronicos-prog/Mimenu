@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Blog - Palatos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
     --verde: #146c43;
@@ -21,9 +21,11 @@
     background: var(--fundo-suave);
     color: var(--texto);
     margin: 0;
+    text-align: left;
   }
+
   .topo {
-    background: #0e5535;
+    background: var(--verde-escura);
     color: white;
     padding: 18px 20px;
     display: flex;
@@ -39,22 +41,35 @@
   .topo h1 { margin: 0; font-size: 19px; font-weight: 700; }
   .topo .tagline { margin-left: auto; font-size: 13px; opacity: 0.85; text-align: right; }
   @media (max-width: 520px) { .topo .tagline { display: none; } }
-  .conteudo { max-width: 640px; margin: 0 auto; padding: 20px; }
-  .post-card {
-    background: white;
-    border-radius: 14px;
-    overflow: hidden;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-    margin-bottom: 18px;
-    text-decoration: none;
-    color: inherit;
-    display: block;
+
+  .pagina { max-width: 720px; margin: 0 auto; padding: 28px 20px 40px; text-align: left; }
+
+  .post-preview { margin-bottom: 36px; padding-bottom: 30px; border-bottom: 1px solid var(--borda); }
+  .post-preview:last-child { border-bottom: none; }
+
+  .post-preview .titulo-link { text-decoration: none; }
+  .post-preview h2 {
+    font-size: 24px; line-height: 1.28; margin: 0 0 12px; color: var(--verde-escura);
+    font-weight: 800; text-align: left;
   }
-  .post-card img { width: 100%; height: 180px; object-fit: cover; display: block; background: var(--fundo-suave); }
-  .post-card .miolo { padding: 16px; }
-  .post-card h2 { margin: 0 0 6px; font-size: 18px; color: var(--verde-escura); }
-  .post-card .data { font-size: 12px; color: var(--texto-claro); margin-bottom: 8px; }
-  .post-card p { margin: 0; font-size: 14px; color: var(--texto); line-height: 1.5; }
+
+  .meta-post { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--texto-claro); margin-bottom: 16px; text-align: left; }
+  .meta-post span { display: inline-flex; align-items: center; gap: 6px; }
+
+  .capa-link { display: block; cursor: pointer; }
+  .capa { width: 100%; max-height: 300px; object-fit: cover; border-radius: 12px; margin-bottom: 16px; display: block; }
+
+  .texto-preview { font-size: 15.5px; line-height: 1.75; text-align: left; }
+  .texto-preview p { margin: 0 0 14px; text-align: left; }
+
+  .botao-continuar {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
+    padding: 11px 20px; background: transparent; color: var(--verde-escura);
+    border: 1.5px solid var(--verde); border-radius: 10px;
+    text-decoration: none; font-weight: 600; font-size: 14.5px;
+  }
+  .botao-continuar:hover { background: var(--verde); color: white; }
+
   .vazio, .erro { text-align: center; color: var(--texto-claro); padding: 40px 20px; font-size: 15px; }
   .carregando { text-align: center; padding: 40px 20px; color: var(--texto-claro); }
 </style>
@@ -67,7 +82,7 @@
     <h1>Nosso Blog</h1>
     <div class="tagline">Dicas, novidades e muito mais!</div>
   </div>
-  <div class="conteudo">
+  <div class="pagina">
     <div id="lista" class="carregando">Carregando posts...</div>
   </div>
 
@@ -83,6 +98,15 @@ function formatarData(iso) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
+// Pega so os 2 primeiros paragrafos do conteudo pra pre-visualizacao
+// (ignora linhas "## Subtitulo" -- isso so aparece no post completo).
+function primeirosParagrafos(conteudo, quantidade) {
+  const blocos = (conteudo || '').split(/\n\s*\n/)
+    .map(b => b.trim())
+    .filter(b => b && !b.startsWith('## '));
+  return blocos.slice(0, quantidade).map(b => `<p>${escaparHtml(b).replace(/\n/g, '<br>')}</p>`).join('');
+}
+
 async function carregar() {
   const div = document.getElementById('lista');
   try {
@@ -96,16 +120,22 @@ async function carregar() {
       div.innerHTML = '<div class="vazio">Ainda não há publicações por aqui.</div>';
       return;
     }
-    div.innerHTML = posts.map(p => `
-      <a class="post-card" href="/blog/${encodeURIComponent(p.slug)}">
-        ${p.imagem_capa_url ? `<img src="${p.imagem_capa_url}" alt="">` : ''}
-        <div class="miolo">
-          <h2>${escaparHtml(p.titulo)}</h2>
-          <div class="data">${formatarData(p.criado_em)}</div>
-          ${p.resumo ? `<p>${escaparHtml(p.resumo)}</p>` : ''}
+    div.innerHTML = posts.map(p => {
+      const link = '/blog/' + encodeURIComponent(p.slug);
+      return `
+        <div class="post-preview">
+          <a class="titulo-link" href="${link}"><h2>${escaparHtml(p.titulo)}</h2></a>
+          <div class="meta-post">
+            <span>📅 ${formatarData(p.criado_em)}</span>
+            <span>👤 Por Equipe Palatos</span>
+            <span>🏷️ ${escaparHtml(p.categoria || 'Blog')}</span>
+          </div>
+          ${p.imagem_capa_url ? `<a class="capa-link" href="${link}"><img class="capa" src="${p.imagem_capa_url}" alt=""></a>` : ''}
+          <div class="texto-preview">${primeirosParagrafos(p.conteudo, 2)}</div>
+          <a class="botao-continuar" href="${link}">Continuar lendo →</a>
         </div>
-      </a>
-    `).join('');
+      `;
+    }).join('');
   } catch (e) {
     div.innerHTML = '<div class="erro">Não foi possível conectar. Verifique sua internet.</div>';
   }
