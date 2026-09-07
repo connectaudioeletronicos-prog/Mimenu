@@ -57,8 +57,10 @@
   h2.titulo-pagina { font-size: 28px; margin: 0 0 18px; color: var(--verde-escura); font-weight: 800; }
   .capa { width: 100%; max-height: 320px; object-fit: cover; border-radius: 12px; margin-bottom: 20px; display: block; }
   .texto-pagina { font-size: 15.5px; line-height: 1.75; }
-  .texto-pagina p { margin: 0 0 16px; }
-  .texto-pagina h3 { font-size: 19px; color: var(--verde-escura); margin: 26px 0 8px; font-weight: 700; }
+  .texto-pagina p { margin: 0 0 16px; text-align: left !important; }
+  .texto-pagina h3 { font-size: 19px; color: var(--verde-escura); margin: 26px 0 8px; font-weight: 700; text-align: left !important; }
+  .texto-pagina ul { margin: 0 0 16px; padding-left: 22px; text-align: left !important; }
+  .texto-pagina li { margin-bottom: 6px; }
   .texto-pagina img.imagem-inline { width: 100%; border-radius: 12px; margin: 20px 0; display: block; }
 
   .redes-sociais { display: flex; justify-content: center; gap: 14px; margin: 30px auto 0; max-width: 720px; padding: 0 20px; }
@@ -156,15 +158,25 @@ function renderizarConteudo(texto) {
   const blocos = (texto || '').split(/\n\s*\n/);
   return blocos.map(bloco => {
     const linha = bloco.trim();
+    if (!linha) return '';
     if (linha.startsWith('## ')) {
-      return `<h3>${escaparHtml(linha.slice(3).trim())}</h3>`;
+      return `<h3>${formatarInline(linha.slice(3).trim())}</h3>`;
     }
     const imagem = linha.match(/^!\[([^\]]*)\]\((\S+)\)$/);
     if (imagem) {
       return `<img class="imagem-inline" src="${escaparHtml(imagem[2])}" alt="${escaparHtml(imagem[1])}">`;
     }
-    return `<p>${escaparHtml(linha).replace(/\n/g, '<br>')}</p>`;
+    const linhasDoBloco = linha.split('\n').map(l => l.trim()).filter(Boolean);
+    if (linhasDoBloco.length > 0 && linhasDoBloco.every(l => l.startsWith('- '))) {
+      const itens = linhasDoBloco.map(l => `<li>${formatarInline(l.slice(2).trim())}</li>`).join('');
+      return `<ul>${itens}</ul>`;
+    }
+    return `<p>${formatarInline(linha).replace(/\n/g, '<br>')}</p>`;
   }).join('');
+}
+
+function formatarInline(texto) {
+  return escaparHtml(texto).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 }
 
 function iconeRedeSocial(nome) {
