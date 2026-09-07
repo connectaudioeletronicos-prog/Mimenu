@@ -51,7 +51,7 @@ async function listarPublicados(req, res) {
     const offset = (pagina - 1) * limite;
 
     const resultado = await query(
-      `SELECT id, titulo, slug, resumo, imagem_capa_url, criado_em
+      `SELECT id, titulo, slug, resumo, conteudo, categoria, imagem_capa_url, criado_em
        FROM blog_posts
        WHERE publicado = true
        ORDER BY criado_em DESC
