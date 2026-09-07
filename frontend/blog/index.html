@@ -23,13 +23,22 @@
     margin: 0;
   }
   .topo {
-    background: var(--verde);
+    background: #0e5535;
     color: white;
-    padding: 28px 20px;
-    text-align: center;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
   }
-  .topo h1 { margin: 0; font-size: 24px; font-weight: 700; }
-  .topo p { margin: 6px 0 0; font-size: 14px; opacity: 0.9; }
+  .topo .menu-icone {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: rgba(255,255,255,0.12);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .topo h1 { margin: 0; font-size: 19px; font-weight: 700; }
+  .topo .tagline { margin-left: auto; font-size: 13px; opacity: 0.85; text-align: right; }
+  @media (max-width: 520px) { .topo .tagline { display: none; } }
   .conteudo { max-width: 640px; margin: 0 auto; padding: 20px; }
   .post-card {
     background: white;
@@ -52,8 +61,11 @@
 </head>
 <body>
   <div class="topo">
-    <h1>Blog Palatos</h1>
-    <p>Novidades, promoções e conteúdo dos nossos parceiros</p>
+    <div class="menu-icone">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </div>
+    <h1>Nosso Blog</h1>
+    <div class="tagline">Dicas, novidades e muito mais!</div>
   </div>
   <div class="conteudo">
     <div id="lista" class="carregando">Carregando posts...</div>
