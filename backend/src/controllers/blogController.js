@@ -381,7 +381,7 @@ async function atualizarConfiguracoesAdmin(req, res) {
 // Paginas fixas (Sobre nos / Contato)
 // -------------------------------------------------------------------
 
-const TIPOS_PAGINA_VALIDOS = ['sobre-nos', 'contato'];
+const TIPOS_PAGINA_VALIDOS = ['sobre-nos', 'contato', 'termos-servico', 'politica-privacidade'];
 
 async function obterPagina(req, res) {
   try {
@@ -389,7 +389,7 @@ async function obterPagina(req, res) {
     if (!TIPOS_PAGINA_VALIDOS.includes(tipo)) {
       return res.status(404).json({ erro: 'Pagina nao encontrada.' });
     }
-    const resultado = await query('SELECT id, titulo, conteudo, imagem_url FROM blog_paginas WHERE id = $1', [tipo]);
+    const resultado = await query('SELECT id, titulo, conteudo, imagem_url, atualizado_em FROM blog_paginas WHERE id = $1', [tipo]);
     if (resultado.rows.length === 0 || !resultado.rows[0].conteudo) {
       return res.status(404).json({ erro: 'Esta pagina ainda nao foi configurada.' });
     }
