@@ -22,5 +22,6 @@ router.get('/posts', blogController.listarPublicados);
 router.get('/posts/:slug', blogController.buscarPorSlug);
 router.post('/posts/:slug/comentarios', limitadorComentarios, blogController.criarComentario);
 router.get('/configuracoes', blogController.obterConfiguracoes);
+router.get('/paginas/:tipo', blogController.obterPagina);
 
 module.exports = router;
