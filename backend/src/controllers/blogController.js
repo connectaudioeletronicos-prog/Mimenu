@@ -319,8 +319,67 @@ async function excluirComentarioAdmin(req, res) {
   }
 }
 
+// -------------------------------------------------------------------
+// Configuracoes do blog (redes sociais -- global, nao e por post)
+// -------------------------------------------------------------------
+
+async function obterConfiguracoes(req, res) {
+  try {
+    const resultado = await query('SELECT facebook, instagram, youtube, tiktok FROM blog_configuracoes WHERE id = 1');
+    res.json(resultado.rows[0] || {});
+  } catch (error) {
+    console.error('Erro ao obter configuracoes do blog:', error);
+    res.status(500).json({ erro: 'Erro interno ao obter configuracoes.' });
+  }
+}
+
+async function atualizarConfiguracoesAdmin(req, res) {
+  try {
+    const { chaveMestra, facebook, instagram, youtube, tiktok } = req.body;
+    if (!chaveValida(chaveMestra)) {
+      return res.status(403).json({ erro: 'Chave mestra invalida.' });
+    }
+    const resultado = await query(
+      `UPDATE blog_configuracoes SET
+        facebook = $1, instagram = $2, youtube = $3, tiktok = $4, atualizado_em = NOW()
+       WHERE id = 1 RETURNING facebook, instagram, youtube, tiktok`,
+      [
+        (facebook || '').trim() || null,
+        (instagram || '').trim() || null,
+        (youtube || '').trim() || null,
+        (tiktok || '').trim() || null
+      ]
+    );
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao atualizar configuracoes do blog:', error);
+    res.status(500).json({ erro: 'Erro interno ao atualizar configuracoes.' });
+  }
+}
+
+// Upload avulso de imagem pra inserir no meio do texto do post (o
+// admin cola o markdown "![](url)" retornado na posicao que quiser
+// dentro do conteudo -- ver blog.html, botao "Inserir imagem no texto").
+async function enviarImagemAdmin(req, res) {
+  try {
+    const { chaveMestra } = req.body;
+    if (!chaveValida(chaveMestra)) {
+      return res.status(403).json({ erro: 'Chave mestra invalida.' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ erro: 'Nenhuma imagem enviada.' });
+    }
+    const url = await uploadImagem(req.file.buffer, req.file.mimetype, 'blog');
+    res.json({ url });
+  } catch (error) {
+    console.error('Erro ao enviar imagem do blog:', error);
+    res.status(500).json({ erro: 'Erro interno ao enviar a imagem.' });
+  }
+}
+
 module.exports = {
   listarPublicados, buscarPorSlug, criarComentario,
   listarTodosAdmin, criarAdmin, atualizarAdmin, excluirAdmin,
-  listarComentariosAdmin, responderComentarioAdmin, excluirComentarioAdmin
+  listarComentariosAdmin, responderComentarioAdmin, excluirComentarioAdmin,
+  obterConfiguracoes, atualizarConfiguracoesAdmin, enviarImagemAdmin
 };
