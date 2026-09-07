@@ -69,7 +69,7 @@ async function buscarPorSlug(req, res) {
   try {
     const { slug } = req.params;
     const postRes = await query(
-      `SELECT id, titulo, slug, resumo, conteudo, imagem_capa_url, link_url, link_texto, criado_em
+      `SELECT id, titulo, slug, resumo, conteudo, imagem_capa_url, link_url, link_texto, categoria, criado_em
        FROM blog_posts WHERE slug = $1 AND publicado = true`,
       [slug]
     );
@@ -165,7 +165,7 @@ async function listarTodosAdmin(req, res) {
 
 async function criarAdmin(req, res) {
   try {
-    const { chaveMestra, titulo, resumo, conteudo, link_url, link_texto, publicado } = req.body;
+    const { chaveMestra, titulo, resumo, conteudo, link_url, link_texto, categoria, publicado } = req.body;
     if (!chaveValida(chaveMestra)) {
       return res.status(403).json({ erro: 'Chave mestra invalida.' });
     }
@@ -181,11 +181,12 @@ async function criarAdmin(req, res) {
     const slug = await gerarSlugUnico(titulo);
 
     const resultado = await query(
-      `INSERT INTO blog_posts (titulo, slug, resumo, conteudo, imagem_capa_url, link_url, link_texto, publicado)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      `INSERT INTO blog_posts (titulo, slug, resumo, conteudo, imagem_capa_url, link_url, link_texto, categoria, publicado)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
       [
         titulo.trim(), slug, (resumo || '').trim() || null, conteudo.trim(),
         imagemUrl, (link_url || '').trim() || null, (link_texto || '').trim() || null,
+        (categoria || '').trim() || null,
         publicado === 'false' ? false : true
       ]
     );
@@ -199,7 +200,7 @@ async function criarAdmin(req, res) {
 async function atualizarAdmin(req, res) {
   try {
     const { id } = req.params;
-    const { chaveMestra, titulo, resumo, conteudo, link_url, link_texto, publicado } = req.body;
+    const { chaveMestra, titulo, resumo, conteudo, link_url, link_texto, categoria, publicado } = req.body;
     if (!chaveValida(chaveMestra)) {
       return res.status(403).json({ erro: 'Chave mestra invalida.' });
     }
@@ -221,8 +222,8 @@ async function atualizarAdmin(req, res) {
     const resultado = await query(
       `UPDATE blog_posts SET
         titulo = $1, slug = $2, resumo = $3, conteudo = $4, imagem_capa_url = $5,
-        link_url = $6, link_texto = $7, publicado = $8, atualizado_em = NOW()
-       WHERE id = $9 RETURNING *`,
+        link_url = $6, link_texto = $7, categoria = $8, publicado = $9, atualizado_em = NOW()
+       WHERE id = $10 RETURNING *`,
       [
         novoTitulo, slug,
         resumo !== undefined ? ((resumo || '').trim() || null) : atual.resumo,
@@ -230,6 +231,7 @@ async function atualizarAdmin(req, res) {
         imagemUrl,
         link_url !== undefined ? ((link_url || '').trim() || null) : atual.link_url,
         link_texto !== undefined ? ((link_texto || '').trim() || null) : atual.link_texto,
+        categoria !== undefined ? ((categoria || '').trim() || null) : atual.categoria,
         publicado !== undefined ? publicado !== 'false' : atual.publicado,
         id
       ]
