@@ -41,5 +41,7 @@ router.delete('/blog/posts/:id', limitador, blogController.excluirAdmin);
 router.get('/blog/posts/:postId/comentarios', limitador, blogController.listarComentariosAdmin);
 router.put('/blog/comentarios/:id/resposta', limitador, blogController.responderComentarioAdmin);
 router.delete('/blog/comentarios/:id', limitador, blogController.excluirComentarioAdmin);
+router.put('/blog/configuracoes', limitador, blogController.atualizarConfiguracoesAdmin);
+router.post('/blog/imagens', limitador, upload.single('imagem'), blogController.enviarImagemAdmin);
 
 module.exports = router;
