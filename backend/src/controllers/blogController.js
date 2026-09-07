@@ -325,7 +325,12 @@ async function excluirComentarioAdmin(req, res) {
 
 async function obterConfiguracoes(req, res) {
   try {
-    const resultado = await query('SELECT facebook, instagram, youtube, tiktok FROM blog_configuracoes WHERE id = 1');
+    const resultado = await query(
+      `SELECT facebook, instagram, youtube, tiktok,
+              hero_titulo, hero_apresentacao, hero_imagem_url,
+              hero_caixa_titulo, hero_caixa_corpo, hero_botao_texto, hero_botao_link
+       FROM blog_configuracoes WHERE id = 1`
+    );
     res.json(resultado.rows[0] || {});
   } catch (error) {
     console.error('Erro ao obter configuracoes do blog:', error);
@@ -335,25 +340,80 @@ async function obterConfiguracoes(req, res) {
 
 async function atualizarConfiguracoesAdmin(req, res) {
   try {
-    const { chaveMestra, facebook, instagram, youtube, tiktok } = req.body;
+    const {
+      chaveMestra, facebook, instagram, youtube, tiktok,
+      hero_titulo, hero_apresentacao, hero_imagem_url,
+      hero_caixa_titulo, hero_caixa_corpo, hero_botao_texto, hero_botao_link
+    } = req.body;
     if (!chaveValida(chaveMestra)) {
       return res.status(403).json({ erro: 'Chave mestra invalida.' });
     }
+    const limpar = (v) => (v || '').toString().trim() || null;
     const resultado = await query(
       `UPDATE blog_configuracoes SET
-        facebook = $1, instagram = $2, youtube = $3, tiktok = $4, atualizado_em = NOW()
-       WHERE id = 1 RETURNING facebook, instagram, youtube, tiktok`,
+        facebook = $1, instagram = $2, youtube = $3, tiktok = $4,
+        hero_titulo = $5, hero_apresentacao = $6, hero_imagem_url = $7,
+        hero_caixa_titulo = $8, hero_caixa_corpo = $9, hero_botao_texto = $10, hero_botao_link = $11,
+        atualizado_em = NOW()
+       WHERE id = 1
+       RETURNING facebook, instagram, youtube, tiktok,
+                 hero_titulo, hero_apresentacao, hero_imagem_url,
+                 hero_caixa_titulo, hero_caixa_corpo, hero_botao_texto, hero_botao_link`,
       [
-        (facebook || '').trim() || null,
-        (instagram || '').trim() || null,
-        (youtube || '').trim() || null,
-        (tiktok || '').trim() || null
+        limpar(facebook), limpar(instagram), limpar(youtube), limpar(tiktok),
+        limpar(hero_titulo), limpar(hero_apresentacao), limpar(hero_imagem_url),
+        limpar(hero_caixa_titulo), limpar(hero_caixa_corpo), limpar(hero_botao_texto), limpar(hero_botao_link)
       ]
     );
     res.json(resultado.rows[0]);
   } catch (error) {
     console.error('Erro ao atualizar configuracoes do blog:', error);
     res.status(500).json({ erro: 'Erro interno ao atualizar configuracoes.' });
+  }
+}
+
+// -------------------------------------------------------------------
+// Paginas fixas (Sobre nos / Contato)
+// -------------------------------------------------------------------
+
+const TIPOS_PAGINA_VALIDOS = ['sobre-nos', 'contato'];
+
+async function obterPagina(req, res) {
+  try {
+    const { tipo } = req.params;
+    if (!TIPOS_PAGINA_VALIDOS.includes(tipo)) {
+      return res.status(404).json({ erro: 'Pagina nao encontrada.' });
+    }
+    const resultado = await query('SELECT id, titulo, conteudo, imagem_url FROM blog_paginas WHERE id = $1', [tipo]);
+    if (resultado.rows.length === 0 || !resultado.rows[0].conteudo) {
+      return res.status(404).json({ erro: 'Esta pagina ainda nao foi configurada.' });
+    }
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao obter pagina do blog:', error);
+    res.status(500).json({ erro: 'Erro interno ao obter a pagina.' });
+  }
+}
+
+async function atualizarPaginaAdmin(req, res) {
+  try {
+    const { tipo } = req.params;
+    const { chaveMestra, titulo, conteudo, imagem_url } = req.body;
+    if (!chaveValida(chaveMestra)) {
+      return res.status(403).json({ erro: 'Chave mestra invalida.' });
+    }
+    if (!TIPOS_PAGINA_VALIDOS.includes(tipo)) {
+      return res.status(404).json({ erro: 'Pagina nao encontrada.' });
+    }
+    const resultado = await query(
+      `UPDATE blog_paginas SET titulo = $1, conteudo = $2, imagem_url = $3, atualizado_em = NOW()
+       WHERE id = $4 RETURNING id, titulo, conteudo, imagem_url`,
+      [(titulo || '').trim() || null, (conteudo || '').trim() || null, (imagem_url || '').trim() || null, tipo]
+    );
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao atualizar pagina do blog:', error);
+    res.status(500).json({ erro: 'Erro interno ao atualizar a pagina.' });
   }
 }
 
@@ -381,5 +441,6 @@ module.exports = {
   listarPublicados, buscarPorSlug, criarComentario,
   listarTodosAdmin, criarAdmin, atualizarAdmin, excluirAdmin,
   listarComentariosAdmin, responderComentarioAdmin, excluirComentarioAdmin,
-  obterConfiguracoes, atualizarConfiguracoesAdmin, enviarImagemAdmin
+  obterConfiguracoes, atualizarConfiguracoesAdmin, enviarImagemAdmin,
+  obterPagina, atualizarPaginaAdmin
 };
