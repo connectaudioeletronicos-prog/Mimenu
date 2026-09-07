@@ -327,6 +327,7 @@ async function obterConfiguracoes(req, res) {
   try {
     const resultado = await query(
       `SELECT facebook, instagram, youtube, tiktok,
+              cabecalho_titulo, cabecalho_tagline,
               hero_titulo, hero_apresentacao, hero_imagem_url,
               hero_caixa_titulo, hero_caixa_corpo, hero_botao_texto, hero_botao_link
        FROM blog_configuracoes WHERE id = 1`
@@ -342,6 +343,7 @@ async function atualizarConfiguracoesAdmin(req, res) {
   try {
     const {
       chaveMestra, facebook, instagram, youtube, tiktok,
+      cabecalho_titulo, cabecalho_tagline,
       hero_titulo, hero_apresentacao, hero_imagem_url,
       hero_caixa_titulo, hero_caixa_corpo, hero_botao_texto, hero_botao_link
     } = req.body;
@@ -352,15 +354,18 @@ async function atualizarConfiguracoesAdmin(req, res) {
     const resultado = await query(
       `UPDATE blog_configuracoes SET
         facebook = $1, instagram = $2, youtube = $3, tiktok = $4,
-        hero_titulo = $5, hero_apresentacao = $6, hero_imagem_url = $7,
-        hero_caixa_titulo = $8, hero_caixa_corpo = $9, hero_botao_texto = $10, hero_botao_link = $11,
+        cabecalho_titulo = $5, cabecalho_tagline = $6,
+        hero_titulo = $7, hero_apresentacao = $8, hero_imagem_url = $9,
+        hero_caixa_titulo = $10, hero_caixa_corpo = $11, hero_botao_texto = $12, hero_botao_link = $13,
         atualizado_em = NOW()
        WHERE id = 1
        RETURNING facebook, instagram, youtube, tiktok,
+                 cabecalho_titulo, cabecalho_tagline,
                  hero_titulo, hero_apresentacao, hero_imagem_url,
                  hero_caixa_titulo, hero_caixa_corpo, hero_botao_texto, hero_botao_link`,
       [
         limpar(facebook), limpar(instagram), limpar(youtube), limpar(tiktok),
+        limpar(cabecalho_titulo) || 'Nosso Blog', limpar(cabecalho_tagline) || 'Dicas, novidades e muito mais!',
         limpar(hero_titulo), limpar(hero_apresentacao), limpar(hero_imagem_url),
         limpar(hero_caixa_titulo), limpar(hero_caixa_corpo), limpar(hero_botao_texto), limpar(hero_botao_link)
       ]
