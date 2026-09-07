@@ -74,8 +74,10 @@
   .capa { width: 100%; max-height: 340px; object-fit: cover; border-radius: 12px; margin: 18px 0; display: block; }
 
   .texto-post { font-size: 15.5px; line-height: 1.75; text-align: left; }
-  .texto-post p { margin: 0 0 16px; text-align: left; }
-  .texto-post h3 { font-size: 19px; color: var(--verde-escura); margin: 26px 0 8px; font-weight: 700; text-align: left; }
+  .texto-post p { margin: 0 0 16px; text-align: left !important; }
+  .texto-post h3 { font-size: 19px; color: var(--verde-escura); margin: 26px 0 8px; font-weight: 700; text-align: left !important; }
+  .texto-post ul { margin: 0 0 16px; padding-left: 22px; text-align: left !important; }
+  .texto-post li { margin-bottom: 6px; }
   .texto-post img.imagem-inline { width: 100%; border-radius: 12px; margin: 20px 0; display: block; }
 
   .botao-link {
@@ -246,22 +248,32 @@ function formatarData(iso) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-// Markdown bem simples: linhas "## Titulo" viram subtitulo, uma linha
+// Markdown bem simples: "## Titulo" vira subtitulo, "- item" em
+// sequencia vira lista, "**negrito**" vira <strong>, uma linha
 // "![](url)" sozinha vira imagem no meio do texto, linhas em branco
-// separam paragrafos. Cobre o "Dica 1: ...", "Dica 2: ..." e imagens
-// extras sem precisar de um editor rico de verdade.
+// separam paragrafos.
+function formatarInline(texto) {
+  return escaparHtml(texto).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
 function renderizarConteudo(texto) {
   const blocos = (texto || '').split(/\n\s*\n/);
   return blocos.map(bloco => {
     const linha = bloco.trim();
+    if (!linha) return '';
     if (linha.startsWith('## ')) {
-      return `<h3>${escaparHtml(linha.slice(3).trim())}</h3>`;
+      return `<h3>${formatarInline(linha.slice(3).trim())}</h3>`;
     }
     const imagem = linha.match(/^!\[([^\]]*)\]\((\S+)\)$/);
     if (imagem) {
       return `<img class="imagem-inline" src="${escaparHtml(imagem[2])}" alt="${escaparHtml(imagem[1])}">`;
     }
-    return `<p>${escaparHtml(linha).replace(/\n/g, '<br>')}</p>`;
+    const linhasDoBloco = linha.split('\n').map(l => l.trim()).filter(Boolean);
+    if (linhasDoBloco.length > 0 && linhasDoBloco.every(l => l.startsWith('- '))) {
+      const itens = linhasDoBloco.map(l => `<li>${formatarInline(l.slice(2).trim())}</li>`).join('');
+      return `<ul>${itens}</ul>`;
+    }
+    return `<p>${formatarInline(linha).replace(/\n/g, '<br>')}</p>`;
   }).join('');
 }
 
