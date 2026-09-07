@@ -39,8 +39,34 @@
     flex-shrink: 0;
   }
   .topo h1 { margin: 0; font-size: 19px; font-weight: 700; }
-  .topo .tagline { margin-left: auto; font-size: 13px; opacity: 0.85; text-align: right; }
-  @media (max-width: 520px) { .topo .tagline { display: none; } }
+  .topo .nav-topo { margin-left: auto; display: flex; gap: 18px; font-size: 13px; }
+  .topo .nav-topo a { color: white; opacity: 0.85; text-decoration: none; }
+  .topo .nav-topo a:hover { opacity: 1; text-decoration: underline; }
+  @media (max-width: 520px) { .topo .nav-topo { display: none; } }
+
+  /* ---------- banner (hero) ---------- */
+  .hero { max-width: 900px; margin: 0 auto; padding: 30px 20px 0; text-align: left; }
+  .hero .intro-hero { margin-bottom: 18px; }
+  .hero .intro-hero h2 { font-size: 26px; margin: 0 0 8px; color: var(--verde-escura); font-weight: 800; }
+  .hero .intro-hero p { font-size: 15px; color: var(--texto-claro); margin: 0; line-height: 1.6; }
+  .hero .imagem-wrap { position: relative; border-radius: 16px; overflow: hidden; }
+  .hero .imagem-wrap img { width: 100%; max-height: 420px; object-fit: cover; display: block; }
+  .hero .caixa-sobreposta {
+    position: absolute; left: 20px; right: 20px; bottom: 20px;
+    background: rgba(255,255,255,0.94); border-radius: 14px; padding: 18px 20px;
+    max-width: 420px; box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+  }
+  .hero .caixa-sobreposta h3 { margin: 0 0 6px; font-size: 18px; color: var(--verde-escura); font-weight: 700; }
+  .hero .caixa-sobreposta p { margin: 0; font-size: 13.5px; color: var(--texto); line-height: 1.55; }
+  .hero .caixa-sobreposta .botao-hero {
+    display: inline-block; margin-top: 12px; padding: 10px 18px;
+    background: var(--verde); color: white; border-radius: 8px;
+    text-decoration: none; font-weight: 600; font-size: 13.5px;
+  }
+  .hero .caixa-sobreposta .botao-hero:hover { background: var(--verde-escura); }
+  @media (max-width: 560px) {
+    .hero .caixa-sobreposta { position: static; max-width: none; margin-top: -14px; border-radius: 0 0 14px 14px; }
+  }
 
   .pagina { max-width: 720px; margin: 0 auto; padding: 28px 20px 40px; text-align: left; }
   @media (min-width: 900px) {
@@ -76,6 +102,24 @@
 
   .vazio, .erro { text-align: center; color: var(--texto-claro); padding: 40px 20px; font-size: 15px; }
   .carregando { text-align: center; padding: 40px 20px; color: var(--texto-claro); }
+  .oculto { display: none; }
+
+  .redes-sociais { display: flex; justify-content: center; gap: 14px; margin: 10px auto 0; max-width: 900px; padding: 0 20px; }
+  .redes-sociais a {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--fundo-suave);
+    display: flex; align-items: center; justify-content: center; color: var(--verde-escura);
+    text-decoration: none; border: 1px solid var(--borda);
+  }
+  .rodape {
+    background: var(--verde-escura); color: white; margin-top: 30px;
+    padding: 26px 20px; display: flex; flex-wrap: wrap; justify-content: space-between;
+    align-items: center; gap: 12px;
+  }
+  .rodape .marca { font-weight: 800; font-size: 17px; }
+  .rodape .slogan { font-size: 12.5px; opacity: 0.8; margin-top: 2px; }
+  .rodape .links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+  .rodape .links a { color: white; text-decoration: none; opacity: 0.9; }
+  .rodape .links a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -84,10 +128,31 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
     </div>
     <h1>Nosso Blog</h1>
-    <div class="tagline">Dicas, novidades e muito mais!</div>
+    <div class="nav-topo">
+      <a href="/blog">Posts</a>
+      <a href="/blog/sobre-nos">Sobre nós</a>
+      <a href="/blog/contato">Contato</a>
+    </div>
   </div>
+  <div class="hero oculto" id="heroBanner"></div>
   <div class="pagina">
     <div id="lista" class="carregando">Carregando posts...</div>
+  </div>
+
+  <div class="redes-sociais oculto" id="redesSociais"></div>
+
+  <div class="rodape">
+    <div>
+      <div class="marca">Palatos</div>
+      <div class="slogan">Mais praticidade no seu dia a dia.</div>
+    </div>
+    <div class="links">
+      <a href="/">Início</a>
+      <a href="/blog/sobre-nos">Sobre nós</a>
+      <a href="/blog/contato">Contato</a>
+      <a href="/termos-servico.html">Termos de Uso</a>
+      <a href="/politica-privacidade.html">Política de Privacidade</a>
+    </div>
   </div>
 
 <script src="../js/config.js"></script>
@@ -145,7 +210,72 @@ async function carregar() {
   }
 }
 
+// Banner (hero) da home -- so aparece se pelo menos titulo ou imagem
+// estiver configurado no admin (blog.html > "Página inicial (banner)").
+async function carregarHero() {
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/configuracoes');
+    const c = await resposta.json();
+    if (!c.hero_titulo && !c.hero_imagem_url) return;
+
+    const div = document.getElementById('heroBanner');
+    const temCaixa = c.hero_caixa_titulo || c.hero_caixa_corpo || c.hero_botao_texto;
+
+    div.innerHTML = `
+      ${(c.hero_titulo || c.hero_apresentacao) ? `
+        <div class="intro-hero">
+          ${c.hero_titulo ? `<h2>${escaparHtml(c.hero_titulo)}</h2>` : ''}
+          ${c.hero_apresentacao ? `<p>${escaparHtml(c.hero_apresentacao)}</p>` : ''}
+        </div>
+      ` : ''}
+      ${c.hero_imagem_url ? `
+        <div class="imagem-wrap">
+          <img src="${c.hero_imagem_url}" alt="">
+          ${temCaixa ? `
+            <div class="caixa-sobreposta">
+              ${c.hero_caixa_titulo ? `<h3>${escaparHtml(c.hero_caixa_titulo)}</h3>` : ''}
+              ${c.hero_caixa_corpo ? `<p>${escaparHtml(c.hero_caixa_corpo)}</p>` : ''}
+              ${(c.hero_botao_texto && c.hero_botao_link) ? `<a class="botao-hero" href="${escaparHtml(c.hero_botao_link)}">${escaparHtml(c.hero_botao_texto)}</a>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
+    `;
+    div.classList.remove('oculto');
+  } catch (e) {
+    // banner nao configurado ou API fora do ar -- so nao mostra
+  }
+}
+
+function iconeRedeSocial(nome) {
+  const icones = {
+    facebook: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12Z"/></svg>',
+    instagram: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>',
+    youtube: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M23 12s0-3.6-.5-5.3c-.3-1-1-1.7-2-2C18.8 4.2 12 4.2 12 4.2s-6.8 0-8.5.5c-1 .3-1.7 1-2 2C1 8.4 1 12 1 12s0 3.6.5 5.3c.3 1 1 1.7 2 2 1.7.5 8.5.5 8.5.5s6.8 0 8.5-.5c1-.3 1.7-1 2-2 .5-1.7.5-5.3.5-5.3ZM10 15.5v-7l6 3.5-6 3.5Z"/></svg>',
+    tiktok: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 2h-3v13.5a2.5 2.5 0 1 1-2.5-2.5c.17 0 .34.01.5.04V9.9a5.6 5.6 0 0 0-.5-.02A5.6 5.6 0 1 0 16.5 15V8.3a7.7 7.7 0 0 0 4.5 1.4V6.7a4.7 4.7 0 0 1-4.5-4.7Z"/></svg>'
+  };
+  return icones[nome] || '';
+}
+
+async function carregarRedesSociais() {
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/configuracoes');
+    const config = await resposta.json();
+    const redes = ['facebook', 'instagram', 'youtube', 'tiktok'].filter(nome => config[nome]);
+    if (redes.length === 0) return;
+    const div = document.getElementById('redesSociais');
+    div.innerHTML = redes.map(nome => `
+      <a href="${escaparHtml(config[nome])}" title="${nome}" aria-label="${nome}" target="_blank" rel="noopener">${iconeRedeSocial(nome)}</a>
+    `).join('');
+    div.classList.remove('oculto');
+  } catch (e) {
+    // sem redes sociais configuradas -- so nao mostra a fileira
+  }
+}
+
 carregar();
+carregarHero();
+carregarRedesSociais();
 </script>
 </body>
 </html>
