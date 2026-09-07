@@ -132,6 +132,71 @@
       <button onclick="salvarConfiguracoes()">Salvar redes sociais</button>
       <div id="msgConfiguracoes"></div>
     </div>
+
+    <div class="card">
+      <h2>Página inicial (banner)</h2>
+      <p class="sub">Aparece no topo de palatos.com.br/blog. Deixe em branco pra não mostrar banner nenhum.</p>
+
+      <label>Cabeçalho principal</label>
+      <input type="text" id="heroTitulo" placeholder="ex: Bem-vindo ao nosso blog">
+      <label>Texto de apresentação</label>
+      <textarea id="heroApresentacao" style="min-height:60px" placeholder="Um parágrafo curto de introdução..."></textarea>
+
+      <label>Imagem de fundo do banner</label>
+      <input type="file" id="heroArquivoImagem" accept="image/png,image/jpeg,image/webp">
+      <img id="heroPreviewImagem" class="oculto" style="max-width:100%;margin-top:8px;border-radius:8px;">
+      <span id="heroMsgImagem" style="font-size:13px;"></span>
+
+      <p class="sub" style="margin-top:16px;"><strong>Caixa de texto sobre a imagem</strong> (opcional — some se ficar vazia)</p>
+      <label>Título da caixa</label>
+      <input type="text" id="heroCaixaTitulo" placeholder="ex: Peça já pelo app">
+      <label>Corpo da caixa</label>
+      <textarea id="heroCaixaCorpo" style="min-height:60px" placeholder="Texto curto dentro da caixa..."></textarea>
+
+      <label>Texto do botão (fica dentro da caixa, sobre a imagem)</label>
+      <input type="text" id="heroBotaoTexto" placeholder="ex: Ver cardápio">
+      <label>Link do botão</label>
+      <input type="text" id="heroBotaoLink" placeholder="Ex: /blog/nome-do-post (interno) ou https://... (externo)">
+
+      <button onclick="salvarConfiguracoes()">Salvar banner</button>
+      <div id="msgHero"></div>
+    </div>
+
+    <div class="card">
+      <h2>Página: Sobre nós</h2>
+      <label>Título</label>
+      <input type="text" id="sobreTitulo" placeholder="ex: Sobre a Palatos">
+      <label>Imagem (opcional)</label>
+      <input type="file" id="sobreArquivoImagem" accept="image/png,image/jpeg,image/webp">
+      <img id="sobrePreviewImagem" class="oculto" style="max-width:100%;margin-top:8px;border-radius:8px;">
+      <label>Conteúdo</label>
+      <textarea id="sobreConteudo" style="min-height:180px" placeholder="Escreva sobre a empresa..."></textarea>
+      <div class="topo" style="margin-top:8px;">
+        <input type="file" id="sobreArquivoInline" accept="image/png,image/jpeg,image/webp" style="display:none">
+        <button type="button" class="secundario pequeno" onclick="document.getElementById('sobreArquivoInline').click()">🖼️ Inserir imagem no texto</button>
+        <span id="sobreMsgInline" style="font-size:13px;"></span>
+      </div>
+      <button onclick="salvarPagina('sobre-nos')">Salvar "Sobre nós"</button>
+      <div id="msgSobre"></div>
+    </div>
+
+    <div class="card">
+      <h2>Página: Contato</h2>
+      <label>Título</label>
+      <input type="text" id="contatoTitulo" placeholder="ex: Fale com a gente">
+      <label>Imagem (opcional)</label>
+      <input type="file" id="contatoArquivoImagem" accept="image/png,image/jpeg,image/webp">
+      <img id="contatoPreviewImagem" class="oculto" style="max-width:100%;margin-top:8px;border-radius:8px;">
+      <label>Conteúdo</label>
+      <textarea id="contatoConteudo" style="min-height:180px" placeholder="E-mail, telefone, endereço..."></textarea>
+      <div class="topo" style="margin-top:8px;">
+        <input type="file" id="contatoArquivoInline" accept="image/png,image/jpeg,image/webp" style="display:none">
+        <button type="button" class="secundario pequeno" onclick="document.getElementById('contatoArquivoInline').click()">🖼️ Inserir imagem no texto</button>
+        <span id="contatoMsgInline" style="font-size:13px;"></span>
+      </div>
+      <button onclick="salvarPagina('contato')">Salvar "Contato"</button>
+      <div id="msgContato"></div>
+    </div>
   </div>
 
 <script src="../js/config.js"></script>
@@ -152,6 +217,8 @@ function entrar() {
   document.getElementById('painel-principal').classList.remove('oculto');
   carregarPosts();
   carregarConfiguracoes();
+  carregarPagina('sobre-nos');
+  carregarPagina('contato');
 }
 
 function sair() {
@@ -209,8 +276,25 @@ document.getElementById('campoImagemInline').addEventListener('change', async (e
 });
 
 // ---------------------------------------------------------------
-// Configuracoes (redes sociais)
+// Upload generico de imagem (usado pelo hero, pelas paginas fixas e
+// pela insercao de imagem no meio do texto)
 // ---------------------------------------------------------------
+
+async function enviarImagemEObterUrl(arquivo) {
+  const dadosFormulario = new FormData();
+  dadosFormulario.append('chaveMestra', CHAVE_MESTRA);
+  dadosFormulario.append('imagem', arquivo);
+  const resposta = await fetch(API_BASE_URL + '/painel/blog/imagens', { method: 'POST', body: dadosFormulario });
+  const dados = await resposta.json();
+  if (!resposta.ok) throw new Error(dados.erro || 'Erro ao enviar imagem.');
+  return dados.url;
+}
+
+// ---------------------------------------------------------------
+// Configuracoes (redes sociais + banner/hero)
+// ---------------------------------------------------------------
+
+let HERO_IMAGEM_URL_ATUAL = '';
 
 async function carregarConfiguracoes() {
   try {
@@ -220,14 +304,45 @@ async function carregarConfiguracoes() {
     document.getElementById('configInstagram').value = dados.instagram || '';
     document.getElementById('configYoutube').value = dados.youtube || '';
     document.getElementById('configTiktok').value = dados.tiktok || '';
+
+    document.getElementById('heroTitulo').value = dados.hero_titulo || '';
+    document.getElementById('heroApresentacao').value = dados.hero_apresentacao || '';
+    document.getElementById('heroCaixaTitulo').value = dados.hero_caixa_titulo || '';
+    document.getElementById('heroCaixaCorpo').value = dados.hero_caixa_corpo || '';
+    document.getElementById('heroBotaoTexto').value = dados.hero_botao_texto || '';
+    document.getElementById('heroBotaoLink').value = dados.hero_botao_link || '';
+    HERO_IMAGEM_URL_ATUAL = dados.hero_imagem_url || '';
+    const preview = document.getElementById('heroPreviewImagem');
+    if (HERO_IMAGEM_URL_ATUAL) {
+      preview.src = HERO_IMAGEM_URL_ATUAL;
+      preview.classList.remove('oculto');
+    }
   } catch (e) {
-    // silencioso -- os campos so ficam vazios se nao carregar
+    // campos ficam vazios se nao carregar
   }
 }
 
+document.getElementById('heroArquivoImagem').addEventListener('change', async (evento) => {
+  const arquivo = evento.target.files[0];
+  if (!arquivo) return;
+  const msg = document.getElementById('heroMsgImagem');
+  msg.textContent = 'Enviando imagem...';
+  try {
+    HERO_IMAGEM_URL_ATUAL = await enviarImagemEObterUrl(arquivo);
+    const preview = document.getElementById('heroPreviewImagem');
+    preview.src = HERO_IMAGEM_URL_ATUAL;
+    preview.classList.remove('oculto');
+    msg.textContent = 'Imagem enviada. Clique em "Salvar banner" pra confirmar.';
+  } catch (e) {
+    msg.textContent = e.message || 'Erro ao enviar imagem.';
+  }
+});
+
 async function salvarConfiguracoes() {
-  const msgDiv = document.getElementById('msgConfiguracoes');
-  msgDiv.innerHTML = '';
+  const msgRedes = document.getElementById('msgConfiguracoes');
+  const msgHero = document.getElementById('msgHero');
+  msgRedes.innerHTML = '';
+  msgHero.innerHTML = '';
   try {
     const resposta = await fetch(API_BASE_URL + '/painel/blog/configuracoes', {
       method: 'PUT',
@@ -237,14 +352,119 @@ async function salvarConfiguracoes() {
         facebook: document.getElementById('configFacebook').value.trim(),
         instagram: document.getElementById('configInstagram').value.trim(),
         youtube: document.getElementById('configYoutube').value.trim(),
-        tiktok: document.getElementById('configTiktok').value.trim()
+        tiktok: document.getElementById('configTiktok').value.trim(),
+        hero_titulo: document.getElementById('heroTitulo').value.trim(),
+        hero_apresentacao: document.getElementById('heroApresentacao').value.trim(),
+        hero_imagem_url: HERO_IMAGEM_URL_ATUAL,
+        hero_caixa_titulo: document.getElementById('heroCaixaTitulo').value.trim(),
+        hero_caixa_corpo: document.getElementById('heroCaixaCorpo').value.trim(),
+        hero_botao_texto: document.getElementById('heroBotaoTexto').value.trim(),
+        hero_botao_link: document.getElementById('heroBotaoLink').value.trim()
       })
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      const erro = '<div class="msg erro">' + (dados.erro || 'Erro ao salvar.') + '</div>';
+      msgRedes.innerHTML = erro;
+      msgHero.innerHTML = erro;
+    } else {
+      msgRedes.innerHTML = '<div class="msg ok">Redes sociais salvas.</div>';
+      msgHero.innerHTML = '<div class="msg ok">Banner salvo.</div>';
+    }
+  } catch (e) {
+    const erro = '<div class="msg erro">Não foi possível conectar à API.</div>';
+    msgRedes.innerHTML = erro;
+    msgHero.innerHTML = erro;
+  }
+}
+
+// ---------------------------------------------------------------
+// Paginas fixas (Sobre nos / Contato)
+// ---------------------------------------------------------------
+
+const IMAGEM_URL_PAGINA = { 'sobre-nos': '', 'contato': '' };
+const PREFIXO_CAMPO = { 'sobre-nos': 'sobre', 'contato': 'contato' };
+
+async function carregarPagina(tipo) {
+  const prefixo = PREFIXO_CAMPO[tipo];
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/paginas/' + tipo);
+    if (!resposta.ok) return; // ainda nao configurada -- deixa os campos vazios
+    const pagina = await resposta.json();
+    document.getElementById(prefixo + 'Titulo').value = pagina.titulo || '';
+    document.getElementById(prefixo + 'Conteudo').value = pagina.conteudo || '';
+    IMAGEM_URL_PAGINA[tipo] = pagina.imagem_url || '';
+    const preview = document.getElementById(prefixo + 'PreviewImagem');
+    if (IMAGEM_URL_PAGINA[tipo]) {
+      preview.src = IMAGEM_URL_PAGINA[tipo];
+      preview.classList.remove('oculto');
+    }
+  } catch (e) {
+    // deixa os campos vazios
+  }
+}
+
+['sobre-nos', 'contato'].forEach((tipo) => {
+  const prefixo = PREFIXO_CAMPO[tipo];
+
+  document.getElementById(prefixo + 'ArquivoImagem').addEventListener('change', async (evento) => {
+    const arquivo = evento.target.files[0];
+    if (!arquivo) return;
+    try {
+      IMAGEM_URL_PAGINA[tipo] = await enviarImagemEObterUrl(arquivo);
+      const preview = document.getElementById(prefixo + 'PreviewImagem');
+      preview.src = IMAGEM_URL_PAGINA[tipo];
+      preview.classList.remove('oculto');
+    } catch (e) {
+      alert(e.message || 'Erro ao enviar imagem.');
+    }
+  });
+
+  document.getElementById(prefixo + 'ArquivoInline').addEventListener('change', async (evento) => {
+    const arquivo = evento.target.files[0];
+    if (!arquivo) return;
+    const msg = document.getElementById(prefixo + 'MsgInline');
+    msg.textContent = 'Enviando imagem...';
+    try {
+      const url = await enviarImagemEObterUrl(arquivo);
+      const area = document.getElementById(prefixo + 'Conteudo');
+      const posicao = area.selectionStart ?? area.value.length;
+      const trecho = `\n\n![](${url})\n\n`;
+      area.value = area.value.slice(0, posicao) + trecho + area.value.slice(posicao);
+      area.focus();
+      area.selectionStart = area.selectionEnd = posicao + trecho.length;
+      msg.textContent = 'Imagem inserida no texto.';
+    } catch (e) {
+      msg.textContent = e.message || 'Erro ao enviar imagem.';
+    }
+    evento.target.value = '';
+  });
+});
+
+async function salvarPagina(tipo) {
+  const prefixo = PREFIXO_CAMPO[tipo];
+  const rotulo = tipo === 'sobre-nos' ? 'Sobre' : 'Contato';
+  const msgDiv = document.getElementById('msg' + rotulo);
+  msgDiv.innerHTML = '';
+
+  const titulo = document.getElementById(prefixo + 'Titulo').value.trim();
+  const conteudo = document.getElementById(prefixo + 'Conteudo').value.trim();
+  if (!titulo || !conteudo) {
+    msgDiv.innerHTML = '<div class="msg erro">Preencha pelo menos o título e o conteúdo.</div>';
+    return;
+  }
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/blog/paginas/' + tipo, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chaveMestra: CHAVE_MESTRA, titulo, conteudo, imagem_url: IMAGEM_URL_PAGINA[tipo] })
     });
     const dados = await resposta.json();
     if (!resposta.ok) {
       msgDiv.innerHTML = '<div class="msg erro">' + (dados.erro || 'Erro ao salvar.') + '</div>';
     } else {
-      msgDiv.innerHTML = '<div class="msg ok">Redes sociais salvas.</div>';
+      msgDiv.innerHTML = '<div class="msg ok">Página salva.</div>';
     }
   } catch (e) {
     msgDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
