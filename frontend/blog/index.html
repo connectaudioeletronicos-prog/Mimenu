@@ -34,15 +34,25 @@
   }
   .topo .menu-icone {
     width: 40px; height: 40px; border-radius: 10px;
-    background: rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.12); border: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
   }
   .topo h1 { margin: 0; font-size: 19px; font-weight: 700; }
-  .topo .nav-topo { margin-left: auto; display: flex; gap: 18px; font-size: 13px; }
-  .topo .nav-topo a { color: white; opacity: 0.85; text-decoration: none; }
-  .topo .nav-topo a:hover { opacity: 1; text-decoration: underline; }
-  @media (max-width: 520px) { .topo .nav-topo { display: none; } }
+  .topo .tagline-topo { font-size: 11px; opacity: 0.8; margin-top: 1px; }
+  .menu-dropdown {
+    position: absolute; top: 62px; left: 20px; background: white;
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    min-width: 190px; display: none; flex-direction: column;
+    overflow: hidden; z-index: 50;
+  }
+  .menu-dropdown.aberto { display: flex; }
+  .menu-dropdown a {
+    padding: 13px 16px; color: var(--texto); text-decoration: none;
+    font-size: 14.5px; border-bottom: 1px solid var(--borda);
+  }
+  .menu-dropdown a:last-child { border-bottom: none; }
+  .menu-dropdown a:hover { background: var(--fundo-suave); }
 
   /* ---------- banner (hero) ---------- */
   .hero { max-width: 900px; margin: 0 auto; padding: 30px 20px 0; text-align: left; }
@@ -124,11 +134,14 @@
 </head>
 <body>
   <div class="topo">
-    <div class="menu-icone">
+    <button class="menu-icone" id="botaoMenu" onclick="alternarMenu()" aria-label="Menu">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </button>
+    <div>
+      <h1 id="cabecalhoTitulo">Nosso Blog</h1>
+      <div class="tagline-topo" id="cabecalhoTagline">Dicas, novidades e muito mais!</div>
     </div>
-    <h1>Nosso Blog</h1>
-    <div class="nav-topo">
+    <div class="menu-dropdown" id="menuDropdown">
       <a href="/blog">Posts</a>
       <a href="/blog/sobre-nos">Sobre nós</a>
       <a href="/blog/contato">Contato</a>
@@ -157,6 +170,28 @@
 
 <script src="../js/config.js"></script>
 <script>
+function alternarMenu() {
+  document.getElementById('menuDropdown').classList.toggle('aberto');
+}
+document.addEventListener('click', (evento) => {
+  const dropdown = document.getElementById('menuDropdown');
+  const botao = document.getElementById('botaoMenu');
+  if (dropdown.classList.contains('aberto') && !dropdown.contains(evento.target) && !botao.contains(evento.target)) {
+    dropdown.classList.remove('aberto');
+  }
+});
+
+async function carregarCabecalho() {
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/configuracoes');
+    const c = await resposta.json();
+    if (c.cabecalho_titulo) document.getElementById('cabecalhoTitulo').textContent = c.cabecalho_titulo;
+    if (c.cabecalho_tagline) document.getElementById('cabecalhoTagline').textContent = c.cabecalho_tagline;
+  } catch (e) {
+    // mantem "Nosso Blog" padrao se nao conseguir carregar
+  }
+}
+
 function escaparHtml(texto) {
   const div = document.createElement('div');
   div.textContent = texto || '';
@@ -276,6 +311,7 @@ async function carregarRedesSociais() {
 carregar();
 carregarHero();
 carregarRedesSociais();
+carregarCabecalho();
 </script>
 </body>
 </html>
