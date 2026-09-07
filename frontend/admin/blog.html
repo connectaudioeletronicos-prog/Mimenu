@@ -42,6 +42,13 @@
   .comentario-item .texto { font-size: 14px; margin-top: 4px; }
   .comentario-item .resposta { margin-top: 8px; padding: 8px; background: #eef2f7; border-radius: 6px; font-size: 13px; }
   .comentario-item .resposta-form { margin-top: 8px; }
+  .menu-abas { display: flex; gap: 6px; overflow-x: auto; padding: 4px; }
+  .aba-botao {
+    margin-top: 0; padding: 9px 14px; background: #eef1f0; color: #333;
+    border: none; border-radius: 8px; font-size: 13.5px; white-space: nowrap; cursor: pointer;
+  }
+  .aba-botao.ativa { background: #1D3557; color: white; }
+  .secao-aba.oculto { display: none; }
   .comentario-item .resposta-form textarea { min-height: 60px; }
 </style>
 </head>
@@ -66,6 +73,17 @@
       <p class="sub">Publicações públicas em palatos.com.br/blog. Só você publica e responde comentários.</p>
     </div>
 
+    <div class="card" style="padding:10px;">
+      <div class="menu-abas">
+        <button class="aba-botao ativa" data-aba="posts" onclick="mostrarAba('posts')">📰 Posts</button>
+        <button class="aba-botao" data-aba="paginas" onclick="mostrarAba('paginas')">📄 Páginas</button>
+        <button class="aba-botao" data-aba="banner" onclick="mostrarAba('banner')">🖼️ Banner</button>
+        <button class="aba-botao" data-aba="cabecalho" onclick="mostrarAba('cabecalho')">🏷️ Cabeçalho</button>
+        <button class="aba-botao" data-aba="redes" onclick="mostrarAba('redes')">🔗 Redes sociais</button>
+      </div>
+    </div>
+
+    <div class="secao-aba" data-secao="posts">
     <div class="card">
       <h2 id="tituloFormulario">Novo post</h2>
       <input type="hidden" id="postIdEmEdicao" value="">
@@ -117,7 +135,22 @@
       </div>
       <div id="listaPosts">Carregando...</div>
     </div>
+    </div>
 
+    <div class="secao-aba oculto" data-secao="cabecalho">
+    <div class="card">
+      <h2>Cabeçalho do blog</h2>
+      <p class="sub">Título e frase que aparecem no topo de todas as páginas do blog público.</p>
+      <label>Título</label>
+      <input type="text" id="cabecalhoTitulo" placeholder="ex: Nosso Blog">
+      <label>Frase (tagline)</label>
+      <input type="text" id="cabecalhoTagline" placeholder="ex: Dicas, novidades e muito mais!">
+      <button onclick="salvarConfiguracoes()">Salvar cabeçalho</button>
+      <div id="msgCabecalho"></div>
+    </div>
+    </div>
+
+    <div class="secao-aba oculto" data-secao="redes">
     <div class="card">
       <h2>Redes sociais</h2>
       <p class="sub">Aparecem no rodapé do blog público — só o que estiver preenchido aqui é exibido.</p>
@@ -132,7 +165,9 @@
       <button onclick="salvarConfiguracoes()">Salvar redes sociais</button>
       <div id="msgConfiguracoes"></div>
     </div>
+    </div>
 
+    <div class="secao-aba oculto" data-secao="banner">
     <div class="card">
       <h2>Página inicial (banner)</h2>
       <p class="sub">Aparece no topo de palatos.com.br/blog. Deixe em branco pra não mostrar banner nenhum.</p>
@@ -161,7 +196,9 @@
       <button onclick="salvarConfiguracoes()">Salvar banner</button>
       <div id="msgHero"></div>
     </div>
+    </div>
 
+    <div class="secao-aba oculto" data-secao="paginas">
     <div class="card">
       <h2>Página: Sobre nós</h2>
       <label>Título</label>
@@ -196,6 +233,7 @@
       </div>
       <button onclick="salvarPagina('contato')">Salvar "Contato"</button>
       <div id="msgContato"></div>
+    </div>
     </div>
   </div>
 
@@ -305,6 +343,9 @@ async function carregarConfiguracoes() {
     document.getElementById('configYoutube').value = dados.youtube || '';
     document.getElementById('configTiktok').value = dados.tiktok || '';
 
+    document.getElementById('cabecalhoTitulo').value = dados.cabecalho_titulo || '';
+    document.getElementById('cabecalhoTagline').value = dados.cabecalho_tagline || '';
+
     document.getElementById('heroTitulo').value = dados.hero_titulo || '';
     document.getElementById('heroApresentacao').value = dados.hero_apresentacao || '';
     document.getElementById('heroCaixaTitulo').value = dados.hero_caixa_titulo || '';
@@ -341,8 +382,10 @@ document.getElementById('heroArquivoImagem').addEventListener('change', async (e
 async function salvarConfiguracoes() {
   const msgRedes = document.getElementById('msgConfiguracoes');
   const msgHero = document.getElementById('msgHero');
+  const msgCabecalho = document.getElementById('msgCabecalho');
   msgRedes.innerHTML = '';
   msgHero.innerHTML = '';
+  msgCabecalho.innerHTML = '';
   try {
     const resposta = await fetch(API_BASE_URL + '/painel/blog/configuracoes', {
       method: 'PUT',
@@ -353,6 +396,8 @@ async function salvarConfiguracoes() {
         instagram: document.getElementById('configInstagram').value.trim(),
         youtube: document.getElementById('configYoutube').value.trim(),
         tiktok: document.getElementById('configTiktok').value.trim(),
+        cabecalho_titulo: document.getElementById('cabecalhoTitulo').value.trim(),
+        cabecalho_tagline: document.getElementById('cabecalhoTagline').value.trim(),
         hero_titulo: document.getElementById('heroTitulo').value.trim(),
         hero_apresentacao: document.getElementById('heroApresentacao').value.trim(),
         hero_imagem_url: HERO_IMAGEM_URL_ATUAL,
@@ -367,14 +412,17 @@ async function salvarConfiguracoes() {
       const erro = '<div class="msg erro">' + (dados.erro || 'Erro ao salvar.') + '</div>';
       msgRedes.innerHTML = erro;
       msgHero.innerHTML = erro;
+      msgCabecalho.innerHTML = erro;
     } else {
       msgRedes.innerHTML = '<div class="msg ok">Redes sociais salvas.</div>';
       msgHero.innerHTML = '<div class="msg ok">Banner salvo.</div>';
+      msgCabecalho.innerHTML = '<div class="msg ok">Cabeçalho salvo.</div>';
     }
   } catch (e) {
     const erro = '<div class="msg erro">Não foi possível conectar à API.</div>';
     msgRedes.innerHTML = erro;
     msgHero.innerHTML = erro;
+    msgCabecalho.innerHTML = erro;
   }
 }
 
@@ -469,6 +517,15 @@ async function salvarPagina(tipo) {
   } catch (e) {
     msgDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
   }
+}
+
+function mostrarAba(nome) {
+  document.querySelectorAll('.secao-aba').forEach(secao => {
+    secao.classList.toggle('oculto', secao.dataset.secao !== nome);
+  });
+  document.querySelectorAll('.aba-botao').forEach(botao => {
+    botao.classList.toggle('ativa', botao.dataset.aba === nome);
+  });
 }
 
 function escaparHtmlLocal(texto) {
