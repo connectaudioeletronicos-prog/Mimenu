@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Blog - Palatos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
     --verde: #146c43;
     --verde-escura: #0e5535;
+    --verde-clara: #e5f3ec;
     --laranja: #f3a01c;
     --texto: #1b1f1d;
     --texto-claro: #6f7975;
@@ -24,23 +25,69 @@
     color: var(--texto);
     margin: 0;
   }
-  .conteudo { max-width: 640px; margin: 0 auto; padding: 20px 20px 60px; }
-  .voltar { display: inline-block; margin-bottom: 16px; color: var(--verde-escura); text-decoration: none; font-size: 14px; font-weight: 500; }
-  .capa { width: 100%; max-height: 320px; object-fit: cover; border-radius: 14px; margin-bottom: 18px; }
-  h1 { font-size: 24px; margin: 0 0 6px; color: var(--verde-escura); }
-  .data { font-size: 13px; color: var(--texto-claro); margin-bottom: 18px; }
-  .texto-post { font-size: 15px; line-height: 1.7; white-space: pre-wrap; }
+
+  /* ---------- cabecalho ---------- */
+  .cabecalho {
+    background: var(--verde-escura);
+    color: white;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .cabecalho .menu-icone {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: rgba(255,255,255,0.12);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .cabecalho h1 { font-size: 19px; margin: 0; font-weight: 700; }
+  .cabecalho .tagline { margin-left: auto; font-size: 13px; opacity: 0.85; text-align: right; }
+  @media (max-width: 520px) { .cabecalho .tagline { display: none; } }
+
+  .pagina { max-width: 720px; margin: 0 auto; padding: 28px 20px 40px; }
+
+  .voltar-topo { display: none; }
+
+  h2.titulo-post { font-size: 28px; line-height: 1.25; margin: 0 0 14px; color: var(--verde-escura); font-weight: 800; }
+
+  .meta-post { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; color: var(--texto-claro); margin-bottom: 22px; }
+  .meta-post span { display: inline-flex; align-items: center; gap: 6px; }
+
+  .capa { width: 100%; max-height: 340px; object-fit: cover; border-radius: 12px; margin: 18px 0; display: block; }
+
+  .texto-post { font-size: 15.5px; line-height: 1.75; }
+  .texto-post p { margin: 0 0 16px; }
+  .texto-post h3 { font-size: 19px; color: var(--verde-escura); margin: 26px 0 8px; font-weight: 700; }
+
   .botao-link {
-    display: inline-block; margin-top: 20px; padding: 13px 22px;
+    display: inline-block; margin-top: 8px; padding: 13px 24px;
     background: var(--verde); color: white; border-radius: 10px;
     text-decoration: none; font-weight: 600; font-size: 15px;
   }
   .botao-link:hover { background: var(--verde-escura); }
-  .secao-comentarios { margin-top: 40px; }
-  .secao-comentarios h2 { font-size: 18px; margin-bottom: 14px; }
+
+  /* ---------- comentarios ---------- */
+  .teaser-comentario {
+    margin-top: 30px; padding: 16px 18px; background: var(--verde-clara);
+    border-radius: 12px; display: flex; align-items: center; gap: 14px;
+    cursor: pointer; border: none; width: 100%; text-align: left; font-family: inherit;
+  }
+  .teaser-comentario .bolha {
+    width: 38px; height: 38px; border-radius: 50%; background: white;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    color: var(--verde-escura);
+  }
+  .teaser-comentario .titulo-teaser { font-weight: 700; font-size: 14.5px; color: var(--verde-escura); }
+  .teaser-comentario .sub-teaser { font-size: 12.5px; color: var(--texto-claro); margin-top: 2px; }
+
+  .secao-comentarios { margin-top: 18px; display: none; }
+  .secao-comentarios.aberta { display: block; }
+  .secao-comentarios h3 { font-size: 17px; margin-bottom: 12px; }
+
   .comentario-form {
     background: white; border-radius: 12px; padding: 16px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 22px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 20px;
   }
   .comentario-form label { display: block; font-size: 13px; font-weight: 600; margin-top: 10px; margin-bottom: 4px; }
   .comentario-form input, .comentario-form textarea {
@@ -70,18 +117,83 @@
   }
   .resposta-admin strong { color: var(--verde-escura); }
   .sem-comentarios { color: var(--texto-claro); font-size: 14px; }
+
+  /* ---------- navegacao ---------- */
+  .navegacao-posts { display: flex; justify-content: space-between; margin-top: 34px; gap: 12px; }
+  .navegacao-posts a, .navegacao-posts span {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 20px; border-radius: 10px; font-weight: 600; font-size: 14px;
+    text-decoration: none; cursor: pointer;
+  }
+  .navegacao-posts .btn-voltar { background: white; color: var(--verde-escura); border: 1px solid var(--borda); }
+  .navegacao-posts .btn-proximo { background: var(--verde-escura); color: white; }
+  .navegacao-posts .desabilitado { opacity: 0.4; pointer-events: none; }
+
+  /* ---------- redes sociais (acima do rodape) ---------- */
+  .redes-sociais { display: flex; justify-content: center; gap: 14px; margin: 30px auto 0; max-width: 720px; padding: 0 20px; }
+  .redes-sociais a {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--verde-clara);
+    display: flex; align-items: center; justify-content: center; color: var(--verde-escura);
+    text-decoration: none;
+  }
+
+  /* ---------- rodape ---------- */
+  .rodape {
+    background: var(--verde-escura); color: white; margin-top: 30px;
+    padding: 26px 20px; display: flex; flex-wrap: wrap; justify-content: space-between;
+    align-items: center; gap: 12px;
+  }
+  .rodape .marca { font-weight: 800; font-size: 17px; }
+  .rodape .slogan { font-size: 12.5px; opacity: 0.8; margin-top: 2px; }
+  .rodape .links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+  .rodape .links a { color: white; text-decoration: none; opacity: 0.9; }
+  .rodape .links a:hover { text-decoration: underline; }
+
   .carregando, .erro-pagina { text-align: center; padding: 60px 20px; color: var(--texto-claro); }
 </style>
 </head>
 <body>
-  <div class="conteudo">
-    <a class="voltar" href="/blog">&larr; Voltar para o blog</a>
+  <div class="cabecalho">
+    <div class="menu-icone">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </div>
+    <h1>Nosso Blog</h1>
+    <div class="tagline">Dicas, novidades e muito mais!</div>
+  </div>
+
+  <div class="pagina">
     <div id="conteudoPost" class="carregando">Carregando...</div>
+  </div>
+
+  <div class="redes-sociais">
+    <a href="#" title="Facebook" aria-label="Facebook">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12Z"/></svg>
+    </a>
+    <a href="#" title="Instagram" aria-label="Instagram">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>
+    </a>
+    <a href="#" title="YouTube" aria-label="YouTube">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M23 12s0-3.6-.5-5.3c-.3-1-1-1.7-2-2C18.8 4.2 12 4.2 12 4.2s-6.8 0-8.5.5c-1 .3-1.7 1-2 2C1 8.4 1 12 1 12s0 3.6.5 5.3c.3 1 1 1.7 2 2 1.7.5 8.5.5 8.5.5s6.8 0 8.5-.5c1-.3 1.7-1 2-2 .5-1.7.5-5.3.5-5.3ZM10 15.5v-7l6 3.5-6 3.5Z"/></svg>
+    </a>
+  </div>
+
+  <div class="rodape">
+    <div>
+      <div class="marca">Palatos</div>
+      <div class="slogan">Mais praticidade no seu dia a dia.</div>
+    </div>
+    <div class="links">
+      <a href="/">Início</a>
+      <a href="/termos-servico.html">Termos de Uso</a>
+      <a href="/politica-privacidade.html">Política de Privacidade</a>
+      <a href="#">Contato</a>
+    </div>
   </div>
 
 <script src="../js/config.js"></script>
 <script>
 let POST_ATUAL = null;
+let TODOS_OS_POSTS = [];
 
 function escaparHtml(texto) {
   const div = document.createElement('div');
@@ -91,6 +203,20 @@ function escaparHtml(texto) {
 
 function formatarData(iso) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+// Markdown bem simples: linhas "## Titulo" viram subtitulo, linhas em
+// branco separam paragrafos. Cobre o "Dica 1: ...", "Dica 2: ..." sem
+// precisar de um editor rico de verdade.
+function renderizarConteudo(texto) {
+  const blocos = (texto || '').split(/\n\s*\n/);
+  return blocos.map(bloco => {
+    const linha = bloco.trim();
+    if (linha.startsWith('## ')) {
+      return `<h3>${escaparHtml(linha.slice(3).trim())}</h3>`;
+    }
+    return `<p>${escaparHtml(linha).replace(/\n/g, '<br>')}</p>`;
+  }).join('');
 }
 
 async function carregarPost() {
@@ -103,24 +229,40 @@ async function carregarPost() {
   }
 
   try {
-    const resposta = await fetch(API_BASE_URL + '/blog/posts/' + encodeURIComponent(slugPost));
-    const post = await resposta.json();
-    if (!resposta.ok) {
+    const [respostaPost, respostaLista] = await Promise.all([
+      fetch(API_BASE_URL + '/blog/posts/' + encodeURIComponent(slugPost)),
+      fetch(API_BASE_URL + '/blog/posts?limite=100')
+    ]);
+    const post = await respostaPost.json();
+    if (!respostaPost.ok) {
       div.innerHTML = '<div class="erro-pagina">' + (post.erro || 'Post não encontrado.') + '</div>';
       return;
     }
     POST_ATUAL = post;
+    TODOS_OS_POSTS = respostaLista.ok ? await respostaLista.json() : [];
     document.title = post.titulo + ' - Blog Palatos';
 
     div.innerHTML = `
+      <h2 class="titulo-post">${escaparHtml(post.titulo)}</h2>
+      <div class="meta-post">
+        <span>📅 ${formatarData(post.criado_em)}</span>
+        <span>👤 Por Equipe Palatos</span>
+        <span>🏷️ ${escaparHtml(post.categoria || 'Blog')}</span>
+      </div>
       ${post.imagem_capa_url ? `<img class="capa" src="${post.imagem_capa_url}" alt="">` : ''}
-      <h1>${escaparHtml(post.titulo)}</h1>
-      <div class="data">${formatarData(post.criado_em)}</div>
-      <div class="texto-post">${escaparHtml(post.conteudo)}</div>
+      <div class="texto-post">${renderizarConteudo(post.conteudo)}</div>
       ${post.link_url ? `<a class="botao-link" href="${escaparHtml(post.link_url)}">${escaparHtml(post.link_texto || 'Saiba mais')}</a>` : ''}
 
-      <div class="secao-comentarios">
-        <h2>Comentários</h2>
+      <button class="teaser-comentario" onclick="alternarComentarios()">
+        <span class="bolha">💬</span>
+        <span>
+          <div class="titulo-teaser">Deixe seu comentário</div>
+          <div class="sub-teaser">Sua opinião é muito importante para nós.</div>
+        </span>
+      </button>
+
+      <div class="secao-comentarios" id="secaoComentarios">
+        <h3>Comentários</h3>
         <div class="comentario-form">
           <div id="msgComentario"></div>
           <label>Nome</label>
@@ -132,14 +274,18 @@ async function carregarPost() {
           <textarea id="campoComentario" placeholder="O que você achou?"></textarea>
           <button onclick="enviarComentario()" id="btnEnviarComentario">Comentar</button>
         </div>
-        <div id="listaComentarios">
-          ${renderizarComentarios(post.comentarios)}
-        </div>
+        <div id="listaComentarios">${renderizarComentarios(post.comentarios)}</div>
       </div>
+
+      ${renderizarNavegacao()}
     `;
   } catch (e) {
     div.innerHTML = '<div class="erro-pagina">Não foi possível conectar. Verifique sua internet.</div>';
   }
+}
+
+function alternarComentarios() {
+  document.getElementById('secaoComentarios').classList.toggle('aberta');
 }
 
 function renderizarComentarios(comentarios) {
@@ -153,6 +299,22 @@ function renderizarComentarios(comentarios) {
       ${c.resposta_admin ? `<div class="resposta-admin"><strong>Resposta do Palatos:</strong> ${escaparHtml(c.resposta_admin)}</div>` : ''}
     </div>
   `).join('');
+}
+
+// "Voltar" = lista do blog. "Próximo" = proximo post mais antigo no
+// feed (a lista publica vem ordenada do mais novo pro mais velho).
+function renderizarNavegacao() {
+  const indiceAtual = TODOS_OS_POSTS.findIndex(p => p.slug === POST_ATUAL.slug);
+  const proximo = indiceAtual >= 0 ? TODOS_OS_POSTS[indiceAtual + 1] : null;
+
+  return `
+    <div class="navegacao-posts">
+      <a class="btn-voltar" href="/blog">← Voltar</a>
+      ${proximo
+        ? `<a class="btn-proximo" href="/blog/${encodeURIComponent(proximo.slug)}">Próximo →</a>`
+        : `<span class="btn-proximo desabilitado">Próximo →</span>`}
+    </div>
+  `;
 }
 
 async function enviarComentario() {
