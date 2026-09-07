@@ -89,6 +89,9 @@
       <label>Texto do botão</label>
       <input type="text" id="campoLinkTexto" placeholder="ex: Ver cardápio da Loja Teste">
 
+      <label>Categoria (opcional — aparece como etiqueta no post)</label>
+      <input type="text" id="campoCategoria" placeholder="ex: Dicas, Promoções, Novidades">
+
       <div class="checkbox-linha">
         <input type="checkbox" id="campoPublicado" checked>
         <label style="margin:0">Publicado (desmarque para deixar como rascunho)</label>
@@ -178,6 +181,7 @@ async function salvarPost() {
   dadosFormulario.append('conteudo', conteudo);
   dadosFormulario.append('link_url', document.getElementById('campoLinkUrl').value.trim());
   dadosFormulario.append('link_texto', document.getElementById('campoLinkTexto').value.trim());
+  dadosFormulario.append('categoria', document.getElementById('campoCategoria').value.trim());
   dadosFormulario.append('publicado', document.getElementById('campoPublicado').checked ? 'true' : 'false');
 
   const arquivoImagem = document.getElementById('campoImagem').files[0];
@@ -219,6 +223,7 @@ function editarPost(id) {
   document.getElementById('conteudo').value = post.conteudo || '';
   document.getElementById('campoLinkUrl').value = post.link_url || '';
   document.getElementById('campoLinkTexto').value = post.link_texto || '';
+  document.getElementById('campoCategoria').value = post.categoria || '';
   document.getElementById('campoPublicado').checked = !!post.publicado;
   document.getElementById('campoImagem').value = '';
 
@@ -243,6 +248,7 @@ function cancelarEdicao() {
   document.getElementById('conteudo').value = '';
   document.getElementById('campoLinkUrl').value = '';
   document.getElementById('campoLinkTexto').value = '';
+  document.getElementById('campoCategoria').value = '';
   document.getElementById('campoPublicado').checked = true;
   document.getElementById('campoImagem').value = '';
   document.getElementById('previewImagemAtual').classList.add('oculto');
