@@ -32,6 +32,11 @@ body {
   padding: 20px;
 }
 
+/* Fundo verde escuro, igual ao login do painel/garcom/atendente. */
+#tela-login {
+  background: #0F2E1C;
+}
+
 .oculto { display: none !important; }
 
 .cartao {
