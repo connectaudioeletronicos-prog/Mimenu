@@ -811,6 +811,86 @@ async function meuHistoricoPlantoes(req, res) {
   }
 }
 
+// ---------------------------------------------------------------------
+// GET /plantao/meu-pagamento -- usado pelo topico "Pagamento" do menu
+// lateral do app do entregador. Paginacao por numero de pagina (5
+// plantoes fechados por vez) + plantao aberto (se houver) + total geral
+// somando TUDO (sem limite de pagina).
+// ---------------------------------------------------------------------
+async function meuPagamento(req, res) {
+  try {
+    const pagina = Math.max(parseInt(req.query.pagina, 10) || 1, 1);
+    const porPagina = 5;
+    const offset = (pagina - 1) * porPagina;
+
+    const abertoRes = await query(
+      'SELECT id, inicio FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NULL ORDER BY inicio DESC LIMIT 1',
+      [req.funcionarioId]
+    );
+    let plantaoAtual = null;
+    if (abertoRes.rows.length > 0) {
+      const resumo = await calcularResumoPlantao(abertoRes.rows[0].id, req.funcionarioId);
+      const codigosRes = await query(
+        `SELECT numero_pedido FROM pedidos WHERE plantao_id = $1 AND status_pedido = 'entregue' ORDER BY horario_entregue ASC`,
+        [abertoRes.rows[0].id]
+      );
+      plantaoAtual = {
+        inicio: abertoRes.rows[0].inicio,
+        valor_total: resumo.valor_total,
+        codigos_rota: codigosRes.rows.map(r => r.numero_pedido)
+      };
+    }
+
+    const anterioresRes = await query(
+      `SELECT id, inicio, fim, valor_total, total_gorjetas
+       FROM entregador.plantoes_entregador
+       WHERE funcionario_id = $1 AND fim IS NOT NULL
+       ORDER BY fim DESC
+       LIMIT $2 OFFSET $3`,
+      [req.funcionarioId, porPagina + 1, offset]
+    );
+    const temMais = anterioresRes.rows.length > porPagina;
+    const linhasAnteriores = anterioresRes.rows.slice(0, porPagina);
+
+    const plantoesAnteriores = await Promise.all(linhasAnteriores.map(async (p) => {
+      const codigosRes = await query(
+        `SELECT numero_pedido FROM pedidos WHERE plantao_id = $1 AND status_pedido = 'entregue' ORDER BY horario_entregue ASC`,
+        [p.id]
+      );
+      return {
+        inicio: p.inicio,
+        fim: p.fim,
+        valor_total: Number(p.valor_total) || 0,
+        total_gorjetas: Number(p.total_gorjetas) || 0,
+        codigos_rota: codigosRes.rows.map(r => r.numero_pedido)
+      };
+    }));
+
+    const totalGeralRes = await query(
+      `SELECT COUNT(*) AS total_plantoes, COALESCE(SUM(total_entregas),0) AS total_entregas,
+              COALESCE(SUM(total_gorjetas),0) AS total_gorjetas, COALESCE(SUM(valor_total),0) AS valor_total
+       FROM entregador.plantoes_entregador WHERE funcionario_id = $1 AND fim IS NOT NULL`,
+      [req.funcionarioId]
+    );
+    const g = totalGeralRes.rows[0];
+
+    res.json({
+      plantao_atual: plantaoAtual,
+      plantoes_anteriores: plantoesAnteriores,
+      tem_mais: temMais,
+      total_geral: {
+        total_plantoes: parseInt(g.total_plantoes, 10) || 0,
+        total_entregas: parseInt(g.total_entregas, 10) || 0,
+        total_gorjetas: Number(g.total_gorjetas) || 0,
+        valor_total: Number(g.valor_total) || 0
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao buscar meu pagamento:', error);
+    res.status(500).json({ erro: 'Erro ao buscar pagamento.' });
+  }
+}
+
 // Historico de plantoes -- painel admin. Sem funcionario_id, traz de todos
 // os entregadores (ex: fechamento semanal); com funcionario_id, filtra um so.
 async function listarHistoricoPlantoes(req, res) {
@@ -982,7 +1062,7 @@ module.exports = {
   loginFuncionario, acessarPorLink, listar, criar, atualizar, atualizarCadastroCompleto, trocarSenha, excluir,
   listarEquipeOperacional, alternarDisponibilidadeEntregador,
   obterQrcodeDoDia, checkinEntregador, exigirDentroDoHorario, liberarHoraExtra, gerarQrcodeGenerico,
-  obterPlantaoAtual, encerrarPlantao, listarHistoricoPlantoes, meuHistoricoPlantoes, calcularResumoPlantao,
+  obterPlantaoAtual, encerrarPlantao, listarHistoricoPlantoes, meuHistoricoPlantoes, meuPagamento, calcularResumoPlantao,
   verificarSenhaSupervisor, verificarCredenciaisSupervisor, verificarSenhaAtendimento,
   verificarSenhaAtendimentoProprietario,
   verificarSenhaAdministrador,
