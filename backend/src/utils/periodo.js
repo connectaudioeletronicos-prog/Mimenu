@@ -127,6 +127,16 @@ function resolverIntervalo(intervalo, dataInicioPersonalizada, dataFimPersonaliz
         inicio.setDate(inicio.getDate() - 364);
         return { inicio: inicioDoDia(inicio), fim: fimDoDia(agora) };
       }
+      case '3meses': {
+        const inicio = new Date(agora);
+        inicio.setDate(inicio.getDate() - 89);
+        return { inicio: inicioDoDia(inicio), fim: fimDoDia(agora) };
+      }
+      case '6meses': {
+        const inicio = new Date(agora);
+        inicio.setDate(inicio.getDate() - 179);
+        return { inicio: inicioDoDia(inicio), fim: fimDoDia(agora) };
+      }
 
       // --- Periodos de calendario real (Caixa Geral / Resumo do Funcionario) ---
       case 'semana':
