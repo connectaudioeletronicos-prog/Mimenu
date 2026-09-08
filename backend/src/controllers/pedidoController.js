@@ -1084,6 +1084,170 @@ async function minhasEntregasTodas(req, res) {
   return buscarMinhasEntregas(req, res, false);
 }
 
+// Monta o objeto de endereco (rua/numero/complemento/cep/bairro + versao
+// completa) a partir de um pedido cru -- espelha exatamente
+// construirEndereco() do frontend (entregador.js), pra "Rotas realizadas"
+// e "Resumo da rota" mostrarem o endereco formatado do mesmo jeito que a
+// tela de "Rota em andamento" (que monta isso no proprio navegador a
+// partir de /entregas/atual).
+function construirEnderecoServidor(p) {
+  const temEstruturado = p.cliente_endereco_rua || p.cliente_endereco_cep || p.cliente_endereco_bairro;
+  if (!temEstruturado) {
+    return { logradouro: p.cliente_endereco || '-', numero: null, complemento: null, cep: null, bairro: null, completo: p.cliente_endereco || '-' };
+  }
+  const partes = [];
+  if (p.cliente_endereco_rua) partes.push(p.cliente_endereco_numero ? `${p.cliente_endereco_rua}, ${p.cliente_endereco_numero}` : p.cliente_endereco_rua);
+  if (p.cliente_endereco_complemento) partes.push(p.cliente_endereco_complemento);
+  if (p.cliente_endereco_bairro) partes.push(p.cliente_endereco_bairro);
+  if (p.cliente_endereco_cep) partes.push(`CEP ${p.cliente_endereco_cep}`);
+  return {
+    logradouro: p.cliente_endereco_rua || p.cliente_endereco || '-',
+    numero: p.cliente_endereco_numero || null,
+    complemento: p.cliente_endereco_complemento || null,
+    cep: p.cliente_endereco_cep || null,
+    bairro: p.cliente_endereco_bairro || null,
+    completo: partes.join(' - ') || (p.cliente_endereco || '-')
+  };
+}
+
+// Traduz o "periodo" que o app do entregador manda (hoje/semana/mes/
+// 3meses/6meses/ano/tudo) pro vocabulario de utils/periodo.js.
+const MAPA_PERIODO_ENTREGADOR = {
+  hoje: 'hoje', semana: 'semana', mes: 'mes', '3meses': '3meses',
+  '6meses': '6meses', ano: 'ano', tudo: 'geral'
+};
+
+// ---------------------------------------------------------------------
+// GET /entregas/minhas-historico -- usado pelos topicos "Rotas
+// realizadas" e "Resumo da rota" do menu lateral do app do entregador.
+// Paginacao por cursor (horario_entregue da ultima linha da pagina
+// anterior), filtro de periodo, ORDER BY horario_entregue DESC (mais
+// recente primeiro).
+// ---------------------------------------------------------------------
+async function minhasEntregasHistorico(req, res) {
+  try {
+    const limite = Math.min(parseInt(req.query.limite, 10) || 5, 50);
+    const periodo = MAPA_PERIODO_ENTREGADOR[req.query.periodo] || 'hoje';
+    const cursor = req.query.antes || null;
+    const { inicio, fim } = resolverIntervalo(periodo);
+
+    const condicoes = [`estabelecimento_id = $1`, `entregador_id = $2`, `status_pedido = 'entregue'`];
+    const params = [req.estabelecimentoId, req.funcionarioId];
+    if (inicio) { params.push(inicio); condicoes.push(`horario_entregue >= $${params.length}`); }
+    if (fim) { params.push(fim); condicoes.push(`horario_entregue <= $${params.length}`); }
+    if (cursor) { params.push(cursor); condicoes.push(`horario_entregue < $${params.length}`); }
+    params.push(limite + 1); // uma a mais so pra saber se tem proxima pagina
+
+    const funcionario = await query(
+      'SELECT forma_pagamento_entrega, valor_por_entrega, valor_por_km FROM funcionarios WHERE id = $1',
+      [req.funcionarioId]
+    );
+    const f = funcionario.rows[0] || {};
+
+    const resultado = await query(
+      `SELECT id, cliente_nome, cliente_endereco, cliente_endereco_rua, cliente_endereco_numero,
+              cliente_endereco_complemento, cliente_endereco_cep, cliente_endereco_bairro,
+              total, forma_pagamento, troco_para, gorjeta, distancia_km,
+              horario_saiu_entrega, horario_entregue
+       FROM pedidos
+       WHERE ${condicoes.join(' AND ')}
+       ORDER BY horario_entregue DESC
+       LIMIT $${params.length}`,
+      params
+    );
+
+    const temMais = resultado.rows.length > limite;
+    const linhas = resultado.rows.slice(0, limite);
+
+    const entregas = linhas.map((p) => {
+      const comissao = f.forma_pagamento_entrega === 'km'
+        ? (Number(p.distancia_km) || 0) * (Number(f.valor_por_km) || 0)
+        : (Number(f.valor_por_entrega) || 0);
+      return {
+        id: p.id,
+        cliente_nome: p.cliente_nome,
+        endereco: construirEnderecoServidor(p),
+        total_pedido: Number(p.total) || 0,
+        forma_pagamento: p.forma_pagamento,
+        troco: (p.forma_pagamento === 'dinheiro' && p.troco_para !== null) ? Number(p.troco_para) - Number(p.total) : null,
+        gorjeta: Number(p.gorjeta) || 0,
+        valor_rota: comissao,
+        horario_saiu_entrega: p.horario_saiu_entrega,
+        horario_entregue: p.horario_entregue
+      };
+    });
+
+    res.json({
+      entregas,
+      proximo_cursor: linhas.length ? linhas[linhas.length - 1].horario_entregue : null,
+      tem_mais: temMais
+    });
+  } catch (error) {
+    console.error('Erro ao buscar historico de entregas do entregador:', error);
+    res.status(500).json({ erro: 'Erro ao buscar historico de entregas.' });
+  }
+}
+
+// ---------------------------------------------------------------------
+// GET /entregas/minhas-caixinhas -- usado pelo topico "Caixinha
+// recebida". Mesma paginacao por cursor + filtro de periodo da lista
+// acima, mas so pedidos com gorjeta > 0. Os totais (hoje/mes/total) sao
+// sempre calculados sem filtro de periodo -- aparecem fixos, independente
+// de qual chip de periodo esta selecionado pra lista abaixo deles.
+// ---------------------------------------------------------------------
+async function minhasCaixinhas(req, res) {
+  try {
+    const limite = Math.min(parseInt(req.query.limite, 10) || 5, 50);
+    const periodo = MAPA_PERIODO_ENTREGADOR[req.query.periodo] || 'hoje';
+    const cursor = req.query.antes || null;
+    const { inicio, fim } = resolverIntervalo(periodo);
+
+    const condicoes = [`estabelecimento_id = $1`, `entregador_id = $2`, `status_pedido = 'entregue'`, `gorjeta > 0`];
+    const params = [req.estabelecimentoId, req.funcionarioId];
+    if (inicio) { params.push(inicio); condicoes.push(`horario_entregue >= $${params.length}`); }
+    if (fim) { params.push(fim); condicoes.push(`horario_entregue <= $${params.length}`); }
+    if (cursor) { params.push(cursor); condicoes.push(`horario_entregue < $${params.length}`); }
+    params.push(limite + 1);
+
+    const resultado = await query(
+      `SELECT id, cliente_nome, gorjeta, horario_entregue
+       FROM pedidos
+       WHERE ${condicoes.join(' AND ')}
+       ORDER BY horario_entregue DESC
+       LIMIT $${params.length}`,
+      params
+    );
+    const temMais = resultado.rows.length > limite;
+    const linhas = resultado.rows.slice(0, limite);
+    const caixinhas = linhas.map((p) => ({
+      id: p.id, cliente_nome: p.cliente_nome, valor: Number(p.gorjeta) || 0, horario_entregue: p.horario_entregue
+    }));
+
+    const { inicio: inicioHoje, fim: fimHoje } = resolverIntervalo('hoje');
+    const { inicio: inicioMes, fim: fimMes } = resolverIntervalo('mes_atual');
+    const totaisRes = await query(
+      `SELECT
+        COALESCE(SUM(CASE WHEN horario_entregue >= $3 AND horario_entregue <= $4 THEN gorjeta ELSE 0 END), 0) AS hoje,
+        COALESCE(SUM(CASE WHEN horario_entregue >= $5 AND horario_entregue <= $6 THEN gorjeta ELSE 0 END), 0) AS mes,
+        COALESCE(SUM(gorjeta), 0) AS total
+       FROM pedidos
+       WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_pedido = 'entregue' AND gorjeta > 0`,
+      [req.estabelecimentoId, req.funcionarioId, inicioHoje, fimHoje, inicioMes, fimMes]
+    );
+    const t = totaisRes.rows[0];
+
+    res.json({
+      caixinhas,
+      proximo_cursor: linhas.length ? linhas[linhas.length - 1].horario_entregue : null,
+      tem_mais: temMais,
+      totais: { hoje: Number(t.hoje) || 0, mes: Number(t.mes) || 0, total: Number(t.total) || 0 }
+    });
+  } catch (error) {
+    console.error('Erro ao buscar caixinhas do entregador:', error);
+    res.status(500).json({ erro: 'Erro ao buscar caixinhas.' });
+  }
+}
+
 module.exports = {
   criarPedido,
   criarPedidoManual,
@@ -1096,6 +1260,8 @@ module.exports = {
   listarPedidosCliente,
   minhasEntregasHoje,
   minhasEntregasTodas,
+  minhasEntregasHistorico,
+  minhasCaixinhas,
   obterCaixaGeral,
   tentarOfertarPedidosPendentes,
   posicaoNaFila,
