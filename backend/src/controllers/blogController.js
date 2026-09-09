@@ -7,6 +7,26 @@
 const { query } = require('../config/database');
 const { uploadImagem } = require('../utils/storage');
 const { moderarComentario } = require('../utils/moderacaoComentarios');
+const sharp = require('sharp');
+
+// Comprime e redimensiona imagens do blog antes de subir pro storage
+// (capa de post, banner, paginas fixas, imagem inline no texto). Corta
+// pro maximo de 1600px de largura e converte pra JPEG de qualidade 82
+// -- reduz bastante o peso sem perda visivel, o que ajuda o carregamento
+// no celular. So se aplica ao blog; o resto do app (produtos, promocoes
+// de loja etc.) continua usando uploadImagem() sem compressao.
+async function comprimirImagemBlog(buffer) {
+  try {
+    return await sharp(buffer)
+      .rotate() // corrige orientacao de fotos tiradas com celular (EXIF)
+      .resize({ width: 1600, withoutEnlargement: true })
+      .jpeg({ quality: 82 })
+      .toBuffer();
+  } catch (error) {
+    console.error('Falha ao comprimir imagem do blog, enviando original:', error.message);
+    return buffer;
+  }
+}
 
 function chaveValida(chave) {
   return !!chave && chave === process.env.CHAVE_CADASTRO_ADMIN;
@@ -175,7 +195,7 @@ async function criarAdmin(req, res) {
 
     let imagemUrl = null;
     if (req.file) {
-      imagemUrl = await uploadImagem(req.file.buffer, req.file.mimetype, 'blog');
+      imagemUrl = await uploadImagem(await comprimirImagemBlog(req.file.buffer), 'image/jpeg', 'blog');
     }
 
     const slug = await gerarSlugUnico(titulo);
@@ -213,7 +233,7 @@ async function atualizarAdmin(req, res) {
 
     let imagemUrl = atual.imagem_capa_url;
     if (req.file) {
-      imagemUrl = await uploadImagem(req.file.buffer, req.file.mimetype, 'blog');
+      imagemUrl = await uploadImagem(await comprimirImagemBlog(req.file.buffer), 'image/jpeg', 'blog');
     }
 
     const novoTitulo = titulo && titulo.trim() ? titulo.trim() : atual.titulo;
@@ -434,11 +454,55 @@ async function enviarImagemAdmin(req, res) {
     if (!req.file) {
       return res.status(400).json({ erro: 'Nenhuma imagem enviada.' });
     }
-    const url = await uploadImagem(req.file.buffer, req.file.mimetype, 'blog');
+    const url = await uploadImagem(await comprimirImagemBlog(req.file.buffer), 'image/jpeg', 'blog');
     res.json({ url });
   } catch (error) {
     console.error('Erro ao enviar imagem do blog:', error);
     res.status(500).json({ erro: 'Erro interno ao enviar a imagem.' });
+  }
+}
+
+// -------------------------------------------------------------------
+// Sitemap (SEO) -- lista posts publicados + paginas fixas do blog.
+// -------------------------------------------------------------------
+
+async function gerarSitemap(req, res) {
+  try {
+    const resultado = await query(
+      `SELECT slug, atualizado_em, criado_em FROM blog_posts WHERE publicado = true ORDER BY criado_em DESC`
+    );
+
+    const baseUrl = 'https://palatos.com.br';
+    const paginasFixas = [
+      { loc: `${baseUrl}/blog`, prioridade: '0.8' },
+      { loc: `${baseUrl}/blog/sobre-nos`, prioridade: '0.5' },
+      { loc: `${baseUrl}/blog/contato`, prioridade: '0.5' },
+      { loc: `${baseUrl}/termos-servico.html`, prioridade: '0.3' },
+      { loc: `${baseUrl}/politica-privacidade.html`, prioridade: '0.3' }
+    ];
+
+    const itensPosts = resultado.rows.map(post => `
+  <url>
+    <loc>${baseUrl}/blog/${encodeURIComponent(post.slug)}</loc>
+    <lastmod>${new Date(post.atualizado_em || post.criado_em).toISOString().slice(0, 10)}</lastmod>
+    <priority>0.6</priority>
+  </url>`).join('');
+
+    const itensFixos = paginasFixas.map(p => `
+  <url>
+    <loc>${p.loc}</loc>
+    <priority>${p.prioridade}</priority>
+  </url>`).join('');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${itensFixos}${itensPosts}
+</urlset>`;
+
+    res.set('Content-Type', 'application/xml');
+    res.send(xml);
+  } catch (error) {
+    console.error('Erro ao gerar sitemap do blog:', error);
+    res.status(500).send('Erro ao gerar sitemap.');
   }
 }
 
@@ -447,5 +511,5 @@ module.exports = {
   listarTodosAdmin, criarAdmin, atualizarAdmin, excluirAdmin,
   listarComentariosAdmin, responderComentarioAdmin, excluirComentarioAdmin,
   obterConfiguracoes, atualizarConfiguracoesAdmin, enviarImagemAdmin,
-  obterPagina, atualizarPaginaAdmin
+  obterPagina, atualizarPaginaAdmin, gerarSitemap
 };
