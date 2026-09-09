@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Blog - Palatos</title>
+<meta name="description" id="metaDescricao" content="Dicas, novidades e conteúdo do blog Palatos.">
+<meta property="og:type" content="article">
+<meta property="og:title" id="ogTitulo" content="Blog Palatos">
+<meta property="og:description" id="ogDescricao" content="Dicas, novidades e conteúdo do blog Palatos.">
+<meta property="og:image" id="ogImagem" content="">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -137,6 +143,28 @@
   }
   .resposta-admin strong { color: var(--verde-escura); }
   .sem-comentarios { color: var(--texto-claro); font-size: 14px; }
+
+  /* ---------- compartilhar ---------- */
+  .compartilhar { display: flex; align-items: center; gap: 10px; margin-top: 26px; flex-wrap: wrap; }
+  .compartilhar .rotulo { font-size: 13.5px; color: var(--texto-claro); font-weight: 600; margin-right: 4px; }
+  .compartilhar button, .compartilhar a {
+    width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--borda);
+    background: white; display: flex; align-items: center; justify-content: center;
+    color: var(--verde-escura); cursor: pointer; text-decoration: none;
+  }
+  .compartilhar button:hover, .compartilhar a:hover { background: var(--verde-clara); }
+  .compartilhar .copiado { font-size: 12.5px; color: var(--verde-escura); margin-left: 4px; }
+
+  /* ---------- posts relacionados ---------- */
+  .relacionados { margin-top: 40px; }
+  .relacionados h3 { font-size: 18px; margin-bottom: 14px; color: var(--verde-escura); }
+  .relacionados-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+  .relacionado-card {
+    display: block; text-decoration: none; color: inherit; background: white;
+    border-radius: 12px; overflow: hidden; box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+  }
+  .relacionado-card img { width: 100%; height: 100px; object-fit: cover; display: block; background: var(--fundo-suave); }
+  .relacionado-card .titulo-rel { padding: 10px 12px; font-size: 13.5px; font-weight: 600; color: var(--verde-escura); line-height: 1.35; }
 
   /* ---------- navegacao ---------- */
   .navegacao-posts { display: flex; justify-content: space-between; margin-top: 34px; gap: 12px; }
@@ -334,6 +362,12 @@ async function carregarPost() {
     TODOS_OS_POSTS = respostaLista.ok ? await respostaLista.json() : [];
     document.title = post.titulo + ' - Blog Palatos';
 
+    const descricao = (post.resumo || (post.conteudo || '').split(/\n\s*\n/)[0] || '').slice(0, 155);
+    document.getElementById('metaDescricao').setAttribute('content', descricao);
+    document.getElementById('ogTitulo').setAttribute('content', post.titulo);
+    document.getElementById('ogDescricao').setAttribute('content', descricao);
+    if (post.imagem_capa_url) document.getElementById('ogImagem').setAttribute('content', post.imagem_capa_url);
+
     div.innerHTML = `
       <h2 class="titulo-post">${escaparHtml(post.titulo)}</h2>
       <div class="meta-post">
@@ -344,6 +378,23 @@ async function carregarPost() {
       ${post.imagem_capa_url ? `<img class="capa" src="${post.imagem_capa_url}" alt="">` : ''}
       <div class="texto-post">${renderizarConteudo(post.conteudo)}</div>
       ${post.link_url ? `<a class="botao-link" href="${escaparHtml(post.link_url)}">${escaparHtml(post.link_texto || 'Saiba mais')}</a>` : ''}
+
+      <div class="compartilhar">
+        <span class="rotulo">Compartilhar:</span>
+        <a href="https://wa.me/?text=${encodeURIComponent(post.titulo + ' - ' + window.location.href)}" target="_blank" rel="noopener" title="WhatsApp" aria-label="Compartilhar no WhatsApp">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2Zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20Zm4.4-5.9c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1-.2.2-.6.8-.8 1-.1.2-.3.2-.5.1-1.3-.6-2.1-1.1-3-2.6-.2-.4.2-.3.6-1.1.1-.1 0-.3 0-.4l-.7-1.6c-.2-.4-.4-.4-.5-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 1.9s.8 2.2.9 2.3c.1.2 1.6 2.5 4 3.5.6.2 1 .4 1.3.5.6.2 1.1.1 1.5-.1.5-.2 1.4-.6 1.6-1.1.2-.5.2-1 .1-1.1-.1-.1-.2-.2-.5-.3Z"/></svg>
+        </a>
+        <a href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}" target="_blank" rel="noopener" title="Facebook" aria-label="Compartilhar no Facebook">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12Z"/></svg>
+        </a>
+        <a href="https://twitter.com/intent/tweet?text=${encodeURIComponent(post.titulo)}&url=${encodeURIComponent(window.location.href)}" target="_blank" rel="noopener" title="X (Twitter)" aria-label="Compartilhar no X">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M18.9 2H22l-7.6 8.7L23.3 22h-7.2l-5.6-6.8L4 22H1l8.1-9.3L1 2h7.4l5.1 6.3L18.9 2Zm-1.3 18h1.8L7.5 4H5.6l12 16Z"/></svg>
+        </a>
+        <button onclick="copiarLink()" title="Copiar link" aria-label="Copiar link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1"/></svg>
+        </button>
+        <span class="copiado" id="msgCopiado"></span>
+      </div>
 
       <button class="teaser-comentario" onclick="alternarComentarios()">
         <span class="bolha">💬</span>
@@ -370,10 +421,39 @@ async function carregarPost() {
       </div>
 
       ${renderizarNavegacao()}
+      ${renderizarRelacionados()}
     `;
   } catch (e) {
     div.innerHTML = '<div class="erro-pagina">Não foi possível conectar. Verifique sua internet.</div>';
   }
+}
+
+function copiarLink() {
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    const msg = document.getElementById('msgCopiado');
+    msg.textContent = 'Link copiado!';
+    setTimeout(() => { msg.textContent = ''; }, 2500);
+  });
+}
+
+// Ate 3 posts mais recentes, sem contar o atual -- serve como "voce
+// tambem pode gostar" mesmo sem categoria formal.
+function renderizarRelacionados() {
+  const outros = TODOS_OS_POSTS.filter(p => p.slug !== POST_ATUAL.slug).slice(0, 3);
+  if (outros.length === 0) return '';
+  return `
+    <div class="relacionados">
+      <h3>Você também pode gostar</h3>
+      <div class="relacionados-grade">
+        ${outros.map(p => `
+          <a class="relacionado-card" href="/blog/${encodeURIComponent(p.slug)}">
+            ${p.imagem_capa_url ? `<img src="${p.imagem_capa_url}" alt="">` : ''}
+            <div class="titulo-rel">${escaparHtml(p.titulo)}</div>
+          </a>
+        `).join('')}
+      </div>
+    </div>
+  `;
 }
 
 function alternarComentarios() {
