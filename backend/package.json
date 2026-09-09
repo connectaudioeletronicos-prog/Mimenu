@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js"
   },
   "dependencies": {
+    "sharp": "^0.34.5",
     "express": "^4.19.2",
     "pg": "^8.12.0",
     "cors": "^2.8.5",
