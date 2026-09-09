@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Blog - Palatos</title>
+<meta name="description" id="metaDescricao" content="Blog Palatos.">
+<meta property="og:type" content="website">
+<meta property="og:title" id="ogTitulo" content="Blog Palatos">
+<meta property="og:description" id="ogDescricao" content="Blog Palatos.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -225,6 +229,11 @@ async function carregarPagina() {
       return;
     }
     document.title = pagina.titulo + ' - Blog Palatos';
+    const descricao = ((pagina.conteudo || '').split(/\n\s*\n/).find(b => !b.trim().startsWith('## ') && !b.trim().startsWith('!['))
+     || '').slice(0, 155);
+    document.getElementById('metaDescricao').setAttribute('content', descricao || pagina.titulo);
+    document.getElementById('ogTitulo').setAttribute('content', pagina.titulo);
+    document.getElementById('ogDescricao').setAttribute('content', descricao || pagina.titulo);
     div.innerHTML = `
       <h2 class="titulo-pagina">${escaparHtml(pagina.titulo)}</h2>
       ${pagina.imagem_url ? `<img class="capa" src="${pagina.imagem_url}" alt="">` : ''}
