@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Termos de Serviço — Palatos</title>
+<title>Termos de Uso — Palatos</title>
 <style>
   :root{
     --bg: #FBF9F6;
@@ -92,7 +92,7 @@
 
 <header>
   <div class="brand">Palatos</div>
-  <h1 id="tituloPagina">Termos de Serviço</h1>
+  <h1 id="tituloPagina">Termos de Uso</h1>
   <div class="updated" id="dataAtualizacao"></div>
 </header>
 
@@ -139,8 +139,8 @@ async function carregar() {
       div.innerHTML = '<p>Esta página ainda não foi preenchida.</p>';
       return;
     }
-    document.getElementById('tituloPagina').textContent = pagina.titulo || 'Termos de Serviço';
-    document.title = (pagina.titulo || 'Termos de Serviço') + ' — Palatos';
+    document.getElementById('tituloPagina').textContent = pagina.titulo || 'Termos de Uso';
+    document.title = (pagina.titulo || 'Termos de Uso') + ' — Palatos';
     if (pagina.atualizado_em) {
       document.getElementById('dataAtualizacao').textContent =
         'Última atualização: ' + new Date(pagina.atualizado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
