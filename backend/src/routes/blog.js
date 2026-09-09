@@ -23,5 +23,6 @@ router.get('/posts/:slug', blogController.buscarPorSlug);
 router.post('/posts/:slug/comentarios', limitadorComentarios, blogController.criarComentario);
 router.get('/configuracoes', blogController.obterConfiguracoes);
 router.get('/paginas/:tipo', blogController.obterPagina);
+router.get('/sitemap.xml', blogController.gerarSitemap);
 
 module.exports = router;
