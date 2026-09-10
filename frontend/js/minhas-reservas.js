@@ -10,27 +10,9 @@
 const STATUS_RESERVA_INFO = {
   pendente: { texto: 'Aguardando confirmação', icone: '⏳', classe: 'aguardando' },
   confirmada: { texto: 'Confirmada', icone: '✅', classe: 'confirmado' },
-  cancelada: { texto: 'Recusada', icone: '✕', classe: 'cancelado' },
-  concluida: { texto: 'Concluída', icone: '🎉', classe: 'confirmado' },
-  nao_concluida: { texto: 'Não compareceu', icone: '✕', classe: 'cancelado' }
+  cancelada: { texto: 'Recusada', icone: '✕', classe: 'cancelado' }
 };
 
-// reserva.data_reserva vem do banco como coluna DATE -> o driver do
-// Postgres entrega isso como Date/ISO completo (ex:
-// "2026-08-29T00:00:00.000Z"), nao como "2026-08-29" puro. Pegar so os
-// 10 primeiros caracteres extrai a data "crua", pronta pra concatenar
-// com o horario sem formar uma string de data invalida.
-// BUGFIX: antes o codigo colava "T${horario}:00" direto em cima do ISO
-// completo (ex: "...000ZT18:00:00"), o que virava uma Data invalida --
-// e por isso reservas passadas NUNCA saiam da lista de "ativas" (a
-// comparacao com Date.now() sempre dava falso).
-function apenasData(dataReserva) {
-  return String(dataReserva).substring(0, 10);
-}
-
-// Reserva com status 'cancelada' pode ter sido recusada PELA LOJA ou
-// cancelada PELO PROPRIO CLIENTE (ver reservaController.js -- coluna
-// cancelada_por). O texto/rotulo muda dependendo de quem cancelou.
 function textoCancelamento(reserva) {
   return reserva.cancelada_por === 'cliente' ? 'Cancelado pelo cliente' : 'Recusada';
 }
@@ -43,7 +25,6 @@ async function iniciarMinhasReservas() {
 
   preencherSaudacaoConta(conta);
   configurarNavegacaoConta('reservas');
-  atualizarBadgesNavegacaoConta('reservas');
   await carregarMinhasReservas();
 
   document.getElementById('tela-carregando').classList.add('oculto');
@@ -57,23 +38,20 @@ function formatarDataHoraReserva(iso) {
 
 // Uma reserva sai de "ativa" e vai pro historico assim que o horario
 // agendado ja passou, ou assim que a loja recusa (cancelada) -- nao importa
-// se ja passou ou nao, uma recusa ja e' definitiva. "concluida" e
-// "nao_concluida" (aplicadas automaticamente pelo backend quando a data/
-// hora passa) tambem sempre contam como historico.
+// se ja passou ou nao, uma recusa ja e' definitiva.
 function reservaEstaNoHistorico(reserva) {
-  if (['cancelada', 'concluida', 'nao_concluida'].includes(reserva.status)) return true;
-  const dataHoraAgendada = new Date(`${apenasData(reserva.data_reserva)}T${reserva.horario_reserva.substring(0, 5)}:00`);
+  if (reserva.status === 'cancelada') return true;
+  const dataHoraAgendada = new Date(`${reserva.data_reserva}T${reserva.horario_reserva.substring(0, 5)}:00`);
   return dataHoraAgendada.getTime() < Date.now();
 }
 
-// No historico, o status real ja vem pronto do backend (concluida = fez
-// check-in, nao_concluida = nao apareceu) -- nao precisa mais ser
-// deduzido aqui no front.
+// No historico, "concluida" (verde) so' quando a loja tinha confirmado e o
+// horario passou -- cliente efetivamente foi atendido. Qualquer outro caso
+// (recusada, ou nunca respondida a tempo) conta como nao concluida (vermelho).
 function infoHistoricoReserva(reserva) {
-  if (reserva.status === 'concluida') return { texto: 'Concluída', classe: 'confirmado' };
-  if (reserva.status === 'nao_concluida') return { texto: 'Não compareceu', classe: 'cancelado' };
+  if (reserva.status === 'confirmada') return { texto: 'Concluída', classe: 'confirmado' };
   if (reserva.status === 'cancelada') return { texto: textoCancelamento(reserva), classe: 'cancelado' };
-  return { texto: STATUS_RESERVA_INFO[reserva.status]?.texto || reserva.status, classe: 'aguardando' };
+  return { texto: 'Não concluída', classe: 'cancelado' };
 }
 
 function renderizarCardReserva(reserva, { historico = false } = {}) {
@@ -81,22 +59,18 @@ function renderizarCardReserva(reserva, { historico = false } = {}) {
   if (!historico && reserva.status === 'cancelada') {
     info = { ...info, texto: textoCancelamento(reserva) };
   }
-  const dataFormatada = new Date(`${apenasData(reserva.data_reserva)}T00:00:00`).toLocaleDateString('pt-BR');
+  const dataFormatada = new Date(`${reserva.data_reserva}T00:00:00`).toLocaleDateString('pt-BR');
 
   const linhasExtras = [`Solicitada em ${formatarDataHoraReserva(reserva.criado_em)}`];
   if (reserva.status !== 'pendente' && reserva.atualizado_em) {
-    let rotulo;
-    if (reserva.status === 'confirmada') rotulo = 'Confirmada';
-    else if (reserva.status === 'concluida') rotulo = 'Concluída (check-in)';
-    else if (reserva.status === 'nao_concluida') rotulo = 'Marcada como não compareceu';
-    else rotulo = textoCancelamento(reserva);
+    const rotulo = reserva.status === 'confirmada' ? 'Confirmada' : textoCancelamento(reserva);
     linhasExtras.push(`${rotulo} em ${formatarDataHoraReserva(reserva.atualizado_em)}`);
   }
 
   // So mostra o botao de cancelar em reservas ativas (nao historico) que
-  // ainda estao pendentes/confirmadas -- reserva ja finalizada (recusada,
-  // concluida ou nao concluida) nao tem o que cancelar.
-  const podeCancelar = !historico && ['pendente', 'confirmada'].includes(reserva.status);
+  // ainda nao foram recusadas -- reserva ja recusada/passada nao tem o que
+  // cancelar.
+  const podeCancelar = !historico && reserva.status !== 'cancelada';
   const botaoCancelar = podeCancelar
     ? `<button type="button" class="conta-botao-cancelar-reserva" data-reserva-id="${reserva.id}">
          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
