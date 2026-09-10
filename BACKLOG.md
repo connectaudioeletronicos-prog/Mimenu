@@ -63,19 +63,20 @@
       padrão nativo já comprovado — 22/07
 
 ## Cadastro / infraestrutura
-- [x] Leitor de codigo de barras fisico (USB ou Bluetooth) no cadastro de
-      produtos — esses leitores operam em "modo teclado" (nao precisam de
-      driver/conexao especial): o campo `produto-codigo` agora escuta o
-      Enter que o leitor manda e dispara a mesma busca que ja existia pro
-      leitor por camera (`frontend/admin/js/admin.js`)
-- [x] API que preenche nome/preco sugerido/embalagem ao ler o codigo de
-      barras — conectado com o Cosmos (Bluesoft), plano gratuito (25
-      consultas/dia). Token fica SO no backend (`COSMOS_API_TOKEN` no
-      `.env`, nunca no frontend/GitHub Pages) — nova rota
-      `GET /admin/produtos/consulta-codigo-barras/:codigo`
-      (`produtoController.js`), chamada pelo admin via `apiConsultarCodigoBarras`
-      (`admin-api.js`). Preco preenchido e' so' sugestao (media de mercado),
-      lojista revisa antes de salvar
+- [x] Central de Entregas — cartao "Entregadores" na Equipe simplificado
+      (so identificacao/situacao), clicavel para abrir uma subpagina
+      dedicada com QR Code do dia, 4 cards de estatisticas (entregas hoje,
+      em andamento, finalizadas hoje, aguardando coleta), lista de
+      entregas em andamento e botao "Equipe" que leva pra gestao detalhada
+      de cada entregador (disponibilidade/link de acesso/hora
+      extra/comissao, conteudo que antes ficava na Equipe). Fundo da
+      pagina usa a "Cor principal" que o lojista escolhe em Personalizacao
+      (`ESTADO.estabelecimento.cor_principal`). Botoes "Por KM"/"Valor
+      Fixo" filtram a lista de entregadores por forma de pagamento.
+      100% com dados que ja existiam (pedidos/equipe operacional), sem
+      migration nem rota nova no backend
+      (`frontend/admin/admin-index.html`, `frontend/admin/js/admin.js`,
+      `frontend/admin/css/admin.css`)
 - [x] Confirmar execução da `migration_dados_legais.sql` no Supabase —
       migration original havia sido perdida; reconstruída em 22/07/2026 a
       partir do `INSERT INTO dados_legais` já existente em
@@ -126,14 +127,6 @@
       e `pedidos.agendado_para`. Falta: tela de agendamento no cliente
       (calendário/horário), campo de intervalo no admin, bloqueio de
       "pagar na entrega" quando for agendado
-- [x] Distinguir reserva recusada pela loja ("Recusada") de reserva
-      cancelada pelo proprio cliente ("Cancelado pelo cliente") — coluna
-      nova `cancelada_por` ('loja'/'cliente') em `reservas`
-      (`backend/src/migrations/reservas_cancelada_por.sql`), preenchida em
-      `reservaController.js` (`atualizarStatus` grava 'loja',
-      `cancelarPropria` grava 'cliente'). Rotulo dinamico em
-      `frontend/js/minhas-reservas.js` (cliente) e
-      `frontend/admin/js/admin.js` (painel do lojista)
 - [x] Reserva de mesa (só para lojas com atendimento local) — 24/07:
       recurso opcional (toggle em Configurações). Cliente vê um menu
       discreto "Reserva" no cardápio (só se ativado), preenche nome,
