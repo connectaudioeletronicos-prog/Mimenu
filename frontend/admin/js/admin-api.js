@@ -55,7 +55,6 @@ async function chamarApiAdmin(caminho, { method = 'GET', body = null, isFormData
   const resposta = await fetch(`${API_BASE_URL}/admin${caminho}`, {
     method,
     headers,
-    cache: 'no-store',
     body: isFormData ? body : (body ? JSON.stringify(body) : undefined)
   });
 
@@ -100,7 +99,7 @@ async function apiSolicitarRecuperacaoSenha(email) {
     body: JSON.stringify({ email })
   });
   const dados = await resposta.json();
-  if (!resposta.ok) throw new Error(dados.erro || 'Nao foi possivel enviar o e-mail de recuperacao de senha, por favor entrar em contato com o suporte.');
+  if (!resposta.ok) throw new Error(dados.erro || 'Nao foi possivel enviar o link de recuperacao.');
   return dados;
 }
 
@@ -112,7 +111,6 @@ const apiUploadBanner = (formData) => chamarApiAdmin('/estabelecimento/banner', 
 const apiAlternarReservaMesa = (ativo) => chamarApiAdmin('/configuracoes/reserva-mesa', { method: 'PUT', body: { ativo } });
 const apiListarReservas = () => chamarApiAdmin('/reservas');
 const apiAtualizarStatusReserva = (id, status) => chamarApiAdmin(`/reservas/${id}/status`, { method: 'PUT', body: { status } });
-const apiCheckInReserva = (id) => chamarApiAdmin(`/reservas/${id}/checkin`, { method: 'PUT' });
 
 const apiListarCategorias = () => chamarApiAdmin('/categorias');
 const apiCriarCategoria = (formData) => chamarApiAdmin('/categorias', { method: 'POST', body: formData, isFormData: true });
