@@ -73,7 +73,7 @@ async function listarPublicados(req, res) {
     const resultado = await query(
       `SELECT id, titulo, slug, resumo, conteudo, categoria, imagem_capa_url, criado_em
        FROM blog_posts
-       WHERE publicado = true
+       WHERE publicado = true AND (publicar_em IS NULL OR publicar_em <= NOW())
        ORDER BY criado_em DESC
        LIMIT $1 OFFSET $2`,
       [limite, offset]
@@ -90,13 +90,19 @@ async function buscarPorSlug(req, res) {
     const { slug } = req.params;
     const postRes = await query(
       `SELECT id, titulo, slug, resumo, conteudo, imagem_capa_url, link_url, link_texto, categoria, criado_em
-       FROM blog_posts WHERE slug = $1 AND publicado = true`,
+       FROM blog_posts
+       WHERE slug = $1 AND publicado = true AND (publicar_em IS NULL OR publicar_em <= NOW())`,
       [slug]
     );
     if (postRes.rows.length === 0) {
       return res.status(404).json({ erro: 'Post nao encontrado.' });
     }
     const post = postRes.rows[0];
+
+    // Conta a visualizacao (so nesta rota publica; a edicao pelo admin
+    // usa obterPostAdmin, que nao mexe nesse contador).
+    query('UPDATE blog_posts SET visualizacoes = visualizacoes + 1 WHERE id = $1', [post.id])
+      .catch(err => console.error('Erro ao contar visualizacao do post:', err));
 
     const comentariosRes = await query(
       `SELECT id, nome, comentario, resposta_admin, respondido_em, criado_em
@@ -169,7 +175,7 @@ async function listarTodosAdmin(req, res) {
     }
 
     const resultado = await query(
-      `SELECT p.id, p.titulo, p.slug, p.publicado, p.criado_em, p.atualizado_em,
+      `SELECT p.id, p.titulo, p.slug, p.publicado, p.publicar_em, p.visualizacoes, p.criado_em, p.atualizado_em,
               COUNT(c.id)::int AS total_comentarios
        FROM blog_posts p
        LEFT JOIN blog_comentarios c ON c.post_id = p.id
@@ -183,9 +189,30 @@ async function listarTodosAdmin(req, res) {
   }
 }
 
+// Busca o post completo por id pra edicao no admin -- separada da rota
+// publica (buscarPorSlug) justamente pra nao contar visualizacao toda
+// vez que o admin abre um post pra editar.
+async function obterPostAdmin(req, res) {
+  try {
+    const { id } = req.params;
+    const { chaveMestra } = req.query;
+    if (!chaveValida(chaveMestra)) {
+      return res.status(403).json({ erro: 'Chave mestra invalida.' });
+    }
+    const resultado = await query('SELECT * FROM blog_posts WHERE id = $1', [id]);
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({ erro: 'Post nao encontrado.' });
+    }
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    console.error('Erro ao obter post (admin):', error);
+    res.status(500).json({ erro: 'Erro interno ao obter o post.' });
+  }
+}
+
 async function criarAdmin(req, res) {
   try {
-    const { chaveMestra, titulo, resumo, conteudo, link_url, link_texto, categoria, publicado } = req.body;
+    const { chaveMestra, titulo, resumo, conteudo, link_url, link_texto, categoria, publicado, publicar_em } = req.body;
     if (!chaveValida(chaveMestra)) {
       return res.status(403).json({ erro: 'Chave mestra invalida.' });
     }
@@ -201,13 +228,14 @@ async function criarAdmin(req, res) {
     const slug = await gerarSlugUnico(titulo);
 
     const resultado = await query(
-      `INSERT INTO blog_posts (titulo, slug, resumo, conteudo, imagem_capa_url, link_url, link_texto, categoria, publicado)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      `INSERT INTO blog_posts (titulo, slug, resumo, conteudo, imagem_capa_url, link_url, link_texto, categoria, publicado, publicar_em)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
       [
         titulo.trim(), slug, (resumo || '').trim() || null, conteudo.trim(),
         imagemUrl, (link_url || '').trim() || null, (link_texto || '').trim() || null,
         (categoria || '').trim() || null,
-        publicado === 'false' ? false : true
+        publicado === 'false' ? false : true,
+        (publicar_em || '').trim() || null
       ]
     );
     res.status(201).json(resultado.rows[0]);
@@ -220,7 +248,7 @@ async function criarAdmin(req, res) {
 async function atualizarAdmin(req, res) {
   try {
     const { id } = req.params;
-    const { chaveMestra, titulo, resumo, conteudo, link_url, link_texto, categoria, publicado } = req.body;
+    const { chaveMestra, titulo, resumo, conteudo, link_url, link_texto, categoria, publicado, publicar_em } = req.body;
     if (!chaveValida(chaveMestra)) {
       return res.status(403).json({ erro: 'Chave mestra invalida.' });
     }
@@ -242,8 +270,8 @@ async function atualizarAdmin(req, res) {
     const resultado = await query(
       `UPDATE blog_posts SET
         titulo = $1, slug = $2, resumo = $3, conteudo = $4, imagem_capa_url = $5,
-        link_url = $6, link_texto = $7, categoria = $8, publicado = $9, atualizado_em = NOW()
-       WHERE id = $10 RETURNING *`,
+        link_url = $6, link_texto = $7, categoria = $8, publicado = $9, publicar_em = $10, atualizado_em = NOW()
+       WHERE id = $11 RETURNING *`,
       [
         novoTitulo, slug,
         resumo !== undefined ? ((resumo || '').trim() || null) : atual.resumo,
@@ -253,6 +281,7 @@ async function atualizarAdmin(req, res) {
         link_texto !== undefined ? ((link_texto || '').trim() || null) : atual.link_texto,
         categoria !== undefined ? ((categoria || '').trim() || null) : atual.categoria,
         publicado !== undefined ? publicado !== 'false' : atual.publicado,
+        publicar_em !== undefined ? ((publicar_em || '').trim() || null) : atual.publicar_em,
         id
       ]
     );
@@ -508,7 +537,7 @@ async function gerarSitemap(req, res) {
 
 module.exports = {
   listarPublicados, buscarPorSlug, criarComentario,
-  listarTodosAdmin, criarAdmin, atualizarAdmin, excluirAdmin,
+  listarTodosAdmin, obterPostAdmin, criarAdmin, atualizarAdmin, excluirAdmin,
   listarComentariosAdmin, responderComentarioAdmin, excluirComentarioAdmin,
   obterConfiguracoes, atualizarConfiguracoesAdmin, enviarImagemAdmin,
   obterPagina, atualizarPaginaAdmin, gerarSitemap
