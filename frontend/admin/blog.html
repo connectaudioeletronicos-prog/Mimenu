@@ -122,6 +122,10 @@
         <label style="margin:0">Publicado (desmarque para deixar como rascunho)</label>
       </div>
 
+      <label>Agendar publicação (opcional)</label>
+      <input type="datetime-local" id="campoPublicarEm">
+      <p class="sub" style="margin-top:4px;">Deixe em branco para publicar imediatamente. Se preencher uma data futura, o post fica escondido do público até essa data/hora chegar.</p>
+
       <div class="topo" style="margin-top:16px;">
         <button onclick="salvarPost()" id="btnSalvarPost">Publicar post</button>
         <button class="secundario oculto" id="btnCancelarEdicao" onclick="cancelarEdicao()">Cancelar edição</button>
@@ -584,6 +588,15 @@ function formatarData(iso) {
   return new Date(iso).toLocaleString('pt-BR');
 }
 
+// Converte um timestamp ISO (vindo do banco) pro formato que o input
+// datetime-local espera (YYYY-MM-DDTHH:mm), respeitando o fuso local.
+function paraDatetimeLocal(iso) {
+  const data = new Date(iso);
+  const offset = data.getTimezoneOffset();
+  const local = new Date(data.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
 // ---------------------------------------------------------------
 // Criar / editar post
 // ---------------------------------------------------------------
@@ -609,6 +622,8 @@ async function salvarPost() {
   dadosFormulario.append('link_texto', document.getElementById('campoLinkTexto').value.trim());
   dadosFormulario.append('categoria', document.getElementById('campoCategoria').value.trim());
   dadosFormulario.append('publicado', document.getElementById('campoPublicado').checked ? 'true' : 'false');
+  const publicarEm = document.getElementById('campoPublicarEm').value;
+  dadosFormulario.append('publicar_em', publicarEm ? new Date(publicarEm).toISOString() : '');
 
   const arquivoImagem = document.getElementById('campoImagem').files[0];
   if (arquivoImagem) dadosFormulario.append('imagem', arquivoImagem);
@@ -651,6 +666,7 @@ function editarPost(id) {
   document.getElementById('campoLinkTexto').value = post.link_texto || '';
   document.getElementById('campoCategoria').value = post.categoria || '';
   document.getElementById('campoPublicado').checked = !!post.publicado;
+  document.getElementById('campoPublicarEm').value = post.publicar_em ? paraDatetimeLocal(post.publicar_em) : '';
   document.getElementById('campoImagem').value = '';
 
   const preview = document.getElementById('previewImagemAtual');
@@ -676,6 +692,7 @@ function cancelarEdicao() {
   document.getElementById('campoLinkTexto').value = '';
   document.getElementById('campoCategoria').value = '';
   document.getElementById('campoPublicado').checked = true;
+  document.getElementById('campoPublicarEm').value = '';
   document.getElementById('campoImagem').value = '';
   document.getElementById('previewImagemAtual').classList.add('oculto');
   document.getElementById('btnSalvarPost').textContent = 'Publicar post';
@@ -719,12 +736,17 @@ async function carregarPosts() {
       listaDiv.innerHTML = '<p class="sub">Nenhum post ainda.</p>';
       return;
     }
-    listaDiv.innerHTML = POSTS.map(p => `
+    listaDiv.innerHTML = POSTS.map(p => {
+      const agendado = p.publicado && p.publicar_em && new Date(p.publicar_em) > new Date();
+      const selo = !p.publicado
+        ? '<span class="selo rascunho">Rascunho</span>'
+        : agendado
+          ? `<span class="selo rascunho">Agendado: ${formatarData(p.publicar_em)}</span>`
+          : '<span class="selo publicado">Publicado</span>';
+      return `
       <div class="post-item" id="post-${p.id}">
-        <div class="titulo">${escaparHtmlLocal(p.titulo)}
-          <span class="selo ${p.publicado ? 'publicado' : 'rascunho'}">${p.publicado ? 'Publicado' : 'Rascunho'}</span>
-        </div>
-        <div class="detalhe">${formatarData(p.criado_em)} · ${p.total_comentarios} comentário(s)</div>
+        <div class="titulo">${escaparHtmlLocal(p.titulo)} ${selo}</div>
+        <div class="detalhe">${formatarData(p.criado_em)} · ${p.total_comentarios} comentário(s) · 👁️ ${p.visualizacoes || 0} visualizações</div>
         <div class="acoes">
           <button class="pequeno" onclick="buscarPostCompletoParaEditar('${p.id}')">Editar</button>
           <button class="pequeno secundario" onclick="alternarComentarios('${p.id}')" id="btnComentarios-${p.id}">Ver comentários</button>
@@ -732,28 +754,25 @@ async function carregarPosts() {
         </div>
         <div id="comentarios-${p.id}" class="oculto"></div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   } catch (e) {
     listaDiv.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
   }
 }
 
-// A listagem principal nao traz o conteudo completo (pra ficar leve) --
-// busca o post individual antes de abrir pra edicao.
+// Busca os dados completos do post pra edicao, pela rota de admin
+// (nao conta visualizacao, diferente da rota publica).
 async function buscarPostCompletoParaEditar(id) {
   try {
-    const resposta = await fetch(API_BASE_URL + '/painel/blog/posts?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA));
-    const dados = await resposta.json();
-    const resumoPost = dados.find(p => p.id === id);
-    // Busca os campos completos (conteudo, link etc.) pela rota publica
-    // do proprio slug quando o post estiver publicado; se for rascunho,
-    // usa os dados que ja temos em memoria (POSTS) como fallback.
-    if (resumoPost && resumoPost.publicado) {
-      const respostaPost = await fetch(API_BASE_URL + '/blog/posts/' + resumoPost.slug);
-      const postCompleto = await respostaPost.json();
-      const indice = POSTS.findIndex(p => p.id === id);
-      POSTS[indice] = { ...POSTS[indice], ...postCompleto };
+    const resposta = await fetch(API_BASE_URL + '/painel/blog/posts/' + id + '?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA));
+    const postCompleto = await resposta.json();
+    if (!resposta.ok) {
+      alert(postCompleto.erro || 'Não foi possível carregar os dados completos do post.');
+      return;
     }
+    const indice = POSTS.findIndex(p => p.id === id);
+    POSTS[indice] = { ...POSTS[indice], ...postCompleto };
     editarPost(id);
   } catch (e) {
     alert('Não foi possível carregar os dados completos do post.');
