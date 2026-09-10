@@ -183,6 +183,8 @@ const apiAtualizarCadastroCompletoFuncionario = (id, dados) => chamarApiFunciona
 const apiTrocarSenhaFuncionario = (id, dados) => chamarApiFuncionarios(`/${id}/senha`, { method: 'PUT', body: dados });
 const apiExcluirFuncionario = (id, senhaConfirmacao) => chamarApiFuncionarios(`/${id}`, { method: 'DELETE', body: { senhaConfirmacao } });
 const apiListarEquipeOperacional = () => chamarApiFuncionarios('/equipe');
+const apiHistoricoPlantoesEntregador = (funcionarioId) => chamarApiFuncionarios(`/plantao/historico?funcionario_id=${funcionarioId}`);
+const apiMarcarPlantoesComoPago = (funcionarioId) => chamarApiFuncionarios(`/${funcionarioId}/plantao/marcar-pago`, { method: 'PUT' });
 const apiAlternarDisponibilidadeEntregador = (id, disponivel_entrega) => chamarApiFuncionarios(`/${id}/disponibilidade`, { method: 'PUT', body: { disponivel_entrega } });
 const apiVerificarSenhaAdministrador = (senha) => chamarApiFuncionarios('/verificar-senha-administrador', { method: 'POST', body: { senha } });
 const apiVerificarSenhaAtendimento = (login, senha) => chamarApiFuncionarios('/verificar-senha-atendimento', { method: 'POST', body: { login, senha } });
