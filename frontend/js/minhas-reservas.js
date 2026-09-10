@@ -1,169 +1,166 @@
 // ===================================================================
-// Reserva de mesa - recurso opcional (cada loja liga/desliga na aba
-// Configuracoes do painel). Simples: dia, hora, quantidade de pessoas.
+// Pagina "Minhas reservas" -- lista reservas ativas e o historico de
+// agendamentos do cliente nesta loja (via telefone). Reservas ativas
+// (pendente/confirmada, ainda no futuro) ganham um botao "Cancelar
+// reserva", pra o cliente desmarcar sem precisar ligar pra loja.
+// O carregamento da conta e a navegacao do topo ficam em
+// js/conta-comum.js.
 // ===================================================================
-const { query } = require('../config/database');
-const { validarTelefone } = require('../utils/validadores');
 
-const STATUS_VALIDOS = ['pendente', 'confirmada', 'cancelada'];
+const STATUS_RESERVA_INFO = {
+  pendente: { texto: 'Aguardando confirmação', icone: '⏳', classe: 'aguardando' },
+  confirmada: { texto: 'Confirmada', icone: '✅', classe: 'confirmado' },
+  cancelada: { texto: 'Recusada', icone: '✕', classe: 'cancelado' }
+};
 
-// Cliente cria uma reserva (rota publica, igual ao pedido -- nao exige
-// login, so nome e telefone pra contato).
-async function criar(req, res) {
-  try {
-    const { slug } = req.params;
-    const { cliente_nome, cliente_telefone, data_reserva, horario_reserva, quantidade_pessoas, observacoes } = req.body;
-
-    if (!cliente_nome || !cliente_nome.trim() || !cliente_telefone || !cliente_telefone.trim()) {
-      return res.status(400).json({ erro: 'Informe seu nome e telefone.' });
-    }
-    if (!validarTelefone(cliente_telefone)) {
-      return res.status(400).json({ erro: 'Informe o telefone no formato (99) 999999999.' });
-    }
-    if (!data_reserva || !horario_reserva) {
-      return res.status(400).json({ erro: 'Informe o dia e o horario da reserva.' });
-    }
-    const pessoas = parseInt(quantidade_pessoas, 10);
-    if (!pessoas || pessoas <= 0) {
-      return res.status(400).json({ erro: 'Informe a quantidade de pessoas.' });
-    }
-
-    const estRes = await query('SELECT id, reserva_mesa_ativa FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
-    if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
-    if (!estRes.rows[0].reserva_mesa_ativa) {
-      return res.status(403).json({ erro: 'Essa loja nao esta aceitando reservas no momento.' });
-    }
-
-    const resultado = await query(
-      `INSERT INTO reservas (estabelecimento_id, cliente_nome, cliente_telefone, data_reserva, horario_reserva, quantidade_pessoas, observacoes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [estRes.rows[0].id, cliente_nome.trim(), cliente_telefone.trim(), data_reserva, horario_reserva, pessoas, observacoes || null]
-    );
-
-    res.status(201).json(resultado.rows[0]);
-  } catch (error) {
-    console.error('Erro ao criar reserva:', error);
-    res.status(500).json({ erro: 'Erro ao criar reserva.' });
-  }
+function textoCancelamento(reserva) {
+  return reserva.cancelada_por === 'cliente' ? 'Cancelado pelo cliente' : 'Recusada';
 }
 
-// Painel: lista as reservas da loja (mais recentes/proximas primeiro).
-async function listar(req, res) {
-  try {
-    const resultado = await query(
-      `SELECT * FROM reservas WHERE estabelecimento_id = $1
-       ORDER BY data_reserva ASC, horario_reserva ASC`,
-      [req.estabelecimentoId]
-    );
-    res.json(resultado.rows);
-  } catch (error) {
-    console.error('Erro ao listar reservas:', error);
-    res.status(500).json({ erro: 'Erro ao listar reservas.' });
-  }
+document.addEventListener('DOMContentLoaded', iniciarMinhasReservas);
+
+async function iniciarMinhasReservas() {
+  const conta = await carregarContaCliente();
+  if (!conta) return;
+
+  preencherSaudacaoConta(conta);
+  configurarNavegacaoConta('reservas');
+  await carregarMinhasReservas();
+
+  document.getElementById('tela-carregando').classList.add('oculto');
+  document.getElementById('tela-cliente').classList.remove('oculto');
 }
 
-// Painel: confirma ou cancela uma reserva.
-async function atualizarStatus(req, res) {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    if (!STATUS_VALIDOS.includes(status)) return res.status(400).json({ erro: 'Status invalido.' });
-
-    const canceladaPor = status === 'cancelada' ? 'loja' : null;
-
-    const resultado = await query(
-      'UPDATE reservas SET status = $1, atualizado_em = NOW(), cancelada_por = $2 WHERE id = $3 AND estabelecimento_id = $4 RETURNING *',
-      [status, canceladaPor, id, req.estabelecimentoId]
-    );
-    if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Reserva nao encontrada.' });
-    res.json(resultado.rows[0]);
-  } catch (error) {
-    console.error('Erro ao atualizar status da reserva:', error);
-    res.status(500).json({ erro: 'Erro ao atualizar reserva.' });
-  }
+function formatarDataHoraReserva(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-// Painel: liga/desliga o recurso de reserva de mesa pra essa loja.
-async function alternarReservaAtiva(req, res) {
-  try {
-    const { ativo } = req.body;
-    await query('UPDATE estabelecimentos SET reserva_mesa_ativa = $1 WHERE id = $2', [ativo === true, req.estabelecimentoId]);
-    res.json({ reserva_mesa_ativa: ativo === true });
-  } catch (error) {
-    console.error('Erro ao atualizar configuracao de reserva:', error);
-    res.status(500).json({ erro: 'Erro ao atualizar configuracao.' });
-  }
+// Uma reserva sai de "ativa" e vai pro historico assim que o horario
+// agendado ja passou, ou assim que a loja recusa (cancelada) -- nao importa
+// se ja passou ou nao, uma recusa ja e' definitiva.
+function reservaEstaNoHistorico(reserva) {
+  if (reserva.status === 'cancelada') return true;
+  const dataHoraAgendada = new Date(`${reserva.data_reserva}T${reserva.horario_reserva.substring(0, 5)}:00`);
+  return dataHoraAgendada.getTime() < Date.now();
 }
 
-// Cliente cancela a propria reserva (rota publica, sem login -- confere
-// o telefone informado contra o telefone salvo na reserva pra garantir
-// que ninguem cancela reserva de outra pessoa so' adivinhando o id).
-async function cancelarPropria(req, res) {
-  try {
-    const { slug, id } = req.params;
-    const { telefone } = req.body;
+// No historico, "concluida" (verde) so' quando a loja tinha confirmado e o
+// horario passou -- cliente efetivamente foi atendido. Qualquer outro caso
+// (recusada, ou nunca respondida a tempo) conta como nao concluida (vermelho).
+function infoHistoricoReserva(reserva) {
+  if (reserva.status === 'confirmada') return { texto: 'Concluída', classe: 'confirmado' };
+  if (reserva.status === 'cancelada') return { texto: textoCancelamento(reserva), classe: 'cancelado' };
+  return { texto: 'Não concluída', classe: 'cancelado' };
+}
 
-    if (!telefone || !telefone.trim()) {
-      return res.status(400).json({ erro: 'Informe seu telefone para cancelar a reserva.' });
+function renderizarCardReserva(reserva, { historico = false } = {}) {
+  let info = historico ? infoHistoricoReserva(reserva) : (STATUS_RESERVA_INFO[reserva.status] || STATUS_RESERVA_INFO.pendente);
+  if (!historico && reserva.status === 'cancelada') {
+    info = { ...info, texto: textoCancelamento(reserva) };
+  }
+  const dataFormatada = new Date(`${reserva.data_reserva}T00:00:00`).toLocaleDateString('pt-BR');
+
+  const linhasExtras = [`Solicitada em ${formatarDataHoraReserva(reserva.criado_em)}`];
+  if (reserva.status !== 'pendente' && reserva.atualizado_em) {
+    const rotulo = reserva.status === 'confirmada' ? 'Confirmada' : textoCancelamento(reserva);
+    linhasExtras.push(`${rotulo} em ${formatarDataHoraReserva(reserva.atualizado_em)}`);
+  }
+
+  // So mostra o botao de cancelar em reservas ativas (nao historico) que
+  // ainda nao foram recusadas -- reserva ja recusada/passada nao tem o que
+  // cancelar.
+  const podeCancelar = !historico && reserva.status !== 'cancelada';
+  const botaoCancelar = podeCancelar
+    ? `<button type="button" class="conta-botao-cancelar-reserva" data-reserva-id="${reserva.id}">
+         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+         Cancelar reserva
+       </button>`
+    : '';
+
+  return `
+    <div class="conta-pedido-card">
+      <div class="conta-pedido-card__linha">
+        <span class="conta-pedido-card__icone">${STATUS_RESERVA_INFO[reserva.status]?.icone || '📅'}</span>
+        <div class="conta-pedido-card__texto">
+          <div class="conta-pedido-card__codigo">Reserva #${reserva.id.substring(0, 8)}</div>
+          <div class="conta-pedido-card__data">${dataFormatada} às ${reserva.horario_reserva.substring(0, 5)} · ${reserva.quantidade_pessoas} pessoa${reserva.quantidade_pessoas > 1 ? 's' : ''}</div>
+          <div class="conta-pedido-card__data" style="opacity:0.75;">${linhasExtras.join(' · ')}</div>
+        </div>
+        <span class="conta-pedido-card__status conta-pedido-card__status--${info.classe}">${info.texto}</span>
+      </div>
+      ${botaoCancelar}
+    </div>
+  `;
+}
+
+// Liga o clique dos botoes "Cancelar reserva" recem-renderizados. Pede
+// confirmacao antes (acao irreversivel do lado do cliente) e manda o
+// telefone da conta logada pro backend confirmar que a reserva e' mesmo
+// dessa pessoa.
+function ligarBotoesCancelarReserva(container) {
+  container.querySelectorAll('.conta-botao-cancelar-reserva').forEach(botao => {
+    botao.addEventListener('click', async () => {
+      const reservaId = botao.getAttribute('data-reserva-id');
+      const confirmou = window.confirm('Tem certeza que deseja cancelar esta reserva? Essa acao nao pode ser desfeita.');
+      if (!confirmou) return;
+
+      botao.disabled = true;
+      botao.textContent = 'Cancelando...';
+
+      try {
+        await cancelarReservaCliente(SLUG_ESTABELECIMENTO, reservaId, CONTA_ATUAL.telefone);
+        await carregarMinhasReservas();
+      } catch (erro) {
+        alert(erro.message);
+        botao.disabled = false;
+        botao.innerHTML = `
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          Cancelar reserva`;
+      }
+    });
+  });
+}
+
+async function carregarMinhasReservas() {
+  const container = document.getElementById('lista-reservas-cliente');
+  const containerHistorico = document.getElementById('lista-reservas-historico-cliente');
+
+  if (!SLUG_ESTABELECIMENTO) {
+    container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Abra "Minha conta" a partir do cardapio de uma loja para ver suas reservas.</p>';
+    containerHistorico.innerHTML = '';
+    return;
+  }
+  if (!CONTA_ATUAL.telefone) {
+    container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Preencha seu telefone em "Meus dados" para ver seu histórico de reservas.</p>';
+    containerHistorico.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Carregando reservas...</p>';
+  containerHistorico.innerHTML = '';
+
+  try {
+    const reservas = await buscarReservasCliente(SLUG_ESTABELECIMENTO, CONTA_ATUAL.telefone);
+    if (reservas.length === 0) {
+      container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Você ainda não fez nenhuma reserva nesta loja.</p>';
+      containerHistorico.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Nenhum agendamento no histórico ainda.</p>';
+      return;
     }
 
-    const estRes = await query('SELECT id FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
-    if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
+    const ativas = reservas.filter(r => !reservaEstaNoHistorico(r));
+    const historico = reservas.filter(r => reservaEstaNoHistorico(r));
 
-    const reservaRes = await query(
-      'SELECT * FROM reservas WHERE id = $1 AND estabelecimento_id = $2',
-      [id, estRes.rows[0].id]
-    );
-    if (reservaRes.rows.length === 0) return res.status(404).json({ erro: 'Reserva nao encontrada.' });
+    container.innerHTML = ativas.length
+      ? ativas.map(r => renderizarCardReserva(r)).join('')
+      : '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Nenhuma reserva ativa no momento.</p>';
+    ligarBotoesCancelarReserva(container);
 
-    const reserva = reservaRes.rows[0];
-    const telefoneLimpo = telefone.replace(/\D/g, '');
-    const telefoneReservaLimpo = (reserva.cliente_telefone || '').replace(/\D/g, '');
-    if (telefoneLimpo !== telefoneReservaLimpo) {
-      return res.status(403).json({ erro: 'Nao foi possivel confirmar essa reserva com o telefone informado.' });
-    }
-
-    if (reserva.status === 'cancelada') {
-      return res.status(400).json({ erro: 'Essa reserva ja esta cancelada.' });
-    }
-
-    const dataHoraAgendada = new Date(`${reserva.data_reserva instanceof Date ? reserva.data_reserva.toISOString().substring(0, 10) : String(reserva.data_reserva).substring(0, 10)}T${String(reserva.horario_reserva).substring(0, 5)}:00`);
-    if (dataHoraAgendada.getTime() < Date.now()) {
-      return res.status(400).json({ erro: 'Essa reserva ja passou e nao pode mais ser cancelada.' });
-    }
-
-    const resultado = await query(
-      "UPDATE reservas SET status = 'cancelada', atualizado_em = NOW(), cancelada_por = 'cliente' WHERE id = $1 RETURNING *",
-      [id]
-    );
-    res.json(resultado.rows[0]);
-  } catch (error) {
-    console.error('Erro ao cancelar reserva do cliente:', error);
-    res.status(500).json({ erro: 'Erro ao cancelar reserva.' });
+    containerHistorico.innerHTML = historico.length
+      ? historico.map(r => renderizarCardReserva(r, { historico: true })).join('')
+      : '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Nenhum agendamento no histórico ainda.</p>';
+  } catch (erro) {
+    container.innerHTML = '<p style="color:var(--auth-texto-claro);font-size:0.88rem;">Não foi possível carregar suas reservas agora.</p>';
+    containerHistorico.innerHTML = '';
   }
 }
-
-// Cliente consulta o historico de reservas dele mesmo (rota publica, sem
-// login -- usa o telefone, igual ja funciona pra "Meus pedidos").
-async function listarReservasCliente(req, res) {
-  try {
-    const { slug, telefone } = req.params;
-    const estRes = await query('SELECT id FROM estabelecimentos WHERE slug = $1 AND ativo = true', [slug]);
-    if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
-
-    const telefoneLimpo = (telefone || '').replace(/\D/g, '');
-    const resultado = await query(
-      `SELECT * FROM reservas
-       WHERE estabelecimento_id = $1
-         AND regexp_replace(cliente_telefone, '\\D', '', 'g') LIKE $2
-       ORDER BY data_reserva DESC, horario_reserva DESC LIMIT 30`,
-      [estRes.rows[0].id, `%${telefoneLimpo}%`]
-    );
-    res.json(resultado.rows);
-  } catch (error) {
-    console.error('Erro ao listar reservas do cliente:', error);
-    res.status(500).json({ erro: 'Erro ao listar reservas.' });
-  }
-}
-
-module.exports = { criar, listar, listarReservasCliente, atualizarStatus, alternarReservaAtiva, cancelarPropria };
