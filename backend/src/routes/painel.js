@@ -35,6 +35,7 @@ router.post('/suporte/tickets/:id/mensagens', limitador, suporteController.respo
 // Blog publico -- so o super admin publica/edita/exclui posts e responde
 // comentarios (mesma chaveMestra usada no resto do painel).
 router.get('/blog/posts', limitador, blogController.listarTodosAdmin);
+router.get('/blog/posts/:id', limitador, blogController.obterPostAdmin);
 router.post('/blog/posts', limitador, upload.single('imagem'), blogController.criarAdmin);
 router.put('/blog/posts/:id', limitador, upload.single('imagem'), blogController.atualizarAdmin);
 router.delete('/blog/posts/:id', limitador, blogController.excluirAdmin);
