@@ -40,13 +40,6 @@ async function chamarApi(caminho, { method = 'GET', body = null } = {}) {
     throw new Error('Sessao expirada. Faca login novamente.');
   }
   const dados = await resposta.json();
-  if (resposta.status === 403 && dados.fora_do_horario) {
-    pararPolling();
-    mostrarTela('tela-fora-horario');
-    const erro = new Error(dados.erro);
-    erro.foraDoHorario = true;
-    throw erro;
-  }
   if (!resposta.ok) throw new Error(dados.erro || 'Ocorreu um erro ao processar a solicitacao.');
   return dados;
 }
@@ -267,7 +260,6 @@ async function iniciarLeituraQR() {
               iniciarAguardandoPedido();
               return;
             } catch (erro) {
-              if (erro.foraDoHorario) return; // ja trocou pra tela-fora-horario
               erroEl.textContent = erro.message;
               erroEl.classList.remove('oculto');
               statusEl.textContent = '';
@@ -318,7 +310,6 @@ document.getElementById('botao-confirmar-codigo-manual').addEventListener('click
     mostrarToast(resultado.mensagem || 'Checkin realizado!');
     iniciarAguardandoPedido();
   } catch (erro) {
-    if (erro.foraDoHorario) return; // ja trocou pra tela-fora-horario
     erroEl.textContent = erro.message;
     erroEl.classList.remove('oculto');
   }
@@ -625,7 +616,6 @@ document.getElementById('botao-encerrar').addEventListener('click', async () => 
 document.getElementById('botao-sair-aguardando').addEventListener('click', () => {
   encerrarPlantaoEMostrarResumo();
 });
-document.getElementById('botao-sair-fora-horario').addEventListener('click', fazerLogout);
 
 // -------------------- Plantao (inicio/fim + resumo) --------------------
 async function encerrarPlantaoEMostrarResumo() {
