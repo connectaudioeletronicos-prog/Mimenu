@@ -175,9 +175,6 @@ async function consultarCodigoBarras(req, res) {
     }
 
     if (!process.env.COSMOS_API_TOKEN) {
-      // Sem token configurado ainda -- responde "nao encontrado" de forma
-      // silenciosa (o lojista so preenche manualmente, como ja acontecia
-      // antes dessa integracao existir).
       return res.status(200).json({ encontrado: false });
     }
 
@@ -196,8 +193,6 @@ async function consultarCodigoBarras(req, res) {
 
     const dados = await respostaCosmos.json();
 
-    // Monta um "conteudo da embalagem" legivel a partir do peso liquido
-    // (em gramas), quando o Cosmos tiver essa informacao.
     let conteudoEmbalagem = null;
     if (dados.net_weight) {
       const gramas = Number(dados.net_weight);
@@ -216,7 +211,6 @@ async function consultarCodigoBarras(req, res) {
     });
   } catch (error) {
     console.error('Erro ao consultar Cosmos:', error);
-    // Falha na consulta externa nao pode travar o cadastro manual.
     res.status(200).json({ encontrado: false });
   }
 }
