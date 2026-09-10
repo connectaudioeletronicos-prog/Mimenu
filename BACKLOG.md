@@ -68,15 +68,28 @@
       dedicada com QR Code do dia, 4 cards de estatisticas (entregas hoje,
       em andamento, finalizadas hoje, aguardando coleta), lista de
       entregas em andamento e botao "Equipe" que leva pra gestao detalhada
-      de cada entregador (disponibilidade/link de acesso/hora
-      extra/comissao, conteudo que antes ficava na Equipe). Fundo da
-      pagina usa a "Cor principal" que o lojista escolhe em Personalizacao
+      de cada entregador (disponibilidade/link de acesso/comissao,
+      conteudo que antes ficava na Equipe). Fundo da pagina usa a "Cor
+      principal" que o lojista escolhe em Personalizacao
       (`ESTADO.estabelecimento.cor_principal`). Botoes "Por KM"/"Valor
       Fixo" filtram a lista de entregadores por forma de pagamento.
       100% com dados que ja existiam (pedidos/equipe operacional), sem
       migration nem rota nova no backend
       (`frontend/admin/admin-index.html`, `frontend/admin/js/admin.js`,
       `frontend/admin/css/admin.css`)
+- [x] Removida a funcionalidade de "hora extra"/carga horaria para
+      Entregadores — esse cargo nao trabalha por horario fixo, entra e
+      sai quando quiser conforme disponibilidade (backend ja isentava
+      'entregador' de `exigirDentroDoHorario`, so a interface ainda
+      mostrava controles inuteis). Removido: botao "Liberar hora
+      extra"/"Hora extra liberada hoje" do card do entregador
+      (`admin.js`), tela "Fora do horario de expediente" e toda a
+      checagem de `fora_do_horario` do app do entregador
+      (`entregador/index.html`, `entregador/entregador.js`), e nota
+      adicionada nos campos "Carga horaria" do cadastro/edicao de
+      funcionario avisando que nao se aplica a Entregadores. O mecanismo
+      de carga horaria/hora extra continua intacto para os outros cargos
+      (cozinha, garcom etc.)
 - [x] Confirmar execução da `migration_dados_legais.sql` no Supabase —
       migration original havia sido perdida; reconstruída em 22/07/2026 a
       partir do `INSERT INTO dados_legais` já existente em
