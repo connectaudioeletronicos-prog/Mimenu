@@ -23,7 +23,6 @@ const estoqueController = require('../controllers/estoqueController');
 const fornecedorController = require('../controllers/fornecedorController');
 const relatorioVendasController = require('../controllers/relatorioVendasController');
 const inteligenciaController = require('../controllers/inteligenciaController');
-const suporteController = require('../controllers/suporteController');
 
 router.use(autenticar);
 
@@ -39,8 +38,6 @@ router.use((req, res, next) => {
 
 // Configuracoes da conta (dados, pagamento, paginas legais)
 router.get('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimentoController.buscarMeuEstabelecimento);
-router.get('/estabelecimento/dados-legais', exigirPermissao('gerenciar_conta'), estabelecimentoController.buscarMeusDadosLegais);
-router.post('/estabelecimento/dados-legais/verificar-senha', exigirPermissao('gerenciar_conta'), estabelecimentoController.verificarSenhaDadosLegais);
 router.put('/estabelecimento', exigirPermissao('gerenciar_conta'), estabelecimentoController.atualizarConfiguracoes);
 router.post('/estabelecimento/logo', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadLogo);
 router.post('/estabelecimento/logo-apps', exigirPermissao('gerenciar_conta'), upload.single('imagem'), estabelecimentoController.uploadLogoApps);
@@ -52,7 +49,6 @@ router.post('/pagamento/verificar-senha', exigirPermissao('gerenciar_conta'), es
 router.put('/configuracoes/reserva-mesa', exigirPermissao('gerenciar_conta'), reservaController.alternarReservaAtiva);
 router.get('/reservas', exigirPermissao('gerenciar_conta'), reservaController.listar);
 router.put('/reservas/:id/status', exigirPermissao('gerenciar_conta'), reservaController.atualizarStatus);
-router.put('/reservas/:id/checkin', exigirPermissao('gerenciar_conta'), reservaController.fazerCheckIn);
 
 // Cardapio (produtos, categorias, promocoes)
 router.get('/categorias', categoriaController.listar);
@@ -61,6 +57,7 @@ router.put('/categorias/:id', exigirPermissao('gerenciar_cardapio'), upload.sing
 router.delete('/categorias/:id', exigirPermissao('gerenciar_cardapio'), categoriaController.excluir);
 
 router.get('/produtos', produtoController.listar);
+router.get('/produtos/consulta-codigo-barras/:codigo', exigirPermissao('gerenciar_cardapio'), produtoController.consultarCodigoBarras);
 router.post('/produtos', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), produtoController.criar);
 router.put('/produtos/:id', exigirPermissao('gerenciar_cardapio'), upload.single('imagem'), produtoController.atualizar);
 router.delete('/produtos/:id', exigirPermissao('gerenciar_cardapio'), produtoController.excluir);
@@ -150,11 +147,5 @@ router.get('/estoque/vendas/produtos', exigirPermissao('gerenciar_estoque'), rel
 router.get('/estoque/vendas/lucro-produtos', exigirPermissao('gerenciar_estoque'), relatorioVendasController.lucroPorProduto);
 
 router.get('/estoque/inteligencia', exigirPermissao('gerenciar_estoque'), inteligenciaController.obterInteligencia);
-
-// ---------- Suporte (chamados do lojista com o admin supremo) ----------
-router.get('/suporte/tickets', exigirPermissao('gerenciar_conta'), suporteController.listarTicketsLoja);
-router.get('/suporte/tickets/:id', exigirPermissao('gerenciar_conta'), suporteController.buscarTicketLoja);
-router.post('/suporte/tickets', exigirPermissao('gerenciar_conta'), upload.single('anexo'), suporteController.criarTicketLoja);
-router.post('/suporte/tickets/:id/mensagens', exigirPermissao('gerenciar_conta'), upload.single('anexo'), suporteController.responderTicketLoja);
 
 module.exports = router;
