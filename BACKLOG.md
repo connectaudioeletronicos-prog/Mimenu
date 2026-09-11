@@ -90,6 +90,34 @@
       funcionario avisando que nao se aplica a Entregadores. O mecanismo
       de carga horaria/hora extra continua intacto para os outros cargos
       (cozinha, garcom etc.)
+- [x] Correção de bug + refatoração da Central de Entregas para seguir à
+      risca o layout pedido:
+      · Corrigido bug real: um comentário HTML tinha sido cortado numa
+      edição anterior e o final dele vazou como texto visível na tela
+      ("Conteudo que antes era a aba inteira...")
+      · Corrigida a causa do layout "espremido": o container do painel
+      tinha `max-width: 800px` fixo, que limitava a Central de Entregas a
+      uma coluna estreita — removido especificamente para essa tela
+      · Card "Entregadores" na Equipe agora mostra só um resumo (X
+      cadastrados, Y disponíveis) em vez de listar cada nome — evita lista
+      enorme com 15+ entregadores
+      · Menu lateral do painel agora fica escondido na Central de Entregas
+      e na Equipe de entregadores, com botão hamburguer (☰) no canto
+      superior esquerdo pra abrir/fechar quando precisar
+      · Nova janela de detalhe por entregador (clicando nele na lista de
+      "Entregas em andamento" ou no botão "💰 Histórico e valores" na
+      Equipe de entregadores): histórico de plantões/rotas, valor a
+      receber, gorjetas a receber e botão "Marcar tudo como pago". Usa o
+      sistema de plantão/comissão que já existia no backend — só faltava
+      expor numa tela; adicionada coluna `pago` em
+      `plantoes_entregador` (migration nova) e rota
+      `PUT /funcionarios/:id/plantao/marcar-pago`
+      (`backend/src/migrations/plantoes_entregador_pago.sql`,
+      `backend/src/controllers/funcionarioController.js`,
+      `backend/src/routes/funcionarios.js`,
+      `frontend/admin/js/admin-api.js`,
+      `frontend/admin/admin-index.html`, `frontend/admin/js/admin.js`,
+      `frontend/admin/css/admin.css`)
 - [x] Confirmar execução da `migration_dados_legais.sql` no Supabase —
       migration original havia sido perdida; reconstruída em 22/07/2026 a
       partir do `INSERT INTO dados_legais` já existente em
