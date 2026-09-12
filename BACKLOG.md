@@ -118,6 +118,35 @@
       `frontend/admin/js/admin-api.js`,
       `frontend/admin/admin-index.html`, `frontend/admin/js/admin.js`,
       `frontend/admin/css/admin.css`)
+- [x] Ajustes finos na Central de Entregas depois de comparar lado a lado
+      com o design de referência:
+      · Visual reconstruído: cartões escuros translúcidos sobre a cor da
+      loja (QR mantém caixa branca própria pra continuar escaneável), 4
+      cartões de estatística em uma linha só com ícone circular colorido
+      fixo (azul/verde/laranja/vermelho), lista de "Entregas em
+      andamento" reformulada pra ser por ENTREGADOR (não por pedido) —
+      ponto verde = em rota (mostra pedido/endereço/tempo fora), ponto
+      cinza = disponível parado
+      · Restaurado o botão de código de checkin manual (existia desde a
+      criação do app do entregador — fallback pra quando a câmera do
+      entregador não le o QR), que tinha sido removido por engano;
+      recolocado abaixo do QR principal na Central de Entregas
+      · Removida a tela de "Forma de pagamento da comissão"
+      (dropdown+campos+salvar) de dentro de cada card de entregador na
+      Equipe — substituída por um painel numérico único ("Por KM"/"Valor
+      Fixo" na Central de Entregas) que aplica o valor pra TODOS os
+      entregadores cadastrados de uma vez
+      · Removido o botão duplicado "QR Code do dia" da tela de Equipe de
+      entregadores (o QR único já fica em destaque na Central de
+      Entregas)
+      · Modal de detalhe do entregador agora busca também o histórico
+      real de pedidos entregues (não só plantões), pra sempre mostrar
+      dado real mesmo em entregadores que nunca usaram o controle de
+      plantão
+      · Confirmado (não é bug): "nenhum entregador disponível" acontece
+      quando o entregador não fez o check-in do dia (escanear o QR ou
+      colar o código) — só ativar o app ou estar com token de acesso não
+      basta
 - [x] Confirmar execução da `migration_dados_legais.sql` no Supabase —
       migration original havia sido perdida; reconstruída em 22/07/2026 a
       partir do `INSERT INTO dados_legais` já existente em
