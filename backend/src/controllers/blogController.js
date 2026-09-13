@@ -259,6 +259,12 @@ async function atualizarAdmin(req, res) {
     }
     const atual = atualRes.rows[0];
 
+    // Guarda uma "foto" da versao anterior antes de sobrescrever.
+    await query(
+      'INSERT INTO blog_posts_historico (post_id, titulo, conteudo) VALUES ($1, $2, $3)',
+      [atual.id, atual.titulo, atual.conteudo]
+    );
+
     let imagemUrl = atual.imagem_capa_url;
     if (req.file) {
       imagemUrl = await uploadImagem(await comprimirImagemBlog(req.file.buffer), 'image/jpeg', 'blog');
@@ -535,10 +541,98 @@ async function gerarSitemap(req, res) {
   }
 }
 
+// -------------------------------------------------------------------
+// Newsletter (so captura o e-mail; disparo fica pra depois)
+// -------------------------------------------------------------------
+
+async function inscreverNewsletter(req, res) {
+  try {
+    const email = (req.body.email || '').toLowerCase().trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ erro: 'Informe um e-mail valido.' });
+    }
+    await query(
+      'INSERT INTO blog_newsletter (email) VALUES ($1) ON CONFLICT (email) DO NOTHING',
+      [email]
+    );
+    res.status(201).json({ mensagem: 'Inscricao confirmada.' });
+  } catch (error) {
+    console.error('Erro ao inscrever na newsletter:', error);
+    res.status(500).json({ erro: 'Erro interno ao se inscrever.' });
+  }
+}
+
+async function listarNewsletterAdmin(req, res) {
+  try {
+    const { chaveMestra } = req.query;
+    if (!chaveValida(chaveMestra)) {
+      return res.status(403).json({ erro: 'Chave mestra invalida.' });
+    }
+    const resultado = await query('SELECT email, criado_em FROM blog_newsletter ORDER BY criado_em DESC');
+    res.json(resultado.rows);
+  } catch (error) {
+    console.error('Erro ao listar newsletter:', error);
+    res.status(500).json({ erro: 'Erro interno ao listar inscritos.' });
+  }
+}
+
+// -------------------------------------------------------------------
+// Historico de edicoes
+// -------------------------------------------------------------------
+
+async function listarHistoricoAdmin(req, res) {
+  try {
+    const { id } = req.params;
+    const { chaveMestra } = req.query;
+    if (!chaveValida(chaveMestra)) {
+      return res.status(403).json({ erro: 'Chave mestra invalida.' });
+    }
+    const resultado = await query(
+      'SELECT id, titulo, conteudo, alterado_em FROM blog_posts_historico WHERE post_id = $1 ORDER BY alterado_em DESC',
+      [id]
+    );
+    res.json(resultado.rows);
+  } catch (error) {
+    console.error('Erro ao listar historico do post:', error);
+    res.status(500).json({ erro: 'Erro interno ao listar historico.' });
+  }
+}
+
+// -------------------------------------------------------------------
+// Analytics simples
+// -------------------------------------------------------------------
+
+async function obterAnalyticsAdmin(req, res) {
+  try {
+    const { chaveMestra } = req.query;
+    if (!chaveValida(chaveMestra)) {
+      return res.status(403).json({ erro: 'Chave mestra invalida.' });
+    }
+
+    const totaisRes = await query(`
+      SELECT
+        (SELECT COUNT(*) FROM blog_posts WHERE publicado = true)::int AS total_posts,
+        (SELECT COALESCE(SUM(visualizacoes),0) FROM blog_posts)::int AS total_visualizacoes,
+        (SELECT COUNT(*) FROM blog_comentarios)::int AS total_comentarios,
+        (SELECT COUNT(*) FROM blog_newsletter)::int AS total_inscritos
+    `);
+    const maisVistosRes = await query(`
+      SELECT titulo, slug, visualizacoes FROM blog_posts
+      WHERE publicado = true ORDER BY visualizacoes DESC LIMIT 5
+    `);
+
+    res.json({ ...totaisRes.rows[0], mais_vistos: maisVistosRes.rows });
+  } catch (error) {
+    console.error('Erro ao obter analytics do blog:', error);
+    res.status(500).json({ erro: 'Erro interno ao obter analytics.' });
+  }
+}
+
 module.exports = {
   listarPublicados, buscarPorSlug, criarComentario,
   listarTodosAdmin, obterPostAdmin, criarAdmin, atualizarAdmin, excluirAdmin,
   listarComentariosAdmin, responderComentarioAdmin, excluirComentarioAdmin,
   obterConfiguracoes, atualizarConfiguracoesAdmin, enviarImagemAdmin,
-  obterPagina, atualizarPaginaAdmin, gerarSitemap
+  obterPagina, atualizarPaginaAdmin, gerarSitemap,
+  inscreverNewsletter, listarNewsletterAdmin, listarHistoricoAdmin, obterAnalyticsAdmin
 };
