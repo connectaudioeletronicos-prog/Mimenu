@@ -81,6 +81,7 @@
         <button class="aba-botao" data-aba="banner" onclick="mostrarAba('banner')">🖼️ Banner</button>
         <button class="aba-botao" data-aba="cabecalho" onclick="mostrarAba('cabecalho')">🏷️ Cabeçalho</button>
         <button class="aba-botao" data-aba="redes" onclick="mostrarAba('redes')">🔗 Redes sociais</button>
+        <button class="aba-botao" data-aba="analytics" onclick="mostrarAba('analytics')">📊 Analytics</button>
       </div>
     </div>
 
@@ -128,9 +129,11 @@
 
       <div class="topo" style="margin-top:16px;">
         <button onclick="salvarPost()" id="btnSalvarPost">Publicar post</button>
+        <button class="secundario" type="button" onclick="alternarPreview()">👁️ Pré-visualizar</button>
         <button class="secundario oculto" id="btnCancelarEdicao" onclick="cancelarEdicao()">Cancelar edição</button>
       </div>
       <div id="msgFormulario"></div>
+      <div id="previewPost" class="oculto" style="margin-top:16px;border:1px solid #ddd;border-radius:8px;padding:16px;"></div>
     </div>
 
     <div class="card">
@@ -280,6 +283,21 @@
       <p class="sub" style="margin-top:6px;">Use <code>## Título</code> para subtítulos numerados, linhas começando com <code>- </code> para listas, e <code>**texto**</code> para negrito.</p>
       <button onclick="salvarPagina('politica-privacidade')">Salvar "Política de Privacidade"</button>
       <div id="msgPrivacidade"></div>
+    </div>
+    </div>
+
+    <div class="secao-aba oculto" data-secao="analytics">
+    <div class="card">
+      <h2>Visão geral</h2>
+      <div id="totaisAnalytics" class="sub">Carregando...</div>
+    </div>
+    <div class="card">
+      <h2>Mais vistos</h2>
+      <div id="maisVistosAnalytics" class="sub">Carregando...</div>
+    </div>
+    <div class="card">
+      <h2>Inscritos na newsletter</h2>
+      <div id="newsletterAnalytics" class="sub">Carregando...</div>
     </div>
     </div>
   </div>
@@ -576,12 +594,74 @@ function mostrarAba(nome) {
   document.querySelectorAll('.aba-botao').forEach(botao => {
     botao.classList.toggle('ativa', botao.dataset.aba === nome);
   });
+  if (nome === 'analytics') carregarAnalytics();
+}
+
+async function carregarAnalytics() {
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/blog/analytics?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA));
+    const dados = await resposta.json();
+    if (!resposta.ok) throw new Error(dados.erro);
+
+    document.getElementById('totaisAnalytics').innerHTML = `
+      <p><strong>${dados.total_posts}</strong> posts publicados</p>
+      <p><strong>${dados.total_visualizacoes}</strong> visualizações no total</p>
+      <p><strong>${dados.total_comentarios}</strong> comentários recebidos</p>
+      <p><strong>${dados.total_inscritos}</strong> inscritos na newsletter</p>
+    `;
+
+    document.getElementById('maisVistosAnalytics').innerHTML = dados.mais_vistos.length === 0
+      ? 'Nenhuma visualização registrada ainda.'
+      : dados.mais_vistos.map((p, i) => `<p>${i + 1}. <strong>${escaparHtmlLocal(p.titulo)}</strong> — ${p.visualizacoes} visualizações</p>`).join('');
+
+    const respostaNews = await fetch(API_BASE_URL + '/painel/blog/newsletter?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA));
+    const inscritos = await respostaNews.json();
+    document.getElementById('newsletterAnalytics').innerHTML = inscritos.length === 0
+      ? 'Nenhum inscrito ainda.'
+      : inscritos.map(i => `<p>${escaparHtmlLocal(i.email)} <span style="color:#999;font-size:12px;">— ${formatarData(i.criado_em)}</span></p>`).join('');
+  } catch (e) {
+    document.getElementById('totaisAnalytics').textContent = 'Erro ao carregar analytics.';
+  }
 }
 
 function escaparHtmlLocal(texto) {
   const div = document.createElement('div');
   div.textContent = texto || '';
   return div.innerHTML;
+}
+
+// Preview client-side, mesmo "markdown" leve usado no post publico.
+function renderizarConteudoPreview(texto) {
+  const blocos = (texto || '').split(/\n\s*\n/);
+  return blocos.map(bloco => {
+    const linha = bloco.trim();
+    if (!linha) return '';
+    if (linha.startsWith('## ')) return `<h3>${escaparHtmlLocal(linha.slice(3).trim())}</h3>`;
+    const imagem = linha.match(/^!\[([^\]]*)\]\((\S+)\)$/);
+    if (imagem) return `<img src="${escaparHtmlLocal(imagem[2])}" style="max-width:100%;border-radius:8px;margin:10px 0;">`;
+    const linhasDoBloco = linha.split('\n').map(l => l.trim()).filter(Boolean);
+    if (linhasDoBloco.length > 0 && linhasDoBloco.every(l => l.startsWith('- '))) {
+      return `<ul>${linhasDoBloco.map(l => `<li>${escaparHtmlLocal(l.slice(2).trim())}</li>`).join('')}</ul>`;
+    }
+    return `<p>${escaparHtmlLocal(linha).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</p>`;
+  }).join('');
+}
+
+function alternarPreview() {
+  const div = document.getElementById('previewPost');
+  if (!div.classList.contains('oculto')) {
+    div.classList.add('oculto');
+    return;
+  }
+  const titulo = document.getElementById('campoTitulo').value.trim() || '(sem título)';
+  const imagemAtual = document.getElementById('previewImagemAtual');
+  const capa = !imagemAtual.classList.contains('oculto') ? `<img src="${imagemAtual.src}" style="max-width:100%;border-radius:8px;margin-bottom:12px;">` : '';
+  div.innerHTML = `
+    <h2 style="margin-top:0;">${escaparHtmlLocal(titulo)}</h2>
+    ${capa}
+    ${renderizarConteudoPreview(document.getElementById('conteudo').value)}
+  `;
+  div.classList.remove('oculto');
 }
 
 function formatarData(iso) {
@@ -750,9 +830,11 @@ async function carregarPosts() {
         <div class="acoes">
           <button class="pequeno" onclick="buscarPostCompletoParaEditar('${p.id}')">Editar</button>
           <button class="pequeno secundario" onclick="alternarComentarios('${p.id}')" id="btnComentarios-${p.id}">Ver comentários</button>
+          <button class="pequeno secundario" onclick="alternarHistorico('${p.id}')" id="btnHistorico-${p.id}">Ver histórico</button>
           <button class="pequeno perigo" onclick="excluirPost('${p.id}', '${escaparHtmlLocal(p.titulo).replace(/'/g, "\\'")}')">Excluir</button>
         </div>
         <div id="comentarios-${p.id}" class="oculto"></div>
+        <div id="historico-${p.id}" class="oculto"></div>
       </div>
     `;
     }).join('');
@@ -782,6 +864,41 @@ async function buscarPostCompletoParaEditar(id) {
 // ---------------------------------------------------------------
 // Comentários
 // ---------------------------------------------------------------
+
+async function alternarHistorico(postId) {
+  const div = document.getElementById('historico-' + postId);
+  const botao = document.getElementById('btnHistorico-' + postId);
+  if (!div.classList.contains('oculto')) {
+    div.classList.add('oculto');
+    botao.textContent = 'Ver histórico';
+    return;
+  }
+  div.classList.remove('oculto');
+  botao.textContent = 'Ocultar histórico';
+  div.innerHTML = 'Carregando...';
+
+  try {
+    const resposta = await fetch(API_BASE_URL + '/painel/blog/posts/' + postId + '/historico?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA));
+    const historico = await resposta.json();
+    if (!resposta.ok) {
+      div.innerHTML = '<div class="msg erro">' + (historico.erro || 'Erro ao carregar histórico.') + '</div>';
+      return;
+    }
+    if (historico.length === 0) {
+      div.innerHTML = '<p class="sub">Este post ainda não foi editado depois de criado.</p>';
+      return;
+    }
+    div.innerHTML = historico.map(h => `
+      <div class="comentario-item">
+        <div class="autor">Versão de ${formatarData(h.alterado_em)}</div>
+        <div class="texto"><strong>${escaparHtmlLocal(h.titulo || '')}</strong></div>
+        <div class="texto" style="color:#777;">${escaparHtmlLocal((h.conteudo || '').slice(0, 200))}${(h.conteudo || '').length > 200 ? '...' : ''}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    div.innerHTML = '<div class="msg erro">Não foi possível conectar à API.</div>';
+  }
+}
 
 async function alternarComentarios(postId) {
   const div = document.getElementById('comentarios-' + postId);
