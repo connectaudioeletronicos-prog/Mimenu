@@ -22,8 +22,19 @@
     --texto-claro: #6f7975;
     --borda: #dbe2de;
     --fundo-suave: #f6f8f6;
+    --cor-cartao: #ffffff;
     --erro: #d64545;
   }
+  [data-tema="escuro"] {
+    --verde-clara: #17352a;
+    --texto: #e8ece9;
+    --texto-claro: #9aa39d;
+    --borda: #2c3830;
+    --fundo-suave: #121a15;
+    --cor-cartao: #1c2620;
+  }
+  [data-tema="escuro"] .imagem-inline,
+  [data-tema="escuro"] .capa { opacity: 0.92; }
   * { box-sizing: border-box; }
   body {
     font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -31,6 +42,7 @@
     color: var(--texto);
     margin: 0;
     text-align: left;
+    transition: background 0.2s, color 0.2s;
   }
 
   /* ---------- cabecalho ---------- */
@@ -51,7 +63,7 @@
   .cabecalho h1 { font-size: 19px; margin: 0; font-weight: 700; }
   .cabecalho .tagline-topo { font-size: 11px; opacity: 0.8; margin-top: 1px; }
   .menu-dropdown {
-    position: absolute; top: 62px; left: 20px; background: white;
+    position: absolute; top: 62px; left: 20px; background: var(--cor-cartao);
     border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     min-width: 190px; display: none; flex-direction: column;
     overflow: hidden; z-index: 50;
@@ -100,7 +112,7 @@
     cursor: pointer; border: none; width: 100%; text-align: left; font-family: inherit;
   }
   .teaser-comentario .bolha {
-    width: 38px; height: 38px; border-radius: 50%; background: white;
+    width: 38px; height: 38px; border-radius: 50%; background: var(--cor-cartao);
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     color: var(--verde-escura);
   }
@@ -112,7 +124,7 @@
   .secao-comentarios h3 { font-size: 17px; margin-bottom: 12px; }
 
   .comentario-form {
-    background: white; border-radius: 12px; padding: 16px;
+    background: var(--cor-cartao); border-radius: 12px; padding: 16px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 20px;
   }
   .comentario-form label { display: block; font-size: 13px; font-weight: 600; margin-top: 10px; margin-bottom: 4px; }
@@ -131,7 +143,7 @@
   .msg-form.erro { background: #fde2e2; color: var(--erro); }
   .msg-form.ok { background: #e2fde2; color: var(--verde-escura); }
   .comentario-item {
-    background: white; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
+    background: var(--cor-cartao); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
     box-shadow: 0 1px 6px rgba(0,0,0,0.05);
   }
   .comentario-item .nome { font-weight: 600; font-size: 14px; }
@@ -149,7 +161,7 @@
   .compartilhar .rotulo { font-size: 13.5px; color: var(--texto-claro); font-weight: 600; margin-right: 4px; }
   .compartilhar button, .compartilhar a {
     width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--borda);
-    background: white; display: flex; align-items: center; justify-content: center;
+    background: var(--cor-cartao); display: flex; align-items: center; justify-content: center;
     color: var(--verde-escura); cursor: pointer; text-decoration: none;
   }
   .compartilhar button:hover, .compartilhar a:hover { background: var(--verde-clara); }
@@ -160,7 +172,7 @@
   .relacionados h3 { font-size: 18px; margin-bottom: 14px; color: var(--verde-escura); }
   .relacionados-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
   .relacionado-card {
-    display: block; text-decoration: none; color: inherit; background: white;
+    display: block; text-decoration: none; color: inherit; background: var(--cor-cartao);
     border-radius: 12px; overflow: hidden; box-shadow: 0 1px 8px rgba(0,0,0,0.06);
   }
   .relacionado-card img { width: 100%; height: 100px; object-fit: cover; display: block; background: var(--fundo-suave); }
@@ -173,7 +185,7 @@
     padding: 12px 20px; border-radius: 10px; font-weight: 600; font-size: 14px;
     text-decoration: none; cursor: pointer;
   }
-  .navegacao-posts .btn-voltar { background: white; color: var(--verde-escura); border: 1px solid var(--borda); }
+  .navegacao-posts .btn-voltar { background: var(--cor-cartao); color: var(--verde-escura); border: 1px solid var(--borda); }
   .navegacao-posts .btn-proximo { background: var(--verde-escura); color: white; }
   .navegacao-posts .desabilitado { opacity: 0.4; pointer-events: none; }
 
@@ -200,6 +212,27 @@
   .rodape .links a:hover { text-decoration: underline; }
 
   .carregando, .erro-pagina { text-align: center; padding: 60px 20px; color: var(--texto-claro); }
+
+  /* ---------- skeleton loading ---------- */
+  .skeleton { animation: pulso 1.3s ease-in-out infinite; background: var(--borda); border-radius: 8px; }
+  @keyframes pulso { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+  .skeleton-titulo { height: 30px; width: 80%; margin-bottom: 14px; }
+  .skeleton-meta { height: 14px; width: 50%; margin-bottom: 22px; }
+  .skeleton-imagem { height: 220px; width: 100%; margin-bottom: 20px; }
+  .skeleton-linha { height: 14px; width: 100%; margin-bottom: 10px; }
+  .skeleton-linha.curta { width: 60%; }
+
+  /* ---------- tempo de leitura + sumario ---------- */
+  .tempo-leitura { font-size: 13px; color: var(--texto-claro); }
+  .sumario {
+    background: var(--cor-cartao); border: 1px solid var(--borda); border-radius: 12px;
+    padding: 14px 18px; margin: 4px 0 24px;
+  }
+  .sumario summary { font-weight: 600; cursor: pointer; color: var(--verde-escura); font-size: 14px; }
+  .sumario ol { margin: 10px 0 0; padding-left: 20px; }
+  .sumario li { margin-bottom: 6px; font-size: 14px; }
+  .sumario a { color: var(--texto); text-decoration: none; }
+  .sumario a:hover { color: var(--verde-escura); text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -218,10 +251,18 @@
       <a href="/politica-privacidade.html">Política de Privacidade</a>
       <a href="/termos-servico.html">Termos de Uso</a>
     </div>
+    <button class="menu-icone" onclick="alternarTema()" id="botaoTema" aria-label="Alternar tema" style="margin-left:8px;">🌙</button>
   </div>
 
   <div class="pagina">
-    <div id="conteudoPost" class="carregando">Carregando...</div>
+    <div id="conteudoPost">
+      <div class="skeleton skeleton-titulo"></div>
+      <div class="skeleton skeleton-meta"></div>
+      <div class="skeleton skeleton-imagem"></div>
+      <div class="skeleton skeleton-linha"></div>
+      <div class="skeleton skeleton-linha"></div>
+      <div class="skeleton skeleton-linha curta"></div>
+    </div>
   </div>
 
   <div class="redes-sociais oculto" id="redesSociais"></div>
@@ -244,6 +285,29 @@
 <script>
 let POST_ATUAL = null;
 let TODOS_OS_POSTS = [];
+
+// Aplica o tema salvo assim que possivel, antes do resto carregar, pra
+// nao dar aquele "flash" de tela clara e depois escura.
+(function aplicarTemaSalvo() {
+  if (localStorage.getItem('temaBlog') === 'escuro') {
+    document.documentElement.setAttribute('data-tema', 'escuro');
+  }
+})();
+
+function alternarTema() {
+  const escuro = document.documentElement.getAttribute('data-tema') === 'escuro';
+  if (escuro) {
+    document.documentElement.removeAttribute('data-tema');
+    localStorage.setItem('temaBlog', 'claro');
+  } else {
+    document.documentElement.setAttribute('data-tema', 'escuro');
+    localStorage.setItem('temaBlog', 'escuro');
+  }
+  document.getElementById('botaoTema').textContent = document.documentElement.getAttribute('data-tema') === 'escuro' ? '☀️' : '🌙';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('botaoTema').textContent = document.documentElement.getAttribute('data-tema') === 'escuro' ? '☀️' : '🌙';
+});
 
 function alternarMenu() {
   document.getElementById('menuDropdown').classList.toggle('aberto');
@@ -288,11 +352,13 @@ function formatarInline(texto) {
 
 function renderizarConteudo(texto) {
   const blocos = (texto || '').split(/\n\s*\n/);
+  let contadorTitulo = 0;
   return blocos.map(bloco => {
     const linha = bloco.trim();
     if (!linha) return '';
     if (linha.startsWith('## ')) {
-      return `<h3>${formatarInline(linha.slice(3).trim())}</h3>`;
+      contadorTitulo += 1;
+      return `<h3 id="secao-${contadorTitulo}">${formatarInline(linha.slice(3).trim())}</h3>`;
     }
     const imagem = linha.match(/^!\[([^\]]*)\]\((\S+)\)$/);
     if (imagem) {
@@ -305,6 +371,44 @@ function renderizarConteudo(texto) {
     }
     return `<p>${formatarInline(linha).replace(/\n/g, '<br>')}</p>`;
   }).join('');
+}
+
+// Le os mesmos blocos "## Titulo" do conteudo pra montar o sumario,
+// usando o mesmo esquema de id (secao-1, secao-2...) que renderizarConteudo
+// gera, pra garantir que os links do sumario batem com os h3 reais.
+function extrairSumario(texto) {
+  const blocos = (texto || '').split(/\n\s*\n/);
+  let contador = 0;
+  const itens = [];
+  blocos.forEach(bloco => {
+    const linha = bloco.trim();
+    if (linha.startsWith('## ')) {
+      contador += 1;
+      itens.push({ id: 'secao-' + contador, texto: linha.slice(3).trim() });
+    }
+  });
+  return itens;
+}
+
+// Sumario clicavel -- so aparece se o post tiver pelo menos 2 subtitulos
+// (## Titulo), senao nao vale a pena mostrar.
+function renderizarSumario(conteudo) {
+  const itens = extrairSumario(conteudo);
+  if (itens.length < 2) return '';
+  return `
+    <details class="sumario">
+      <summary>📑 Sumário deste post</summary>
+      <ol>
+        ${itens.map(i => `<li><a href="#${i.id}">${escaparHtml(i.texto)}</a></li>`).join('')}
+      </ol>
+    </details>
+  `;
+}
+
+// ~200 palavras por minuto e uma media razoavel de leitura em portugues.
+function calcularTempoLeitura(texto) {
+  const palavras = (texto || '').trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(palavras / 200));
 }
 
 function iconeRedeSocial(nome) {
@@ -339,12 +443,44 @@ async function carregarRedesSociais() {
 }
 carregarRedesSociais();
 
+// Mensagem amigavel de "nao encontrado", com sugestao de posts recentes
+// em vez de so um texto seco de erro.
+async function renderizarNaoEncontrado() {
+  let sugestoes = '';
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/posts?limite=3');
+    const posts = resposta.ok ? await resposta.json() : [];
+    if (posts.length > 0) {
+      sugestoes = `
+        <p style="margin-top:22px;font-weight:600;">Que tal um destes posts?</p>
+        <div class="relacionados-grade" style="margin-top:10px;">
+          ${posts.map(p => `
+            <a class="relacionado-card" href="/blog/${encodeURIComponent(p.slug)}">
+              ${p.imagem_capa_url ? `<img src="${p.imagem_capa_url}" alt="">` : ''}
+              <div class="titulo-rel">${escaparHtml(p.titulo)}</div>
+            </a>
+          `).join('')}
+        </div>
+      `;
+    }
+  } catch (e) { /* sem sugestao, tudo bem */ }
+
+  return `
+    <div class="erro-pagina" style="padding-bottom:10px;">
+      <div style="font-size:44px;">🧭</div>
+      <p style="font-weight:700;font-size:17px;color:var(--texto);">Esse post não existe ou foi removido.</p>
+      <p><a href="/blog" style="color:var(--verde-escura);font-weight:600;">← Voltar para o blog</a></p>
+    </div>
+    ${sugestoes}
+  `;
+}
+
 async function carregarPost() {
   const div = document.getElementById('conteudoPost');
   const slugPost = SLUG_ESTABELECIMENTO; // reaproveita o "?slug=" que o 404.html ja preenche
 
   if (!slugPost) {
-    div.innerHTML = '<div class="erro-pagina">Post não encontrado.</div>';
+    div.innerHTML = await renderizarNaoEncontrado();
     return;
   }
 
@@ -355,7 +491,7 @@ async function carregarPost() {
     ]);
     const post = await respostaPost.json();
     if (!respostaPost.ok) {
-      div.innerHTML = '<div class="erro-pagina">' + (post.erro || 'Post não encontrado.') + '</div>';
+      div.innerHTML = await renderizarNaoEncontrado();
       return;
     }
     POST_ATUAL = post;
@@ -374,8 +510,10 @@ async function carregarPost() {
         <span>📅 ${formatarData(post.criado_em)}</span>
         <span>👤 Por Equipe Palatos</span>
         <span>🏷️ ${escaparHtml(post.categoria || 'Blog')}</span>
+        <span class="tempo-leitura">⏱️ ${calcularTempoLeitura(post.conteudo)} min de leitura</span>
       </div>
       ${post.imagem_capa_url ? `<img class="capa" src="${post.imagem_capa_url}" alt="">` : ''}
+      ${renderizarSumario(post.conteudo)}
       <div class="texto-post">${renderizarConteudo(post.conteudo)}</div>
       ${post.link_url ? `<a class="botao-link" href="${escaparHtml(post.link_url)}">${escaparHtml(post.link_texto || 'Saiba mais')}</a>` : ''}
 
