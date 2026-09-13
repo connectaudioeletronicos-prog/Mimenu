@@ -6,7 +6,6 @@ const { baixarEstoquePorVenda } = require('../utils/estoque');
 const { resolverIntervalo } = require('../utils/periodo');
 const { proximoNumero } = require('../utils/numeracao');
 const pagamentos = require('../utils/pagamentos');
-const { notificar } = require('./notificacaoClienteController');
 
 // Monta a cobranca Pix pra um pedido ja inserido (status 'pendente') e
 // grava o QR Code nele. Usado tanto pelo pedido publico (cliente) quanto
@@ -227,6 +226,40 @@ async function consultarStatusPedido(req, res) {
     res.json(resultado.rows[0]);
   } catch (error) {
     res.status(500).json({ erro: 'Erro ao consultar status.' });
+  }
+}
+
+// Cliente avalia o entregador com 1 a 5 estrelas depois que o pedido foi
+// entregue -- so a nota, sem comentario (conforme pedido). So aceita se o
+// pedido ja estiver 'entregue' e ainda nao tiver sido avaliado, pra evitar
+// nota repetida/fora de hora.
+async function avaliarEntregador(req, res) {
+  try {
+    const { slug, id } = req.params;
+    const { estrelas } = req.body;
+
+    if (!Number.isInteger(estrelas) || estrelas < 1 || estrelas > 5) {
+      return res.status(400).json({ erro: 'Avaliacao invalida (use de 1 a 5 estrelas).' });
+    }
+
+    const estRes = await query('SELECT id FROM estabelecimentos WHERE slug = $1', [slug]);
+    if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
+
+    const resultado = await query(
+      `UPDATE pedidos SET avaliacao_entregador = $1
+       WHERE id = $2 AND estabelecimento_id = $3 AND status_pedido = 'entregue' AND avaliacao_entregador IS NULL
+       RETURNING id`,
+      [estrelas, id, estRes.rows[0].id]
+    );
+
+    if (resultado.rows.length === 0) {
+      return res.status(400).json({ erro: 'Esse pedido nao pode ser avaliado (ja avaliado ou ainda nao entregue).' });
+    }
+
+    res.json({ mensagem: 'Obrigado pela avaliacao!' });
+  } catch (error) {
+    console.error('Erro ao avaliar entregador:', error);
+    res.status(500).json({ erro: 'Erro ao registrar avaliacao.' });
   }
 }
 
@@ -556,30 +589,7 @@ async function atualizarStatusPedido(req, res) {
     }
 
     const final = await query('SELECT * FROM pedidos WHERE id = $1 AND estabelecimento_id = $2', [id, req.estabelecimentoId]);
-    const pedido = final.rows[0];
-
-    // Avisa o cliente no proprio app (badge "nao lida" + pagina de
-    // notificacoes) a cada mudanca de status relevante pra ele -- nao
-    // avisa em "novo" porque essa e' a criacao do proprio pedido, o
-    // cliente ja sabe (acabou de fazer).
-    const codigo = pedido.numero_pedido ? `#${pedido.numero_pedido}` : '';
-    const mensagensPorStatus = {
-      preparando: { titulo: 'Pedido confirmado', mensagem: `Seu pedido ${codigo} foi confirmado pela loja e já está sendo preparado!` },
-      pronto: {
-        titulo: 'Pedido pronto',
-        mensagem: pedido.tipo_pedido === 'entrega'
-          ? `Seu pedido ${codigo} está pronto e logo sai para entrega!`
-          : `Seu pedido ${codigo} está pronto!`
-      },
-      entregue: { titulo: 'Pedido entregue', mensagem: `Seu pedido ${codigo} foi entregue. Bom apetite!` },
-      cancelado: { titulo: 'Pedido cancelado', mensagem: `Seu pedido ${codigo} foi cancelado.` }
-    };
-    const avisoStatus = mensagensPorStatus[status_pedido];
-    if (avisoStatus) {
-      notificar(req.estabelecimentoId, pedido.cliente_telefone, 'pedido', pedido.id, avisoStatus.titulo, avisoStatus.mensagem);
-    }
-
-    res.json(pedido);
+    res.json(final.rows[0]);
   } catch (error) {
     console.error('Erro ao atualizar status do pedido:', error);
     res.status(500).json({ erro: 'Erro ao atualizar status.' });
@@ -636,7 +646,8 @@ async function listarPedidosCliente(req, res) {
 
     const telefoneLimpo = (telefone || '').replace(/\D/g, '');
     const sql = `
-      SELECT id, cliente_nome, cliente_telefone, status_pedido, status_pagamento, total, criado_em
+      SELECT id, cliente_nome, cliente_telefone, status_pedido, status_pagamento, total, criado_em,
+             tipo_pedido, entregador_nome, avaliacao_entregador
       FROM pedidos
       WHERE estabelecimento_id = $1
         AND regexp_replace(cliente_telefone, '\\D', '', 'g') LIKE $2
@@ -916,11 +927,7 @@ async function aceitarEntrega(req, res) {
     if (resultado.rows.length === 0) {
       return res.status(409).json({ erro: 'Esse convite de entrega ja nao esta mais disponivel.' });
     }
-    const pedido = resultado.rows[0];
-    const codigo = pedido.numero_pedido ? `#${pedido.numero_pedido}` : '';
-    notificar(req.estabelecimentoId, pedido.cliente_telefone, 'pedido', pedido.id,
-      'Pedido saiu para entrega', `Seu pedido ${codigo} saiu para entrega!`);
-    res.json(pedido);
+    res.json(resultado.rows[0]);
   } catch (error) {
     console.error('Erro ao aceitar entrega:', error);
     res.status(500).json({ erro: 'Erro ao aceitar entrega.' });
@@ -978,16 +985,11 @@ async function encerrarEntrega(req, res) {
       [req.funcionarioId]
     );
 
-    const pedido = resultado.rows[0];
-    const codigo = pedido.numero_pedido ? `#${pedido.numero_pedido}` : '';
-    notificar(req.estabelecimentoId, pedido.cliente_telefone, 'pedido', pedido.id,
-      'Pedido entregue', `Seu pedido ${codigo} foi entregue. Bom apetite!`);
-
     // Ao ficar livre de novo, ja tenta puxar algum pedido "pronto" que
     // estivesse esperando fila vazia.
     await tentarOfertarPedidosPendentes(req.estabelecimentoId);
 
-    res.json(pedido);
+    res.json(resultado.rows[0]);
   } catch (error) {
     console.error('Erro ao encerrar entrega:', error);
     res.status(500).json({ erro: 'Erro ao encerrar entrega.' });
@@ -1004,7 +1006,7 @@ async function encerrarEntrega(req, res) {
 async function buscarMinhasEntregas(req, res, somenteHoje) {
   try {
     const funcionario = await query(
-      'SELECT forma_pagamento_entrega, valor_por_entrega, valor_por_km FROM funcionarios WHERE id = $1',
+      'SELECT forma_pagamento_entrega, valor_por_entrega, valor_por_km, km_incluido_no_fixo FROM funcionarios WHERE id = $1',
       [req.funcionarioId]
     );
     const f = funcionario.rows[0] || {};
@@ -1026,9 +1028,16 @@ async function buscarMinhasEntregas(req, res, somenteHoje) {
       [req.estabelecimentoId, req.funcionarioId]
     );
 
-    const calcularComissao = (p) => f.forma_pagamento_entrega === 'km'
-      ? (Number(p.distancia_km) || 0) * (Number(f.valor_por_km) || 0)
-      : (Number(f.valor_por_entrega) || 0);
+    // Modelo hibrido: um R$ fixo que ja cobre ate X km, e alem disso soma
+    // R$/km excedente (mesma formula usada em calcularResumoPlantao).
+    const calcularComissao = (p) => {
+      if (f.forma_pagamento_entrega === 'km') return (Number(p.distancia_km) || 0) * (Number(f.valor_por_km) || 0);
+      if (f.forma_pagamento_entrega === 'hibrido') {
+        const kmExcedente = Math.max(0, (Number(p.distancia_km) || 0) - (Number(f.km_incluido_no_fixo) || 0));
+        return (Number(f.valor_por_entrega) || 0) + kmExcedente * (Number(f.valor_por_km) || 0);
+      }
+      return Number(f.valor_por_entrega) || 0;
+    };
 
     const entregas = resultado.rows.map((p) => {
       const comissao = calcularComissao(p);
@@ -1046,20 +1055,19 @@ async function buscarMinhasEntregas(req, res, somenteHoje) {
       };
     });
 
-    // Resumo/totais: query separada, SEM limite nenhum -- soma TODAS as
-    // entregas concluidas (nao so as 200 retornadas na lista acima), pra
-    // "caixinha acumulada" e "valor total a receber" ficarem exatos mesmo
-    // com anos de historico.
-    const totaisRes = await query(
-      `SELECT COUNT(*) AS total_entregas, COALESCE(SUM(gorjeta), 0) AS total_gorjetas,
-              COALESCE(SUM(CASE WHEN $3 = 'km' THEN COALESCE(distancia_km, 0) * $4 ELSE $5 END), 0) AS total_comissao
-       FROM pedidos
+    // Resumo/totais: soma TODAS as entregas concluidas (nao so as 200
+    // retornadas na lista acima) buscando so as distancias e somando em
+    // JS com a mesma formula de cima -- precisa ser assim (e nao um SUM
+    // direto no SQL) pra dar conta do modelo hibrido, que nao e' uma
+    // simples multiplicacao linear.
+    const todasDistancias = await query(
+      `SELECT distancia_km, gorjeta FROM pedidos
        WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_pedido = 'entregue' ${filtroData}`,
-      [req.estabelecimentoId, req.funcionarioId, f.forma_pagamento_entrega, Number(f.valor_por_km) || 0, Number(f.valor_por_entrega) || 0]
+      [req.estabelecimentoId, req.funcionarioId]
     );
-    const t = totaisRes.rows[0];
-    const totalGorjetas = Number(t.total_gorjetas) || 0;
-    const totalComissao = Number(t.total_comissao) || 0;
+    const totalGorjetas = todasDistancias.rows.reduce((soma, p) => soma + (Number(p.gorjeta) || 0), 0);
+    const totalComissao = todasDistancias.rows.reduce((soma, p) => soma + calcularComissao(p), 0);
+    const t = { total_entregas: todasDistancias.rows.length };
 
     res.json({
       entregas,
@@ -1084,174 +1092,11 @@ async function minhasEntregasTodas(req, res) {
   return buscarMinhasEntregas(req, res, false);
 }
 
-// Monta o objeto de endereco (rua/numero/complemento/cep/bairro + versao
-// completa) a partir de um pedido cru -- espelha exatamente
-// construirEndereco() do frontend (entregador.js), pra "Rotas realizadas"
-// e "Resumo da rota" mostrarem o endereco formatado do mesmo jeito que a
-// tela de "Rota em andamento" (que monta isso no proprio navegador a
-// partir de /entregas/atual).
-function construirEnderecoServidor(p) {
-  const temEstruturado = p.cliente_endereco_rua || p.cliente_endereco_cep || p.cliente_endereco_bairro;
-  if (!temEstruturado) {
-    return { logradouro: p.cliente_endereco || '-', numero: null, complemento: null, cep: null, bairro: null, completo: p.cliente_endereco || '-' };
-  }
-  const partes = [];
-  if (p.cliente_endereco_rua) partes.push(p.cliente_endereco_numero ? `${p.cliente_endereco_rua}, ${p.cliente_endereco_numero}` : p.cliente_endereco_rua);
-  if (p.cliente_endereco_complemento) partes.push(p.cliente_endereco_complemento);
-  if (p.cliente_endereco_bairro) partes.push(p.cliente_endereco_bairro);
-  if (p.cliente_endereco_cep) partes.push(`CEP ${p.cliente_endereco_cep}`);
-  return {
-    logradouro: p.cliente_endereco_rua || p.cliente_endereco || '-',
-    numero: p.cliente_endereco_numero || null,
-    complemento: p.cliente_endereco_complemento || null,
-    cep: p.cliente_endereco_cep || null,
-    bairro: p.cliente_endereco_bairro || null,
-    completo: partes.join(' - ') || (p.cliente_endereco || '-')
-  };
-}
-
-// Traduz o "periodo" que o app do entregador manda (hoje/semana/mes/
-// 3meses/6meses/ano/tudo) pro vocabulario de utils/periodo.js.
-const MAPA_PERIODO_ENTREGADOR = {
-  hoje: 'hoje', semana: 'semana', mes: 'mes', '3meses': '3meses',
-  '6meses': '6meses', ano: 'ano', tudo: 'geral'
-};
-
-// ---------------------------------------------------------------------
-// GET /entregas/minhas-historico -- usado pelos topicos "Rotas
-// realizadas" e "Resumo da rota" do menu lateral do app do entregador.
-// Paginacao por cursor (horario_entregue da ultima linha da pagina
-// anterior), filtro de periodo, ORDER BY horario_entregue DESC (mais
-// recente primeiro).
-// ---------------------------------------------------------------------
-async function minhasEntregasHistorico(req, res) {
-  try {
-    const limite = Math.min(parseInt(req.query.limite, 10) || 5, 50);
-    const periodo = MAPA_PERIODO_ENTREGADOR[req.query.periodo] || 'hoje';
-    const cursor = req.query.antes || null;
-    const { inicio, fim } = resolverIntervalo(periodo);
-
-    const condicoes = [`estabelecimento_id = $1`, `entregador_id = $2`, `status_pedido = 'entregue'`];
-    const params = [req.estabelecimentoId, req.funcionarioId];
-    if (inicio) { params.push(inicio); condicoes.push(`horario_entregue >= $${params.length}`); }
-    if (fim) { params.push(fim); condicoes.push(`horario_entregue <= $${params.length}`); }
-    if (cursor) { params.push(cursor); condicoes.push(`horario_entregue < $${params.length}`); }
-    params.push(limite + 1); // uma a mais so pra saber se tem proxima pagina
-
-    const funcionario = await query(
-      'SELECT forma_pagamento_entrega, valor_por_entrega, valor_por_km FROM funcionarios WHERE id = $1',
-      [req.funcionarioId]
-    );
-    const f = funcionario.rows[0] || {};
-
-    const resultado = await query(
-      `SELECT id, cliente_nome, cliente_endereco, cliente_endereco_rua, cliente_endereco_numero,
-              cliente_endereco_complemento, cliente_endereco_cep, cliente_endereco_bairro,
-              total, forma_pagamento, troco_para, gorjeta, distancia_km,
-              horario_saiu_entrega, horario_entregue
-       FROM pedidos
-       WHERE ${condicoes.join(' AND ')}
-       ORDER BY horario_entregue DESC
-       LIMIT $${params.length}`,
-      params
-    );
-
-    const temMais = resultado.rows.length > limite;
-    const linhas = resultado.rows.slice(0, limite);
-
-    const entregas = linhas.map((p) => {
-      const comissao = f.forma_pagamento_entrega === 'km'
-        ? (Number(p.distancia_km) || 0) * (Number(f.valor_por_km) || 0)
-        : (Number(f.valor_por_entrega) || 0);
-      return {
-        id: p.id,
-        cliente_nome: p.cliente_nome,
-        endereco: construirEnderecoServidor(p),
-        total_pedido: Number(p.total) || 0,
-        forma_pagamento: p.forma_pagamento,
-        troco: (p.forma_pagamento === 'dinheiro' && p.troco_para !== null) ? Number(p.troco_para) - Number(p.total) : null,
-        gorjeta: Number(p.gorjeta) || 0,
-        valor_rota: comissao,
-        horario_saiu_entrega: p.horario_saiu_entrega,
-        horario_entregue: p.horario_entregue
-      };
-    });
-
-    res.json({
-      entregas,
-      proximo_cursor: linhas.length ? linhas[linhas.length - 1].horario_entregue : null,
-      tem_mais: temMais
-    });
-  } catch (error) {
-    console.error('Erro ao buscar historico de entregas do entregador:', error);
-    res.status(500).json({ erro: 'Erro ao buscar historico de entregas.' });
-  }
-}
-
-// ---------------------------------------------------------------------
-// GET /entregas/minhas-caixinhas -- usado pelo topico "Caixinha
-// recebida". Mesma paginacao por cursor + filtro de periodo da lista
-// acima, mas so pedidos com gorjeta > 0. Os totais (hoje/mes/total) sao
-// sempre calculados sem filtro de periodo -- aparecem fixos, independente
-// de qual chip de periodo esta selecionado pra lista abaixo deles.
-// ---------------------------------------------------------------------
-async function minhasCaixinhas(req, res) {
-  try {
-    const limite = Math.min(parseInt(req.query.limite, 10) || 5, 50);
-    const periodo = MAPA_PERIODO_ENTREGADOR[req.query.periodo] || 'hoje';
-    const cursor = req.query.antes || null;
-    const { inicio, fim } = resolverIntervalo(periodo);
-
-    const condicoes = [`estabelecimento_id = $1`, `entregador_id = $2`, `status_pedido = 'entregue'`, `gorjeta > 0`];
-    const params = [req.estabelecimentoId, req.funcionarioId];
-    if (inicio) { params.push(inicio); condicoes.push(`horario_entregue >= $${params.length}`); }
-    if (fim) { params.push(fim); condicoes.push(`horario_entregue <= $${params.length}`); }
-    if (cursor) { params.push(cursor); condicoes.push(`horario_entregue < $${params.length}`); }
-    params.push(limite + 1);
-
-    const resultado = await query(
-      `SELECT id, cliente_nome, gorjeta, horario_entregue
-       FROM pedidos
-       WHERE ${condicoes.join(' AND ')}
-       ORDER BY horario_entregue DESC
-       LIMIT $${params.length}`,
-      params
-    );
-    const temMais = resultado.rows.length > limite;
-    const linhas = resultado.rows.slice(0, limite);
-    const caixinhas = linhas.map((p) => ({
-      id: p.id, cliente_nome: p.cliente_nome, valor: Number(p.gorjeta) || 0, horario_entregue: p.horario_entregue
-    }));
-
-    const { inicio: inicioHoje, fim: fimHoje } = resolverIntervalo('hoje');
-    const { inicio: inicioMes, fim: fimMes } = resolverIntervalo('mes_atual');
-    const totaisRes = await query(
-      `SELECT
-        COALESCE(SUM(CASE WHEN horario_entregue >= $3 AND horario_entregue <= $4 THEN gorjeta ELSE 0 END), 0) AS hoje,
-        COALESCE(SUM(CASE WHEN horario_entregue >= $5 AND horario_entregue <= $6 THEN gorjeta ELSE 0 END), 0) AS mes,
-        COALESCE(SUM(gorjeta), 0) AS total
-       FROM pedidos
-       WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_pedido = 'entregue' AND gorjeta > 0`,
-      [req.estabelecimentoId, req.funcionarioId, inicioHoje, fimHoje, inicioMes, fimMes]
-    );
-    const t = totaisRes.rows[0];
-
-    res.json({
-      caixinhas,
-      proximo_cursor: linhas.length ? linhas[linhas.length - 1].horario_entregue : null,
-      tem_mais: temMais,
-      totais: { hoje: Number(t.hoje) || 0, mes: Number(t.mes) || 0, total: Number(t.total) || 0 }
-    });
-  } catch (error) {
-    console.error('Erro ao buscar caixinhas do entregador:', error);
-    res.status(500).json({ erro: 'Erro ao buscar caixinhas.' });
-  }
-}
-
 module.exports = {
   criarPedido,
   criarPedidoManual,
   consultarStatusPedido,
+  avaliarEntregador,
   webhookMercadoPago,
   listarPedidosAdmin,
   contarPedidosAdmin,
@@ -1260,8 +1105,6 @@ module.exports = {
   listarPedidosCliente,
   minhasEntregasHoje,
   minhasEntregasTodas,
-  minhasEntregasHistorico,
-  minhasCaixinhas,
   obterCaixaGeral,
   tentarOfertarPedidosPendentes,
   posicaoNaFila,
