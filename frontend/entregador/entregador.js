@@ -450,9 +450,19 @@ function formatarHora(dataISO) {
 // gorjeta que o cliente ja tiver dado no pedido (caixinha).
 function comissaoDaEntrega(pedido) {
   const dados = obterDados();
-  const comissao = dados?.formaPagamentoEntrega === 'km'
-    ? (parseFloat(pedido.distancia_km) || 0) * (parseFloat(dados?.valorPorKm) || 0)
-    : (parseFloat(dados?.valorPorEntrega) || 0);
+  const distanciaKm = parseFloat(pedido.distancia_km) || 0;
+  let comissao;
+  if (dados?.formaPagamentoEntrega === 'km') {
+    comissao = distanciaKm * (parseFloat(dados?.valorPorKm) || 0);
+  } else if (dados?.formaPagamentoEntrega === 'hibrido') {
+    // Fixo que ja cobre ate X km + R$/km alem disso (ex: fixo R$5 cobre
+    // 3km; rota de 6km = R$5 + 3km*R$2). Antes de a entrega ser concluida
+    // (sem distancia_km ainda), mostra so o fixo -- e' o minimo garantido.
+    const kmExcedente = Math.max(0, distanciaKm - (parseFloat(dados?.kmIncluidoNoFixo) || 0));
+    comissao = (parseFloat(dados?.valorPorEntrega) || 0) + kmExcedente * (parseFloat(dados?.valorPorKm) || 0);
+  } else {
+    comissao = parseFloat(dados?.valorPorEntrega) || 0;
+  }
   const gorjeta = parseFloat(pedido.gorjeta) || 0;
   return comissao + gorjeta;
 }
@@ -591,7 +601,7 @@ document.getElementById('botao-encerrar').addEventListener('click', async () => 
 
   let distanciaKm;
   const dados = obterDados();
-  if (dados && dados.formaPagamentoEntrega === 'km') {
+  if (dados && (dados.formaPagamentoEntrega === 'km' || dados.formaPagamentoEntrega === 'hibrido')) {
     const valorDigitado = prompt('Quantos km você rodou nessa entrega?');
     if (valorDigitado === null) return; // cancelou
     distanciaKm = valorDigitado.replace(',', '.').trim();
@@ -631,7 +641,7 @@ async function encerrarPlantaoEMostrarResumo() {
 
 function exibirResumoPlantao(resumo) {
   const dados = obterDados();
-  const porKm = dados && dados.formaPagamentoEntrega === 'km';
+  const porKm = dados && (dados.formaPagamentoEntrega === 'km' || dados.formaPagamentoEntrega === 'hibrido');
 
   document.getElementById('resumo-total-entregas').textContent = resumo.total_entregas ?? 0;
   document.getElementById('resumo-total-km').textContent = `${Number(resumo.total_km || 0).toLocaleString('pt-BR')} km`;
