@@ -18,6 +18,25 @@ const PASSOS_TIMELINE = [
 ];
 const ORDEM_STATUS = ['novo', 'preparando', 'pronto', 'saiu_entrega', 'entregue'];
 
+// So mostra o widget de avaliacao quando: e' pedido de ENTREGA (nao
+// balcao/mesa, que nao tem entregador), ja foi ENTREGUE, e ainda nao foi
+// avaliado antes (avaliacao_entregador ainda null).
+function renderizarAvaliacaoEntregador(pedido) {
+  if (pedido.tipo_pedido !== 'entrega' || pedido.status_pedido !== 'entregue') return '';
+  if (pedido.avaliacao_entregador) {
+    return `<div class="conta-avaliacao"><span class="conta-avaliacao__obrigado">Sua avaliação: ${'⭐'.repeat(pedido.avaliacao_entregador)}</span></div>`;
+  }
+  const nomeEntregador = pedido.entregador_nome ? ` para ${pedido.entregador_nome}` : '';
+  return `
+    <div class="conta-avaliacao" data-pedido-avaliar="${pedido.id}">
+      <span class="conta-avaliacao__texto">Avalie a entrega${nomeEntregador}:</span>
+      <span class="conta-avaliacao__estrelas">
+        ${[1, 2, 3, 4, 5].map(n => `<span data-avaliar-estrela="${n}" class="conta-avaliacao__estrela">⭐</span>`).join('')}
+      </span>
+    </div>
+  `;
+}
+
 const ICONE_STATUS = {
   novo: '🛍️', preparando: '⏱️', saiu_entrega: '🛵', entregue: '✅', cancelado: '✕'
 };
@@ -97,7 +116,6 @@ async function iniciarMeusPedidos() {
 
   preencherSaudacaoConta(conta);
   configurarNavegacaoConta('pedidos');
-  atualizarBadgesNavegacaoConta('pedidos');
   await carregarMeusPedidos();
 
   document.getElementById('tela-carregando').classList.add('oculto');
@@ -173,8 +191,24 @@ async function carregarMeusPedidos() {
           <svg class="conta-pedido-card__seta" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
         </div>
         <div class="conta-pedido-card__timeline oculto" id="acomp-conta-${pedido.id}"></div>
+        ${renderizarAvaliacaoEntregador(pedido)}
       </div>
     `).join('');
+
+    container.querySelectorAll('[data-avaliar-estrela]').forEach(estrelaEl => {
+      estrelaEl.addEventListener('click', async (evento) => {
+        evento.stopPropagation();
+        const grupo = estrelaEl.closest('[data-pedido-avaliar]');
+        const pedidoId = grupo.getAttribute('data-pedido-avaliar');
+        const estrelas = Number(estrelaEl.getAttribute('data-avaliar-estrela'));
+        try {
+          await avaliarEntregadorCliente(SLUG_ESTABELECIMENTO, pedidoId, estrelas);
+          grupo.innerHTML = `<span class="conta-avaliacao__obrigado">Obrigado pela avaliação! ${'⭐'.repeat(estrelas)}</span>`;
+        } catch (erro) {
+          alert(erro.message);
+        }
+      });
+    });
 
     container.querySelectorAll('.conta-pedido-card').forEach(card => {
       card.addEventListener('click', () => {
