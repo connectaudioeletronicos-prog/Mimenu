@@ -147,6 +147,49 @@
       quando o entregador não fez o check-in do dia (escanear o QR ou
       colar o código) — só ativar o app ou estar com token de acesso não
       basta
+- [x] Rodada de ajustes/funcionalidades novas na Central de Entregas:
+      · Painel numérico "Por KM"/"Valor Fixo" corrigido — aceita vírgula
+      (formato brasileiro, antes só aceitava ponto), pré-preenche com o
+      valor já salvo ao reabrir (antes sempre abria zerado, parecia que
+      o valor salvo tinha sumido)
+      · Botão "Gerar código" simplificado (removida a pergunta, só o
+      texto direto)
+      · Corrigida lacuna real: `listarEquipeOperacional` nunca trazia
+      `telefone`, `forma_pagamento_entrega`, `valor_por_km` nem
+      `valor_por_entrega` do banco
+      · Modelo HÍBRIDO de comissão (novo, terceiro botão ao lado de "Por
+      KM"/"Valor Fixo"): valor fixo que cobre até X km + R$/km excedente
+      além disso (ex: fixo R$5 cobre 3km, rota de 6km = R$5 + 3km×R$2).
+      Usa o campo `distancia_km` que já existia por pedido (o entregador
+      digita ao concluir a entrega — não depende do Google Maps).
+      Atualizada a fórmula nos 3 lugares onde a comissão é calculada
+      (fechamento de plantão, resumo do entregador, tela ao vivo no app)
+      pra ficarem consistentes. Painel mostra um exemplo de cálculo ao
+      vivo enquanto o lojista digita, pra conferir antes de salvar.
+      Nova coluna `km_incluido_no_fixo` em funcionarios
+      (`backend/src/migrations/funcionarios_km_incluido_no_fixo.sql`)
+      · Sistema de avaliação do entregador (novo): cliente dá de 1 a 5
+      estrelas depois que o pedido é entregue (só a nota, sem comentário
+      — conforme pedido), widget aparece em "Meus pedidos". Nova coluna
+      `avaliacao_entregador` em pedidos
+      (`backend/src/migrations/pedidos_avaliacao_entregador.sql`), rota
+      pública `PUT /publico/:slug/pedidos/:id/avaliar-entregador`
+      (`backend/src/controllers/pedidoController.js`,
+      `backend/src/routes/publico.js`, `frontend/js/api.js`,
+      `frontend/js/meus-pedidos.js`, `frontend/css/minha-conta.css`). A
+      nota média aparece na Equipe de entregadores
+      · Nova página "Equipe" (substituindo a lista de cards antiga):
+      cabeçalho com data/hora, 4 cards de estatística (Ativos/Em
+      rota/Disponível/Indisponível), tabela com Nome+★nota,
+      Telefone, Status, Localização e Ações (Ver rota, Chamar via
+      WhatsApp, Liberar, menu ⋮ com Histórico e Link de acesso)
+      · Confirmado (não é bug/não precisa mexer): o mapa de "rota em
+      andamento" no app do entregador já é um placeholder simplificado
+      (SVG com paradas numeradas) esperando a chave do Google Maps —
+      nada foi deletado, só ainda não foi ativado
+      (`backend/src/controllers/funcionarioController.js`,
+      `frontend/admin/admin-index.html`, `frontend/admin/js/admin.js`,
+      `frontend/admin/css/admin.css`, `frontend/entregador/entregador.js`)
 - [x] Confirmar execução da `migration_dados_legais.sql` no Supabase —
       migration original havia sido perdida; reconstruída em 22/07/2026 a
       partir do `INSERT INTO dados_legais` já existente em
