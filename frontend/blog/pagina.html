@@ -19,6 +19,15 @@
     --texto-claro: #6f7975;
     --borda: #dbe2de;
     --fundo-suave: #f6f8f6;
+    --cor-cartao: #ffffff;
+  }
+  [data-tema="escuro"] {
+    --verde-clara: #17352a;
+    --texto: #e8ece9;
+    --texto-claro: #9aa39d;
+    --borda: #2c3830;
+    --fundo-suave: #121a15;
+    --cor-cartao: #1c2620;
   }
   * { box-sizing: border-box; }
   body {
@@ -27,6 +36,7 @@
     color: var(--texto);
     margin: 0;
     text-align: left;
+    transition: background 0.2s, color 0.2s;
   }
   .cabecalho {
     background: var(--verde-escura); color: white; padding: 18px 20px;
@@ -40,7 +50,7 @@
   .cabecalho h1 { font-size: 19px; margin: 0; font-weight: 700; }
   .cabecalho .tagline-topo { font-size: 11px; opacity: 0.8; margin-top: 1px; }
   .menu-dropdown {
-    position: absolute; top: 62px; left: 20px; background: white;
+    position: absolute; top: 62px; left: 20px; background: var(--cor-cartao);
     border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     min-width: 190px; display: none; flex-direction: column;
     overflow: hidden; z-index: 50;
@@ -88,6 +98,20 @@
   .rodape .links a:hover { text-decoration: underline; }
 
   .carregando, .erro-pagina { text-align: center; padding: 60px 20px; color: var(--texto-claro); }
+
+  .skeleton { animation: pulso 1.3s ease-in-out infinite; background: var(--borda); border-radius: 8px; }
+  @keyframes pulso { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+  .skeleton-titulo { height: 28px; width: 60%; margin-bottom: 16px; }
+  .skeleton-linha { height: 14px; width: 100%; margin-bottom: 10px; }
+  .skeleton-linha.curta { width: 55%; }
+
+  .relacionados-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-top: 14px; }
+  .relacionado-card {
+    display: block; text-decoration: none; color: inherit; background: var(--cor-cartao);
+    border-radius: 12px; overflow: hidden; box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+  }
+  .relacionado-card img { width: 100%; height: 100px; object-fit: cover; display: block; background: var(--fundo-suave); }
+  .relacionado-card .titulo-rel { padding: 10px 12px; font-size: 13.5px; font-weight: 600; color: var(--verde-escura); line-height: 1.35; }
 </style>
 </head>
 <body>
@@ -106,11 +130,17 @@
       <a href="/politica-privacidade.html">Política de Privacidade</a>
       <a href="/termos-servico.html">Termos de Uso</a>
     </div>
+    <button class="menu-icone" onclick="alternarTema()" id="botaoTema" aria-label="Alternar tema" style="margin-left:8px;">🌙</button>
   </div>
 
   <div class="pagina">
     <a class="voltar" href="/blog">← Voltar para o blog</a>
-    <div id="conteudoPagina" class="carregando">Carregando...</div>
+    <div id="conteudoPagina">
+      <div class="skeleton skeleton-titulo"></div>
+      <div class="skeleton skeleton-linha"></div>
+      <div class="skeleton skeleton-linha"></div>
+      <div class="skeleton skeleton-linha curta"></div>
+    </div>
   </div>
 
   <div class="redes-sociais oculto" id="redesSociais"></div>
@@ -136,6 +166,27 @@ function escaparHtml(texto) {
   div.textContent = texto || '';
   return div.innerHTML;
 }
+
+(function aplicarTemaSalvo() {
+  if (localStorage.getItem('temaBlog') === 'escuro') {
+    document.documentElement.setAttribute('data-tema', 'escuro');
+  }
+})();
+
+function alternarTema() {
+  const escuro = document.documentElement.getAttribute('data-tema') === 'escuro';
+  if (escuro) {
+    document.documentElement.removeAttribute('data-tema');
+    localStorage.setItem('temaBlog', 'claro');
+  } else {
+    document.documentElement.setAttribute('data-tema', 'escuro');
+    localStorage.setItem('temaBlog', 'escuro');
+  }
+  document.getElementById('botaoTema').textContent = document.documentElement.getAttribute('data-tema') === 'escuro' ? '☀️' : '🌙';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('botaoTema').textContent = document.documentElement.getAttribute('data-tema') === 'escuro' ? '☀️' : '🌙';
+});
 
 function alternarMenu() {
   document.getElementById('menuDropdown').classList.toggle('aberto');
@@ -211,12 +262,41 @@ async function carregarRedesSociais() {
   }
 }
 
+async function renderizarNaoEncontrado(mensagem) {
+  let sugestoes = '';
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/posts?limite=3');
+    const posts = resposta.ok ? await resposta.json() : [];
+    if (posts.length > 0) {
+      sugestoes = `
+        <p style="margin-top:22px;font-weight:600;">Que tal um destes posts?</p>
+        <div class="relacionados-grade">
+          ${posts.map(p => `
+            <a class="relacionado-card" href="/blog/${encodeURIComponent(p.slug)}">
+              ${p.imagem_capa_url ? `<img src="${p.imagem_capa_url}" alt="">` : ''}
+              <div class="titulo-rel">${escaparHtml(p.titulo)}</div>
+            </a>
+          `).join('')}
+        </div>
+      `;
+    }
+  } catch (e) { /* sem sugestao, tudo bem */ }
+
+  return `
+    <div class="erro-pagina" style="padding-bottom:10px;">
+      <div style="font-size:44px;">🧭</div>
+      <p style="font-weight:700;font-size:17px;color:var(--texto);">${escaparHtml(mensagem)}</p>
+    </div>
+    ${sugestoes}
+  `;
+}
+
 async function carregarPagina() {
   const div = document.getElementById('conteudoPagina');
   const tipo = new URLSearchParams(window.location.search).get('tipo');
 
   if (tipo !== 'sobre-nos' && tipo !== 'contato') {
-    div.innerHTML = '<div class="erro-pagina">Página não encontrada.</div>';
+    div.innerHTML = await renderizarNaoEncontrado('Página não encontrada.');
     return;
   }
 
@@ -225,7 +305,7 @@ async function carregarPagina() {
     const pagina = await resposta.json();
     if (!resposta.ok) {
       const rotulo = tipo === 'sobre-nos' ? 'Sobre nós' : 'Contato';
-      div.innerHTML = `<div class="erro-pagina">A página "${rotulo}" ainda não foi preenchida.</div>`;
+      div.innerHTML = await renderizarNaoEncontrado(`A página "${rotulo}" ainda não foi preenchida.`);
       return;
     }
     document.title = pagina.titulo + ' - Blog Palatos';
