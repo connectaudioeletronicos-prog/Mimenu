@@ -45,5 +45,8 @@ router.delete('/blog/comentarios/:id', limitador, blogController.excluirComentar
 router.put('/blog/configuracoes', limitador, blogController.atualizarConfiguracoesAdmin);
 router.post('/blog/imagens', limitador, upload.single('imagem'), blogController.enviarImagemAdmin);
 router.put('/blog/paginas/:tipo', limitador, blogController.atualizarPaginaAdmin);
+router.get('/blog/newsletter', limitador, blogController.listarNewsletterAdmin);
+router.get('/blog/posts/:id/historico', limitador, blogController.listarHistoricoAdmin);
+router.get('/blog/analytics', limitador, blogController.obterAnalyticsAdmin);
 
 module.exports = router;
