@@ -18,6 +18,14 @@
     --texto-claro: #6f7975;
     --borda: #dbe2de;
     --fundo-suave: #f6f8f6;
+    --cor-cartao: #ffffff;
+  }
+  [data-tema="escuro"] {
+    --texto: #e8ece9;
+    --texto-claro: #9aa39d;
+    --borda: #2c3830;
+    --fundo-suave: #121a15;
+    --cor-cartao: #1c2620;
   }
   * { box-sizing: border-box; }
   body {
@@ -26,6 +34,7 @@
     color: var(--texto);
     margin: 0;
     text-align: left;
+    transition: background 0.2s, color 0.2s;
   }
 
   .topo {
@@ -45,7 +54,7 @@
   .topo h1 { margin: 0; font-size: 19px; font-weight: 700; }
   .topo .tagline-topo { font-size: 11px; opacity: 0.8; margin-top: 1px; }
   .menu-dropdown {
-    position: absolute; top: 62px; left: 20px; background: white;
+    position: absolute; top: 62px; left: 20px; background: var(--cor-cartao);
     border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     min-width: 190px; display: none; flex-direction: column;
     overflow: hidden; z-index: 50;
@@ -118,6 +127,33 @@
   .carregando { text-align: center; padding: 40px 20px; color: var(--texto-claro); }
   .oculto { display: none; }
 
+  .skeleton { animation: pulso 1.3s ease-in-out infinite; background: var(--borda); border-radius: 8px; }
+  @keyframes pulso { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+  .skeleton-card { margin-bottom: 36px; }
+  .skeleton-titulo { height: 26px; width: 70%; margin-bottom: 12px; }
+  .skeleton-meta { height: 13px; width: 40%; margin-bottom: 16px; }
+  .skeleton-imagem { height: 200px; width: 100%; margin-bottom: 16px; }
+  .skeleton-linha { height: 13px; width: 100%; margin-bottom: 8px; }
+  .skeleton-linha.curta { width: 55%; }
+
+  .newsletter-caixa {
+    background: var(--cor-cartao); border: 1px solid var(--borda); border-radius: 14px;
+    padding: 22px; margin: 10px 0 34px; text-align: center;
+  }
+  .newsletter-caixa h3 { margin: 0 0 6px; color: var(--verde-escura); font-size: 17px; }
+  .newsletter-caixa p { margin: 0 0 14px; font-size: 13.5px; color: var(--texto-claro); }
+  .newsletter-form { display: flex; gap: 8px; max-width: 380px; margin: 0 auto; flex-wrap: wrap; justify-content: center; }
+  .newsletter-form input {
+    flex: 1; min-width: 200px; padding: 11px 14px; border: 1px solid var(--borda);
+    border-radius: 8px; font-size: 14px; font-family: inherit; background: var(--cor-cartao); color: var(--texto);
+  }
+  .newsletter-form button {
+    padding: 11px 18px; background: var(--verde); color: white; border: none;
+    border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  .newsletter-form button:hover { background: var(--verde-escura); }
+  .newsletter-msg { margin-top: 10px; font-size: 13px; }
+
   .redes-sociais { display: flex; justify-content: center; gap: 14px; margin: 10px auto 0; max-width: 900px; padding: 0 20px; }
   .redes-sociais a {
     width: 40px; height: 40px; border-radius: 50%; background: var(--fundo-suave);
@@ -152,10 +188,36 @@
       <a href="/politica-privacidade.html">Política de Privacidade</a>
       <a href="/termos-servico.html">Termos de Uso</a>
     </div>
+    <button class="menu-icone" onclick="alternarTema()" id="botaoTema" aria-label="Alternar tema" style="margin-left:8px;">🌙</button>
   </div>
   <div class="hero oculto" id="heroBanner"></div>
   <div class="pagina">
-    <div id="lista" class="carregando">Carregando posts...</div>
+    <div id="lista">
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-titulo"></div>
+        <div class="skeleton skeleton-meta"></div>
+        <div class="skeleton skeleton-imagem"></div>
+        <div class="skeleton skeleton-linha"></div>
+        <div class="skeleton skeleton-linha curta"></div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-titulo"></div>
+        <div class="skeleton skeleton-meta"></div>
+        <div class="skeleton skeleton-imagem"></div>
+        <div class="skeleton skeleton-linha"></div>
+        <div class="skeleton skeleton-linha curta"></div>
+      </div>
+    </div>
+
+    <div class="newsletter-caixa">
+      <h3>📬 Não perca as próximas publicações</h3>
+      <p>Deixe seu e-mail e avisamos quando sair post novo.</p>
+      <form class="newsletter-form" onsubmit="return inscreverNewsletter(event)">
+        <input type="email" id="campoEmailNewsletter" placeholder="seu@email.com" required>
+        <button type="submit">Quero receber</button>
+      </form>
+      <div class="newsletter-msg" id="msgNewsletter"></div>
+    </div>
   </div>
 
   <div class="redes-sociais oculto" id="redesSociais"></div>
@@ -176,6 +238,55 @@
 
 <script src="../js/config.js"></script>
 <script>
+// Aplica o tema salvo antes do resto carregar, pra nao piscar.
+(function aplicarTemaSalvo() {
+  if (localStorage.getItem('temaBlog') === 'escuro') {
+    document.documentElement.setAttribute('data-tema', 'escuro');
+  }
+})();
+
+function alternarTema() {
+  const escuro = document.documentElement.getAttribute('data-tema') === 'escuro';
+  if (escuro) {
+    document.documentElement.removeAttribute('data-tema');
+    localStorage.setItem('temaBlog', 'claro');
+  } else {
+    document.documentElement.setAttribute('data-tema', 'escuro');
+    localStorage.setItem('temaBlog', 'escuro');
+  }
+  document.getElementById('botaoTema').textContent = document.documentElement.getAttribute('data-tema') === 'escuro' ? '☀️' : '🌙';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('botaoTema').textContent = document.documentElement.getAttribute('data-tema') === 'escuro' ? '☀️' : '🌙';
+});
+
+async function inscreverNewsletter(evento) {
+  evento.preventDefault();
+  const email = document.getElementById('campoEmailNewsletter').value.trim();
+  const msg = document.getElementById('msgNewsletter');
+  msg.textContent = '';
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/newsletter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      msg.style.color = 'var(--erro, #d64545)';
+      msg.textContent = dados.erro || 'Não foi possível concluir a inscrição.';
+    } else {
+      msg.style.color = 'var(--verde-escura)';
+      msg.textContent = 'Inscrito! Você vai saber de tudo por aqui. 🎉';
+      document.getElementById('campoEmailNewsletter').value = '';
+    }
+  } catch (e) {
+    msg.style.color = 'var(--erro, #d64545)';
+    msg.textContent = 'Não foi possível conectar. Tente novamente.';
+  }
+  return false;
+}
+
 function alternarMenu() {
   document.getElementById('menuDropdown').classList.toggle('aberto');
 }
