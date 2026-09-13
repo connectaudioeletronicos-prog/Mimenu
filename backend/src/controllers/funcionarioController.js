@@ -76,7 +76,7 @@ async function loginFuncionario(req, res) {
 
     const resultado = await query(
       `SELECT id, nome, email, username, senha_hash, cargo, permissoes, ativo,
-              forma_pagamento_entrega, valor_por_entrega, valor_por_km
+              forma_pagamento_entrega, valor_por_entrega, valor_por_km, km_incluido_no_fixo
        FROM funcionarios
        WHERE estabelecimento_id = $1 AND (email = $2 OR username = $2)`,
       [estabelecimentoId, login]
@@ -102,7 +102,8 @@ async function loginFuncionario(req, res) {
         mpPublicKey, cartaoOnlinePresencial,
         formaPagamentoEntrega: funcionario.forma_pagamento_entrega,
         valorPorEntrega: funcionario.valor_por_entrega,
-        valorPorKm: funcionario.valor_por_km
+        valorPorKm: funcionario.valor_por_km,
+        kmIncluidoNoFixo: funcionario.km_incluido_no_fixo
       }
     });
   } catch (error) {
@@ -119,7 +120,7 @@ async function acessarPorLink(req, res) {
     const { token } = req.params;
     const resultado = await query(
       `SELECT f.id, f.nome, f.cargo, f.permissoes, f.ativo,
-              f.forma_pagamento_entrega, f.valor_por_entrega, f.valor_por_km,
+              f.forma_pagamento_entrega, f.valor_por_entrega, f.valor_por_km, f.km_incluido_no_fixo,
               e.id AS estabelecimento_id, e.slug, e.nome AS estabelecimento_nome,
               e.logo_apps_url AS estabelecimento_logo_apps_url, e.mp_access_token,
               e.mp_public_key, e.cartao_online_presencial
@@ -140,7 +141,8 @@ async function acessarPorLink(req, res) {
         id: f.id, nome: f.nome, cargo: f.cargo, permissoes, slug: f.slug, estabelecimentoNome: f.estabelecimento_nome,
         estabelecimentoLogoAppsUrl: f.estabelecimento_logo_apps_url, pagamentoConfigurado: !!f.mp_access_token,
         mpPublicKey: f.mp_public_key, cartaoOnlinePresencial: !!f.cartao_online_presencial,
-        formaPagamentoEntrega: f.forma_pagamento_entrega, valorPorEntrega: f.valor_por_entrega, valorPorKm: f.valor_por_km
+        formaPagamentoEntrega: f.forma_pagamento_entrega, valorPorEntrega: f.valor_por_entrega, valorPorKm: f.valor_por_km,
+        kmIncluidoNoFixo: f.km_incluido_no_fixo
       }
     });
   } catch (error) {
@@ -216,13 +218,13 @@ async function criar(req, res) {
 async function atualizar(req, res) {
   try {
     const { id } = req.params;
-    const { nome, email, username, cargo, ativo, permissoes, ordem, telefone, carga_horaria, forma_pagamento_entrega, valor_por_entrega, valor_por_km } = req.body;
+    const { nome, email, username, cargo, ativo, permissoes, ordem, telefone, carga_horaria, forma_pagamento_entrega, valor_por_entrega, valor_por_km, km_incluido_no_fixo } = req.body;
 
     if (cargo && !CARGOS_VALIDOS.includes(cargo)) return res.status(400).json({ erro: 'Categoria invalida.' });
     if (telefone && !validarTelefone(telefone)) {
       return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
     }
-    if (forma_pagamento_entrega && !['entrega', 'km'].includes(forma_pagamento_entrega)) {
+    if (forma_pagamento_entrega && !['entrega', 'km', 'hibrido'].includes(forma_pagamento_entrega)) {
       return res.status(400).json({ erro: 'Forma de pagamento invalida.' });
     }
 
@@ -246,8 +248,9 @@ async function atualizar(req, res) {
        forma_pagamento_entrega = COALESCE($10, forma_pagamento_entrega),
        valor_por_entrega = COALESCE($11, valor_por_entrega),
        valor_por_km = COALESCE($12, valor_por_km),
+       km_incluido_no_fixo = COALESCE($13, km_incluido_no_fixo),
        atualizado_em = NOW()
-       WHERE id = $13 AND estabelecimento_id = $14 RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem, carga_horaria, forma_pagamento_entrega, valor_por_entrega, valor_por_km`,
+       WHERE id = $14 AND estabelecimento_id = $15 RETURNING id, nome, email, username, telefone, cargo, permissoes, ativo, ordem, carga_horaria, forma_pagamento_entrega, valor_por_entrega, valor_por_km, km_incluido_no_fixo`,
       [
         nome, email, username, cargo, ativo,
         permissoesFinais !== undefined ? JSON.stringify(permissoesFinais) : null,
@@ -256,6 +259,7 @@ async function atualizar(req, res) {
         forma_pagamento_entrega || null,
         valor_por_entrega !== undefined && valor_por_entrega !== '' ? parseFloat(valor_por_entrega) : null,
         valor_por_km !== undefined && valor_por_km !== '' ? parseFloat(valor_por_km) : null,
+        km_incluido_no_fixo !== undefined && km_incluido_no_fixo !== '' ? parseFloat(km_incluido_no_fixo) : null,
         id, req.estabelecimentoId
       ]
     );
@@ -353,12 +357,17 @@ async function trocarSenha(req, res) {
 async function listarEquipeOperacional(req, res) {
   try {
     const resultado = await query(
-      `SELECT f.id, f.nome, f.email, f.cargo, f.ativo, f.disponivel_entrega,
+      `SELECT f.id, f.nome, f.email, f.telefone, f.cargo, f.ativo, f.disponivel_entrega,
               f.total_entregas, f.ultima_fila_em, f.token_acesso, f.carga_horaria, f.liberado_hora_extra_data,
+              f.forma_pagamento_entrega, f.valor_por_km, f.valor_por_entrega, f.km_incluido_no_fixo,
               EXISTS (
                 SELECT 1 FROM pedidos p
                 WHERE p.entregador_id = f.id AND p.status_pedido = 'saiu_entrega'
-              ) AS em_entrega
+              ) AS em_entrega,
+              (SELECT ROUND(AVG(p.avaliacao_entregador), 1) FROM pedidos p
+                WHERE p.entregador_id = f.id AND p.avaliacao_entregador IS NOT NULL) AS nota_media,
+              (SELECT COUNT(*) FROM pedidos p
+                WHERE p.entregador_id = f.id AND p.avaliacao_entregador IS NOT NULL) AS total_avaliacoes
        FROM funcionarios f
        WHERE f.estabelecimento_id = $1
          AND f.cargo IN ('cozinha', 'entregador', 'gerente', 'caixa', 'garcom', 'colaborador')
@@ -697,24 +706,35 @@ async function obterPlantaoAtual(req, res) {
 // configurada para o entregador no momento do calculo.
 async function calcularResumoPlantao(plantaoId, funcionarioId) {
   const funcionario = await query(
-    'SELECT forma_pagamento_entrega, valor_por_entrega, valor_por_km FROM funcionarios WHERE id = $1',
+    'SELECT forma_pagamento_entrega, valor_por_entrega, valor_por_km, km_incluido_no_fixo FROM funcionarios WHERE id = $1',
     [funcionarioId]
   );
   const f = funcionario.rows[0] || {};
 
-  const entregas = await query(
-    `SELECT COUNT(*) AS total_entregas, COALESCE(SUM(distancia_km), 0) AS total_km,
-            COALESCE(SUM(gorjeta), 0) AS total_gorjetas
-     FROM pedidos WHERE plantao_id = $1 AND status_pedido = 'entregue'`,
+  // Modelo hibrido: um R$ fixo que ja cobre ate X km, e alem disso soma
+  // R$/km excedente. Ex: fixo R$5 cobre 3km; rota de 6km = R$5 + 3*R$2.
+  const calcularComissaoPedido = (distanciaKm) => {
+    if (f.forma_pagamento_entrega === 'km') return (Number(distanciaKm) || 0) * (Number(f.valor_por_km) || 0);
+    if (f.forma_pagamento_entrega === 'hibrido') {
+      const kmExcedente = Math.max(0, (Number(distanciaKm) || 0) - (Number(f.km_incluido_no_fixo) || 0));
+      return (Number(f.valor_por_entrega) || 0) + kmExcedente * (Number(f.valor_por_km) || 0);
+    }
+    return Number(f.valor_por_entrega) || 0;
+  };
+
+  const entregasDetalhadas = await query(
+    `SELECT distancia_km FROM pedidos WHERE plantao_id = $1 AND status_pedido = 'entregue'`,
     [plantaoId]
   );
-  const totalEntregas = parseInt(entregas.rows[0].total_entregas, 10) || 0;
-  const totalKm = Number(entregas.rows[0].total_km) || 0;
-  const totalGorjetas = Number(entregas.rows[0].total_gorjetas) || 0;
+  const totalEntregas = entregasDetalhadas.rows.length;
+  const totalKm = entregasDetalhadas.rows.reduce((soma, p) => soma + (Number(p.distancia_km) || 0), 0);
+  const valorComissao = entregasDetalhadas.rows.reduce((soma, p) => soma + calcularComissaoPedido(p.distancia_km), 0);
 
-  const valorComissao = f.forma_pagamento_entrega === 'km'
-    ? totalKm * (Number(f.valor_por_km) || 0)
-    : totalEntregas * (Number(f.valor_por_entrega) || 0);
+  const gorjetasRes = await query(
+    `SELECT COALESCE(SUM(gorjeta), 0) AS total_gorjetas FROM pedidos WHERE plantao_id = $1 AND status_pedido = 'entregue'`,
+    [plantaoId]
+  );
+  const totalGorjetas = Number(gorjetasRes.rows[0].total_gorjetas) || 0;
 
   // Valor so da ULTIMA entrega concluida (comissao dela + a caixinha dela),
   // separado do total acumulado do plantao -- usado no card "valor da
@@ -728,10 +748,7 @@ async function calcularResumoPlantao(plantaoId, funcionarioId) {
   let valorUltimaRota = null;
   if (ultima.rows.length > 0) {
     const u = ultima.rows[0];
-    const comissaoUltima = f.forma_pagamento_entrega === 'km'
-      ? (Number(u.distancia_km) || 0) * (Number(f.valor_por_km) || 0)
-      : (Number(f.valor_por_entrega) || 0);
-    valorUltimaRota = comissaoUltima + (Number(u.gorjeta) || 0);
+    valorUltimaRota = calcularComissaoPedido(u.distancia_km) + (Number(u.gorjeta) || 0);
   }
 
   return {
