@@ -48,5 +48,6 @@ router.put('/blog/paginas/:tipo', limitador, blogController.atualizarPaginaAdmin
 router.get('/blog/newsletter', limitador, blogController.listarNewsletterAdmin);
 router.get('/blog/posts/:id/historico', limitador, blogController.listarHistoricoAdmin);
 router.get('/blog/analytics', limitador, blogController.obterAnalyticsAdmin);
+router.get('/blog/exportar', limitador, blogController.exportarPostsAdmin);
 
 module.exports = router;
