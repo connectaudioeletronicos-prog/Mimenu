@@ -157,17 +157,24 @@
       · Corrigida lacuna real: `listarEquipeOperacional` nunca trazia
       `telefone`, `forma_pagamento_entrega`, `valor_por_km` nem
       `valor_por_entrega` do banco
-      · Modelo HÍBRIDO de comissão (novo, terceiro botão ao lado de "Por
-      KM"/"Valor Fixo"): valor fixo que cobre até X km + R$/km excedente
-      além disso (ex: fixo R$5 cobre 3km, rota de 6km = R$5 + 3km×R$2).
-      Usa o campo `distancia_km` que já existia por pedido (o entregador
-      digita ao concluir a entrega — não depende do Google Maps).
-      Atualizada a fórmula nos 3 lugares onde a comissão é calculada
-      (fechamento de plantão, resumo do entregador, tela ao vivo no app)
-      pra ficarem consistentes. Painel mostra um exemplo de cálculo ao
-      vivo enquanto o lojista digita, pra conferir antes de salvar.
-      Nova coluna `km_incluido_no_fixo` em funcionarios
-      (`backend/src/migrations/funcionarios_km_incluido_no_fixo.sql`)
+      · Comissão combinável (revisado — a primeira versão tinha um
+      limiar de km incluso no fixo que o lojista NÃO pediu; removida):
+      preenchendo só "Valor Fixo", toda entrega vale esse valor;
+      preenchendo só "Por KM", vale km rodado × valor; preenchendo os
+      dois, o valor da entrega é a SOMA direta dos dois (fixo + km ×
+      valor_km), sem limiar nenhum. Cada botão edita só o seu próprio
+      campo (não mexe no outro), então dá pra combinar os dois clicando
+      em cada um separadamente. Usa o campo `distancia_km` que já
+      existia por pedido (o entregador digita ao concluir a entrega —
+      não depende do Google Maps). Fórmula unificada nos 3 lugares onde
+      a comissão é calculada (fechamento de plantão, resumo do
+      entregador, tela ao vivo no app). A coluna `km_incluido_no_fixo`
+      criada pra essa primeira tentativa ficou sem uso (inofensiva, não
+      precisa reverter a migration)
+      · Máscara de valor em R$ corrigida no painel "Por KM"/"Valor
+      Fixo": digita só números, formata sozinho tipo "digitar de trás
+      pra frente" (ex: "500" vira "5,00"), até 999,99 — sem depender do
+      teclado do celular aceitar vírgula ou não
       · Sistema de avaliação do entregador (novo): cliente dá de 1 a 5
       estrelas depois que o pedido é entregue (só a nota, sem comentário
       — conforme pedido), widget aparece em "Meus pedidos". Nova coluna
