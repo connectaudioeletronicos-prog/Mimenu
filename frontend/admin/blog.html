@@ -140,6 +140,7 @@
       <div class="topo">
         <h2 style="margin:0">Posts</h2>
         <button class="secundario pequeno" onclick="carregarPosts()">Atualizar</button>
+        <button class="secundario pequeno" onclick="exportarPosts()">⬇️ Exportar (backup)</button>
       </div>
       <div id="listaPosts">Carregando...</div>
     </div>
@@ -800,6 +801,10 @@ async function excluirPost(id, titulo) {
 // ---------------------------------------------------------------
 // Listagem de posts
 // ---------------------------------------------------------------
+
+function exportarPosts() {
+  window.open(API_BASE_URL + '/painel/blog/exportar?chaveMestra=' + encodeURIComponent(CHAVE_MESTRA), '_blank');
+}
 
 async function carregarPosts() {
   const listaDiv = document.getElementById('listaPosts');
