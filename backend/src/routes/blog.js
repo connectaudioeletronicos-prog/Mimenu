@@ -25,5 +25,6 @@ router.get('/configuracoes', blogController.obterConfiguracoes);
 router.get('/paginas/:tipo', blogController.obterPagina);
 router.get('/sitemap.xml', blogController.gerarSitemap);
 router.post('/newsletter', blogController.inscreverNewsletter);
+router.get('/rss.xml', blogController.gerarRSS);
 
 module.exports = router;
