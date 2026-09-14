@@ -1,104 +1,3 @@
-const { query } = require('../config/database');
-const { uploadImagem } = require('../utils/storage');
-const { validarFormatoCep, validarCepViaCep } = require('../utils/geocoding');
-const { validarTelefone } = require('../utils/validadores');
-const { baixarEstoquePorVenda } = require('../utils/estoque');
-const { resolverIntervalo } = require('../utils/periodo');
-const { proximoNumero } = require('../utils/numeracao');
-const pagamentos = require('../utils/pagamentos');
-
-// Monta a cobranca Pix pra um pedido ja inserido (status 'pendente') e
-// grava o QR Code nele. Usado tanto pelo pedido publico (cliente) quanto
-// pelo pedido manual (app do garcom / balcao). Se der erro, o pedido
-// continua existindo como 'pendente' -- so nao vai ter QR pra mostrar,
-// entao devolve o erro pra quem chamou decidir o que fazer (normalmente
-// avisar o cliente/garcom que precisa tentar de novo ou usar outra forma
-// de pagamento).
-async function gerarCobrancaPixParaPedido(estabelecimento, pedido, emailPagador) {
-  const notificationUrl = `${process.env.BACKEND_URL}/api/webhooks/mercadopago?estabelecimento_id=${estabelecimento.id}`;
-  const cobranca = await pagamentos.criarCobrancaPix(estabelecimento, {
-    valor: parseFloat(pedido.total),
-    descricao: `Pedido Palatos #${pedido.id.slice(0, 8)}`,
-    referenciaExterna: `pedido:${pedido.id}`,
-    emailPagador: emailPagador || `pedido-${pedido.id.slice(0, 8)}@palatos.com.br`,
-    notificationUrl
-  });
-
-  const atualizado = await query(
-    `UPDATE pedidos SET mp_payment_id = $1, pix_qr_code = $2, pix_qr_code_base64 = $3, pix_expira_em = $4
-     WHERE id = $5 RETURNING *`,
-    [cobranca.idPagamento, cobranca.qrCode, cobranca.qrCodeBase64, cobranca.expiraEm, pedido.id]
-  );
-  return atualizado.rows[0];
-}
-
-async function criarPedido(req, res) {
-  try {
-    const { slug } = req.params;
-    const {
-      cliente_nome, cliente_telefone, cliente_endereco, cliente_cep,
-      observacoes, forma_pagamento, taxa_entrega, gorjeta, tipo_pedido, itens, troco_para,
-      token_cartao, parcelas_cartao, metodo_pagamento_id, email_pagador
-    } = req.body;
-
-    const tipoPedidoFinal = tipo_pedido === 'retirada' ? 'retirada' : 'entrega';
-    const ehRetirada = tipoPedidoFinal === 'retirada';
-
-    if (!cliente_nome || !cliente_telefone || !itens || itens.length === 0) {
-      return res.status(400).json({ erro: 'Dados incompletos para criar pedido.' });
-    }
-
-    const nomePartes = cliente_nome.trim().split(/\s+/).filter(Boolean);
-    if (nomePartes.length < 2) {
-      return res.status(400).json({ erro: 'Informe nome e sobrenome completos.' });
-    }
-
-    if (!validarTelefone(cliente_telefone)) {
-      return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
-    }
-
-    // Endereco e CEP so sao obrigatorios para pedido por entrega. Na
-    // retirada, o cliente busca o pedido pronto no proprio estabelecimento.
-    if (!ehRetirada) {
-      if (!cliente_endereco || cliente_endereco.trim().length < 5) {
-        return res.status(400).json({ erro: 'Informe o endereco de entrega.' });
-      }
-
-      if (!validarFormatoCep(cliente_cep)) {
-        return res.status(400).json({ erro: 'CEP invalido. Use o formato 99999-999.' });
-      }
-
-      const validacaoCep = await validarCepViaCep(cliente_cep);
-      if (!validacaoCep.valido) {
-        return res.status(400).json({ erro: 'CEP nao encontrado. Verifique o CEP informado.' });
-      }
-    }
-
-    const estRes = await query('SELECT id, ativo, mp_access_token, provedor_pagamento, tempo_preparo_min FROM estabelecimentos WHERE slug = $1', [slug]);
-    if (estRes.rows.length === 0) return res.status(404).json({ erro: 'Estabelecimento nao encontrado.' });
-    if (!estRes.rows[0].ativo) return res.status(403).json({ erro: 'Estabelecimento indisponivel.' });
-    const estabelecimentoId = estRes.rows[0].id;
-
-    let subtotal = 0;
-    const itensValidados = [];
-    for (const item of itens) {
-      const prodRes = await query('SELECT id, nome, preco, preco_promocional, disponivel FROM produtos WHERE id = $1 AND estabelecimento_id = $2', [item.produto_id, estabelecimentoId]);
-      if (prodRes.rows.length === 0) return res.status(400).json({ erro: `Produto nao encontrado: ${item.produto_id}` });
-      const produto = prodRes.rows[0];
-      if (!produto.disponivel) return res.status(400).json({ erro: `Produto indisponivel: ${produto.nome}` });
-      const preco = produto.preco_promocional && parseFloat(produto.preco_promocional) < parseFloat(produto.preco)
-        ? parseFloat(produto.preco_promocional) : parseFloat(produto.preco);
-      subtotal += preco * item.quantidade;
-      itensValidados.push({ produto_id: produto.id, nome: produto.nome, quantidade: item.quantidade, preco_unitario: preco, observacao: item.observacao || '' });
-    }
-
-    // Retirada nunca tem taxa de entrega, mesmo que o cliente tenha mudado
-    // de ideia depois de calcular uma (o front ja zera, isso e so garantia).
-    const taxaEntregaFinal = ehRetirada ? 0 : parseFloat(taxa_entrega || 0);
-    const gorjetaFinal = parseFloat(gorjeta || 0);
-    const total = subtotal + taxaEntregaFinal + gorjetaFinal;
-
-    // Troco: so faz sentido pra pagamento em dinheiro. Se o cliente informou
     // quanto vai pagar em especie, valida que cobre o total do pedido (senao
     // nao tem troco a calcular, e sim pedido a mais).
     let trocoParaFinal = null;
@@ -112,7 +11,7 @@ async function criarPedido(req, res) {
     // Canal da venda, independente do tipo_pedido ja existente -- usado
     // pelos relatorios/dashboard de estoque e vendas por canal.
     const canalVenda = ehRetirada ? 'retirada' : 'delivery';
-
+ii7⁷
     const { numero: numeroPedidoPublico, anoMes: anoMesPedidoPublico } = await proximoNumero(estabelecimentoId, 'pedido');
     const pedidoRes = await query(
       `INSERT INTO pedidos (estabelecimento_id, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes, forma_pagamento, itens, subtotal, taxa_entrega, gorjeta, total, tipo_pedido, canal_venda, troco_para, status_pedido, status_pagamento, numero_pedido, numero_pedido_ano_mes)
