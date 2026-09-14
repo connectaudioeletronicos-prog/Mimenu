@@ -10,6 +10,7 @@
 <meta property="og:description" id="ogDescricao" content="Dicas, novidades e conteúdo do blog Palatos.">
 <meta property="og:image" id="ogImagem" content="">
 <meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json" id="jsonLd"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -362,7 +363,7 @@ function renderizarConteudo(texto) {
     }
     const imagem = linha.match(/^!\[([^\]]*)\]\((\S+)\)$/);
     if (imagem) {
-      return `<img class="imagem-inline" src="${escaparHtml(imagem[2])}" alt="${escaparHtml(imagem[1])}">`;
+      return `<img class="imagem-inline" loading="lazy" src="${escaparHtml(imagem[2])}" alt="${escaparHtml(imagem[1])}">`;
     }
     const linhasDoBloco = linha.split('\n').map(l => l.trim()).filter(Boolean);
     if (linhasDoBloco.length > 0 && linhasDoBloco.every(l => l.startsWith('- '))) {
@@ -456,7 +457,7 @@ async function renderizarNaoEncontrado() {
         <div class="relacionados-grade" style="margin-top:10px;">
           ${posts.map(p => `
             <a class="relacionado-card" href="/blog/${encodeURIComponent(p.slug)}">
-              ${p.imagem_capa_url ? `<img src="${p.imagem_capa_url}" alt="">` : ''}
+              ${p.imagem_capa_url ? `<img src="${p.imagem_capa_url}" alt="" loading="lazy">` : ''}
               <div class="titulo-rel">${escaparHtml(p.titulo)}</div>
             </a>
           `).join('')}
@@ -503,6 +504,17 @@ async function carregarPost() {
     document.getElementById('ogTitulo').setAttribute('content', post.titulo);
     document.getElementById('ogDescricao').setAttribute('content', descricao);
     if (post.imagem_capa_url) document.getElementById('ogImagem').setAttribute('content', post.imagem_capa_url);
+
+    document.getElementById('jsonLd').textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: post.titulo,
+      image: post.imagem_capa_url || undefined,
+      datePublished: post.criado_em,
+      author: { '@type': 'Organization', name: 'Equipe Palatos' },
+      publisher: { '@type': 'Organization', name: 'Palatos' },
+      mainEntityOfPage: window.location.href
+    });
 
     div.innerHTML = `
       <h2 class="titulo-post">${escaparHtml(post.titulo)}</h2>
@@ -585,7 +597,7 @@ function renderizarRelacionados() {
       <div class="relacionados-grade">
         ${outros.map(p => `
           <a class="relacionado-card" href="/blog/${encodeURIComponent(p.slug)}">
-            ${p.imagem_capa_url ? `<img src="${p.imagem_capa_url}" alt="">` : ''}
+            ${p.imagem_capa_url ? `<img src="${p.imagem_capa_url}" alt="" loading="lazy">` : ''}
             <div class="titulo-rel">${escaparHtml(p.titulo)}</div>
           </a>
         `).join('')}
