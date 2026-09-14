@@ -7,6 +7,7 @@
 const { query } = require('../config/database');
 const { uploadImagem } = require('../utils/storage');
 const { moderarComentario } = require('../utils/moderacaoComentarios');
+const { enviarEmailGenerico } = require('../utils/email');
 const sharp = require('sharp');
 
 // Comprime e redimensiona imagens do blog antes de subir pro storage
@@ -69,14 +70,18 @@ async function listarPublicados(req, res) {
     const pagina = Math.max(parseInt(req.query.pagina) || 1, 1);
     const limite = Math.min(parseInt(req.query.limite) || 12, 50);
     const offset = (pagina - 1) * limite;
+    const busca = (req.query.busca || '').trim();
+
+    const condicaoBusca = busca ? `AND (titulo ILIKE $3 OR resumo ILIKE $3 OR conteudo ILIKE $3)` : '';
+    const parametros = busca ? [limite, offset, `%${busca}%`] : [limite, offset];
 
     const resultado = await query(
       `SELECT id, titulo, slug, resumo, conteudo, categoria, imagem_capa_url, criado_em
        FROM blog_posts
-       WHERE publicado = true AND (publicar_em IS NULL OR publicar_em <= NOW())
+       WHERE publicado = true AND (publicar_em IS NULL OR publicar_em <= NOW()) ${condicaoBusca}
        ORDER BY criado_em DESC
        LIMIT $1 OFFSET $2`,
-      [limite, offset]
+      parametros
     );
     res.json(resultado.rows);
   } catch (error) {
@@ -137,7 +142,7 @@ async function criarComentario(req, res) {
     }
 
     const postRes = await query(
-      'SELECT id FROM blog_posts WHERE slug = $1 AND publicado = true',
+      'SELECT id, titulo, slug FROM blog_posts WHERE slug = $1 AND publicado = true',
       [slug]
     );
     if (postRes.rows.length === 0) {
@@ -155,6 +160,15 @@ async function criarComentario(req, res) {
        RETURNING id, nome, comentario, resposta_admin, respondido_em, criado_em`,
       [postRes.rows[0].id, nome.trim(), emailLimpo, comentario.trim()]
     );
+
+    // Avisa o admin por e-mail que chegou comentario novo -- nao bloqueia
+    // a resposta pro visitante se o e-mail falhar ou nao estiver configurado.
+    const emailAdmin = process.env.EMAIL_ADMIN_BLOG || process.env.RESEND_REPLY_TO || 'palatosoficial@gmail.com';
+    enviarEmailGenerico(
+      emailAdmin, null,
+      `Novo comentário no blog: ${postRes.rows[0].titulo}`,
+      `${nome.trim()} comentou no post "${postRes.rows[0].titulo}":\n\n"${comentario.trim()}"\n\nResponda pelo painel do blog: https://palatos.com.br/blog/${postRes.rows[0].slug}`
+    ).catch(err => console.error('Erro ao avisar admin sobre comentario novo:', err));
 
     res.status(201).json(resultado.rows[0]);
   } catch (error) {
@@ -346,13 +360,30 @@ async function responderComentarioAdmin(req, res) {
     }
     const resultado = await query(
       `UPDATE blog_comentarios SET resposta_admin = $1, respondido_em = NOW()
-       WHERE id = $2 RETURNING id, nome, comentario, resposta_admin, respondido_em, criado_em`,
+       WHERE id = $2 RETURNING id, post_id, nome, email, comentario, resposta_admin, respondido_em, criado_em`,
       [resposta.trim(), id]
     );
     if (resultado.rows.length === 0) {
       return res.status(404).json({ erro: 'Comentario nao encontrado.' });
     }
-    res.json(resultado.rows[0]);
+
+    // Avisa quem comentou que a resposta chegou -- nao bloqueia a resposta
+    // pro admin se o e-mail falhar ou nao estiver configurado.
+    const comentario = resultado.rows[0];
+    query('SELECT slug, titulo FROM blog_posts WHERE id = $1', [comentario.post_id])
+      .then(postRes => {
+        const post = postRes.rows[0];
+        if (!post) return;
+        return enviarEmailGenerico(
+          comentario.email, comentario.nome,
+          `Você recebeu uma resposta no blog Palatos`,
+          `O Palatos respondeu ao seu comentário no post "${post.titulo}":\n\n"${resposta.trim()}"\n\nVeja a conversa completa: https://palatos.com.br/blog/${post.slug}`
+        );
+      })
+      .catch(err => console.error('Erro ao avisar autor do comentario sobre resposta:', err));
+
+    const { email, ...comentarioSemEmail } = comentario;
+    res.json(comentarioSemEmail);
   } catch (error) {
     console.error('Erro ao responder comentario do blog:', error);
     res.status(500).json({ erro: 'Erro interno ao responder o comentario.' });
@@ -628,11 +659,74 @@ async function obterAnalyticsAdmin(req, res) {
   }
 }
 
+// -------------------------------------------------------------------
+// RSS
+// -------------------------------------------------------------------
+
+async function gerarRSS(req, res) {
+  try {
+    const resultado = await query(
+      `SELECT titulo, slug, resumo, conteudo, criado_em FROM blog_posts
+       WHERE publicado = true AND (publicar_em IS NULL OR publicar_em <= NOW())
+       ORDER BY criado_em DESC LIMIT 30`
+    );
+    const baseUrl = 'https://palatos.com.br';
+
+    const escaparXml = (texto) => (texto || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const itens = resultado.rows.map(post => `
+  <item>
+    <title>${escaparXml(post.titulo)}</title>
+    <link>${baseUrl}/blog/${encodeURIComponent(post.slug)}</link>
+    <guid>${baseUrl}/blog/${encodeURIComponent(post.slug)}</guid>
+    <pubDate>${new Date(post.criado_em).toUTCString()}</pubDate>
+    <description>${escaparXml(post.resumo || (post.conteudo || '').slice(0, 200))}</description>
+  </item>`).join('');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>Blog Palatos</title>
+  <link>${baseUrl}/blog</link>
+  <description>Novidades, dicas e conteúdo do blog Palatos.</description>
+  <language>pt-BR</language>${itens}
+</channel>
+</rss>`;
+
+    res.set('Content-Type', 'application/rss+xml');
+    res.send(xml);
+  } catch (error) {
+    console.error('Erro ao gerar RSS do blog:', error);
+    res.status(500).send('Erro ao gerar RSS.');
+  }
+}
+
+// -------------------------------------------------------------------
+// Exportar posts (backup simples em JSON)
+// -------------------------------------------------------------------
+
+async function exportarPostsAdmin(req, res) {
+  try {
+    const { chaveMestra } = req.query;
+    if (!chaveValida(chaveMestra)) {
+      return res.status(403).json({ erro: 'Chave mestra invalida.' });
+    }
+    const resultado = await query('SELECT * FROM blog_posts ORDER BY criado_em DESC');
+    res.set('Content-Disposition', 'attachment; filename="posts-blog-palatos.json"');
+    res.json(resultado.rows);
+  } catch (error) {
+    console.error('Erro ao exportar posts do blog:', error);
+    res.status(500).json({ erro: 'Erro interno ao exportar posts.' });
+  }
+}
+
 module.exports = {
   listarPublicados, buscarPorSlug, criarComentario,
   listarTodosAdmin, obterPostAdmin, criarAdmin, atualizarAdmin, excluirAdmin,
   listarComentariosAdmin, responderComentarioAdmin, excluirComentarioAdmin,
   obterConfiguracoes, atualizarConfiguracoesAdmin, enviarImagemAdmin,
   obterPagina, atualizarPaginaAdmin, gerarSitemap,
-  inscreverNewsletter, listarNewsletterAdmin, listarHistoricoAdmin, obterAnalyticsAdmin
+  inscreverNewsletter, listarNewsletterAdmin, listarHistoricoAdmin, obterAnalyticsAdmin,
+  gerarRSS, exportarPostsAdmin
 };
