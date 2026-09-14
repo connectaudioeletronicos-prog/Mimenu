@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blog - Palatos</title>
+<meta name="description" content="Novidades, dicas e conteúdo do blog Palatos — a plataforma completa de gestão para o seu estabelecimento.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Blog Palatos">
+<meta property="og:description" content="Novidades, dicas e conteúdo do blog Palatos.">
+<link rel="alternate" type="application/rss+xml" title="Blog Palatos" href="https://mimenu-bcsl.onrender.com/api/blog/rss.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #146c43;
+    --verde-escura: #0e5535;
+    --texto: #1b1f1d;
+    --texto-claro: #6f7975;
+    --borda: #dbe2de;
+    --fundo-suave: #f6f8f6;
+    --cor-cartao: #ffffff;
+  }
+  [data-tema="escuro"] {
+    --texto: #e8ece9;
+    --texto-claro: #9aa39d;
+    --borda: #2c3830;
+    --fundo-suave: #121a15;
+    --cor-cartao: #1c2620;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--fundo-suave);
+    color: var(--texto);
+    margin: 0;
+    text-align: left;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .topo {
+    background: var(--verde-escura);
+    color: white;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .topo .menu-icone {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: rgba(255,255,255,0.12); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .topo h1 { margin: 0; font-size: 19px; font-weight: 700; }
+  .topo .tagline-topo { font-size: 11px; opacity: 0.8; margin-top: 1px; }
+  .menu-dropdown {
+    position: absolute; top: 62px; left: 20px; background: var(--cor-cartao);
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    min-width: 190px; display: none; flex-direction: column;
+    overflow: hidden; z-index: 50;
+  }
+  .menu-dropdown.aberto { display: flex; }
+  .menu-dropdown a {
+    padding: 13px 16px; color: var(--texto); text-decoration: none;
+    font-size: 14.5px; border-bottom: 1px solid var(--borda);
+  }
+  .menu-dropdown a:last-child { border-bottom: none; }
+  .menu-dropdown a:hover { background: var(--fundo-suave); }
+
+  /* ---------- banner (hero) ---------- */
+  .hero { max-width: 900px; margin: 0 auto; padding: 30px 20px 0; text-align: left; }
+  .hero .intro-hero { margin-bottom: 18px; }
+  .hero .intro-hero h2 { font-size: 26px; margin: 0 0 8px; color: var(--verde-escura); font-weight: 800; }
+  .hero .intro-hero p { font-size: 15px; color: var(--texto-claro); margin: 0; line-height: 1.6; }
+  .hero .imagem-wrap { position: relative; border-radius: 16px; overflow: hidden; }
+  .hero .imagem-wrap img { width: 100%; max-height: 420px; object-fit: cover; display: block; }
+  .hero .caixa-sobreposta {
+    position: absolute; left: 20px; right: 20px; bottom: 20px;
+    background: rgba(255,255,255,0.94); border-radius: 14px; padding: 18px 20px;
+    max-width: 420px; box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+  }
+  .hero .caixa-sobreposta h3 { margin: 0 0 6px; font-size: 18px; color: var(--verde-escura); font-weight: 700; }
+  .hero .caixa-sobreposta p { margin: 0; font-size: 13.5px; color: var(--texto); line-height: 1.55; }
+  .hero .caixa-sobreposta .botao-hero {
+    display: inline-block; margin-top: 12px; padding: 10px 18px;
+    background: var(--verde); color: white; border-radius: 8px;
+    text-decoration: none; font-weight: 600; font-size: 13.5px;
+  }
+  .hero .caixa-sobreposta .botao-hero:hover { background: var(--verde-escura); }
+  @media (max-width: 560px) {
+    .hero .caixa-sobreposta { position: static; max-width: none; margin-top: -14px; border-radius: 0 0 14px 14px; }
+  }
+
+  .pagina { max-width: 720px; margin: 0 auto; padding: 28px 20px 40px; text-align: left; }
+  @media (min-width: 900px) {
+    .pagina { max-width: 900px; padding: 40px 20px 50px; }
+    .texto-preview { font-size: 17px; }
+  }
+
+  .post-preview { margin-bottom: 36px; padding-bottom: 30px; border-bottom: 1px solid var(--borda); }
+  .post-preview:last-child { border-bottom: none; }
+
+  .post-preview .titulo-link { text-decoration: none; }
+  .post-preview h2 {
+    font-size: 24px; line-height: 1.28; margin: 0 0 12px; color: var(--verde-escura);
+    font-weight: 800; text-align: left;
+  }
+
+  .meta-post { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--texto-claro); margin-bottom: 16px; text-align: left; }
+  .meta-post span { display: inline-flex; align-items: center; gap: 6px; }
+
+  .capa-link { display: block; cursor: pointer; }
+  .capa { width: 100%; max-height: 300px; object-fit: cover; border-radius: 12px; margin-bottom: 16px; display: block; }
+
+  .texto-preview { font-size: 15.5px; line-height: 1.75; text-align: left !important; }
+  .texto-preview p { margin: 0 0 14px; text-align: left !important; }
+
+  .botao-continuar {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
+    padding: 11px 20px; background: transparent; color: var(--verde-escura);
+    border: 1.5px solid var(--verde); border-radius: 10px;
+    text-decoration: none; font-weight: 600; font-size: 14.5px;
+  }
+  .botao-continuar:hover { background: var(--verde); color: white; }
+
+  .vazio, .erro { text-align: center; color: var(--texto-claro); padding: 40px 20px; font-size: 15px; }
+  .carregando { text-align: center; padding: 40px 20px; color: var(--texto-claro); }
+  .oculto { display: none; }
+
+  .skeleton { animation: pulso 1.3s ease-in-out infinite; background: var(--borda); border-radius: 8px; }
+  @keyframes pulso { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+  .skeleton-card { margin-bottom: 36px; }
+  .skeleton-titulo { height: 26px; width: 70%; margin-bottom: 12px; }
+  .skeleton-meta { height: 13px; width: 40%; margin-bottom: 16px; }
+  .skeleton-imagem { height: 200px; width: 100%; margin-bottom: 16px; }
+  .skeleton-linha { height: 13px; width: 100%; margin-bottom: 8px; }
+  .skeleton-linha.curta { width: 55%; }
+
+  .newsletter-caixa {
+    background: var(--cor-cartao); border: 1px solid var(--borda); border-radius: 14px;
+    padding: 22px; margin: 10px 0 34px; text-align: center;
+  }
+  .newsletter-caixa h3 { margin: 0 0 6px; color: var(--verde-escura); font-size: 17px; }
+  .newsletter-caixa p { margin: 0 0 14px; font-size: 13.5px; color: var(--texto-claro); }
+  .newsletter-form { display: flex; gap: 8px; max-width: 380px; margin: 0 auto; flex-wrap: wrap; justify-content: center; }
+  .newsletter-form input {
+    flex: 1; min-width: 200px; padding: 11px 14px; border: 1px solid var(--borda);
+    border-radius: 8px; font-size: 14px; font-family: inherit; background: var(--cor-cartao); color: var(--texto);
+  }
+  .newsletter-form button {
+    padding: 11px 18px; background: var(--verde); color: white; border: none;
+    border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  .newsletter-form button:hover { background: var(--verde-escura); }
+  .newsletter-msg { margin-top: 10px; font-size: 13px; }
+
+  .busca-caixa { margin-bottom: 22px; }
+  .busca-caixa input {
+    width: 100%; padding: 12px 16px; border: 1px solid var(--borda); border-radius: 10px;
+    font-size: 15px; font-family: inherit; background: var(--cor-cartao); color: var(--texto);
+  }
+  .btn-ver-mais {
+    display: block; margin: 10px auto 0; padding: 12px 26px; background: transparent;
+    border: 1.5px solid var(--verde); color: var(--verde-escura); border-radius: 10px;
+    font-weight: 600; font-size: 14.5px; cursor: pointer;
+  }
+  .btn-ver-mais:hover { background: var(--verde); color: white; }
+  .btn-ver-mais:disabled { opacity: 0.6; cursor: default; }
+
+  .redes-sociais { display: flex; justify-content: center; gap: 14px; margin: 10px auto 0; max-width: 900px; padding: 0 20px; }
+  .redes-sociais a {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--fundo-suave);
+    display: flex; align-items: center; justify-content: center; color: var(--verde-escura);
+    text-decoration: none; border: 1px solid var(--borda);
+  }
+  .rodape {
+    background: var(--verde-escura); color: white; margin-top: 30px;
+    padding: 26px 20px; display: flex; flex-wrap: wrap; justify-content: space-between;
+    align-items: center; gap: 12px;
+  }
+  .rodape .marca { font-weight: 800; font-size: 17px; }
+  .rodape .slogan { font-size: 12.5px; opacity: 0.8; margin-top: 2px; }
+  .rodape .links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+  .rodape .links a { color: white; text-decoration: none; opacity: 0.9; }
+  .rodape .links a:hover { text-decoration: underline; }
+
+  .cookie-banner {
+    position: fixed; left: 0; right: 0; bottom: 0; background: var(--verde-escura); color: white;
+    padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    justify-content: space-between; z-index: 100; box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+  }
+  .cookie-banner p { margin: 0; font-size: 13.5px; max-width: 620px; }
+  .cookie-banner a { color: white; }
+  .cookie-banner .botoes { display: flex; gap: 10px; flex-shrink: 0; }
+  .cookie-banner button { padding: 9px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; }
+  .cookie-banner .btn-aceitar { background: white; color: var(--verde-escura); }
+  .cookie-banner .btn-recusar { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.5); }
+</style>
+</head>
+<body>
+  <div class="topo">
+    <button class="menu-icone" id="botaoMenu" onclick="alternarMenu()" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </button>
+    <div>
+      <h1 id="cabecalhoTitulo">Nosso Blog</h1>
+      <div class="tagline-topo" id="cabecalhoTagline">Dicas, novidades e muito mais!</div>
+    </div>
+    <div class="menu-dropdown" id="menuDropdown">
+      <a href="/blog">Página principal</a>
+      <a href="/blog/sobre-nos">Sobre nós</a>
+      <a href="/blog/contato">Contato</a>
+      <a href="/politica-privacidade.html">Política de Privacidade</a>
+      <a href="/termos-servico.html">Termos de Uso</a>
+    </div>
+    <button class="menu-icone" onclick="alternarTema()" id="botaoTema" aria-label="Alternar tema" style="margin-left:8px;">🌙</button>
+  </div>
+  <div class="hero oculto" id="heroBanner"></div>
+  <div class="pagina">
+    <div class="busca-caixa">
+      <input type="text" id="campoBusca" placeholder="🔎 Buscar no blog..." oninput="alternarBuscaComAtraso()">
+    </div>
+    <div id="lista">
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-titulo"></div>
+        <div class="skeleton skeleton-meta"></div>
+        <div class="skeleton skeleton-imagem"></div>
+        <div class="skeleton skeleton-linha"></div>
+        <div class="skeleton skeleton-linha curta"></div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-titulo"></div>
+        <div class="skeleton skeleton-meta"></div>
+        <div class="skeleton skeleton-imagem"></div>
+        <div class="skeleton skeleton-linha"></div>
+        <div class="skeleton skeleton-linha curta"></div>
+      </div>
+    </div>
+    <button class="btn-ver-mais oculto" id="btnVerMais" onclick="carregarMais()">Ver mais posts</button>
+
+    <div class="newsletter-caixa">
+      <h3>📬 Não perca as próximas publicações</h3>
+      <p>Deixe seu e-mail e avisamos quando sair post novo.</p>
+      <form class="newsletter-form" onsubmit="return inscreverNewsletter(event)">
+        <input type="email" id="campoEmailNewsletter" placeholder="seu@email.com" required>
+        <button type="submit">Quero receber</button>
+      </form>
+      <div class="newsletter-msg" id="msgNewsletter"></div>
+    </div>
+  </div>
+
+  <div class="redes-sociais oculto" id="redesSociais"></div>
+
+  <div class="rodape">
+    <div>
+      <div class="marca">Palatos</div>
+      <div class="slogan">Mais praticidade no seu dia a dia.</div>
+    </div>
+    <div class="links">
+      <a href="/">Início</a>
+      <a href="/blog/sobre-nos">Sobre nós</a>
+      <a href="/blog/contato">Contato</a>
+      <a href="/termos-servico.html">Termos de Uso</a>
+      <a href="/politica-privacidade.html">Política de Privacidade</a>
+    </div>
+  </div>
+
+  <div class="cookie-banner oculto" id="cookieBanner">
+    <p>Usamos cookies de análise (Google Analytics) para entender como o blog é usado. Isso só é ativado com a sua permissão. <a href="/politica-privacidade.html">Saiba mais</a>.</p>
+    <div class="botoes">
+      <button class="btn-recusar" onclick="responderConsentimento(false)">Recusar</button>
+      <button class="btn-aceitar" onclick="responderConsentimento(true)">Aceitar</button>
+    </div>
+  </div>
+
+<script src="../js/config.js"></script>
+<script>
+// ---------------------------------------------------------------
+// Google Analytics -- so carrega depois que a pessoa aceita no banner
+// de cookies (consentimento previo, padrao mais rigoroso de LGPD).
+// ---------------------------------------------------------------
+const GA_MEASUREMENT_ID = 'G-F91MR43T8T';
+
+function carregarGoogleAnalytics() {
+  if (window.gaCarregado) return;
+  window.gaCarregado = true;
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_MEASUREMENT_ID;
+  document.head.appendChild(script);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { window.dataLayer.push(arguments); };
+  gtag('js', new Date());
+  gtag('config', GA_MEASUREMENT_ID);
+}
+
+function responderConsentimento(aceitou) {
+  localStorage.setItem('consentimentoAnalytics', aceitou ? 'aceito' : 'recusado');
+  document.getElementById('cookieBanner').classList.add('oculto');
+  if (aceitou) carregarGoogleAnalytics();
+}
+
+(function verificarConsentimento() {
+  const escolha = localStorage.getItem('consentimentoAnalytics');
+  if (escolha === 'aceito') {
+    carregarGoogleAnalytics();
+  } else if (escolha !== 'recusado') {
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('cookieBanner').classList.remove('oculto');
+    });
+  }
+})();
+
+// Aplica o tema salvo antes do resto carregar, pra nao piscar.
+(function aplicarTemaSalvo() {
+  if (localStorage.getItem('temaBlog') === 'escuro') {
+    document.documentElement.setAttribute('data-tema', 'escuro');
+  }
+})();
+
+function alternarTema() {
+  const escuro = document.documentElement.getAttribute('data-tema') === 'escuro';
+  if (escuro) {
+    document.documentElement.removeAttribute('data-tema');
+    localStorage.setItem('temaBlog', 'claro');
+  } else {
+    document.documentElement.setAttribute('data-tema', 'escuro');
+    localStorage.setItem('temaBlog', 'escuro');
+  }
+  document.getElementById('botaoTema').textContent = document.documentElement.getAttribute('data-tema') === 'escuro' ? '☀️' : '🌙';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('botaoTema').textContent = document.documentElement.getAttribute('data-tema') === 'escuro' ? '☀️' : '🌙';
+});
+
+async function inscreverNewsletter(evento) {
+  evento.preventDefault();
+  const email = document.getElementById('campoEmailNewsletter').value.trim();
+  const msg = document.getElementById('msgNewsletter');
+  msg.textContent = '';
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/newsletter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      msg.style.color = 'var(--erro, #d64545)';
+      msg.textContent = dados.erro || 'Não foi possível concluir a inscrição.';
+    } else {
+      msg.style.color = 'var(--verde-escura)';
+      msg.textContent = 'Inscrito! Você vai saber de tudo por aqui. 🎉';
+      document.getElementById('campoEmailNewsletter').value = '';
+    }
+  } catch (e) {
+    msg.style.color = 'var(--erro, #d64545)';
+    msg.textContent = 'Não foi possível conectar. Tente novamente.';
+  }
+  return false;
+}
+
+function alternarMenu() {
+  document.getElementById('menuDropdown').classList.toggle('aberto');
+}
+document.addEventListener('click', (evento) => {
+  const dropdown = document.getElementById('menuDropdown');
+  const botao = document.getElementById('botaoMenu');
+  if (dropdown.classList.contains('aberto') && !dropdown.contains(evento.target) && !botao.contains(evento.target)) {
+    dropdown.classList.remove('aberto');
+  }
+});
+
+async function carregarCabecalho() {
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/configuracoes');
+    const c = await resposta.json();
+    if (c.cabecalho_titulo) document.getElementById('cabecalhoTitulo').textContent = c.cabecalho_titulo;
+    if (c.cabecalho_tagline) document.getElementById('cabecalhoTagline').textContent = c.cabecalho_tagline;
+  } catch (e) {
+    // mantem "Nosso Blog" padrao se nao conseguir carregar
+  }
+}
+
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto || '';
+  return div.innerHTML;
+}
+
+function formatarData(iso) {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+// Pega so os 2 primeiros paragrafos do conteudo pra pre-visualizacao
+// (ignora linhas "## Subtitulo" -- isso so aparece no post completo).
+function primeirosParagrafos(conteudo, quantidade) {
+  const blocos = (conteudo || '').split(/\n\s*\n/)
+    .map(b => b.trim())
+    .filter(b => b && !b.startsWith('## ') && !b.startsWith('!['));
+  return blocos.slice(0, quantidade).map(b => `<p>${escaparHtml(b).replace(/\n/g, '<br>')}</p>`).join('');
+}
+
+const POSTS_POR_PAGINA = 6;
+let PAGINA_ATUAL = 1;
+let TERMO_BUSCA = '';
+let TIMER_BUSCA = null;
+
+// Espera meio segundo depois que a pessoa para de digitar antes de
+// buscar de novo -- evita disparar uma requisicao a cada letra.
+function alternarBuscaComAtraso() {
+  clearTimeout(TIMER_BUSCA);
+  TIMER_BUSCA = setTimeout(() => {
+    TERMO_BUSCA = document.getElementById('campoBusca').value.trim();
+    PAGINA_ATUAL = 1;
+    carregar(true);
+  }, 500);
+}
+
+function montarCardPost(p) {
+  const link = '/blog/' + encodeURIComponent(p.slug);
+  return `
+    <div class="post-preview">
+      <a class="titulo-link" href="${link}"><h2>${escaparHtml(p.titulo)}</h2></a>
+      <div class="meta-post">
+        <span>📅 ${formatarData(p.criado_em)}</span>
+        <span>👤 Por Equipe Palatos</span>
+        <span>🏷️ ${escaparHtml(p.categoria || 'Blog')}</span>
+      </div>
+      ${p.imagem_capa_url ? `<a class="capa-link" href="${link}"><img class="capa" loading="lazy" src="${p.imagem_capa_url}" alt=""></a>` : ''}
+      <div class="texto-preview">${primeirosParagrafos(p.conteudo, 2)}</div>
+      <a class="botao-continuar" href="${link}">Continuar lendo →</a>
+    </div>
+  `;
+}
+
+async function carregar(reiniciar) {
+  const div = document.getElementById('lista');
+  const btnMais = document.getElementById('btnVerMais');
+  if (reiniciar) PAGINA_ATUAL = 1;
+
+  try {
+    const params = new URLSearchParams({ pagina: PAGINA_ATUAL, limite: POSTS_POR_PAGINA });
+    if (TERMO_BUSCA) params.set('busca', TERMO_BUSCA);
+    const resposta = await fetch(API_BASE_URL + '/blog/posts?' + params.toString());
+    const posts = await resposta.json();
+    if (!resposta.ok) {
+      div.innerHTML = '<div class="erro">Não foi possível carregar o blog agora.</div>';
+      btnMais.classList.add('oculto');
+      return;
+    }
+    if (posts.length === 0 && PAGINA_ATUAL === 1) {
+      div.innerHTML = `<div class="vazio">${TERMO_BUSCA ? 'Nenhum post encontrado para essa busca.' : 'Ainda não há publicações por aqui.'}</div>`;
+      btnMais.classList.add('oculto');
+      return;
+    }
+    const html = posts.map(montarCardPost).join('');
+    div.innerHTML = reiniciar ? html : div.innerHTML + html;
+    btnMais.classList.toggle('oculto', posts.length < POSTS_POR_PAGINA);
+    btnMais.disabled = false;
+    btnMais.textContent = 'Ver mais posts';
+  } catch (e) {
+    div.innerHTML = '<div class="erro">Não foi possível conectar. Verifique sua internet.</div>';
+    btnMais.classList.add('oculto');
+  }
+}
+
+function carregarMais() {
+  PAGINA_ATUAL += 1;
+  document.getElementById('btnVerMais').disabled = true;
+  document.getElementById('btnVerMais').textContent = 'Carregando...';
+  carregar(false);
+}
+
+// Banner (hero) da home -- so aparece se pelo menos titulo ou imagem
+// estiver configurado no admin (blog.html > "Página inicial (banner)").
+async function carregarHero() {
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/configuracoes');
+    const c = await resposta.json();
+    if (!c.hero_titulo && !c.hero_imagem_url) return;
+
+    const div = document.getElementById('heroBanner');
+    const temCaixa = c.hero_caixa_titulo || c.hero_caixa_corpo || c.hero_botao_texto;
+
+    div.innerHTML = `
+      ${(c.hero_titulo || c.hero_apresentacao) ? `
+        <div class="intro-hero">
+          ${c.hero_titulo ? `<h2>${escaparHtml(c.hero_titulo)}</h2>` : ''}
+          ${c.hero_apresentacao ? `<p>${escaparHtml(c.hero_apresentacao)}</p>` : ''}
+        </div>
+      ` : ''}
+      ${c.hero_imagem_url ? `
+        <div class="imagem-wrap">
+          <img src="${c.hero_imagem_url}" alt="">
+          ${temCaixa ? `
+            <div class="caixa-sobreposta">
+              ${c.hero_caixa_titulo ? `<h3>${escaparHtml(c.hero_caixa_titulo)}</h3>` : ''}
+              ${c.hero_caixa_corpo ? `<p>${escaparHtml(c.hero_caixa_corpo)}</p>` : ''}
+              ${(c.hero_botao_texto && c.hero_botao_link) ? `<a class="botao-hero" href="${escaparHtml(c.hero_botao_link)}">${escaparHtml(c.hero_botao_texto)}</a>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
+    `;
+    div.classList.remove('oculto');
+  } catch (e) {
+    // banner nao configurado ou API fora do ar -- so nao mostra
+  }
+}
+
+function iconeRedeSocial(nome) {
+  const icones = {
+    facebook: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12Z"/></svg>',
+    instagram: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>',
+    youtube: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M23 12s0-3.6-.5-5.3c-.3-1-1-1.7-2-2C18.8 4.2 12 4.2 12 4.2s-6.8 0-8.5.5c-1 .3-1.7 1-2 2C1 8.4 1 12 1 12s0 3.6.5 5.3c.3 1 1 1.7 2 2 1.7.5 8.5.5 8.5.5s6.8 0 8.5-.5c1-.3 1.7-1 2-2 .5-1.7.5-5.3.5-5.3ZM10 15.5v-7l6 3.5-6 3.5Z"/></svg>',
+    tiktok: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 2h-3v13.5a2.5 2.5 0 1 1-2.5-2.5c.17 0 .34.01.5.04V9.9a5.6 5.6 0 0 0-.5-.02A5.6 5.6 0 1 0 16.5 15V8.3a7.7 7.7 0 0 0 4.5 1.4V6.7a4.7 4.7 0 0 1-4.5-4.7Z"/></svg>'
+  };
+  return icones[nome] || '';
+}
+
+async function carregarRedesSociais() {
+  try {
+    const resposta = await fetch(API_BASE_URL + '/blog/configuracoes');
+    const config = await resposta.json();
+    const redes = ['facebook', 'instagram', 'youtube', 'tiktok'].filter(nome => config[nome]);
+    if (redes.length === 0) return;
+    const div = document.getElementById('redesSociais');
+    div.innerHTML = redes.map(nome => `
+      <a href="${escaparHtml(config[nome])}" title="${nome}" aria-label="${nome}" target="_blank" rel="noopener">${iconeRedeSocial(nome)}</a>
+    `).join('');
+    div.classList.remove('oculto');
+  } catch (e) {
+    // sem redes sociais configuradas -- so nao mostra a fileira
+  }
+}
+
+carregar(true);
+carregarHero();
+carregarRedesSociais();
+carregarCabecalho();
+</script>
+</body>
+</html>
