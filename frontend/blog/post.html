@@ -212,6 +212,18 @@
   .rodape .links a { color: white; text-decoration: none; opacity: 0.9; }
   .rodape .links a:hover { text-decoration: underline; }
 
+  .cookie-banner {
+    position: fixed; left: 0; right: 0; bottom: 0; background: var(--verde-escura); color: white;
+    padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    justify-content: space-between; z-index: 100; box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+  }
+  .cookie-banner p { margin: 0; font-size: 13.5px; max-width: 620px; }
+  .cookie-banner a { color: white; }
+  .cookie-banner .botoes { display: flex; gap: 10px; flex-shrink: 0; }
+  .cookie-banner button { padding: 9px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; }
+  .cookie-banner .btn-aceitar { background: white; color: var(--verde-escura); }
+  .cookie-banner .btn-recusar { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.5); }
+
   .carregando, .erro-pagina { text-align: center; padding: 60px 20px; color: var(--texto-claro); }
 
   /* ---------- skeleton loading ---------- */
@@ -282,8 +294,52 @@
     </div>
   </div>
 
+  <div class="cookie-banner oculto" id="cookieBanner">
+    <p>Usamos cookies de análise (Google Analytics) para entender como o blog é usado. Isso só é ativado com a sua permissão. <a href="/politica-privacidade.html">Saiba mais</a>.</p>
+    <div class="botoes">
+      <button class="btn-recusar" onclick="responderConsentimento(false)">Recusar</button>
+      <button class="btn-aceitar" onclick="responderConsentimento(true)">Aceitar</button>
+    </div>
+  </div>
+
 <script src="../js/config.js"></script>
 <script>
+// ---------------------------------------------------------------
+// Google Analytics -- so carrega depois que a pessoa aceita no banner
+// de cookies (consentimento previo, padrao mais rigoroso de LGPD).
+// ---------------------------------------------------------------
+const GA_MEASUREMENT_ID = 'G-F91MR43T8T';
+
+function carregarGoogleAnalytics() {
+  if (window.gaCarregado) return;
+  window.gaCarregado = true;
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_MEASUREMENT_ID;
+  document.head.appendChild(script);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { window.dataLayer.push(arguments); };
+  gtag('js', new Date());
+  gtag('config', GA_MEASUREMENT_ID);
+}
+
+function responderConsentimento(aceitou) {
+  localStorage.setItem('consentimentoAnalytics', aceitou ? 'aceito' : 'recusado');
+  document.getElementById('cookieBanner').classList.add('oculto');
+  if (aceitou) carregarGoogleAnalytics();
+}
+
+(function verificarConsentimento() {
+  const escolha = localStorage.getItem('consentimentoAnalytics');
+  if (escolha === 'aceito') {
+    carregarGoogleAnalytics();
+  } else if (escolha !== 'recusado') {
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('cookieBanner').classList.remove('oculto');
+    });
+  }
+})();
+
 let POST_ATUAL = null;
 let TODOS_OS_POSTS = [];
 
