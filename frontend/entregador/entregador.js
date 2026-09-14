@@ -451,18 +451,12 @@ function formatarHora(dataISO) {
 function comissaoDaEntrega(pedido) {
   const dados = obterDados();
   const distanciaKm = parseFloat(pedido.distancia_km) || 0;
-  let comissao;
-  if (dados?.formaPagamentoEntrega === 'km') {
-    comissao = distanciaKm * (parseFloat(dados?.valorPorKm) || 0);
-  } else if (dados?.formaPagamentoEntrega === 'hibrido') {
-    // Fixo que ja cobre ate X km + R$/km alem disso (ex: fixo R$5 cobre
-    // 3km; rota de 6km = R$5 + 3km*R$2). Antes de a entrega ser concluida
-    // (sem distancia_km ainda), mostra so o fixo -- e' o minimo garantido.
-    const kmExcedente = Math.max(0, distanciaKm - (parseFloat(dados?.kmIncluidoNoFixo) || 0));
-    comissao = (parseFloat(dados?.valorPorEntrega) || 0) + kmExcedente * (parseFloat(dados?.valorPorKm) || 0);
-  } else {
-    comissao = parseFloat(dados?.valorPorEntrega) || 0;
-  }
+  // Comissao = valor fixo por entrega + (valor por km * km rodado). Cada
+  // parte e' opcional -- se o lojista so preencheu um dos dois campos, o
+  // outro fica zerado e some da conta sozinho.
+  const valorFixo = parseFloat(dados?.valorPorEntrega) || 0;
+  const valorKm = parseFloat(dados?.valorPorKm) || 0;
+  const comissao = valorFixo + distanciaKm * valorKm;
   const gorjeta = parseFloat(pedido.gorjeta) || 0;
   return comissao + gorjeta;
 }
@@ -601,7 +595,7 @@ document.getElementById('botao-encerrar').addEventListener('click', async () => 
 
   let distanciaKm;
   const dados = obterDados();
-  if (dados && (dados.formaPagamentoEntrega === 'km' || dados.formaPagamentoEntrega === 'hibrido')) {
+  if (dados && parseFloat(dados.valorPorKm) > 0) {
     const valorDigitado = prompt('Quantos km você rodou nessa entrega?');
     if (valorDigitado === null) return; // cancelou
     distanciaKm = valorDigitado.replace(',', '.').trim();
@@ -641,7 +635,7 @@ async function encerrarPlantaoEMostrarResumo() {
 
 function exibirResumoPlantao(resumo) {
   const dados = obterDados();
-  const porKm = dados && (dados.formaPagamentoEntrega === 'km' || dados.formaPagamentoEntrega === 'hibrido');
+  const porKm = dados && parseFloat(dados.valorPorKm) > 0;
 
   document.getElementById('resumo-total-entregas').textContent = resumo.total_entregas ?? 0;
   document.getElementById('resumo-total-km').textContent = `${Number(resumo.total_km || 0).toLocaleString('pt-BR')} km`;
