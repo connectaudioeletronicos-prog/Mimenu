@@ -224,7 +224,7 @@ async function atualizar(req, res) {
     if (telefone && !validarTelefone(telefone)) {
       return res.status(400).json({ erro: 'Telefone invalido. Use o formato (DDD) 000000000.' });
     }
-    if (forma_pagamento_entrega && !['entrega', 'km', 'hibrido'].includes(forma_pagamento_entrega)) {
+    if (forma_pagamento_entrega && !['entrega', 'km'].includes(forma_pagamento_entrega)) {
       return res.status(400).json({ erro: 'Forma de pagamento invalida.' });
     }
 
@@ -706,21 +706,19 @@ async function obterPlantaoAtual(req, res) {
 // configurada para o entregador no momento do calculo.
 async function calcularResumoPlantao(plantaoId, funcionarioId) {
   const funcionario = await query(
-    'SELECT forma_pagamento_entrega, valor_por_entrega, valor_por_km, km_incluido_no_fixo FROM funcionarios WHERE id = $1',
+    'SELECT valor_por_entrega, valor_por_km FROM funcionarios WHERE id = $1',
     [funcionarioId]
   );
   const f = funcionario.rows[0] || {};
 
-  // Modelo hibrido: um R$ fixo que ja cobre ate X km, e alem disso soma
-  // R$/km excedente. Ex: fixo R$5 cobre 3km; rota de 6km = R$5 + 3*R$2.
-  const calcularComissaoPedido = (distanciaKm) => {
-    if (f.forma_pagamento_entrega === 'km') return (Number(distanciaKm) || 0) * (Number(f.valor_por_km) || 0);
-    if (f.forma_pagamento_entrega === 'hibrido') {
-      const kmExcedente = Math.max(0, (Number(distanciaKm) || 0) - (Number(f.km_incluido_no_fixo) || 0));
-      return (Number(f.valor_por_entrega) || 0) + kmExcedente * (Number(f.valor_por_km) || 0);
-    }
-    return Number(f.valor_por_entrega) || 0;
-  };
+  // Comissao = valor fixo por entrega + (valor por km * km rodado). Cada
+  // parte e' opcional: se so' um dos dois campos estiver preenchido, o
+  // outro fica zerado e some naturalmente da conta.
+  //   - So' "valor por km" preenchido -> comissao = so' km * valor_km
+  //   - So' "valor fixo" preenchido -> comissao = so' o fixo
+  //   - Os dois preenchidos -> soma os dois
+  const calcularComissaoPedido = (distanciaKm) =>
+    (Number(f.valor_por_entrega) || 0) + (Number(distanciaKm) || 0) * (Number(f.valor_por_km) || 0);
 
   const entregasDetalhadas = await query(
     `SELECT distancia_km FROM pedidos WHERE plantao_id = $1 AND status_pedido = 'entregue'`,
