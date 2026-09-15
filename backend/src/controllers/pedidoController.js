@@ -11,7 +11,7 @@
     // Canal da venda, independente do tipo_pedido ja existente -- usado
     // pelos relatorios/dashboard de estoque e vendas por canal.
     const canalVenda = ehRetirada ? 'retirada' : 'delivery';
-ii7⁷
+
     const { numero: numeroPedidoPublico, anoMes: anoMesPedidoPublico } = await proximoNumero(estabelecimentoId, 'pedido');
     const pedidoRes = await query(
       `INSERT INTO pedidos (estabelecimento_id, cliente_nome, cliente_telefone, cliente_endereco, cliente_cep, observacoes, forma_pagamento, itens, subtotal, taxa_entrega, gorjeta, total, tipo_pedido, canal_venda, troco_para, status_pedido, status_pagamento, numero_pedido, numero_pedido_ano_mes)
