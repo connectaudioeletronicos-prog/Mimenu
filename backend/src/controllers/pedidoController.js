@@ -326,6 +326,29 @@ async function webhookMercadoPago(req, res) {
   }
 }
 
+// Historico completo de entregas -- TODOS os entregadores, TODOS os
+// periodos, desde a primeira entrega da loja. Diferente de
+// listarPedidosAdmin (que tem LIMIT 100 pra nao pesar o dia-a-dia), esse
+// endpoint nao tem limite nenhum -- e' um relatorio, nao a tela de
+// operacao do dia. So dados relevantes pro relatorio (entregador, data,
+// codigo, endereco), sem valores sensiveis de pagamento.
+async function listarHistoricoCompletoEntregas(req, res) {
+  try {
+    const resultado = await query(
+      `SELECT id, numero_pedido, cliente_nome, cliente_endereco, entregador_nome,
+              distancia_km, horario_entregue, criado_em
+       FROM pedidos
+       WHERE estabelecimento_id = $1 AND status_pedido = 'entregue' AND tipo_pedido != 'balcao'
+       ORDER BY horario_entregue DESC NULLS LAST, criado_em DESC`,
+      [req.estabelecimentoId]
+    );
+    res.json(resultado.rows);
+  } catch (error) {
+    console.error('Erro ao listar historico completo de entregas:', error);
+    res.status(500).json({ erro: 'Erro ao listar historico completo de entregas.' });
+  }
+}
+
 async function listarPedidosAdmin(req, res) {
   try {
     const { status } = req.query;
@@ -1006,12 +1029,13 @@ async function encerrarEntrega(req, res) {
 async function buscarMinhasEntregas(req, res, somenteHoje) {
   try {
     const funcionario = await query(
-      'SELECT valor_por_entrega, valor_por_km FROM funcionarios WHERE id = $1',
+      'SELECT valor_por_entrega, valor_por_km, km_incluido_no_fixo FROM funcionarios WHERE id = $1',
       [req.funcionarioId]
     );
     const f = funcionario.rows[0] || {};
     const valorFixo = Number(f.valor_por_entrega) || 0;
     const valorKm = Number(f.valor_por_km) || 0;
+    const kmIncluido = Number(f.km_incluido_no_fixo) || 0;
 
     const filtroData = somenteHoje ? `AND horario_entregue >= CURRENT_DATE` : '';
     // Historico "todas" tem um teto (200 mais recentes) so pra nao mandar
@@ -1030,10 +1054,15 @@ async function buscarMinhasEntregas(req, res, somenteHoje) {
       [req.estabelecimentoId, req.funcionarioId]
     );
 
-    // Comissao = valor fixo por entrega + (valor por km * km rodado).
-    // Cada parte e' opcional -- se so' um dos dois campos do entregador
-    // estiver preenchido, o outro fica zerado e some da conta sozinho.
-    const calcularComissao = (p) => valorFixo + (Number(p.distancia_km) || 0) * valorKm;
+    // Comissao = valor fixo por entrega + (valor por km * km ALEM DO
+    // LIMITE incluso no fixo). Com limite=0 (padrao), isso vira soma
+    // simples de km*valor_km desde o km 1 -- entao um so' calculo cobre
+    // os 3 cenarios (so km / so fixo / fixo+km com ou sem limite).
+    const calcularComissao = (p) => {
+      const km = Number(p.distancia_km) || 0;
+      const kmExcedente = Math.max(0, km - kmIncluido);
+      return valorFixo + kmExcedente * valorKm;
+    };
 
     const entregas = resultado.rows.map((p) => {
       const comissao = calcularComissao(p);
@@ -1051,14 +1080,14 @@ async function buscarMinhasEntregas(req, res, somenteHoje) {
       };
     });
 
-    // Resumo/totais: SUM direto no SQL (a formula agora e' linear, entao
-    // da pra somar tudo em uma query so, sem limite de linhas).
+    // Resumo/totais: SUM direto no SQL usando GREATEST (mesma formula do
+    // limite, sem precisar buscar todas as linhas em JS).
     const totaisRes = await query(
       `SELECT COUNT(*) AS total_entregas, COALESCE(SUM(gorjeta), 0) AS total_gorjetas,
-              COALESCE(SUM($3 + COALESCE(distancia_km, 0) * $4), 0) AS total_comissao
+              COALESCE(SUM($3 + GREATEST(0, COALESCE(distancia_km, 0) - $5) * $4), 0) AS total_comissao
        FROM pedidos
        WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_pedido = 'entregue' ${filtroData}`,
-      [req.estabelecimentoId, req.funcionarioId, valorFixo, valorKm]
+      [req.estabelecimentoId, req.funcionarioId, valorFixo, valorKm, kmIncluido]
     );
     const t = totaisRes.rows[0];
     const totalGorjetas = Number(t.total_gorjetas) || 0;
@@ -1094,6 +1123,7 @@ module.exports = {
   avaliarEntregador,
   webhookMercadoPago,
   listarPedidosAdmin,
+  listarHistoricoCompletoEntregas,
   contarPedidosAdmin,
   atualizarStatusPedido,
   corrigirValoresPedido,
