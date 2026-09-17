@@ -197,6 +197,35 @@
       (`backend/src/controllers/funcionarioController.js`,
       `frontend/admin/admin-index.html`, `frontend/admin/js/admin.js`,
       `frontend/admin/css/admin.css`, `frontend/entregador/entregador.js`)
+- [x] Corrigido upload corrompido de `pedidoController.js` (perdeu ~96
+      linhas no meio do envio pelo celular) — arquivo reenviado completo
+      e validado (1111 linhas / 52.547 bytes)
+- [x] Reativado o limite de km no "Valor Fixo" (removido por engano numa
+      rodada anterior por interpretação errada de uma mensagem — o
+      lojista sempre quis esse limite): o modal do "Valor Fixo" agora tem
+      um segundo campo opcional "até quantos km". Com limite preenchido:
+      o fixo cobre até esse km, e o "Valor por KM" só entra na conta a
+      partir do excedente (ex: fixo R$5 até 4km, entrega de 6km = R$5 +
+      2km×R$2 = R$9). Sem limite (ou só um dos dois campos preenchido):
+      continua funcionando como soma simples / só-fixo / só-km, sem
+      quebrar os cenários que já funcionavam. Fórmula reativada nos 3
+      lugares de cálculo (fechamento de plantão, resumo do entregador,
+      app em tempo real) — SEM criar um terceiro botão "Híbrido" (isso já
+      tinha sido removido a pedido do lojista e continua removido)
+      (`backend/src/controllers/funcionarioController.js`,
+      `backend/src/controllers/pedidoController.js`,
+      `frontend/entregador/entregador.js`,
+      `frontend/admin/admin-index.html`, `frontend/admin/js/admin.js`)
+- [x] Histórico completo de entregas (novo): botão "📋 Histórico completo"
+      no cartão "Entregadores" da Central de Entregas, abre um modal com
+      TODAS as entregas já feitas por TODOS os entregadores desde o
+      início da loja (sem limite de linhas — diferente da tela de
+      Pedidos, que só mostra os 100 mais recentes), com busca por
+      entregador/cliente/endereço/código. Mostra data, hora, código do
+      pedido, entregador, cliente, endereço e km (quando tiver)
+      (`backend/src/controllers/pedidoController.js`,
+      `backend/src/routes/admin.js`, `frontend/admin/js/admin-api.js`,
+      `frontend/admin/admin-index.html`, `frontend/admin/js/admin.js`)
 - [x] Confirmar execução da `migration_dados_legais.sql` no Supabase —
       migration original havia sido perdida; reconstruída em 22/07/2026 a
       partir do `INSERT INTO dados_legais` já existente em
