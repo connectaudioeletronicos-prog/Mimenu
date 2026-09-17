@@ -451,12 +451,14 @@ function formatarHora(dataISO) {
 function comissaoDaEntrega(pedido) {
   const dados = obterDados();
   const distanciaKm = parseFloat(pedido.distancia_km) || 0;
-  // Comissao = valor fixo por entrega + (valor por km * km rodado). Cada
-  // parte e' opcional -- se o lojista so preencheu um dos dois campos, o
-  // outro fica zerado e some da conta sozinho.
+  // Comissao = valor fixo por entrega + (valor por km * km ALEM DO LIMITE
+  // incluso no fixo). Com limite=0 (padrao), vira soma simples desde o
+  // km 1 -- um so' calculo cobre todos os cenarios.
   const valorFixo = parseFloat(dados?.valorPorEntrega) || 0;
   const valorKm = parseFloat(dados?.valorPorKm) || 0;
-  const comissao = valorFixo + distanciaKm * valorKm;
+  const kmIncluido = parseFloat(dados?.kmIncluidoNoFixo) || 0;
+  const kmExcedente = Math.max(0, distanciaKm - kmIncluido);
+  const comissao = valorFixo + kmExcedente * valorKm;
   const gorjeta = parseFloat(pedido.gorjeta) || 0;
   return comissao + gorjeta;
 }
