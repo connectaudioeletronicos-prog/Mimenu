@@ -214,6 +214,7 @@ const apiFecharComandaNoCaixa = (id, dados) => chamarApiAdmin(`/comandas/${id}/f
 const apiCorrigirValoresPedido = (id, dados) => chamarApiAdmin(`/pedidos/${id}/valores`, { method: 'PUT', body: dados });
 
 const apiListarPedidos = (status = '') => chamarApiAdmin(`/pedidos${status ? `?status=${status}` : ''}`);
+const apiListarHistoricoCompletoEntregas = () => chamarApiAdmin('/entregas/historico-completo');
 const apiContarPedidos = () => chamarApiAdmin('/pedidos/contagem');
 const apiAtualizarStatusPedido = (id, status_pedido) => chamarApiAdmin(`/pedidos/${id}/status`, { method: 'PUT', body: { status_pedido } });
 const apiCriarPedidoManual = (dados) => chamarApiAdmin('/pedidos', { method: 'POST', body: dados });
