@@ -432,7 +432,16 @@ async function proximoEntregadorElegivel(estabelecimentoId, jaRecusaram) {
        AND f.ultimo_checkin_data = CURRENT_DATE
        AND NOT (f.id::text = ANY($2::text[]))
        AND NOT EXISTS (
-         SELECT 1 FROM pedidos p WHERE p.entregador_id = f.id AND p.status_pedido = 'saiu_entrega'
+         -- BUGFIX: antes so excluia quem ja estava "saiu_entrega" (em rota).
+         -- Isso deixava um entregador com um convite pendente (oferecido,
+         -- ainda sem resposta) elegivel pra receber uma SEGUNDA oferta antes
+         -- de aceitar/recusar a primeira. Se ele aceitasse a primeira e saisse
+         -- em rota, a segunda ficava "grudada" nele -- travada esperando ele
+         -- responder -- em vez de ser oferecida a outro entregador livre
+         -- (ex: alguem parado, disponivel, na frente da fila). Agora tambem
+         -- exclui quem tiver qualquer convite pendente em aberto.
+         SELECT 1 FROM pedidos p WHERE p.entregador_id = f.id
+           AND (p.status_pedido = 'saiu_entrega' OR p.status_convite_entrega = 'pendente')
        )
      ORDER BY f.ultima_fila_em ASC NULLS FIRST, f.criado_em ASC
      LIMIT 1`,
