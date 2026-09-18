@@ -786,6 +786,16 @@ async function encerrarPlantao(req, res) {
       [resumo.total_entregas, resumo.total_km, resumo.valor_total, resumo.total_gorjetas, plantaoId]
     );
 
+    // BUGFIX: encerrar o plantao fechava o registro de plantao mas nunca
+    // desligava a disponibilidade do entregador -- ele continuava contando
+    // na fila de atribuicao automatica e aparecendo como "Disponivel" no
+    // painel do lojista mesmo depois de ter ido embora. So volta a ficar
+    // disponivel no proximo check-in (ver checkinEntregador).
+    await query(
+      'UPDATE funcionarios SET disponivel_entrega = false WHERE id = $1',
+      [req.funcionarioId]
+    );
+
     res.json(fechado.rows[0]);
   } catch (error) {
     console.error('Erro ao encerrar plantao:', error);
