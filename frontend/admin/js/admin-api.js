@@ -217,6 +217,10 @@ const apiListarPedidos = (status = '') => chamarApiAdmin(`/pedidos${status ? `?s
 const apiListarHistoricoCompletoEntregas = () => chamarApiAdmin('/entregas/historico-completo');
 const apiContarPedidos = () => chamarApiAdmin('/pedidos/contagem');
 const apiAtualizarStatusPedido = (id, status_pedido) => chamarApiAdmin(`/pedidos/${id}/status`, { method: 'PUT', body: { status_pedido } });
+// Historico detalhado (rotas + caixinha) de um entregador especifico, visto
+// pelo admin -- mesmo dado/formula do proprio app do entregador.
+const apiEntregasDetalhadasAdmin = (id, params = {}) => chamarApiAdmin(`/funcionarios/${id}/entregas-detalhadas?${new URLSearchParams(params).toString()}`);
+const apiCaixinhasAdmin = (id, params = {}) => chamarApiAdmin(`/funcionarios/${id}/caixinhas?${new URLSearchParams(params).toString()}`);
 const apiCriarPedidoManual = (dados) => chamarApiAdmin('/pedidos', { method: 'POST', body: dados });
 
 // intervalo: 'hoje' | 'ontem' | 'semana' | 'mes_atual' | 'trimestre' |
