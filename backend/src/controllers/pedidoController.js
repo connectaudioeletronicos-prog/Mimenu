@@ -1125,6 +1125,218 @@ async function minhasEntregasTodas(req, res) {
   return buscarMinhasEntregas(req, res, false);
 }
 
+// Converte o filtro de periodo (vindo da URL, sempre uma dessas 7 palavras)
+// num pedaco de SQL seguro -- so aceita valores dessa lista fixa, nunca
+// interpola o que vier da query string direto na consulta.
+function condicaoPeriodo(coluna, periodo) {
+  const mapa = {
+    hoje: `${coluna} >= CURRENT_DATE`,
+    semana: `${coluna} >= CURRENT_DATE - INTERVAL '7 days'`,
+    mes: `${coluna} >= CURRENT_DATE - INTERVAL '30 days'`,
+    '3meses': `${coluna} >= CURRENT_DATE - INTERVAL '90 days'`,
+    '6meses': `${coluna} >= CURRENT_DATE - INTERVAL '180 days'`,
+    ano: `${coluna} >= CURRENT_DATE - INTERVAL '365 days'`
+  };
+  return mapa[periodo] || null; // 'tudo' (ou qualquer valor desconhecido) = sem filtro
+}
+
+// Monta o objeto de endereco pronto pra exibicao (rua/numero/complemento/
+// cep/bairro + versao completa em texto) a partir dos campos estruturados
+// do pedido, com fallback pro texto livre antigo -- espelha exatamente a
+// funcao "construirEndereco" do frontend do entregador (ver entregador.js),
+// so que do lado do servidor, pra "Rotas realizadas" e "Resumo da rota".
+function montarEnderecoPedido(p) {
+  const temEstruturado = p.cliente_endereco_rua || p.cliente_endereco_cep || p.cliente_endereco_bairro;
+  if (!temEstruturado) {
+    return { logradouro: p.cliente_endereco || '-', numero: null, complemento: null, cep: null, bairro: null, completo: p.cliente_endereco || '-' };
+  }
+  const partes = [];
+  if (p.cliente_endereco_rua) partes.push(p.cliente_endereco_numero ? `${p.cliente_endereco_rua}, ${p.cliente_endereco_numero}` : p.cliente_endereco_rua);
+  if (p.cliente_endereco_complemento) partes.push(p.cliente_endereco_complemento);
+  if (p.cliente_endereco_bairro) partes.push(p.cliente_endereco_bairro);
+  if (p.cliente_endereco_cep) partes.push(`CEP ${p.cliente_endereco_cep}`);
+  return {
+    logradouro: p.cliente_endereco_rua || p.cliente_endereco || '-',
+    numero: p.cliente_endereco_numero || null,
+    complemento: p.cliente_endereco_complemento || null,
+    cep: p.cliente_endereco_cep || null,
+    bairro: p.cliente_endereco_bairro || null,
+    completo: partes.join(' - ') || (p.cliente_endereco || '-')
+  };
+}
+
+// Busca a comissao (valor_por_entrega/valor_por_km/km_incluido_no_fixo) do
+// entregador -- mesma formula usada em toda a plataforma (calcularResumoPlantao
+// no funcionarioController e buscarMinhasEntregas acima), pra bater 100% com
+// o que o app do entregador e o painel do lojista mostram.
+async function buscarConfigComissao(funcionarioId) {
+  const r = await query(
+    'SELECT valor_por_entrega, valor_por_km, km_incluido_no_fixo FROM funcionarios WHERE id = $1',
+    [funcionarioId]
+  );
+  const f = r.rows[0] || {};
+  return { valorFixo: Number(f.valor_por_entrega) || 0, valorKm: Number(f.valor_por_km) || 0, kmIncluido: Number(f.km_incluido_no_fixo) || 0 };
+}
+
+// Nucleo reaproveitavel de "Rotas realizadas": recebe o entregador explicito
+// (em vez de tirar de req) pra poder ser chamado tanto pela rota do proprio
+// entregador (app) quanto pela rota do admin (painel) -- os dois usam
+// exatamente a mesma consulta e a mesma formula de comissao, entao o numero
+// que aparece bate sempre nos dois lugares.
+async function buscarHistoricoEntregasCore(estabelecimentoId, entregadorId, { periodo = 'hoje', limite = 5, antes } = {}) {
+  const limiteFinal = Math.min(parseInt(limite, 10) || 5, 50);
+  const condicoes = [`estabelecimento_id = $1`, `entregador_id = $2`, `status_pedido = 'entregue'`];
+  const params = [estabelecimentoId, entregadorId];
+
+  const condPeriodo = condicaoPeriodo('horario_entregue', periodo);
+  if (condPeriodo) condicoes.push(condPeriodo);
+  if (antes) { params.push(antes); condicoes.push(`horario_entregue < $${params.length}`); }
+
+  params.push(limiteFinal + 1);
+  const resultado = await query(
+    `SELECT id, numero_pedido, horario_saiu_entrega, horario_entregue, distancia_km,
+            total, forma_pagamento, troco_para,
+            cliente_endereco, cliente_endereco_rua, cliente_endereco_numero,
+            cliente_endereco_complemento, cliente_endereco_cep, cliente_endereco_bairro
+     FROM pedidos WHERE ${condicoes.join(' AND ')}
+     ORDER BY horario_entregue DESC LIMIT $${params.length}`,
+    params
+  );
+
+  const temMais = resultado.rows.length > limiteFinal;
+  const linhas = resultado.rows.slice(0, limiteFinal);
+  const { valorFixo, valorKm, kmIncluido } = await buscarConfigComissao(entregadorId);
+
+  const entregas = linhas.map(p => {
+    const km = Number(p.distancia_km) || 0;
+    const kmExcedente = Math.max(0, km - kmIncluido);
+    return {
+      id: p.id,
+      numero_pedido: p.numero_pedido,
+      horario_saiu_entrega: p.horario_saiu_entrega,
+      horario_entregue: p.horario_entregue,
+      valor_rota: valorFixo + kmExcedente * valorKm,
+      // So faz sentido mostrar o valor do pedido quando o proprio entregador
+      // recebeu o dinheiro na entrega -- se foi pago online/Pix, esse valor
+      // nunca passou pela mao dele, entao fica null (frontend nao mostra).
+      forma_pagamento: p.forma_pagamento,
+      valor_pedido: p.forma_pagamento === 'dinheiro' ? Number(p.total) || 0 : null,
+      troco_para: p.troco_para !== null ? Number(p.troco_para) : null,
+      endereco: montarEnderecoPedido(p)
+    };
+  });
+
+  // Totais do PERIODO INTEIRO selecionado (nao so da pagina atual) --
+  // quantidade de rotas e valor total a pagar ao entregador nesse periodo.
+  const condicoesTotais = [`estabelecimento_id = $1`, `entregador_id = $2`, `status_pedido = 'entregue'`];
+  const paramsTotais = [estabelecimentoId, entregadorId];
+  if (condPeriodo) condicoesTotais.push(condPeriodo);
+  const totaisRes = await query(
+    `SELECT COUNT(*) AS quantidade,
+            COALESCE(SUM($3 + GREATEST(0, COALESCE(distancia_km, 0) - $4) * $5), 0) AS valor_total
+     FROM pedidos WHERE ${condicoesTotais.join(' AND ')}`,
+    [...paramsTotais, valorFixo, kmIncluido, valorKm]
+  );
+  const totaisPeriodo = {
+    quantidade: parseInt(totaisRes.rows[0].quantidade, 10) || 0,
+    valor_total: Number(totaisRes.rows[0].valor_total) || 0
+  };
+
+  return { entregas, proximo_cursor: linhas.length > 0 ? linhas[linhas.length - 1].horario_entregue : null, tem_mais: temMais, totais_periodo: totaisPeriodo };
+}
+
+// Nucleo reaproveitavel de "Caixinha recebida" -- mesma ideia: entregador
+// explicito, usado pelo app (proprio entregador) e pelo admin (painel).
+// Nunca inclui quem deu a caixinha, so valor e horario.
+async function buscarCaixinhasCore(estabelecimentoId, entregadorId, { periodo = 'hoje', limite = 5, antes } = {}) {
+  const limiteFinal = Math.min(parseInt(limite, 10) || 5, 50);
+  const condicoes = [`estabelecimento_id = $1`, `entregador_id = $2`, `status_pedido = 'entregue'`, `gorjeta > 0`];
+  const params = [estabelecimentoId, entregadorId];
+
+  const condPeriodo = condicaoPeriodo('horario_entregue', periodo);
+  if (condPeriodo) condicoes.push(condPeriodo);
+  if (antes) { params.push(antes); condicoes.push(`horario_entregue < $${params.length}`); }
+
+  params.push(limiteFinal + 1);
+  const resultado = await query(
+    `SELECT id, gorjeta, horario_entregue FROM pedidos WHERE ${condicoes.join(' AND ')}
+     ORDER BY horario_entregue DESC LIMIT $${params.length}`,
+    params
+  );
+  const temMais = resultado.rows.length > limiteFinal;
+  const linhas = resultado.rows.slice(0, limiteFinal);
+
+  const totaisRes = await query(
+    `SELECT
+      COALESCE(SUM(gorjeta) FILTER (WHERE horario_entregue >= CURRENT_DATE), 0) AS hoje,
+      COALESCE(SUM(gorjeta) FILTER (WHERE horario_entregue >= CURRENT_DATE - INTERVAL '30 days'), 0) AS mes,
+      COALESCE(SUM(gorjeta), 0) AS total
+     FROM pedidos WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_pedido = 'entregue' AND gorjeta > 0`,
+    [estabelecimentoId, entregadorId]
+  );
+  const t = totaisRes.rows[0];
+
+  return {
+    caixinhas: linhas.map(p => ({ id: p.id, horario_entregue: p.horario_entregue, valor: Number(p.gorjeta) || 0 })),
+    proximo_cursor: linhas.length > 0 ? linhas[linhas.length - 1].horario_entregue : null,
+    tem_mais: temMais,
+    totais: { hoje: Number(t.hoje) || 0, mes: Number(t.mes) || 0, total: Number(t.total) || 0 }
+  };
+}
+
+// GET /entregas/minhas-historico -- topico "Rotas realizadas" do menu do
+// app: numero do pedido + valor da rota, paginado (5 por vez) e filtravel
+// por periodo. Cursor = horario_entregue do ultimo item da pagina anterior.
+async function listarMinhasEntregasHistorico(req, res) {
+  try {
+    const dados = await buscarHistoricoEntregasCore(req.estabelecimentoId, req.funcionarioId, req.query);
+    res.json(dados);
+  } catch (error) {
+    console.error('Erro ao listar historico de entregas:', error);
+    res.status(500).json({ erro: 'Erro ao listar historico de entregas.' });
+  }
+}
+
+// GET /entregas/minhas-caixinhas -- topico "Caixinha recebida": so valor +
+// horario, sem identificar o cliente que deu a gorjeta. Os totais (hoje,
+// mes, acumulado) nao respeitam paginacao -- sao sempre a soma completa.
+async function listarMinhasCaixinhas(req, res) {
+  try {
+    const dados = await buscarCaixinhasCore(req.estabelecimentoId, req.funcionarioId, req.query);
+    res.json(dados);
+  } catch (error) {
+    console.error('Erro ao listar caixinhas:', error);
+    res.status(500).json({ erro: 'Erro ao listar caixinhas.' });
+  }
+}
+
+// GET /admin/funcionarios/:id/entregas-detalhadas -- mesma coisa que
+// /entregas/minhas-historico, so que do lado do painel do lojista, pra ver
+// o historico detalhado de um entregador especifico. Usa o MESMO nucleo
+// (buscarHistoricoEntregasCore) pra garantir que o numero seja identico ao
+// que aparece no app do proprio entregador.
+async function listarEntregasDetalhadasAdmin(req, res) {
+  try {
+    const dados = await buscarHistoricoEntregasCore(req.estabelecimentoId, req.params.id, req.query);
+    res.json(dados);
+  } catch (error) {
+    console.error('Erro ao listar historico detalhado do entregador:', error);
+    res.status(500).json({ erro: 'Erro ao listar historico detalhado do entregador.' });
+  }
+}
+
+// GET /admin/funcionarios/:id/caixinhas -- equivalente admin de
+// /entregas/minhas-caixinhas, mesmo nucleo (buscarCaixinhasCore).
+async function listarCaixinhasAdmin(req, res) {
+  try {
+    const dados = await buscarCaixinhasCore(req.estabelecimentoId, req.params.id, req.query);
+    res.json(dados);
+  } catch (error) {
+    console.error('Erro ao listar caixinhas do entregador:', error);
+    res.status(500).json({ erro: 'Erro ao listar caixinhas do entregador.' });
+  }
+}
+
 module.exports = {
   criarPedido,
   criarPedidoManual,
@@ -1139,6 +1351,10 @@ module.exports = {
   listarPedidosCliente,
   minhasEntregasHoje,
   minhasEntregasTodas,
+  listarMinhasEntregasHistorico,
+  listarMinhasCaixinhas,
+  listarEntregasDetalhadasAdmin,
+  listarCaixinhasAdmin,
   obterCaixaGeral,
   tentarOfertarPedidosPendentes,
   posicaoNaFila,
