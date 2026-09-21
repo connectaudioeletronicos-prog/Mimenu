@@ -791,7 +791,7 @@ function exibirSecaoMenu(secao, opcoes = {}) {
       html += `<div class="lista-com-rolagem">` + paradas.map((p) => `
         <div class="item-entrega-detalhe">
           <div class="item-entrega-detalhe__topo">
-            <span class="item-entrega-detalhe__horario">Recebida ${p.horario_saiu_entrega ? new Date(p.horario_saiu_entrega).toLocaleDateString('pt-BR') + ' · ' + formatarHora(p.horario_saiu_entrega) : 'agora'}</span>
+            <span class="item-entrega-detalhe__horario">#${p.numero_pedido ?? '-'} · Recebida ${p.horario_saiu_entrega ? new Date(p.horario_saiu_entrega).toLocaleDateString('pt-BR') + ' · ' + formatarHora(p.horario_saiu_entrega) : 'agora'}</span>
             <span class="item-entrega-detalhe__valor">${formatarMoeda(comissaoDaEntrega(p))}</span>
           </div>
           <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(p.cliente_nome || '-')}</span></div>
@@ -889,33 +889,43 @@ function renderizarListaNaTela(secao, estado) {
   let corpo = '';
 
   if (secao === 'historico') {
+    const tp = estado.totais_periodo || {};
     cabecalho = chipsPeriodoHtml('historico', estado.periodo) +
-      `<p class="resumo-geral-titulo">ROTAS REALIZADAS</p>`;
+      `<p class="resumo-geral-titulo">ROTAS REALIZADAS</p>
+       <div class="resumo-geral-linha"><span>Rotas no período</span><strong>${tp.quantidade ?? 0}</strong></div>
+       <div class="resumo-geral-linha"><span>Valor total no período</span><strong>${formatarMoeda(tp.valor_total)}</strong></div>`;
     corpo = estado.itens.map(e => `
       <div class="item-entrega-detalhe">
         <div class="item-entrega-detalhe__topo">
-          <span class="item-entrega-detalhe__horario">${new Date(e.horario_entregue).toLocaleDateString('pt-BR')}</span>
+          <span class="item-entrega-detalhe__horario">#${e.numero_pedido ?? '-'} · ${new Date(e.horario_entregue).toLocaleDateString('pt-BR')}</span>
           <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
         </div>
         <div class="item-entrega-detalhe__linha"><span>Recebida</span><span>${formatarHora(e.horario_saiu_entrega)}</span></div>
         <div class="item-entrega-detalhe__linha"><span>Finalizada</span><span>${formatarHora(e.horario_entregue)}</span></div>
         ${renderEnderecoLinhas(e.endereco)}
+        ${e.valor_pedido !== null ? `<div class="item-entrega-detalhe__linha"><span>${e.troco_para !== null ? 'Valor do pedido a receber' : 'Valor do pedido'}</span><span>${formatarMoeda(e.valor_pedido)}</span></div>` : ''}
+        ${e.troco_para !== null ? `<div class="item-entrega-detalhe__linha"><span>Troco para</span><span>${formatarMoeda(e.troco_para)}</span></div>` : ''}
       </div>
     `).join('');
   } else if (secao === 'resumo-rotas') {
     cabecalho = `<p class="resumo-geral-titulo">RESUMO DA ROTA</p>`;
     corpo = estado.itens.map(e => {
       const classePg = e.forma_pagamento === 'dinheiro' ? 'item-entrega-detalhe__pagamento--dinheiro' : e.forma_pagamento === 'pix' ? 'item-entrega-detalhe__pagamento--pix' : 'item-entrega-detalhe__pagamento--online';
+      // So mostra o valor do pedido quando o entregador recebeu em dinheiro
+      // (pedido pago online/Pix nao passa por ele, entao nao ha valor a
+      // prestar contas). Quando tem troco combinado, o rotulo deixa isso
+      // explicito: e dinheiro que ele ainda vai receber do cliente.
+      const ehDinheiro = e.forma_pagamento === 'dinheiro';
       return `
         <div class="item-entrega-detalhe">
           <div class="item-entrega-detalhe__topo">
-            <span class="item-entrega-detalhe__horario">${new Date(e.horario_entregue).toLocaleDateString('pt-BR')} · ${formatarHora(e.horario_saiu_entrega)}</span>
+            <span class="item-entrega-detalhe__horario">#${e.numero_pedido ?? '-'} · ${new Date(e.horario_entregue).toLocaleDateString('pt-BR')} · ${formatarHora(e.horario_saiu_entrega)}</span>
             <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
           </div>
           ${renderEnderecoLinhas(e.endereco)}
-          <div class="item-entrega-detalhe__linha"><span>Valor do pedido</span><span>${formatarMoeda(e.total_pedido)}</span></div>
+          ${ehDinheiro ? `<div class="item-entrega-detalhe__linha"><span>${e.troco_para !== null ? 'Valor do pedido a receber' : 'Valor do pedido'}</span><span>${formatarMoeda(e.total_pedido)}</span></div>` : ''}
           <span class="item-entrega-detalhe__pagamento ${classePg}">${formatarPagamento(e.forma_pagamento)}</span>
-          ${e.forma_pagamento === 'dinheiro' && e.troco !== null ? `<div class="item-entrega-detalhe__linha"><span>Troco</span><span>${formatarMoeda(e.troco)}</span></div>` : ''}
+          ${ehDinheiro && e.troco !== null ? `<div class="item-entrega-detalhe__linha"><span>Troco</span><span>${formatarMoeda(e.troco)}</span></div>` : ''}
         </div>
       `;
     }).join('');
@@ -927,13 +937,13 @@ function renderizarListaNaTela(secao, estado) {
        <div class="resumo-geral-linha"><span>Este mês</span><strong>${formatarMoeda(t.mes)}</strong></div>
        <div class="resumo-geral-linha"><span>Total acumulado</span><strong>${formatarMoeda(t.total)}</strong></div>
        <p class="resumo-geral-titulo" style="margin-top:16px;">ÚLTIMAS RECEBIDAS</p>`;
+    // So data, hora e valor -- nunca o cliente que deu a caixinha.
     corpo = estado.itens.map(e => `
       <div class="item-entrega-detalhe">
         <div class="item-entrega-detalhe__topo">
           <span class="item-entrega-detalhe__horario">${new Date(e.horario_entregue).toLocaleDateString('pt-BR')} · ${formatarHora(e.horario_entregue)}</span>
           <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor)}</span>
         </div>
-        <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(e.cliente_nome || '-')}</span></div>
       </div>
     `).join('');
   }
