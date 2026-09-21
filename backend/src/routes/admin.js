@@ -92,6 +92,11 @@ router.delete('/caixas-texto/:id', exigirPermissao('gerenciar_cardapio'), caixaT
 // concluidos/cancelados sao filtrados dentro do controller conforme permissao).
 router.get('/pedidos', pedidoController.listarPedidosAdmin);
 router.get('/entregas/historico-completo', pedidoController.listarHistoricoCompletoEntregas);
+// Mesmo historico detalhado (numero do pedido, valor da rota, dinheiro vs
+// online, caixinha) que aparece no app do proprio entregador -- so que
+// aqui filtrado pra um entregador especifico, visto pelo lojista.
+router.get('/funcionarios/:id/entregas-detalhadas', exigirPermissao('gerenciar_funcionarios'), pedidoController.listarEntregasDetalhadasAdmin);
+router.get('/funcionarios/:id/caixinhas', exigirPermissao('gerenciar_funcionarios'), pedidoController.listarCaixinhasAdmin);
 router.get('/pedidos/contagem', pedidoController.contarPedidosAdmin);
 // Pedido lancado manualmente pelo garcom/atendimento (balcao/mesa) --
 // ja entra direto em preparo, sem precisar do aceite do administrador.
