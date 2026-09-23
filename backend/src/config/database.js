@@ -13,6 +13,18 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+// Forca o fuso da sessao Postgres para America/Sao_Paulo em toda conexao
+// do pool. Sem isso, CURRENT_DATE/NOW() no banco seguem UTC, enquanto o
+// resto do app calcula "hoje" em horario de Brasilia (ver utils/horario.js)
+// -- entre 21h e meia-noite no Brasil ja e o dia seguinte em UTC, o que
+// derrubava o QR Code/checkin do entregador (gerado "hoje" no painel,
+// mas gravado como "amanha" pelo banco).
+pool.on('connect', (client) => {
+  client.query("SET TIME ZONE 'America/Sao_Paulo'").catch((err) => {
+    console.error('Erro ao definir fuso horario da conexao:', err.message);
+  });
+});
+
 pool.on('error', (err) => {
   console.error('Erro inesperado na conexao com o banco:', err);
 });
