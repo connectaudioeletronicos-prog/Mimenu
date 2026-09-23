@@ -369,7 +369,12 @@ async function listarPedidosAdmin(req, res) {
     }
 
     if (status) { params.push(status); sql += ` AND status_pedido = $${params.length}`; }
-    sql += ` ORDER BY criado_em DESC LIMIT 100`;
+    // Pedidos ativos (aguardando coleta ou em rota) vem sempre primeiro,
+    // antes do corte do LIMIT -- sem isso, uma loja com bastante volume
+    // podia ter um pedido ativo "empurrado" pra fora dos 100 mais recentes
+    // por pedidos mais novos ja finalizados/cancelados, sumindo do painel
+    // (Em andamento / Pendentes) mesmo estando de fato ativo na loja.
+    sql += ` ORDER BY CASE WHEN status_pedido IN ('pronto', 'saiu_entrega') THEN 0 ELSE 1 END, criado_em DESC LIMIT 100`;
     const resultado = await query(sql, params);
 
     const podeVerValoresConcluidos = req.cargo === 'proprietario' || (req.permissoes || []).includes('ver_valores_concluidos');
