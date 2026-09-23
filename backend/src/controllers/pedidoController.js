@@ -4,6 +4,7 @@ const { validarFormatoCep, validarCepViaCep } = require('../utils/geocoding');
 const { validarTelefone } = require('../utils/validadores');
 const { baixarEstoquePorVenda } = require('../utils/estoque');
 const { resolverIntervalo } = require('../utils/periodo');
+const { agoraNoFuso } = require('../utils/horario');
 const { proximoNumero } = require('../utils/numeracao');
 const pagamentos = require('../utils/pagamentos');
 
@@ -429,7 +430,7 @@ async function proximoEntregadorElegivel(estabelecimentoId, jaRecusaram) {
     `SELECT f.id, f.nome
      FROM funcionarios f
      WHERE f.estabelecimento_id = $1 AND f.cargo = 'entregador' AND f.ativo = true AND f.disponivel_entrega = true
-       AND f.ultimo_checkin_data = CURRENT_DATE
+       AND f.ultimo_checkin_data = $3
        AND NOT (f.id::text = ANY($2::text[]))
        AND NOT EXISTS (
          -- BUGFIX: antes so excluia quem ja estava "saiu_entrega" (em rota).
@@ -445,7 +446,7 @@ async function proximoEntregadorElegivel(estabelecimentoId, jaRecusaram) {
        )
      ORDER BY f.ultima_fila_em ASC NULLS FIRST, f.criado_em ASC
      LIMIT 1`,
-    [estabelecimentoId, idsRecusaram]
+    [estabelecimentoId, idsRecusaram, agoraNoFuso().dataISO]
   );
   return resultado.rows[0] || null;
 }
@@ -513,12 +514,12 @@ async function posicaoNaFila(req, res) {
       `SELECT f.id
        FROM funcionarios f
        WHERE f.estabelecimento_id = $1 AND f.cargo = 'entregador' AND f.ativo = true AND f.disponivel_entrega = true
-         AND f.ultimo_checkin_data = CURRENT_DATE
+         AND f.ultimo_checkin_data = $2
          AND NOT EXISTS (
            SELECT 1 FROM pedidos p WHERE p.entregador_id = f.id AND p.status_pedido = 'saiu_entrega'
          )
        ORDER BY f.ultima_fila_em ASC NULLS FIRST, f.criado_em ASC`,
-      [req.estabelecimentoId]
+      [req.estabelecimentoId, agoraNoFuso().dataISO]
     );
     const ids = resultado.rows.map(r => r.id);
     const indice = ids.indexOf(req.funcionarioId);
