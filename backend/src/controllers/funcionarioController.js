@@ -519,8 +519,8 @@ async function obterQrcodeDoDia(req, res) {
     if (!token || !jaEhDeHoje) {
       token = crypto.randomBytes(16).toString('hex');
       await query(
-        'UPDATE estabelecimentos SET qrcode_entregador_token = $1, qrcode_entregador_data = CURRENT_DATE WHERE id = $2',
-        [token, req.estabelecimentoId]
+        'UPDATE estabelecimentos SET qrcode_entregador_token = $1, qrcode_entregador_data = $3 WHERE id = $2',
+        [token, req.estabelecimentoId, agoraNoFuso().dataISO]
       );
     }
 
@@ -558,8 +558,8 @@ async function checkinEntregador(req, res) {
     }
 
     await query(
-      'UPDATE funcionarios SET ultimo_checkin_data = CURRENT_DATE, disponivel_entrega = true, ultima_fila_em = COALESCE(ultima_fila_em, NOW()) WHERE id = $1',
-      [req.funcionarioId]
+      'UPDATE funcionarios SET ultimo_checkin_data = $2, disponivel_entrega = true, ultima_fila_em = COALESCE(ultima_fila_em, NOW()) WHERE id = $1',
+      [req.funcionarioId, agoraNoFuso().dataISO]
     );
 
     // Abre um plantao novo se nao houver nenhum aberto pra esse entregador
