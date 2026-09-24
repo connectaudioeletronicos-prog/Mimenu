@@ -448,6 +448,11 @@ function formatarHora(dataISO) {
 // dinheiro da loja/produto, coisa completamente diferente). Usa a forma de
 // pagamento configurada pro entregador (por entrega fixa ou por km) + a
 // gorjeta que o cliente ja tiver dado no pedido (caixinha).
+// Valor da ROTA (comissao) e valor da CAIXINHA (gorjeta) sao duas coisas
+// diferentes e devem aparecer separadas na tela -- comissaoDaEntrega() da
+// so a rota; gorjetaDaEntrega() da so a caixinha. Nunca somar os dois num
+// campo so chamado "Valor da rota" (isso e o que causava o valor "errado"
+// mostrado ao entregador).
 function comissaoDaEntrega(pedido) {
   const dados = obterDados();
   const distanciaKm = parseFloat(pedido.distancia_km) || 0;
@@ -458,9 +463,11 @@ function comissaoDaEntrega(pedido) {
   const valorKm = parseFloat(dados?.valorPorKm) || 0;
   const kmIncluido = parseFloat(dados?.kmIncluidoNoFixo) || 0;
   const kmExcedente = Math.max(0, distanciaKm - kmIncluido);
-  const comissao = valorFixo + kmExcedente * valorKm;
-  const gorjeta = parseFloat(pedido.gorjeta) || 0;
-  return comissao + gorjeta;
+  return valorFixo + kmExcedente * valorKm;
+}
+
+function gorjetaDaEntrega(pedido) {
+  return parseFloat(pedido.gorjeta) || 0;
 }
 
 async function exibirRotaEmAndamento() {
@@ -508,19 +515,26 @@ async function exibirRotaEmAndamento() {
   document.getElementById('rota-info-hora').textContent = formatarHora(proxima.horario_saiu_entrega);
   document.getElementById('rota-info-data').textContent = dataRota.toLocaleDateString('pt-BR');
 
-  // "Valor da rota" e o quanto o ENTREGADOR ganha nessa rota (comissao +
-  // caixinha), nunca o valor dos pedidos (isso pertence a loja/produto e
-  // fica separado, so aparece em "A receber do cliente" abaixo).
+  // "Valor da rota" e so a comissao (o que o entregador ganha por rodar),
+  // nunca o valor do pedido (produto) nem a caixinha -- os dois ficam
+  // separados: valor do pedido aparece em "A receber do cliente" abaixo, e
+  // a caixinha tem o campo proprio "rota-caixinha-total".
   const valorRota = paradas.reduce((soma, p) => soma + comissaoDaEntrega(p), 0);
+  const valorCaixinha = paradas.reduce((soma, p) => soma + gorjetaDaEntrega(p), 0);
   document.getElementById('rota-valor-total').textContent = formatarMoeda(valorRota);
+  document.getElementById('rota-caixinha-total').textContent = formatarMoeda(valorCaixinha);
 
+  // ganhoHoje (plantaoAtualCache.valor_total) e a soma de comissao+caixinha
+  // das entregas JA REALIZADAS hoje -- esse numero continua combinado de
+  // proposito (e o "quanto ja caiu" no total do dia), diferente da rota
+  // pendente acima, que agora mostra os dois valores em campos separados.
   const ganhoHoje = plantaoAtualCache?.valor_total ?? 0;
   document.getElementById('rota-resumo-andamento').textContent = paradas.length;
   document.getElementById('rota-resumo-andamento-valor').textContent = formatarMoeda(valorRota);
   document.getElementById('rota-resumo-realizadas').textContent = realizadasHoje;
   document.getElementById('rota-resumo-realizadas-valor').textContent = formatarMoeda(ganhoHoje);
   document.getElementById('rota-resumo-totalrotas').textContent = totalRota;
-  document.getElementById('rota-resumo-totalrotas-valor').textContent = formatarMoeda(ganhoHoje + valorRota);
+  document.getElementById('rota-resumo-totalrotas-valor').textContent = formatarMoeda(ganhoHoje + valorRota + valorCaixinha);
   document.getElementById('rota-resumo-a-receber').textContent = formatarMoeda(valorRota);
 
   const listaEl = document.getElementById('lista-paradas-restantes');
