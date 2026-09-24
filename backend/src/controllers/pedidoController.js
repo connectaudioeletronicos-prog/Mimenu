@@ -1254,12 +1254,37 @@ async function buscarHistoricoEntregasCore(estabelecimentoId, entregadorId, { pe
 // Nucleo reaproveitavel de "Caixinha recebida" -- mesma ideia: entregador
 // explicito, usado pelo app (proprio entregador) e pelo admin (painel).
 // Nunca inclui quem deu a caixinha, so valor e horario.
+//
+// Duas regras de negocio sobre a VISIBILIDADE da caixinha (nao mudam o
+// valor, so quando/onde ela aparece):
+//
+// 1) "Periodo de seguranca" de 30 minutos: uma caixinha so fica visivel
+//    (entra na lista e nos totais) 30 minutos depois de "programada", ou
+//    seja, 30 minutos depois do horario_entregue do pedido. Antes disso
+//    ela simplesmente nao aparece ainda -- nem na lista, nem no total.
+// 2) Virada de dia: o "dia" que a caixinha CONTA pro resumo (hoje/mes) e o
+//    dia em que ela libera (horario_entregue + 30min), em horario de
+//    Brasilia -- nao o dia em que o pedido foi entregue. Isso so importa
+//    perto da virada: expediente encerra sempre as 23:59, entao uma
+//    entrega as 23:45 libera a caixinha as 00:15, ja no dia seguinte, e
+//    ela conta pro resumo do dia seguinte (mesmo tendo sido "lancada" no
+//    dia anterior). O item da lista continua mostrando horario_entregue
+//    (a data/hora original em que foi lancada), so o AGRUPAMENTO por dia
+//    usa a data de liberacao.
+const LIBERACAO_CAIXINHA = `(horario_entregue + INTERVAL '30 minutes')`;
+
 async function buscarCaixinhasCore(estabelecimentoId, entregadorId, { periodo = 'hoje', limite = 5, antes } = {}) {
   const limiteFinal = Math.min(parseInt(limite, 10) || 5, 50);
-  const condicoes = [`estabelecimento_id = $1`, `entregador_id = $2`, `status_pedido = 'entregue'`, `gorjeta > 0`];
+  const condicoes = [
+    `estabelecimento_id = $1`, `entregador_id = $2`, `status_pedido = 'entregue'`, `gorjeta > 0`,
+    `${LIBERACAO_CAIXINHA} <= NOW()` // ainda dentro do periodo de seguranca -> nem entra na lista
+  ];
   const params = [estabelecimentoId, entregadorId];
 
-  const condPeriodo = condicaoPeriodo('horario_entregue', periodo);
+  // periodo (hoje/semana/mes/...) e calculado em cima do dia de LIBERACAO,
+  // nao do dia de entrega -- e assim que a virada de expediente (23:59) se
+  // reflete no agrupamento.
+  const condPeriodo = condicaoPeriodo(LIBERACAO_CAIXINHA, periodo);
   if (condPeriodo) condicoes.push(condPeriodo);
   if (antes) { params.push(antes); condicoes.push(`horario_entregue < $${params.length}`); }
 
@@ -1274,10 +1299,12 @@ async function buscarCaixinhasCore(estabelecimentoId, entregadorId, { periodo = 
 
   const totaisRes = await query(
     `SELECT
-      COALESCE(SUM(gorjeta) FILTER (WHERE horario_entregue >= CURRENT_DATE), 0) AS hoje,
-      COALESCE(SUM(gorjeta) FILTER (WHERE horario_entregue >= CURRENT_DATE - INTERVAL '30 days'), 0) AS mes,
+      COALESCE(SUM(gorjeta) FILTER (WHERE ${LIBERACAO_CAIXINHA} >= CURRENT_DATE), 0) AS hoje,
+      COALESCE(SUM(gorjeta) FILTER (WHERE ${LIBERACAO_CAIXINHA} >= CURRENT_DATE - INTERVAL '30 days'), 0) AS mes,
       COALESCE(SUM(gorjeta), 0) AS total
-     FROM pedidos WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_pedido = 'entregue' AND gorjeta > 0`,
+     FROM pedidos
+     WHERE estabelecimento_id = $1 AND entregador_id = $2 AND status_pedido = 'entregue' AND gorjeta > 0
+       AND ${LIBERACAO_CAIXINHA} <= NOW()`,
     [estabelecimentoId, entregadorId]
   );
   const t = totaisRes.rows[0];
