@@ -188,6 +188,7 @@ input[type="text"], input[type="password"] {
 .cabecalho-app__saudacao { font-size: 17px; font-weight: 700; }
 .cabecalho-app__sub { font-size: 13px; color: var(--cor-texto-claro); }
 .cabecalho-app__direita { display: flex; align-items: center; gap: 10px; }
+.cabecalho-app__titulo { flex: 1; text-align: center; font-weight: 700; font-size: 16px; }
 
 .badge-online {
   background: #e8f6f3;
@@ -264,7 +265,8 @@ input[type="text"], input[type="password"] {
 }
 
 .rota-endereco-cliente { font-weight: 700; margin: 0 0 2px; }
-.rota-endereco { color: var(--cor-texto-claro); font-size: 14px; margin: 0 0 14px; }
+.rota-endereco { color: var(--cor-texto-claro); font-size: 14px; margin: 0 0 4px; }
+.rota-proxima-lancado { color: var(--cor-texto-claro); font-size: 12px; margin: 0 0 14px; }
 .rota-navegacao .botao { margin-top: 0; text-align: center; text-decoration: none; display: block; }
 
 .grade-detalhes {
@@ -329,82 +331,32 @@ input[type="text"], input[type="password"] {
   margin-right: 6px;
 }
 
-/* ===================== MENU LATERAL DESLIZANTE ===================== */
+/* ===================== MENU: LISTA DE OPÇÕES (TELA CHEIA) ===================== */
+/* Antes era um painel deslizante com fundo escurecido (efeito de modal).
+   Agora "Rota em andamento", "Rotas realizadas" etc. sao telas cheias
+   normais, como as demais do app -- ver #tela-menu-lista e
+   #tela-menu-detalhe no HTML. */
 
-.fundo-menu-lateral {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.35);
-  z-index: 40;
-}
-
-.menu-lateral {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(340px, 88vw);
-  background: #fff;
-  z-index: 41;
-  box-shadow: -6px 0 24px rgba(0,0,0,0.15);
-  display: flex;
-  flex-direction: column;
-  transform: translateX(0);
-  transition: transform .25s ease;
-}
-.menu-lateral.oculto,
-.fundo-menu-lateral.oculto { display: none; }
-
-.menu-lateral__topo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 18px 14px;
-  border-bottom: 1px solid var(--cor-borda);
-}
-.menu-lateral__logo {
-  font-weight: 800;
-  font-size: 16px;
-  color: var(--cor-texto);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.menu-lateral__logo-icone { width: 26px; height: 26px; object-fit: contain; }
-.menu-lateral__logo-destaque { color: var(--cor-laranja); }
 .botao-fechar-menu {
   background: none;
   border: none;
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   color: var(--cor-texto-claro);
 }
 
-.menu-lateral__nav {
+.menu-lateral__nav--tela {
   display: flex;
   flex-direction: column;
-  padding: 10px;
-  gap: 4px;
+  gap: 6px;
+}
+.menu-lateral__nav--tela .menu-lateral__item {
   border-bottom: 1px solid var(--cor-borda);
+  border-radius: 0;
+  padding: 16px 6px;
+  font-size: 15px;
 }
-.menu-lateral__item {
-  text-align: left;
-  background: none;
-  border: none;
-  border-radius: var(--raio-borda);
-  padding: 12px 10px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--cor-texto);
-  cursor: pointer;
-}
-.menu-lateral__item--ativo { background: #eef8f6; color: var(--cor-principal-escura); }
-
-.menu-lateral__conteudo {
-  padding: 16px;
-  overflow-y: auto;
-  flex: 1;
-}
+.menu-lateral__nav--tela .menu-lateral__item:last-child { border-bottom: none; }
 
 .resumo-geral-titulo {
   font-size: 12px;
@@ -769,6 +721,16 @@ input[type="text"], input[type="password"] {
   display: flex;
   align-items: center;
   gap: 12px;
+  text-align: left;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: var(--raio-borda);
+  padding: 12px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cor-texto);
+  cursor: pointer;
 }
 .menu-lateral__item-icone { font-size: 16px; width: 20px; text-align: center; }
 
