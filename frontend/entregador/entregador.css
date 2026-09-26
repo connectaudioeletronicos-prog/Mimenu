@@ -267,6 +267,12 @@ input[type="text"], input[type="password"] {
 .rota-endereco-cliente { font-weight: 700; margin: 0 0 2px; }
 .rota-endereco { color: var(--cor-texto-claro); font-size: 14px; margin: 0 0 4px; }
 .rota-proxima-lancado { color: var(--cor-texto-claro); font-size: 12px; margin: 0 0 14px; }
+
+.divisor-cartao-painel {
+  height: 1px;
+  background: var(--cor-borda);
+  margin: 18px 0;
+}
 .rota-navegacao .botao { margin-top: 0; text-align: center; text-decoration: none; display: block; }
 
 .grade-detalhes {
