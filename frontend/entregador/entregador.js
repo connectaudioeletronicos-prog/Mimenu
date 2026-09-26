@@ -80,6 +80,15 @@ function mostrarTela(id) {
   document.getElementById(id).classList.remove('oculto');
 }
 
+// Verifica se o entregador esta navegando dentro do menu (lista de opcoes
+// ou o detalhe de uma secao). O polling de 5 em 5s NAO deve trocar de tela
+// enquanto isso estiver true -- e o que fazia o menu "fechar sozinho" alguns
+// segundos depois de aberto.
+function telaMenuAberta() {
+  return !document.getElementById('tela-menu-lista').classList.contains('oculto') ||
+         !document.getElementById('tela-menu-detalhe').classList.contains('oculto');
+}
+
 function mostrarToast(mensagem, ehErro = false) {
   const toast = document.getElementById('toast');
   toast.textContent = mensagem;
@@ -325,8 +334,8 @@ function iniciarAguardandoPedido() {
   mostrarTela('tela-aguardando');
   pararPolling();
   intervaloPolling = setInterval(verificarOfertaOuEntregaAtual, INTERVALO_POLL_MS);
-  verificarOfertaOuEntregaAtual();
   atualizarPosicaoNaFila();
+  return verificarOfertaOuEntregaAtual();
 }
 
 async function atualizarPosicaoNaFila() {
@@ -405,7 +414,7 @@ async function verificarOfertaOuEntregaAtual() {
       return;
     }
     // Nenhuma das duas: continua esperando na fila.
-    if (document.getElementById('tela-aguardando').classList.contains('oculto')) {
+    if (document.getElementById('tela-aguardando').classList.contains('oculto') && !telaMenuAberta()) {
       mostrarTela('tela-aguardando');
     }
     atualizarPosicaoNaFila();
@@ -592,7 +601,9 @@ async function exibirRotaEmAndamento() {
       `).join('');
   }
 
-  mostrarTela('tela-rota');
+  if (!telaMenuAberta()) {
+    mostrarTela('tela-rota');
+  }
 }
 
 // Desenha um diagrama simplificado da rota (paradas numeradas ligadas por
@@ -743,14 +754,34 @@ const TITULOS_MENU = {
 // -- pode ser a tela de espera ou a de rota em andamento).
 let telaAnteriorMenu = 'tela-aguardando';
 
+// -------------------- Persistencia do menu (sobrevive ao F5) --------------------
+// As demais telas (checkin/aguardando/oferta/rota) ja se recalculam sozinhas
+// a partir dos dados reais do servidor ao recarregar a pagina. O menu nao --
+// entao guardamos aqui qual tela do menu estava aberta (lista, ou uma secao
+// especifica) pra reabrir automaticamente depois que a pagina recarregar.
+const CHAVE_MENU_ABERTO = 'mimenu_entregador_menu_aberto';
+function salvarEstadoMenu(estado) {
+  if (estado) {
+    sessionStorage.setItem(CHAVE_MENU_ABERTO, JSON.stringify(estado));
+  } else {
+    sessionStorage.removeItem(CHAVE_MENU_ABERTO);
+  }
+}
+function obterEstadoMenuSalvo() {
+  const bruto = sessionStorage.getItem(CHAVE_MENU_ABERTO);
+  return bruto ? JSON.parse(bruto) : null;
+}
+
 // Abre a LISTA de opcoes do menu, em tela cheia (nao e mais um painel/modal
 // sobreposto -- cada opcao agora abre como uma tela propria, ver
 // abrirSecaoDoMenu abaixo).
 function abrirMenuLista() {
   telaAnteriorMenu = document.querySelector('.tela:not(.oculto)')?.id || telaAnteriorMenu;
   mostrarTela('tela-menu-lista');
+  salvarEstadoMenu({ secao: null });
 }
 function fecharMenuLista() {
+  salvarEstadoMenu(null);
   mostrarTela(telaAnteriorMenu);
 }
 
@@ -761,6 +792,7 @@ function abrirSecaoDoMenu(secao) {
   document.getElementById('menu-detalhe-titulo').textContent = TITULOS_MENU[secao] || '';
   mostrarTela('tela-menu-detalhe');
   exibirSecaoMenu(secao);
+  salvarEstadoMenu({ secao });
   // Enquanto a tela "Rota em andamento" estiver aberta, mantem os dados
   // atualizados em tempo real (o valor da rota muda conforme o entregador
   // avança pelas paradas). Para nas outras secoes e quando sai da tela.
@@ -773,6 +805,17 @@ function voltarParaListaMenu() {
   clearInterval(intervaloAtualizacaoMenu);
   menuSecaoAtiva = null;
   mostrarTela('tela-menu-lista');
+  salvarEstadoMenu({ secao: null });
+}
+
+// Reabre, apos o boot da pagina, a tela do menu que estava aberta antes de
+// recarregar (se houver). Chamado depois que a tela base (aguardando/rota)
+// ja foi definida corretamente pelos dados reais do servidor.
+function restaurarTelaMenuSalva() {
+  const estado = obterEstadoMenuSalvo();
+  if (!estado) return;
+  abrirMenuLista();
+  if (estado.secao) abrirSecaoDoMenu(estado.secao);
 }
 
 document.getElementById('botao-abrir-menu-aguardando').addEventListener('click', abrirMenuLista);
@@ -1113,6 +1156,7 @@ function fazerLogout() {
   pararCamera();
   pararPolling();
   limparSessao();
+  salvarEstadoMenu(null);
   mostrarTela('tela-login');
 }
 
@@ -1126,7 +1170,8 @@ async function iniciarAppLogado() {
   try {
     const plantaoAtual = await chamarApi('/plantao/atual');
     if (plantaoAtual) {
-      iniciarAguardandoPedido();
+      await iniciarAguardandoPedido();
+      restaurarTelaMenuSalva();
       return;
     }
   } catch {
