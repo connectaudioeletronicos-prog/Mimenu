@@ -364,6 +364,28 @@ let pedidoOfertaAtual = null;
 let paradasRotaAtual = []; // array de pedidos com status 'saiu_entrega' (rota atual, 1 ou mais paradas)
 let plantaoAtualCache = null; // ultimo resumo de /plantao/atual (usado no Resumo do dia e no menu)
 
+// IDs de pedido cuja caixinha ja foi avisada (toast) nesta sessao -- evita
+// repetir o aviso a cada ciclo do polling (5 em 5s).
+const caixinhasJaNotificadas = new Set();
+const MINUTOS_ATRASO_AVISO_CAIXINHA = 15;
+
+// A caixinha nao aparece mais como um campo fixo na tela (ver "DETALHES DA
+// ROTA ATUAL") -- em vez disso, vira uma mensagem avulsa (toast), e so
+// depois de passado um atraso de seguranca desde que o CLIENTE registrou o
+// pedido (criado_em, quando ele escolhe o valor da caixinha ao fazer o
+// pedido). Roda a cada ciclo do polling normal da rota atual.
+function verificarCaixinhasParaNotificar(paradas) {
+  const agora = Date.now();
+  paradas.forEach((p) => {
+    const valor = gorjetaDaEntrega(p);
+    if (valor <= 0 || !p.criado_em || caixinhasJaNotificadas.has(p.id)) return;
+    const minutosDesdeLancamento = (agora - new Date(p.criado_em).getTime()) / 60000;
+    if (minutosDesdeLancamento < MINUTOS_ATRASO_AVISO_CAIXINHA) return;
+    caixinhasJaNotificadas.add(p.id);
+    mostrarToast(`🎉 Caixinha de ${formatarMoeda(valor)} no pedido #${p.numero_pedido ?? '-'}!`);
+  });
+}
+
 async function verificarOfertaOuEntregaAtual() {
   try {
     // Prioridade 1: entrega(s) ja aceita(s) e em andamento (ex: reabriu o app,
@@ -371,6 +393,7 @@ async function verificarOfertaOuEntregaAtual() {
     const emAndamento = await chamarApi('/entregas/atual');
     if (Array.isArray(emAndamento) && emAndamento.length > 0) {
       paradasRotaAtual = emAndamento;
+      verificarCaixinhasParaNotificar(paradasRotaAtual);
       await exibirRotaEmAndamento();
       return;
     }
@@ -533,13 +556,15 @@ async function exibirRotaEmAndamento() {
   document.getElementById('rota-info-data').textContent = dataRota.toLocaleDateString('pt-BR');
 
   // "Valor da rota" e so a comissao (o que o entregador ganha por rodar),
-  // nunca o valor do pedido (produto) nem a caixinha -- os dois ficam
-  // separados: valor do pedido aparece em "A receber do cliente" abaixo, e
-  // a caixinha tem o campo proprio "rota-caixinha-total".
+  // nunca o valor do pedido (produto) nem a caixinha. A caixinha NAO tem
+  // mais um campo fixo nesse painel -- ela so aparece como uma mensagem
+  // avulsa (toast), e com atraso de 15 min desde o lancamento do pedido
+  // (ver verificarCaixinhasParaNotificar). O valor continua entrando na
+  // soma do "Total de rotas" do resumo do dia, so nao fica mais visivel
+  // como um campo separado aqui.
   const valorRota = paradas.reduce((soma, p) => soma + comissaoDaEntrega(p), 0);
   const valorCaixinha = paradas.reduce((soma, p) => soma + gorjetaDaEntrega(p), 0);
   document.getElementById('rota-valor-total').textContent = formatarMoeda(valorRota);
-  document.getElementById('rota-caixinha-total').textContent = formatarMoeda(valorCaixinha);
 
   // ganhoHoje (plantaoAtualCache.valor_total) e a soma de comissao+caixinha
   // das entregas JA REALIZADAS hoje -- esse numero continua combinado de
