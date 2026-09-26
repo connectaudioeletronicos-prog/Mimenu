@@ -985,6 +985,7 @@ async function buscarPaginaLista(secao, periodo, cursor, resetar) {
   const parametros = new URLSearchParams({ limite: '5' });
   if (periodo && periodo !== 'tudo') parametros.set('periodo', periodo);
   if (secao === 'historico') parametros.set('periodo', periodo || 'hoje'); // topico 2 sempre manda periodo (default hoje)
+  if (secao === 'resumo-rotas') parametros.set('periodo', 'tudo'); // topico 3 sempre mostra o historico completo, todos os periodos
   if (cursor) parametros.set('antes', cursor);
 
   try {
@@ -1035,24 +1036,25 @@ function renderizarListaNaTela(secao, estado) {
       </div>
     `).join('');
   } else if (secao === 'resumo-rotas') {
+    // Historico completo (todos os periodos) de rotas ja finalizadas, sem
+    // caixinha: codigo do pedido, data/hora que a rota foi aceita, data/hora
+    // que foi finalizada, forma de pagamento (online/Pix/dinheiro) e troco
+    // (quando houver).
     cabecalho = `<p class="resumo-geral-titulo">RESUMO DA ROTA</p>`;
     corpo = estado.itens.map(e => {
       const classePg = e.forma_pagamento === 'dinheiro' ? 'item-entrega-detalhe__pagamento--dinheiro' : e.forma_pagamento === 'pix' ? 'item-entrega-detalhe__pagamento--pix' : 'item-entrega-detalhe__pagamento--online';
-      // So mostra o valor do pedido quando o entregador recebeu em dinheiro
-      // (pedido pago online/Pix nao passa por ele, entao nao ha valor a
-      // prestar contas). Quando tem troco combinado, o rotulo deixa isso
-      // explicito: e dinheiro que ele ainda vai receber do cliente.
       const ehDinheiro = e.forma_pagamento === 'dinheiro';
+      const temTroco = ehDinheiro && e.troco !== null && e.troco !== undefined;
       return `
         <div class="item-entrega-detalhe">
           <div class="item-entrega-detalhe__topo">
-            <span class="item-entrega-detalhe__horario">#${e.numero_pedido ?? '-'} · ${new Date(e.horario_entregue).toLocaleDateString('pt-BR')} · ${formatarHora(e.horario_saiu_entrega)}</span>
+            <span class="item-entrega-detalhe__horario">Pedido #${e.numero_pedido ?? '-'}</span>
             <span class="item-entrega-detalhe__valor">${formatarMoeda(e.valor_rota)}</span>
           </div>
-          ${renderEnderecoLinhas(e.endereco)}
-          ${ehDinheiro ? `<div class="item-entrega-detalhe__linha"><span>${e.troco_para !== null ? 'Valor do pedido a receber' : 'Valor do pedido'}</span><span>${formatarMoeda(e.total_pedido)}</span></div>` : ''}
+          <div class="item-entrega-detalhe__linha"><span>Aceita em</span><span>${formatarDataHora(e.horario_saiu_entrega)}</span></div>
+          <div class="item-entrega-detalhe__linha"><span>Finalizada em</span><span>${formatarDataHora(e.horario_entregue)}</span></div>
           <span class="item-entrega-detalhe__pagamento ${classePg}">${formatarPagamento(e.forma_pagamento)}</span>
-          ${ehDinheiro && e.troco !== null ? `<div class="item-entrega-detalhe__linha"><span>Troco</span><span>${formatarMoeda(e.troco)}</span></div>` : ''}
+          ${temTroco ? `<div class="item-entrega-detalhe__linha"><span>Troco</span><span>${formatarMoeda(e.troco)}</span></div>` : ''}
         </div>
       `;
     }).join('');
