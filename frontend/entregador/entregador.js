@@ -440,6 +440,13 @@ function formatarHora(dataISO) {
   return new Date(dataISO).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+// Data + hora juntos (ex: "26/09/2026 · 20:46") -- usado pra mostrar quando
+// o pedido foi LANÇADO (criado_em), diferente do "Recebida" (horario_saiu_entrega).
+function formatarDataHora(dataISO) {
+  if (!dataISO) return '-';
+  return `${new Date(dataISO).toLocaleDateString('pt-BR')} · ${formatarHora(dataISO)}`;
+}
+
 // Renderiza a tela de "rota em andamento": a proxima parada em destaque
 // (primeira da fila, por ordem de saida) + as demais paradas restantes
 // (caso o admin tenha atribuido mais de um pedido pra essa rota) + resumo
@@ -487,19 +494,29 @@ async function exibirRotaEmAndamento() {
   document.getElementById('rota-contador').textContent = `${posicaoAtual} de ${totalRota} entregas`;
   renderizarMapaRota(paradas.length, posicaoAtual);
 
+  document.getElementById('rota-proxima-numero').textContent = `#${proxima.numero_pedido ?? '-'}`;
+  document.getElementById('rota-proxima-lancado').textContent = `Pedido lançado em ${formatarDataHora(proxima.criado_em)}`;
   document.getElementById('rota-proxima-cliente').textContent = proxima.cliente_nome || '-';
   document.getElementById('rota-proxima-endereco').textContent = proxima.cliente_endereco || '-';
-  document.getElementById('rota-proxima-total').textContent = formatarMoeda(proxima.total);
   document.getElementById('rota-botao-navegar').href = enderecoParaLinkMaps(proxima.cliente_endereco);
-  document.getElementById('rota-pago-momento').textContent = formatarMoeda(0);
 
-  aplicarFormaPagamento(
-    proxima,
-    document.getElementById('rota-proxima-pagamento'),
-    document.getElementById('rota-troco-bloco'),
-    document.getElementById('rota-troco-para'),
-    document.getElementById('rota-troco-valor')
-  );
+  // O valor do produto (e o troco) so importa mostrar pro entregador quando
+  // for ELE a receber o dinheiro na entrega -- pedido pago online/Pix nao
+  // passa pela mao dele, entao o cartao inteiro de "A receber do cliente"
+  // fica escondido nesse caso.
+  const proximaEhDinheiro = proxima.forma_pagamento === 'dinheiro';
+  document.getElementById('cartao-a-receber').classList.toggle('oculto', !proximaEhDinheiro);
+  if (proximaEhDinheiro) {
+    document.getElementById('rota-proxima-total').textContent = formatarMoeda(proxima.total);
+    document.getElementById('rota-pago-momento').textContent = formatarMoeda(0);
+    aplicarFormaPagamento(
+      proxima,
+      document.getElementById('rota-proxima-pagamento'),
+      document.getElementById('rota-troco-bloco'),
+      document.getElementById('rota-troco-para'),
+      document.getElementById('rota-troco-valor')
+    );
+  }
 
   // Previsao de chegada / distancia restante / previsao total dependem de
   // uma integracao com mapa (Google Maps), que ainda nao esta configurada
@@ -544,7 +561,7 @@ async function exibirRotaEmAndamento() {
     listaEl.innerHTML = `<p class="rotulo-detalhe" style="margin-bottom:8px;">Próximas paradas da rota</p>` +
       restantes.map((p, i) => `
         <div class="parada-futura">
-          <strong><span class="parada-futura__numero">${i + 2}</span>${escaparHtml(p.cliente_nome || '-')}</strong>
+          <strong><span class="parada-futura__numero">${i + 2}</span>#${p.numero_pedido ?? '-'} · ${escaparHtml(p.cliente_nome || '-')}</strong>
           <span>${escaparHtml(p.cliente_endereco || '-')} · ${formatarMoeda(comissaoDaEntrega(p))}</span>
         </div>
       `).join('');
@@ -688,42 +705,63 @@ const PERIODOS_FILTRO = [
   { valor: 'tudo', rotulo: 'Tudo' }
 ];
 
-function abrirMenuLateral() {
-  document.getElementById('menu-lateral').classList.remove('oculto');
-  document.getElementById('fundo-menu-lateral').classList.remove('oculto');
-  document.querySelectorAll('.menu-lateral__item').forEach(b => b.classList.remove('menu-lateral__item--ativo'));
-  document.querySelector('[data-menu-secao="atual"]')?.classList.add('menu-lateral__item--ativo');
-  exibirSecaoMenu('atual');
-  // Enquanto o menu estiver aberto, mantem os dados em tela atualizados
-  // (o valor da rota em andamento muda em tempo real conforme o
-  // entregador avança pelas paradas).
+// Titulo mostrado no topo da tela de detalhe, conforme a secao aberta.
+const TITULOS_MENU = {
+  atual: 'Rota em andamento',
+  historico: 'Rotas realizadas',
+  'resumo-rotas': 'Resumo de rotas',
+  caixinha: 'Caixinha recebida',
+  pagamento: 'Pagamento'
+};
+
+// Guarda qual tela estava aberta antes do menu (pra voltar certo ao fechar
+// -- pode ser a tela de espera ou a de rota em andamento).
+let telaAnteriorMenu = 'tela-aguardando';
+
+// Abre a LISTA de opcoes do menu, em tela cheia (nao e mais um painel/modal
+// sobreposto -- cada opcao agora abre como uma tela propria, ver
+// abrirSecaoDoMenu abaixo).
+function abrirMenuLista() {
+  telaAnteriorMenu = document.querySelector('.tela:not(.oculto)')?.id || telaAnteriorMenu;
+  mostrarTela('tela-menu-lista');
+}
+function fecharMenuLista() {
+  mostrarTela(telaAnteriorMenu);
+}
+
+// Abre uma secao do menu (Rota em andamento, Rotas realizadas, etc.) como
+// uma tela cheia propria, com botao "Voltar" pra retornar a lista.
+function abrirSecaoDoMenu(secao) {
+  menuSecaoAtiva = secao;
+  document.getElementById('menu-detalhe-titulo').textContent = TITULOS_MENU[secao] || '';
+  mostrarTela('tela-menu-detalhe');
+  exibirSecaoMenu(secao);
+  // Enquanto a tela "Rota em andamento" estiver aberta, mantem os dados
+  // atualizados em tempo real (o valor da rota muda conforme o entregador
+  // avança pelas paradas). Para nas outras secoes e quando sai da tela.
   clearInterval(intervaloAtualizacaoMenu);
   intervaloAtualizacaoMenu = setInterval(() => {
     if (menuSecaoAtiva === 'atual') exibirSecaoMenu('atual', { silencioso: true });
   }, INTERVALO_POLL_MS);
 }
-function fecharMenuLateral() {
-  document.getElementById('menu-lateral').classList.add('oculto');
-  document.getElementById('fundo-menu-lateral').classList.add('oculto');
+function voltarParaListaMenu() {
   clearInterval(intervaloAtualizacaoMenu);
   menuSecaoAtiva = null;
+  mostrarTela('tela-menu-lista');
 }
-document.getElementById('botao-abrir-menu-aguardando').addEventListener('click', abrirMenuLateral);
-document.getElementById('botao-abrir-menu-rota').addEventListener('click', abrirMenuLateral);
-document.getElementById('botao-fechar-menu').addEventListener('click', fecharMenuLateral);
-document.getElementById('fundo-menu-lateral').addEventListener('click', fecharMenuLateral);
+
+document.getElementById('botao-abrir-menu-aguardando').addEventListener('click', abrirMenuLista);
+document.getElementById('botao-abrir-menu-rota').addEventListener('click', abrirMenuLista);
+document.getElementById('botao-fechar-menu').addEventListener('click', fecharMenuLista);
+document.getElementById('botao-voltar-menu-detalhe').addEventListener('click', voltarParaListaMenu);
 
 document.querySelectorAll('.menu-lateral__item').forEach(botao => {
-  botao.addEventListener('click', () => {
-    document.querySelectorAll('.menu-lateral__item').forEach(b => b.classList.remove('menu-lateral__item--ativo'));
-    botao.classList.add('menu-lateral__item--ativo');
-    exibirSecaoMenu(botao.getAttribute('data-menu-secao'));
-  });
+  botao.addEventListener('click', () => abrirSecaoDoMenu(botao.getAttribute('data-menu-secao')));
 });
 
 // Delegacao de clique pros chips de periodo e botao "carregar mais",
 // porque esses elementos sao recriados a cada renderizacao da lista.
-document.getElementById('menu-lateral-conteudo').addEventListener('click', (evento) => {
+document.getElementById('menu-detalhe-conteudo').addEventListener('click', (evento) => {
   const chip = evento.target.closest('[data-chip-secao]');
   if (chip) {
     const secao = chip.getAttribute('data-chip-secao');
@@ -790,7 +828,7 @@ function chipsPeriodoHtml(secao, periodoAtivo) {
 
 function exibirSecaoMenu(secao, opcoes = {}) {
   menuSecaoAtiva = secao;
-  const conteudo = document.getElementById('menu-lateral-conteudo');
+  const conteudo = document.getElementById('menu-detalhe-conteudo');
 
   // ---------------- Topico 1: Rota em andamento ----------------
   // Data/hora do recebimento da rota, destino completo (rua, numero,
@@ -802,16 +840,23 @@ function exibirSecaoMenu(secao, opcoes = {}) {
     if (paradas.length === 0) {
       html += '<p class="ajuda">Nenhuma rota em andamento agora.</p>';
     } else {
-      html += `<div class="lista-com-rolagem">` + paradas.map((p) => `
+      html += `<div class="lista-com-rolagem">` + paradas.map((p) => {
+        const ehDinheiro = p.forma_pagamento === 'dinheiro';
+        const temTroco = ehDinheiro && p.troco_para !== null && p.troco_para !== undefined;
+        return `
         <div class="item-entrega-detalhe">
           <div class="item-entrega-detalhe__topo">
             <span class="item-entrega-detalhe__horario">#${p.numero_pedido ?? '-'} · Recebida ${p.horario_saiu_entrega ? new Date(p.horario_saiu_entrega).toLocaleDateString('pt-BR') + ' · ' + formatarHora(p.horario_saiu_entrega) : 'agora'}</span>
             <span class="item-entrega-detalhe__valor">${formatarMoeda(comissaoDaEntrega(p))}</span>
           </div>
+          <div class="item-entrega-detalhe__linha"><span>Lançado</span><span>${formatarDataHora(p.criado_em)}</span></div>
           <div class="item-entrega-detalhe__linha"><span>Cliente</span><span>${escaparHtml(p.cliente_nome || '-')}</span></div>
           ${renderEnderecoLinhas(construirEndereco(p))}
+          ${ehDinheiro ? `<div class="item-entrega-detalhe__linha"><span>${temTroco ? 'Valor do pedido a receber' : 'Valor do pedido'}</span><span>${formatarMoeda(p.total)}</span></div>` : ''}
+          ${temTroco ? `<div class="item-entrega-detalhe__linha"><span>Troco para</span><span>${formatarMoeda(p.troco_para)}</span></div>` : ''}
         </div>
-      `).join('') + `</div>`;
+      `;
+      }).join('') + `</div>`;
     }
     conteudo.innerHTML = html;
     return;
@@ -867,7 +912,7 @@ function exibirSecaoMenu(secao, opcoes = {}) {
 
 // ---------------- Busca paginada genérica (topicos 2, 3 e 4) ----------------
 async function buscarPaginaLista(secao, periodo, cursor, resetar) {
-  const conteudo = document.getElementById('menu-lateral-conteudo');
+  const conteudo = document.getElementById('menu-detalhe-conteudo');
   const rota = secao === 'caixinha' ? '/entregas/minhas-caixinhas' : '/entregas/minhas-historico';
   const parametros = new URLSearchParams({ limite: '5' });
   if (periodo && periodo !== 'tudo') parametros.set('periodo', periodo);
@@ -898,7 +943,7 @@ function carregarMaisLista(secao) {
 }
 
 function renderizarListaNaTela(secao, estado) {
-  const conteudo = document.getElementById('menu-lateral-conteudo');
+  const conteudo = document.getElementById('menu-detalhe-conteudo');
   let cabecalho = '';
   let corpo = '';
 
@@ -982,7 +1027,7 @@ async function carregarPagamento() {
     estadoPagamento.totalGeral = dados.total_geral;
     renderizarPagamentoNaTela();
   } catch (erro) {
-    document.getElementById('menu-lateral-conteudo').innerHTML = `<p class="erro">${erro.message}</p>`;
+    document.getElementById('menu-detalhe-conteudo').innerHTML = `<p class="erro">${erro.message}</p>`;
   }
 }
 function carregarMaisPagamento() {
@@ -991,7 +1036,7 @@ function carregarMaisPagamento() {
   carregarPagamento();
 }
 function renderizarPagamentoNaTela() {
-  const conteudo = document.getElementById('menu-lateral-conteudo');
+  const conteudo = document.getElementById('menu-detalhe-conteudo');
   const atual = estadoPagamento.plantaoAtual;
   const g = estadoPagamento.totalGeral || {};
 
