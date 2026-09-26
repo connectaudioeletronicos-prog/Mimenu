@@ -138,9 +138,13 @@
       </div>
 
       <div class="cartao-painel">
-        <div class="cartao-painel__topo"><strong>PRÓXIMA ENTREGA</strong></div>
+        <div class="cartao-painel__topo">
+          <strong>PRÓXIMA ENTREGA</strong>
+          <span class="badge-contador" id="rota-proxima-numero"></span>
+        </div>
         <p class="rota-endereco-cliente" id="rota-proxima-cliente"></p>
         <p class="rota-endereco" id="rota-proxima-endereco"></p>
+        <p class="rota-proxima-lancado" id="rota-proxima-lancado"></p>
         <div class="rota-previsao-e-botao">
           <div class="rota-previsao-grade">
             <div><span class="rotulo-detalhe">Previsão de chegada</span><span id="rota-previsao-chegada">—</span></div>
@@ -163,7 +167,7 @@
         </div>
       </div>
 
-      <div class="cartao-painel cartao-painel--destaque">
+      <div class="cartao-painel cartao-painel--destaque" id="cartao-a-receber">
         <div class="linha-espacada">
           <div>
             <span class="rotulo-detalhe">A receber do cliente</span>
@@ -231,29 +235,40 @@
     </div>
   </section>
 
-  <!-- ===================== MENU LATERAL (PAINEL DESLIZANTE) ===================== -->
-  <div id="fundo-menu-lateral" class="fundo-menu-lateral oculto"></div>
-  <aside id="menu-lateral" class="menu-lateral oculto">
-    <div class="menu-lateral__topo">
-      <span class="menu-lateral__logo">
-        <img src="../img/logo-icone.png" class="menu-lateral__logo-icone" alt="Palatos">
-        pal<span class="menu-lateral__logo-destaque">a</span>tos
-      </span>
+  <!-- ===================== TELA: MENU (LISTA DE OPÇÕES) ===================== -->
+  <!-- Nao e mais um painel/modal sobreposto -- e uma tela cheia normal,
+       igual as demais do app. Ao tocar numa opcao, abre "tela-menu-detalhe"
+       (tambem em tela cheia, com botao de voltar). -->
+  <section id="tela-menu-lista" class="tela tela-painel oculto">
+    <header class="cabecalho-app">
+      <div class="cabecalho-app__logo">
+        <img src="../img/logo-icone.png" class="cabecalho-app__logo-icone" alt="Palatos">
+        <span class="cabecalho-app__logo-texto">pal<span class="cabecalho-app__logo-destaque">a</span>tos</span>
+      </div>
       <button id="botao-fechar-menu" class="botao-fechar-menu" aria-label="Fechar menu">✕</button>
+    </header>
+    <div class="conteudo-painel">
+      <nav class="menu-lateral__nav menu-lateral__nav--tela">
+        <button type="button" class="menu-lateral__item" data-menu-secao="atual"><span class="menu-lateral__item-icone">🔄</span>Rota em andamento</button>
+        <button type="button" class="menu-lateral__item" data-menu-secao="historico"><span class="menu-lateral__item-icone">✅</span>Rotas realizadas</button>
+        <button type="button" class="menu-lateral__item" data-menu-secao="resumo-rotas"><span class="menu-lateral__item-icone">📊</span>Resumo de rotas</button>
+        <button type="button" class="menu-lateral__item" data-menu-secao="caixinha"><span class="menu-lateral__item-icone">📦</span>Caixinha recebida</button>
+        <button type="button" class="menu-lateral__item" data-menu-secao="pagamento"><span class="menu-lateral__item-icone">👛</span>Pagamento</button>
+      </nav>
     </div>
+  </section>
 
-    <nav class="menu-lateral__nav">
-      <button type="button" class="menu-lateral__item menu-lateral__item--ativo" data-menu-secao="atual"><span class="menu-lateral__item-icone">🔄</span>Rota em andamento</button>
-      <button type="button" class="menu-lateral__item" data-menu-secao="historico"><span class="menu-lateral__item-icone">✅</span>Rotas realizadas</button>
-      <button type="button" class="menu-lateral__item" data-menu-secao="resumo-rotas"><span class="menu-lateral__item-icone">📊</span>Resumo de rotas</button>
-      <button type="button" class="menu-lateral__item" data-menu-secao="caixinha"><span class="menu-lateral__item-icone">📦</span>Caixinha recebida</button>
-      <button type="button" class="menu-lateral__item" data-menu-secao="pagamento"><span class="menu-lateral__item-icone">👛</span>Pagamento</button>
-    </nav>
-
-    <div class="menu-lateral__conteudo" id="menu-lateral-conteudo">
+  <!-- ===================== TELA: DETALHE DE UMA SEÇÃO DO MENU ===================== -->
+  <section id="tela-menu-detalhe" class="tela tela-painel oculto">
+    <header class="cabecalho-app">
+      <button id="botao-voltar-menu-detalhe" class="botao-menu-discreto" aria-label="Voltar para a lista">←</button>
+      <span class="cabecalho-app__titulo" id="menu-detalhe-titulo">Rota em andamento</span>
+      <span style="width:34px;"></span>
+    </header>
+    <div class="conteudo-painel" id="menu-detalhe-conteudo">
       <p class="ajuda">Carregando...</p>
     </div>
-  </aside>
+  </section>
 
   <!-- ===================== TELA: RESUMO DO PLANTAO ===================== -->
   <section id="tela-resumo-plantao" class="tela oculto">
